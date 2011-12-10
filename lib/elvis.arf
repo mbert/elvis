@@ -1,0 +1,22 @@
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+" TAKE A GUESS AT THE BUFFER'S PREFERRED DISPLAY MODE
+let e=tolower(dirext(filename))
+if knownsyntax(filename)
+then set! bufdisplay=syntax
+if os=="unix" && buflines >= 1
+then 1s/^#! *[^ ]*\/\([^ ]\+\).*/set! bufdisplay="syntax \1"/x
+if e<<4==".htm"
+then set! bufdisplay=html
+if e==".man" || e==".1"
+then set! bufdisplay=man
+if binary
+then set! bufdisplay=hex
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+" EXECUTE MODELINES, IF "modelines" OPTION IS SET
+if modelines && buflines >= 1 && buflines <= modelines * 2
+then %s/ex:\(.*\):/\1/x
+if modelines && buflines > modelines * 2
+then {
+ eval 1,(modelines)s/[ev][xi]:\\\(.*\\\):/\1/x
+ eval (buflines - modelines + 1),(buflines)s/[ev][xi]:\\\(.*\\\):/\1/x
+}

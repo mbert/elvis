@@ -1,0 +1,464 @@
+<html><head>
+<title>Elvis 2.0 Arithmetic Expressions</title>
+</head><body>
+<h1><a name="CONTENTS"></a>13. ARITHMETIC EXPRESSIONS</h1>
+<menu>
+   <li><a href="#13.1">	13.1 Normal (C-like) Syntax</a>
+   <li><a href="#13.2">	13.2 Simpler Syntax</a>
+   <li><a href="#13.3">	13.3 Functions</a>
+   <li><a href="#13.4">	13.4 EX Commands Which Use Expressions</a>
+   <li><a href="#13.5">	13.5 VI Commands Which Use Expressions</a>
+   <li><a href="#13.6">	13.6 Other Uses of Expressions</a>
+</menu>
+
+<p>Elvis can evaluate expressions involving numbers, strings, and boolean values,
+using a C-like syntax.
+These are used in several EX commands, one VI command, and a couple of other
+situations.
+
+<p>There are two syntaxes.
+The normal syntax is extremely similar to C, and is used in circumstances
+where you probably would never use a literal value, such as for the
+<a href="elvisex.html#if">:if</a> command.
+The simpler syntax makes literal values easier to enter, while still
+making the full power of the expression evaluator available if you need it.
+
+<h2><a name="13.1"></a>13.1 Normal (C-like) Syntax</h2>
+
+The <a href="elvisex.html#calculate">:calculate</a> command uses the normal syntax
+and displays the results.
+We'll use it for most of the examples in this section.
+
+<p>The normal syntax is intended to resemble the syntax of the C programming
+language very closely.
+You can't define your own functions or use flow-control constructs though;
+you can only use expressions.
+In traditional C documentation, these would be called "rvalues."
+Basically that means you can use literal values, option names, operators,
+parentheses, and some built-in functions.
+
+<h3>13.1.1 Primary expressions</h3>
+Literals can be given in any of the following formats:
+<dl>
+<dt>"<var>text</var>"
+<dd>Any text in double-quotes is taken literally.
+The usual C escapes (such as "\n") are <strong>not</strong> supported.
+<dt>\<var>character</var>
+<dd>Any non-alphanumeric character preceded by a backslash, outside of quotes, is taken
+as a string literal of length one.
+A backslash followed by an alphanumeric character is taken as a string literal
+of length two which contains both the backslash and the alphanumeric character.
+<dt><var>digits</var>
+<dd>Any word which contains only digits will be taken as a literal value.
+Generally this value will be interpreted as a number,
+but internally the expression evaluator always stores values as strings.
+Some operators look at their arguments and act differently depending
+on whether those strings happen to look like numbers or Boolean values.
+<dt>0<var>octaldigits</var>
+<br>0x<var>hexdigits</var>
+<br>'<var>character</var>'
+<dd>Octal, hex, and character constants can be used expressions.
+These are converted to decimal when they are parsed, before they are passed to any operator or function.
+Passing an octal, hex, or character constant therefore is exactly like
+passing the equivalent decimal number.
+Elvis supports escapes as character constants:
+'\0', '\b', '\E', '\f', '\n', '\r', and '\t'.
+</dl>
+<p>There is no special way to enter Boolean literals.
+All of the boolean operators accept "false", "0", and "" as
+Boolean <strong>false</strong> values, and
+anything else as a Boolean <strong>true</strong> value.
+If you want to enter a Boolean literal, just use the string literals
+"true" and "false".
+
+<p>The following examples produce <em>exactly</em> identical results.
+<xmp>
+:calc "8"
+8
+:calc 8
+8
+:calc 010
+8
+:calc 0x8
+8
+:calc '\b'
+8
+</xmp>
+
+<p>You can also use option names in elvis the same way you would use variable
+names in C.
+<xmp>
+:calc list
+false
+:calc scroll
+12
+:calc display
+normal
+</xmp>
+
+<p>Additionally, a dollar sign followed by the name of an environment variable
+is replaced by the value of that environment variable.  If there is no such
+environment variable, then elvis will act as though it exists and has a
+null value.
+
+<p>In some circumstances, you can use a dollar sign followed by a digit
+to access special arguments.
+This is used in error messages and also in the values of a few options,
+as described in <a href="#13.6">section 13.6.</a>
+These special arguments can only be supplied by elvis' internal code,
+and it only supplies them in a few special circumstances so you can't use
+them in <a href="elvisex.html#calculate">:calculate,</a> for example.
+
+<h3>13.1.2 Operators</h3>
+The following operators are available.
+When passed integer values, these operators act like their C counterparts.
+When passed string values, most of them concatenate
+their arguments with the operator name in between, but some of them
+do something that is useful for strings,
+as described below.
+Items at the top of this list have a higher precedence than those lower down.
+<dl>
+<dt>~
+<dd>Perform a bitwise NOT operation on the argument, if it is a number.
+<dt>!
+<dd>Return <strong>true</strong> if the argument is <strong>false</strong>
+and vice versa.
+<dt>* / %
+<dd>The usual arithmetic operators.  (% is the modulo operator.)
+<p>Also, the / operator can be used to combine a directory name and a file name,
+to form an absolute pathname.
+Here are some examples showing how this works in DOS:
+<xmp>
+:set dir home
+directory=C:\temp  home=C:\
+:calc dir/"tempfile"
+C:\temp\tempfile
+:calc home/"elvis.rc"
+C:\elvis.rc</xmp>
+<dt>+ -
+<dd>The usual arithmetic operators.
+Note that there is no special unary - sign; the minus sign serves double-duty.
+Because C normally gives the unary - sign a higher precedence than
+other operators and elvis doesn't, you may occasionally need to enclose
+negated values in parentheses to achieve the same effect.
+<dt>&lt;&lt; &gt;&gt;
+<dd>For integers these operators perform bitwise shifting, exactly like C.
+However, if the left argument is a string and the right argument is a number
+then elvis will pad or truncate the string to make its length match the
+number argument.
+&lt;&lt; pads/truncates on the right, and &gt;&gt; pads/truncates on the left.
+<xmp>
+:calc \[("port" &lt;&lt; 6)\]
+[port  ]
+:calc \[("starboard" &gt;&gt; 6)\]
+[rboard]</xmp>
+<dt>&lt; &lt;= &gt; &gt;= == !=
+<dd>Compare the arguments and return <strong>true</strong> if the comparison
+holds, and <strong>false</strong> otherwise.
+If both arguments look like numbers, then they will be compared as numbers;
+otherwise they will be compared as strings.
+<dt>&amp;
+<dd>Bitwise AND of the arguments, if they're numbers.
+<dt>^
+<dd>Bitwise XOR of the arguments, if they're numbers.
+<dt>|
+<dd>Bitwise OR of the arguments, if they're numbers.
+<dt>&amp;&amp;
+<dd>Returns <strong>false</strong> if either argument is one of the
+three false string values, and <strong>true</strong> otherwise.
+<dt>||
+<dd>Returns <strong>false</strong> if both arguments are one of the
+three false string values, and <strong>true</strong> otherwise.
+<dt>?:
+<dd>This one is tricky because internally elvis always uses binary operators.
+In C this is a ternary operator but in elvis it is implemented as two binary
+operators which cooperate in a subtle way so they seem like a single ternary
+operator.
+You probably don't need to know the details, but the upshot of it all is
+that 1) It associates left-to-right (instead of right-to-left as in C), and
+2) The : and third argument are optional; if omitted, then elvis mentally
+sticks :"" on the end of the expression.
+<dt>(no operator)
+<dd>Any two expressions placed side-by-side with no operator between them will
+be concatenated as strings.  C does this for literal strings, but elvis does
+it for anything.
+</dl>
+
+<h2><a name="13.2"></a>13.2 Simpler Syntax</h2>
+The simpler syntax makes it easier to enter literal strings because
+outside of parentheses the only special characters are the backslash,
+dollar sign, and parentheses.
+Inside parentheses, the normal syntax is used.
+
+<p>The <a href="elvisex.html#eval">:eval</a> command uses the simpler syntax,
+and the <a href="elvisex.html#echo">:echo</a> command displays its arguments.
+These commands can be used together to experiment with the simpler syntax,
+the same way we used <a href="elvisex.html#calculate">:calculate</a> to experiment with
+the normal syntax.
+<xmp>
+:eval echo TERM=$TERM
+TERM=xterm
+:eval echo home=(home)
+home=/home/steve
+:eval echo 2+2=(2+2)
+2+2=4
+</xmp>
+
+<h2><a name="13.3"></a>13.3 Functions</h2>
+There are several built-in functions.
+When you call one of these functions, there must <strong>not</strong> be any
+whitespace between the function name and the following parenthesis.
+The built-in functions are:
+<pre graphic>
+.------------------.--------------------------------------------.
+| FUNCTION(ARG)    | RETURN VALUE                               |
+|------------------|--------------------------------------------|
+| strlen(string)   | number of characters in the string         |
+| toupper(string)  | uppercase version of string                |
+| tolower(string)  | lowercase version of string                |
+| isnumber(string) | "true" iff string is a decimal number      |
+| hex(number)      | string of hex digits representing number   |
+| octal(number)    | string of octal digits representing number |
+| char(number)     | convert number to 1 ASCII char, as a string|
+| exists(path)     | "true" iff file exists                     |
+| dirperm(path)    | string indicating file attributes          |
+| dirfile(path)    | filename.ext part of a path                |
+| dirname(path)    | directory part of a pathname               |
+| dirdir(path)     | directory, like dirname(file)              |
+| dirext(path)     | extension (including the . )               |
+| basename(path)   | filename without extension                 |
+| elvispath(file)  | locate a file in elvis' configuration path |
+| knownsyntax(file)| "true" iff file's extension is in elvis.syn|
+| buffer(bufname)  | "true" iff buffer exists                   |
+| current(item)    | value indicating an aspect of elvis' state |
+| feature(name)    | "true" iff a given feature is supported    |
+^------------------^--------------------------------------------^
+</pre>
+Some of these deserve further comment.
+
+<p>The <strong>isnumber()</strong> function uses the same test that the operators use
+when deciding whether to use the string version or the number version of
+their behavior.
+You can use <strong>isnumber()</strong> to predict how operators will behave.
+
+<p>The <strong>hex()</strong> and <strong>octal()</strong> functions return
+strings which look like C-style hex or octal constants, respectively.
+The <strong>isnumber()</strong> function will return <strong>false</strong>
+when passed one of these strings; they are no longer considered to be
+numbers.
+In fact, the only reason you can use hex and octal literals is because they
+are converted into decimal strings by the parser, before evaluation even
+begins.
+The following example demonstrates that hex literals are converted to decimal,
+and that the value returned by <strong>hex()</strong> is something else.
+<xmp>
+:calc strlen(0xff)
+3
+:calc strlen(hex(255))
+4
+</xmp>
+
+<p>The <strong>char()</strong> function returns a one-character string;
+that character's decimal value will be the argument number.
+For example, "<tt>char(65)</tt>" returns "A".
+Note that the returned value does <em>not</em> look quite like
+a character constant.
+
+<p>The <strong>dirperm()</strong> function returns one of the following
+strings to indicate the file's type and permissions:
+<dl>
+<dt>"invalid"
+<dd>The argument is malformed; it could not possibly be a valid file name.
+<dt>"badpath"
+<dd>The argument is a pathname, and one or more of the directories named
+in that pathname either doesn't exist or is something other than a directory.
+<dt>"notfile"
+<dd>The argument is the name of something other than a file;
+for example, it may be a directory.
+<dt>"new"
+<dd>There is no file, directory, or anything else with the given name.
+<dt>"unreadable"
+<dd>The file exists but you don't have permission to read it.
+<dt>"readonly"
+<dd>The file exists and you can read it, but you don't have permission to write
+to it.
+<dt>"readwrite"
+<dd>The file exists and you can read or write it.
+</dl>
+
+<p>The <strong>elvispath()</strong> function searches through the directories
+listed in the <a href="elvisopt.html#elvispath">elvispath</a> option's value,
+looking for the argument file name.
+If it is found, then the full pathname of the file is returned;
+otherwise it returns a null string.
+
+<p>The <strong>knownsyntax()</strong> function determines whether
+the given file can be displayed in the <a href="elvisdm.html#syntax">syntax</a>
+display mode.
+It does this by looking for the file name extension in the
+<a href="elvisdm.html#elvis.syn">elvis.syn</a> configuration file.
+
+<p>The <strong>current()</strong> function examines elvis' internal variables,
+and returns a string indicating the value of one of them.
+The argument determines which variable is examined, as follows:
+<dl>
+<dt>current("line")
+<dd>Current line number.
+<dt>current("column")
+<dd>Current column number.
+<dt>current("word")
+<dd>The word at the cursor location.
+If the cursor isn't on a word, then this returns an empty string.
+<dt>current("mode")
+<dd>Current key parsing mode.
+This returns the same string that the
+<a href="elvisopt.html#showmode">showmode</a> option displays, except that this
+function converts it to all lowercase, and strips out whitespace.
+The usual return values are "command", "input", and "replace".
+If the window isn't editing the its main buffer (i.e., if you're entering
+an ex command line, regular expression, or filter command) then this function
+will return an empty string.
+<dt>current("selection")
+<dd>Visible selection type.
+This returns one of "character", "rectangle", or "line" to indicate the type
+of visible selection which is currently marked in the window, or
+an empty string if no visible selection is marked.
+<dt>current("next")
+<dd>Next file.
+This returns the name of the file that the <a href="elvisex.html#next">:next</a>
+command would load, or an empty string if you're at the end of the args list.
+<dt>current("previous")
+<dd>Previous file.
+This returns the name of the file that the
+<a href="elvisex.html#previous">:previous</a> command would load, or
+an empty string if you're at the start of the args list.
+<dt>current("tagstack")
+<dd>If the window's tag stack is empty, this returns "".
+Otherwise it returns the name of the buffer to which
+<a href="elvisex.html#pop">:pop</a> would move the cursor.
+</dl>
+
+<p>The <strong>feature()</strong> function is intended to allow you to write
+EX scripts which work with different configurations of elvis.
+For example, you can compile elvis without support for the hex display mode;
+if you do that, then <tt>feature("hex")</tt> will return <strong>false.</strong>
+Currently <strong>feature()</strong> returns <strong>true</strong> for all
+supported display modes, and <strong>false</strong> for anything else.
+As new features (not necessarily display modes) are added to future versions
+of elvis, I expect to add them to <strong>feature()</strong>'s list.
+
+
+<h2><a name="13.4"></a>13.4 EX Commands Which Use Expressions</h2>
+The <a href="elvisex.html#calculate">:calculate</a> command evaluates its
+argument using the normal syntax, and displays the result.
+
+<p>The <a href="elvisex.html#if">:if</a> command evaluates its argument using
+the normal syntax.
+If the resulting value is any Boolean <strong>true</strong> value then a
+flag is set; otherwise the flag is reset.
+After that, you can use <a href="elvisex.html#then">:then</a> and
+<a href="elvisex.html#else">:else</a> commands to conditionally execute some
+commands, depending on the state of that flag.
+
+<p>The <a href="elvisex.html#eval">:eval</a> command evaluates its arguments
+using the simpler syntax.
+The resulting string value is then interpreted as an EX command line.
+This gives you a way to use the expression evaluator with commands which
+otherwise wouldn't evaluate expressions.
+
+<p>The <a href="elvisex.html#let">:let</a> command allows you to change the
+values of options.
+Its syntax is "<tt>:let <var>option</var>=<var>expression</var></tt>",
+where <var>expression</var> is any expression using the normal syntax.
+You can use this to change the value of any unlocked option,
+similarly to <a href="elvisex.html#set">:set.</a>
+<xmp>
+:set i=14
+:calc i
+14
+:let i=i+1
+:set i?
+i=15
+:eval set i=(i*2)
+:calc i
+30
+
+:let elvispath="."
+:let list="false"
+:let sidescroll=0x10
+</xmp>
+
+<h2><a name="13.5"></a>13.5 VI Commands Which Use Expressions</h2>
+There is only one way to use expressions in a visual command:
+Move the cursor to the start of some expression in your edit buffer,
+hit the lowercase <kbd>v</kbd> key, move to the other end, and
+then hit the <kbd>=</kbd> key.
+Elvis will then evaluate the highlighted expression, and replace the original
+expression with the result.
+
+<p>Note that the <a href="elvisvi.html#=">=</a> operator only works this way
+when used with the <a href="elvisvi.html#v">v</a> command for marking characters.
+If you visibly mark lines, or use the traditional <kbd>=</kbd><var>movement</var>
+syntax, then elvis will send the selected lines though the external filter
+program named in the <a href="elvisopt.html#equalprg">equalprg</a> option.
+
+<p>The <a href="elvisvi.html#hash">#</a> command doesn't use expressions, but
+it does perform some simple math.
+
+<h2><a name="13.6"></a>13.6 Other Uses of Expressions</h2>
+
+<h3>13.6.1 Messages</h3>
+All of elvis' warning and error messages are actually expressions,
+using the simpler syntax.
+When outputting a message, elvis may supply other parameters which are
+accessible as <strong>$1</strong> through <strong>$9.</strong>
+See the <a href="elvismsg.html">Messages</a> chapter for a longer description
+of how elvis handles messages.
+<h3>13.6.2 Options</h3>
+The <a href="elvisopt.html#ccprg">ccprg</a> and
+<a href="elvisopt.html#makeprg">makeprg</a> options' values are expressions,
+using the simpler syntax.
+When evaluating these expressions, <strong>$1</strong> is replaced by
+whatever arguments are supplied on the ex command line, and <strong>$2</strong> is replaced by the
+the name of the file being edited.
+
+<h3>13.6.3 File Names</h3>
+File names are evaluated as expressions (using the simpler syntax),
+primarily as a means for expanding environment variable names.
+This is done prior to wildcard expansion.
+
+<p>The full power of the expression evaluator is available; you can use
+it to do more than just expand environment variable names.
+For example, you could store the name of a file in one of the user
+options, and then later use that option name in parentheses wherever
+a filename was expected.
+<xmp>
+:set f=myfile.txt
+:w (f)
+wrote myfile.txt, ...
+</xmp>
+
+<p>If you use this trick, remember that it only works when elvis is expecting
+a file name.
+It won't work when invoking external programs, because elvis doesn't know
+which program arguments are supposed to be file names.
+Elvis always passes program arguments literally.
+
+<p>Recall that when a backslash character is followed by an alphanumeric
+character, both the backslash and the alphanumeric character become part
+of the resulting value.
+This was done mostly for the benefit of file names.
+If the backslash was always dropped
+then MS-DOS users would have a heck of a time entering pathnames of files!
+By making the backslash a little smarter, we avoid that problem.
+<xmp>
+:eval echo c:\tmp \(notice the backslashes\)
+c:\tmp (notice the backslashes)
+</xmp>
+
+<p>To simplify the task of writing portable ex scripts,
+the behavior of the <strong>/</strong> operator has been extended.
+When one or both of its arguments are strings, it concatenates them as
+a directory name and a file name, yeilding a full pathname.
+
+</body></html>

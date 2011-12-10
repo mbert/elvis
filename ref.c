@@ -1,11 +1,14 @@
-/* ref2.c */
+/* ref.c */
 
-/* This is a totally rewritten version of ref.  This version looks for the
- * desired function name in the "tags" file, and then reads the header out
- * from the source file.  There is no longer any need for a "refs" file.
+char id_ref[] = "$Id: ref.c,v 2.8 1996/09/21 02:12:31 steve Exp $";
+
+/* This program looks for a givne tag in the "tags" file, and then tries to
+ * locate the definition in the original source file, and display it.  If the
+ * original source file is unreadable then it looks for it in a file named
+ * "refs".
  *
  * Usage:	ref [-t] [-x] [-f file] [-c class] tag
- * Options:	-t	   output tag info, not the description
+ * Options:	-t	   output tag info, not the definition
  *		-x         require exact match
  *		-f file	   default filename for static functions
  *		-c class   default class names for class functions
@@ -16,7 +19,19 @@
 #endif
 
 #include <stdio.h>
-#include "config.h"
+#include "elvis.h"
+#define JUST_DIRPATH
+#include "osdir.c"
+
+#ifndef BLKSIZE
+# define BLKSIZE 512
+#endif
+#ifndef TAGS
+# define TAGS	"tags"
+#endif
+#ifndef REFS
+# define REFS	"refs"
+#endif
 
 extern char	*cktagdir P_((char *, char *));
 extern int	getline P_((char *, int, FILE *));
@@ -36,11 +51,11 @@ extern void	main P_((int, char **));
 # else
 #  if MSDOS || TOS || OS2
 #   define DEFTAGPATH ".;C:\\include;C:\\include\\sys;C:\\lib;..\\lib"
-#   define SEP ';'
+#   define OSPATHDELIM ';'
 #  else
 #   if AMIGA
 #    define DEFTAGPATH ".;Include:;Include:sys"
-#    define SEP ';'
+#    define OSPATHDELIM ';'
 #   else /* any other OS */
 #    define DEFTAGPATH "."
 #   endif
@@ -48,8 +63,8 @@ extern void	main P_((int, char **));
 # endif
 #endif
 
-#ifndef SEP
-# define SEP ':'
+#ifndef OSPATHDELIM
+# define OSPATHDELIM ':'
 #endif
 
 
@@ -73,27 +88,25 @@ char *cktagdir(tag, dir)
 	char	buf[BLKSIZE];
 	static char found[BLKSIZE];
 	FILE	*tfile;
-	int	len;
+	unsigned len;
 	char	*scan;
 
-#if AMIGA
-	if (dir[strlen(dir) - 1] == COLON)
-	    sprintf(buf, "%s%s", dir, TAGS);   /* no slash after colon. */
-	else
-#endif
-	/* construct the name of the "tags" file in this directory */
-	sprintf(buf, "%s%c%s", dir, SLASH, TAGS);
-
-	/* Try to open the tags file.  Return NULL if can't open */
-#if AMIGA
-	if (buf[0] == '.' && buf[1] == SLASH)
-	    tfile = fopen(&buf[2], "r");
-	else
-#endif
-	tfile = fopen(buf, "r");
+	/* first try to open a "tags" file in the directory.  If that fails,
+	 * then try to open dir as a regular file itself.
+	 */
+	tfile = fopen(dirpath(dir, TAGS), "r");
 	if (!tfile)
 	{
-		return (char *)0;
+		tfile = fopen(dir, "r");
+		if (!tfile)
+		{
+			return (char *)0;
+		}
+
+		/* If we get here, the "dir" variable must contain the name of
+		 * a file, not a directory.  Get the directory name from it.
+		 */
+		strcpy(dir, dirdir(dir));
 	}
 
 	/* compute the length of the tagname once */
@@ -124,8 +137,8 @@ char *cktagdir(tag, dir)
 		{
 			scan = strchr(buf, '\t');
 			if (scan
-			 && (int)(scan - buf) > len
-			 && scan[-len - 1] == ':'
+			 && (unsigned int)(scan - buf) > len
+			 && scan[-(int)len - 1] == ':'
 			 && !strncmp(tag, scan - len, len))
 			{
 				strcpy(found, buf);
@@ -195,26 +208,26 @@ int lookup(dir, entry)
 	long	here;		/* seek position where current line began */
 	long	comment;	/* seek position of introductory comment, or -1L */
 	FILE	*sfile;		/* used for reading the source file */
-	int	len;		/* length of string */
+	unsigned len = 0;	/* length of string */
 	int	noargs = 0;	/* boolean: don't show lines after tag line? */
-	char	*ptr;
+	unsigned i, j;
 
+
+	/* skip past the name, to find the linespec */
+	name = entry;
+	do
+	{
+		if (!*entry)
+		{
+			printf("malformed tag line: \"%s\"\n", name);
+		}
+	} while (*entry++ != '\t');
+	entry[-1] = '\0';
 
 	/* construct the pathname of the source file */
-	name = entry;
-	strcpy(buf, dir);
-	ptr = buf + strlen(buf);
-#if AMIGA
-	if (ptr[-1] != COLON)
-#endif
-	*ptr++ = SLASH;
-	while (*entry != '\t')
-	{
-		*ptr++ = *entry++;
-	}
-	*entry++ = *ptr = '\0';
+	strcpy(buf, dirpath(dir, name));
 
-	/* searching for string or number? */
+	/* searching for regexp or number? */
 	if (*entry >= '0' && *entry <= '9')
 	{
 		/* given a specific line number */
@@ -231,6 +244,19 @@ int lookup(dir, entry)
 		{
 			entry[len - 1] = '\n';
 		}
+
+		/* delete backslashes used for quoting characters */
+		for (i = j = 0; i < len; )
+		{
+			if (entry[i] == '\\' && i + 1 < len && strchr("\\?/", entry[i + 1]))
+			{
+				i++;
+			}
+			entry[j++] = entry[i++];
+		}
+		len = j;
+
+		/* decide whether we'll need to show following lines */
 		if (!strchr(entry, '('))
 		{
 			noargs = 1;
@@ -238,39 +264,13 @@ int lookup(dir, entry)
 		lnum = 0L;
 	}
 
-	/* Open the file.  Note that we open the file in binary mode even
-	 * though we know it is a text file, because ftell() and fseek()
-	 * don't work on text files.
-	 */
-#if MSDOS || TOS || OS2
+	/* Open the file. */
 	sfile = fopen(buf, "rb");
-#else
-# if AMIGA
-	if (buf[0] == '.' && buf[1] == SLASH)
-	    sfile = fopen(&buf[2], "r");
-	else
-# endif
-	sfile = fopen(buf, "r");
-#endif
 	if (!sfile)
 	{
 		/* can't open the real source file.  Try "refs" instead */
-#if AMIGA
-		if (dir[strlen(dir) - 1] == COLON)
-			sprintf(buf, "%srefs", dir);
-		else
-#endif
-		sprintf(buf, "%s%crefs", dir, SLASH);
-#if MSDOS || TOS || OS2
+		strcpy(buf, dirpath(dir, REFS));
 		sfile = fopen(buf, "rb");
-#else
-# if AMIGA
-		if (buf[0] == '.' && buf[1] == SLASH)
-		    sfile = fopen(&buf[2], "r");
-		else
-# endif
-		sfile = fopen(buf, "r");
-#endif
 		if (!sfile)
 		{
 			/* failed! */
@@ -282,35 +282,11 @@ int lookup(dir, entry)
 	/* search the file */
 	for (comment = -1L, thislnum = 0; here = ftell(sfile), thislnum++, getline(buf, BLKSIZE, sfile) > 0; )
 	{
-		/* Is this the start/end of a comment? */
-		if (comment == -1L)
-		{
-			/* starting a comment? */
-			if (buf[0] == '/' && buf[1] == '*'
-			 || buf[0] == '/' && buf[1] == '/'
-			 || buf[0] == '(' && buf[1] == '*'
-			 || buf[0] == '-' && buf[1] == '-')
-			{
-				comment = here;
-			}
-		}
-		else
-		{
-			/* ending a comment? */
-			if (buf[0] == '\n' || buf[0] == '#')
-			{
-				comment = -1L;
-			}
-		}
-
 		/* is this the tag line? */
 		if (lnum == thislnum || (entry && !strncmp(buf, entry, len)))
 		{
 			/* display the filename & line number where found */
-			if (strcmp(dir, "."))
-				printf("%s%c%s, line %ld:\n", dir, SLASH, name, thislnum);
-			else
-				printf("%s, line %ld:\n", name, thislnum);
+			printf("%s, line %ld:\n", dirpath(dir, name), thislnum);
 
 			/* if there were introductory comments, show them */
 			if (comment != -1L)
@@ -346,6 +322,30 @@ int lookup(dir, entry)
 			fclose(sfile);
 			return 1;
 		}
+
+		/* Is this the start/end of a comment? */
+		if (comment == -1L)
+		{
+			/* starting a comment? */
+			if ((buf[0] == '/' && buf[1] == '*')
+			 || (buf[0] == '/' && buf[1] == '/')
+			 || (buf[0] == '(' && buf[1] == '*')
+			 || (buf[0] == '-' && buf[1] == '-')
+			 || (strlen(buf) >= 2 && buf[strlen(buf) - 2] == '{'))
+			{
+				comment = here;
+			}
+		}
+		else
+		{
+			/* ending a comment? */
+			if (buf[0] == '\n' || buf[0] == '#' 
+				|| buf[0] == '}' || (unsigned)buf[0] >= 'A')
+			{
+				comment = -1L;
+			}
+		}
+
 	}
 
 	/* not found -- return FALSE */
@@ -362,7 +362,6 @@ int find(tag)
 	char	*tagpath;
 	char	dir[80];
 	char	*ptr;
-	int	len;
 
 	if (colons == 1)
 	{
@@ -383,20 +382,13 @@ int find(tag)
 	while (*tagpath)
 	{
 		/* Copy the entry into the dir[] buffer */
-		for (ptr = dir; *tagpath && *tagpath != SEP; tagpath++)
+		for (ptr = dir; *tagpath && *tagpath != OSPATHDELIM; tagpath++)
 		{
 			*ptr++ = *tagpath;
 		}
-		if (*tagpath == SEP)
+		if (*tagpath == OSPATHDELIM)
 		{
 			tagpath++;
-		}
-
-		/* if the entry ended with "/tags", then strip that off */
-		len = strlen(TAGS);
-		if (&dir[len] < ptr && ptr[-len - 1] == SLASH && !strncmp(&ptr[-len], TAGS, len))
-		{
-			ptr -= len + 1;
 		}
 
 		/* if the entry is now an empty string, then assume "." */
@@ -410,21 +402,12 @@ int find(tag)
 		 * and exit.
 		 */
 		ptr = cktagdir(tag, dir);
-		if (ptr)
-		{
+		if (ptr) {
 			/* just supposed to display tag info? */
 			if (taginfo)
 			{
 				/* then do only that! */
-				if (strcmp(dir, "."))
-				{
-					printf("%s%c%s", dir, SLASH, ptr);
-				}
-				else
-				{
-					/* avoid leading "./" if possible */
-					fputs(ptr, stdout);
-				}
+				printf("%s\n", dirpath(dir, ptr));
 				return 1;
 			}
 			else
@@ -446,6 +429,7 @@ void usage()
 	fputs("   -x        require exact match, including colons\n", stderr);
 	fputs("   -f File   tag might be a static function in File\n", stderr);
 	fputs("   -c Class  tag might be a member of class Class\n", stderr);
+	fputs("Report bugs to kirkenda@cs.pdx.edu\n", stderr);
 	exit(2);
 }
 
@@ -474,6 +458,30 @@ void main(argc, argv)
 {
 	char	def_tag[100];	/* used to build tag name with default file/class */
 	int	i;
+
+	/* detect special GNU flags */
+	if (argc >= 2)
+	{
+		if (!strcmp(argv[1], "-v")
+		 || !strcmp(argv[1], "-version")
+		 || !strcmp(argv[1], "--version"))
+		{
+			printf("ref (elvis) %s\n", VERSION);
+#ifdef COPY1
+			puts(COPY1);
+#endif
+#ifdef COPY2
+			puts(COPY2);
+#endif
+#ifdef COPY3
+			puts(COPY3);
+#endif
+#ifdef COPY4
+			puts(COPY4);
+#endif
+			exit(0);
+		}
+	}
 
 	/* parse flags */
 	for (i = 1; i < argc && argv[i][0] == '-'; i++)

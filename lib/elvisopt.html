@@ -1,0 +1,1736 @@
+<html><head>
+<title>Elvis 2.0 Options</title>
+</head><body>
+
+<h1>6. OPTIONS</h1>
+
+Options are a primary means of configuring the appearance and behavior of elvis.
+They are set via the <a href="elvisex.html#set">:set</a> command, or the
+<a href="elvisex.html#let>:let</a> command.
+The options' values are examined directly by elvis internally, and can also
+be displayed via <a href="elvisex.html#set">:set</a>, or in an expression.
+
+The following tables list the names, type, group, and description of each
+option.
+One table lists <a href="#INDEX">all options alphabetically,</a> and the other
+breaks list down into <a href="#GROUP">groups of related options.</a> 
+I recommend the latter, since there are <em>a lot</em> of options.
+
+<p>Most options have two <em>names</em> -- a short name that is easy to type in,
+and a longer descriptive name.
+You can type in either name; they work equivalently.
+Elvis always outputs the longer name when it is listing values.
+
+<p>Each option accepts a specific <em>type</em> of value.
+The most common types are <strong>boolean, number, string,</strong> and
+<strong>one-of,</strong> but some options have weird types.
+
+<p><a name="GRP"></a>Each option serves as an attribute of something.
+The <em>group</em> of an option designates what it is an attribute of.
+For example, the "filename" option is an attribute of buffers; when you
+switch to a different buffer, it will have a different value for the
+"filename" option.
+Other options are attributes of windows, or display modes, etc.
+Here's a complete list:
+<pre graphic>
+.---------.-------------------------------------------------------.
+|  GROUP  |  DESCRIPTION                                          |
+|---------|-------------------------------------------------------|
+|  buf    | Attributes of buffers                                 |
+|  win    | Attributes of windows                                 |
+|  syntax | Attributes of the "syntax" display mode               |
+|  x11    | Attributes of the "x11" user interface                |
+|  tcap   | Attributes of the "termcap" user interface            |
+|  win32  | User interface attributes for the Win32 port          |
+|  global | Global options                                        |
+|  lp     | <a href="#LPR">Printing options</a>                                      |
+|  user   | User variables a - z (Global, useful in ex scripts)   |
+^----------^-------------------------------------------------------^
+</pre>
+You don't need to know an option's group to set that option.
+You can output the values of all options in a group
+by passing the group name followed by a question mark to the
+<a href="elvisex.html#set">:set</a> command.
+The following example outputs all of the attributes of the current buffer:
+<xmp>
+:set buf?
+</xmp>
+
+<h2><a name="GROUP"></a>6.1 Options, grouped by function</h2>
+
+<menu>
+    <li><a href="#FILESAVE">6.1.1 Options that relate the buffer to a file</a>
+    <li><a href="#BUFFER">6.1.2 Statistics about a buffer</a>
+    <li><a href="#MOVE">6.1.3 Options that affect movement commands</a>
+    <li><a href="#INPUT">6.1.4 Options that affect input mode</a>
+    <li><a href="#EXOPTS">6.1.5 Ex options</a>
+    <li><a href="#WINDOW">6.1.6 Window statistics</a>
+    <li><a href="#VIEW">6.1.7 Options affecting the appearance of text</a>
+    <li><a href="#MODE">6.1.8 Options for a particular display mode</a>
+    <li><a href="#MSG">6.1.9 Messages</a>
+    <li><a href="#GUI">6.1.10 Options for a particular user interface</a>
+    <li><a href="#REGEXP">6.1.11 Regular expression options</a>
+    <li><a href="#TAG">6.1.12 Tag options</a>
+    <li><a href="#DRAW">6.1.13 Window update parameters</a>
+    <li><a href="#CACHE">6.1.14 Cache options</a>
+    <li><a href="#SYSTEM">6.1.15 Options that describe the system</a>
+    <li><a href="#EXTERNAL">6.1.16 External programs</a>
+    <li><a href="#DIR">6.1.17 Directory names</a>
+    <li><a href="#INIT">6.1.18 Initialization options</a>
+    <li><a href="#MAP">6.1.19 Keyboard map options</a>
+    <li><a href="#LPR">6.1.20 Printing options</a>
+    <li><a href="#PREVIOUS">6.1.21 Previous arguments</a>
+    <li><a href="#UNSUP">6.1.22 Unsupported options</a>
+    <li><a href="#USER">6.1.23 User variables</a>
+</menu>
+
+<h3><a name="FILESAVE"></a>6.1.1 Options that relate the buffer to a file</h3>
+<pre graphic>.---------------------.---------.--------.-----------------------------.
+| OPTION NAMES        | TYPE    | GROUP  | DESCRIPTION                 |
+|---------------------|---------|--------|-----------------------------|
+| <a href="#filename">filename, file</a>      | String  | buf    | name of file in buffer      |
+| <a href="#bufname">bufname, buffer</a>     | String  | buf    | name of buffer              |
+| <a href="#retain">retain, ret</a>         | Boolean | buf    | keep buffer in session file |
+| <a href="#modified">modified, mod</a>       | Boolean | buf    | buffer differs from file    |
+| <a href="#edited">edited, samename</a>    | Boolean | buf    | buffer loaded from filename |
+| <a href="#newfile">newfile, new</a>        | Boolean | buf    | filename doesn't exist yet  |
+| <a href="#readonly">readonly, ro</a>        | Boolean | buf    | don't overwrite filename    |
+| <a href="#defaultreadonly">defaultreadonly, dro</a>| Boolean | global | assume all files readonly   |
+| <a href="#autowrite">autowrite, aw</a>       | Boolean | global | save file before switching  |
+| <a href="#writeany">writeany, wa</a>        | Boolean | global | don't warn of existing file |
+| <a href="#backup">backup, bk</a>          | Boolean | global | make *.bak file before write|
+| <a href="#undolevels">undolevels, ul</a>      | Number  | buf    | number of undoable commands |
+| <a href="#beautify">beautify, bf</a>        | Boolean | global | strip ctrl chars from files |
+^---------------------^---------^--------^-----------------------------^
+</pre>
+
+<a name="filename"></a>The <em>filename</em> option stores the name of the
+text file whose text was initially loaded into the buffer.
+If no file name is known (e.g., for an internal buffer or a new, untitled
+buffer) then this will be an empty string.
+The <a href="elvisex.html#file">:file</a> command can be used to change the filename.
+Also, the filename is set automatically when you write the buffer out,
+if it had no filename before.
+
+<p><a name="bufname"></a>The <em>bufname</em> option stores the name of the buffer.
+Usually this will be the same as the filename, but it can be different.
+Every buffer has a bufname, even if it doesn't have a filename.
+The name of a buffer can be changed via the <a href="elvisex.html#buffer">:buffer</a> command.
+
+<p><a name="retain"></a>The <em>retain</em> option indicates whether the buffer
+is intended to survive past the end of this elvis process.
+If this option is true and the <a href="#tempsession">tempsession</a> option is
+false (":set retain notempsession") then elvis will allow you to exit even if
+this buffer hasn't been saved since its last change.
+When you restart the session, the buffer will still exist with all its changed
+text intact.  By default, the retain option is false (":set noretain") because
+that mimics traditional vi behavior.
+ 
+<p><a name="modified"></a>The <em>modified</em> option indicates whether the
+buffer has been modified since the last time it was written out completely.
+
+<p><a name="edited"></a>The <em>edited</em> option indicates whether the
+filename option has been modified since the last time it was written out.
+If this option is false, elvis will be more cautious about writing the file
+out.
+
+<p><a name="newfile"></a>The <em>newfile</em> option indicates that when the buffer was created
+it tried to load the file identified by the filename option, but that file
+did not exist at that time.
+
+<p><a name="readonly"></a><a name="defaultreadonly"></a>
+The <em>readonly</em> option indicates that when the buffer was loaded,
+the original file was marked as being unwritable.  Either that, or the
+<em>defaultreadonly</em> option was set to true
+(probably via the <kbd>-R</kbd> command line flag).  This option has two
+purposes: it gives you a way to detect that you can't write the file out,
+and it protects you from writing out a file that you meant to just look at
+without modifying.
+
+<p><a name="autowrite"></a>Setting the <em>autowrite</em> option allows elvis to
+automatically write the current buffer out to a file if it has been modified,
+before switching to another buffer.  By default this option is off, so if you try to switch away
+from a modified buffer, elvis will just give an error message and refuse to
+switch until you manually write the file out.
+
+<p><a name="writeany"></a>Elvis tries to save you from accidentally
+clobbering existing files.  Setting the <em>writeany</em> option disables this
+protection; elvis will allow you to overwrite any file that the operating
+system will allow, without giving any warnings.
+
+<p><a name="backup"></a>The <em>backup</em> option isn't used internally
+by elvis, but the default <a href="elvisses.html#elvis.bwf">elvis.bwf</a> file
+checks this flag to determine whether it should attempt to make a backup
+of a file it is about to overwrite.
+By default, this option is false, so backups will not be made.
+
+<p><a name="undolevels"></a>For each buffer, the <em>undolevels</em> option
+indicates the number of "undo" versions elvis will maintain.
+Each undo level requires at least three blocks of the session file (typically
+2K bytes each, 6K total) so you probably don't want to set this higher than
+100 or so, and you probably want to keep it much lower.
+The default is 0, which is a special case that mimics vi's traditional behavior.
+
+<p><a name="beautify"></a>If the <em>beautify</em> option is true,
+then whenever elvis reads text from a file or external program,
+it will strip any control characters other than tab, linefeed or formfeed.
+This is false by default.
+
+
+<h3><a name="BUFFER"></a>6.1.2 Statistics about a buffer</h3>
+<pre graphic>.---------------------.---------.--------.-----------------------------.
+| OPTION NAMES        | TYPE    | GROUP  | DESCRIPTION                 |
+|---------------------|---------|--------|-----------------------------|
+| <a href="#binary">binary, bin</a>         | Boolean | buf    | buffer's data is not text   |
+| <a href="#bufchars">bufchars, bc</a>        | Number  | buf    | number of characters        |
+| <a href="#buflines">buflines, bl</a>        | Number  | buf    | number of lines             |
+| <a href="#errlines">errlines</a>            | Number  | buf    | buflines when :make was run |
+| <a href="#internal">internal</a>            | Boolean | buf    | elvis requires this buffer  |
+^---------------------^---------^--------^-----------------------------^
+</pre>
+
+<a name="binary"></a>
+The <em>binary</em> option indicates whether the buffer contains binary data
+rather than text.
+This affects the I/O method used: Text files are subjected to newline
+conversion, but binary files are not converted in any way.
+For UNIX this this doesn't matter, but for other operating systems it
+matters a lot.
+Usually, the <a href="elvisses.html#elvis.brf">elvis.brf</a> configuration
+file is used to set this option appropriately before the file's contents are
+loaded into the buffer.
+
+<p><a name="bufchars"></a><a name="buflines"></a>
+The <em>bufchars</em> and <em>buflines</em> options indicate the number of
+characters and lines in the buffer, respectively. 
+The buflines option works by counting newline characters; it is unaffected
+by vagaries of the display mode.
+These options can't be set.
+
+<p><a name="errlines"></a>The <em>errlines</em> option is used to store the
+number of lines that were in the buffer when the last
+<a href="elvisex.html#make">:make</a> or <a href="elvisex.html#cc">:cc</a>
+command was run.
+Any difference between buflines and errlines is used to adjust the line
+numbers reported in any error messages, to compensate for lines which
+have been inserted or deleted since then.
+
+<p><a name="internal"></a>The <em>internal</em> option indicates that elvis
+uses the buffer internally.  Such buffers can't be deleted.
+
+<h3><a name="MOVE"></a>6.1.3 Options that affect movement commands</h3>
+<pre graphic>.---------------------.---------.--------.-----------------------------.
+| OPTION NAMES        | TYPE    | GROUP  | DESCRIPTION                 |
+|---------------------|---------|--------|-----------------------------|
+| <a href="#paragraphs">paragraphs, para</a>    | String  | buf    | nroff paragraph commands    |
+| <a href="#sections">sections, sect</a>      | String  | buf    | nroff section commands      |
+| <a href="#sentenceend">sentenceend, se</a>     | String  | global | punct at end of sentence    |
+| <a href="#sentencequote">sentencequote, sq</a>   | String  | global | punct allowed after se      |
+| <a href="#sentencegap">sentencegap, sg</a>     | Number  | global | spaces required after sq    |
+| <a href="#scroll">scroll, scr</a>         | Number  | win    | scroll amount for ^D/^U     |
+^---------------------^---------^--------^-----------------------------^
+</pre>
+<a name="paragraphs"></a><a name="sections"></a>
+The <em>paragraphs</em> option stores a list of
+two-letter nroff paragraph commands.  This list is used by the
+<a href="elvisvi.html#ocur">{</a>
+and <a href="elvisvi.html#ccur">}</a> movement commands.
+Similarly, the <em>sections</em> option stores a list
+of section commands, affecting the <a href="elvisvi.html#obra">[[</a> and
+<a href="elvisvi.html#cbra">]]</a> commands.
+Their defaults are <tt>paragraphs="PPppIPLPQP"</tt> and
+<tt>sections="NHSHSSSEse".</tt>
+
+<p><a name="sentenceend"></a><a name="sentencequote"></a><a name="sentencegap"></a>
+The <em>sentenceend, sentencequote,</em> and <em>sentencegap</em> options
+all affect the <a href="elvisvi.html#open">(</a> and
+<a href="elvisvi.html#close">)</a> sentence motion commands.
+The sentenceend option is a list of punctuation characters which can appear
+at the end of a sentence.  The sentencegap option is the number spaces that
+must follow a sentenceend character in order for it to count as the end of a
+sentence.  The sentencequote option is a list of punctuation characters that
+can appear between the sentenceend character and the spaces.
+Their defaults are <tt>sentenceend="?!.", sentencequote=")\"",</tt>
+and <tt>sentencegap=2,</tt> which meets the proposed POSIX specifications.
+
+<p><a name="scroll"></a>The <em>scroll</em> option indicates the number of
+lines that the <a href="elvisvi.html#^U">^U</a> and
+<a href="elvisvi.html#^D">^D</a> commands should scroll the screen by.
+Its default value is 12.
+
+<h3><a name="INPUT"></a>6.1.4 Options that affect input mode</h3>
+<pre graphic>.---------------------.---------.--------.-----------------------------.
+| OPTION NAMES        | TYPE    | GROUP  | DESCRIPTION                 |
+|---------------------|---------|--------|-----------------------------|
+| <a href="#autoindent">autoindent, ai</a>      | Boolean | buf    | auto-indent new text        |
+| <a href="#inputtab">inputtab, itab</a>      | One-Of  | buf    | input mode's (Tab) key      |
+| <a href="#autotab">autotab, at</a>         | Boolean | buf    | allow autoindent to use '\t'|
+| <a href="#tabstop">tabstop, ts</a>         | Number  | buf    | width of tabstop columns    |
+| <a href="#shiftwidth">shiftwidth, sw</a>      | Number  | buf    | width used by &lt; and &gt;       |
+| <a href="#textwidth">textwidth, tw</a>       | Number  | buf    | width for word-wrap, or 0   |
+| <a href="#wrapmargin">wrapmargin, wm</a>      | (weird) | win    | set textwidth from right    |
+| <a href="#digraph">digraph, dig</a>        | Boolean | global | allow X-backspace-Y entry   |
+^---------------------^---------^--------^-----------------------------^
+</pre>
+
+<a name="autoindent"></a>Setting the <em>autoindent</em> option causes elvis
+to automatically insert whitespace at the start of each line, to make it line
+up with the preceding line.
+This is convenient when you're editing C source code.
+It is off by default.
+
+<p><a name="inputtab"></a>The <em>inputtab</em> option controls the behavior
+of the <kbd>Tab</kbd> key.  It can be set to one of the following values:
+<ul>
+<li><strong>tab</strong> - insert an actual tab character.  This is the
+    traditional vi behavior, and the default for user buffers.
+<li><strong>spaces</strong> - insert enough space characters to look like a
+    tab character.
+<li><strong>filename</strong> - attempt filename completion on the preceding
+    word.  This is the default when entering ex commands.
+</ul>
+
+<p><a name="autotab"></a>The <em>autotab</em> option affects the behavior of
+the <a href="elvisvi.html#lt">&lt;</a> and <a href="elvisvi.html#gt">&gt;</a>
+operator commands, and the <kbd>^D</kbd> and <kbd>^T</kbd> input mode
+keystrokes.
+If autotab is true then elvis will include tab characters in the indentation
+whitespace;
+if it is false then the indentation whitespace will consist entirely of space
+characters.
+By default, it is true.
+
+<p>Note that if you start with a buffer which contains no tabs, and do a
+"<tt>:set inputtab=spaces noautotab</tt>" then no amount of editing will
+result in the buffer containing spaces... unless you get tricky with
+<kbd>^V</kbd> or something.
+
+<p><a name="tabstop"></a>The <em>tabstop</em> option affects the way tab
+characters are displayed, by specifying how far apart the tab stops should
+be located.
+When elvis displays a file with tabs,
+it displays the tabs as a variable number of spaces.
+You should probably leave this option at its default value (8) since
+changing this will make your file look strange in any other context.
+If you want to use indentation levels of less than 8 characters,
+you're better off changing shiftwidth.
+
+<p><a name="shiftwidth"></a>The <em>shiftwidth</em> option indicates how far
+left or right the <a href="elvisvi.html#lt">&lt;</a> and
+<a href="elvisvi.html#gt">&gt;</a> operator commands
+(and the <kbd>^D</kbd> and <kbd>^T</kbd> input mode keystrokes)
+should shift the line of text.
+This is used for adjusting the indentation of lines.
+
+<p><a name="textwidth"></a>When editing a text file in "normal" display mode,
+the <em>textwidth</em> option can be used to cause word-wrap to occur when a
+line gets to long.
+The default value of textwidth is 0, which disables automatic word-wrap.
+Setting it to any larger value causes word-wrap to occur when text is inserted
+into a line, causing that line to become wider than textwidth columns.
+(Note that this has nothing to do with the display formatting of the "html"
+and "man" display modes.)
+
+<p><a name="wrapmargin"></a>The <em>wrapmargin</em> option is provided for
+backwards compatibility.
+It allows you to set the textwidth relative to the right edge of the window,
+instead of the left edge.
+This option's value is actually derived from the textwidth option's value
+and the window's width,
+so if you resize a window this option's value will appear to change to
+correspond to the new width; textwidth will not change.
+
+<p><a name="digraph"></a>Digraphs allow you to enter non-ASCII characters as
+a combination of two ASCII characters.
+There are two ways to enter digraphs:
+<kbd>^K&nbsp;X&nbsp;Y</kbd> and <kbd>X&nbsp;backspace&nbsp;Y</kbd>.
+The second form can cause some confusion if you're not expecting it, so the
+<em>digraph</em> option was created as a way to disable that second form.
+The first form of digraphs is always available.
+This option is false by default, to avoid the confusion.
+
+<h3><a name="EXOPTS"></a>6.1.5 Ex options</h3>
+<pre graphic>.---------------------.---------.--------.-----------------------------.
+| OPTION NAMES        | TYPE    | GROUP  | DESCRIPTION                 |
+|---------------------|---------|--------|-----------------------------|
+| <a href="#prompt">prompt</a>              | Boolean | global | issue ":" prompt in ex mode |
+| <a href="#autoprint">autoprint, ap</a>       | Boolean | global | print current line in ex    |
+| <a href="#report">report</a>              | Number  | global | minimum # lines to report   |
+^---------------------^---------^--------^-----------------------------^
+</pre>
+
+<a name="prompt"></a>The <em>prompt</em> option controls whether a ":" prompt
+is issued before reading each command line in EX mode.
+It is true by default, and should usually be left that way.
+
+<p><a name="autoprint"></a>The <em>autoprint</em> option causes elvis to
+display the current line of the edit buffer in certain circumstances,
+while you're in EX mode.
+It is true by default.
+
+<p><a name="report"></a>The <em>report</em> option determines the minimum
+number of lines that must change in a file, before elvis will bother to
+display a count of the changed lines.
+Its default value is 5, so minor changes won't be reported.
+
+<h3><a name="WINDOW"></a>6.1.6 Window statistics</h3>
+<pre graphic>.---------------------.---------.--------.-----------------------------.
+| OPTION NAMES        | TYPE    | GROUP  | DESCRIPTION                 |
+|---------------------|---------|--------|-----------------------------|
+| <a href="#windowid">windowid, id</a>        | Number  | win    | ID number of current window |
+| <a href="#columns">columns, cols</a>       | Number  | win    | width of window             |
+| <a href="#lines">lines, rows</a>         | Number  | win    | height of window            |
+^---------------------^---------^--------^-----------------------------^
+</pre>
+
+<a name="windowid"></a>The <em>windowid</em> option stores the ID number of
+the current window.
+These window IDs are listed by the <a href="elvisex.html#buffer">:buffer</a>
+command.
+Some GUIs may also display the window ID as part of the window's title.
+This value is set to a unique value automatically when the window is
+created.
+You can't change it.
+
+<p><a name="columns"></a><a name="lines"></a>The <em>columns</em> and
+<em>lines</em> options indicate the size of the window.
+
+<h3><a name="VIEW"></a>6.1.7 Options affecting the appearance of text</h3>
+<pre graphic>.---------------------.---------.--------.-----------------------------.
+| OPTION NAMES        | TYPE    | GROUP  | DESCRIPTION                 |
+|---------------------|---------|--------|-----------------------------|
+| <a href="#list">list, li</a>            | Boolean | win    | show markups, newlines, etc.|
+| <a href="#showmarkups">showmarkups, smu</a>    | Boolean | global | show markup at cursor       |
+| <a href="#bufdisplay">bufdisplay, bd</a>      | String  | buf    | default display mode        |
+| <a href="#display">display, mode</a>       | String  | win    | name of current display mode|
+| <a href="#number">number, nu</a>          | Boolean | win    | display line numbers        |
+| <a href="#ruler">ruler, ru</a>           | Boolean | win    | display cursor's line/column|
+| <a href="#showmatch">showmatch, sm</a>       | Boolean | win    | highlight matching parens   |
+| <a href="#showmode">showmode, smd</a>       | Boolean | win    | display the command state   |
+| <a href="#showcmd">showcmd, sc</a>         | Boolean | win    | display command characters  |
+| <a href="#nonascii">nonascii, asc</a>       | One-Of  | global | how to display non-ascii    |
+| <a href="#showstack">showstack, sstk</a>     | Boolean | win    | display some debugging info |
+^---------------------^---------^--------^-----------------------------^
+</pre>
+
+<a name="list"></a>In the "normal" or "c" display modes, the <em>list</em>
+option causes tab characters to be shown as ^I instead of being expanded to
+the appropriate amount of whitespace, and it causes the end of each line to
+be marked with a $ character.
+In "html" or "man" mode, it causes all of the markups to be displayed.
+
+<p><a name="showmarkups"></a>In "html" or "man" mode, the <em>showmarkups</em>
+option cause the markup at the cursor to be displayed, but leaves other markups
+hidden.
+It has no effect in other display modes.
+This option is off by default, so markups won't suddenly become visible as
+you move the cursor around.
+
+<p><a name="bufdisplay"></a>Each buffer has a <em>bufdisplay</em> option,
+which indicates that buffer's preferred display mode.
+Whenever a window starts to show a buffer, it switches its display mode
+to that buffer's bufdisplay mode.
+You should set bufdisplay to the name of a supported display mode:
+<b>normal, syntax, html, man,</b> or <b>hex.</b>
+The compiled-in default is <b>normal</b> but the standard
+<a href="elvisses.html#elvis.arf">elvis.arf</a> file tries to choose a
+more clever default, based on the extension of the buffer's filename.
+
+<p><a name="display"></a>The <em>display</em> option indicates which display
+mode the window is currently in.
+You can't set this option directly;
+you must use the <a href="elvisex.html#display">:display</a> command instead.
+
+<p><a name="number"></a>The <em>number</em> option causes a line number to
+be prepended to the start of each line.  The line numbers are defined as
+"one plus the number of newlines preceding the start of the line," which is
+not necessarily how the current display mode defines lines.
+Consequently, the line numbers may not increment by 1 every time.
+These line numbers <em>do</em> correspond to the ruler and the visual
+<a href="elvisvi.html#G">G</a> command, though.
+This option is false by default.
+
+<p><a name="ruler"></a>The <em>ruler</em> option causes the current line
+number and column number to be displayed at the bottom of the screen.
+This uses the same definition of "line number" as the number option, above.
+This option is false by default.
+
+<p><a name="showmatch"></a>The <em>showmatch</em> option helps you locate
+matching parentheses.
+When you're in input mode, and you type a <kbd>), ],</kbd> or <kbd>}</kbd>
+character, elvis will cause the matching <kbd>(, [,</kbd> or <kbd>{</kbd>
+character to be highlighted on the screen.
+This option is false by default.
+
+<p><a name="showmode"></a>The <em>showmode</em> option causes elvis to
+display a one-word label for its current parse state in the lower right-hand
+corner of the window.
+Usually, this will be either "Command" or "Input".
+This option is false by default, but I suggest you make it true because it
+really is handy.
+
+<p><a name="showcmd"></a>
+When entering multi-character commands, the <em>showcmd</em> option
+causes the preceding characters of the command to be displayed at the
+bottom of the window.
+
+<p><a name="nonascii"></a>The <em>nonascii</em> option tells elvis how to
+display characters 0x80 through 0xff.
+It can have one of the following values:
+<pre graphic>
+	.-------.------------------------------------------------.
+	| VALUE | MEANING                                        |
+	|-------|------------------------------------------------|
+	| all   | All characters 0x80-0xff are visible           |
+	| most  | Chars 0xa0-0xff are visible, but not 0x80-0x9f |
+	| none  | Chars 0x80-0xff are not visible                |
+	| strip | Convert 0xa0-0xfe to ASCII; others not visible |
+	^-------^------------------------------------------------^
+</pre>
+Any characters which aren't visible will be displayed as '.' characters.
+Note that this only affects the way the characters are displayed;
+they are actually stored with their true 8-bit value.
+The default value of <tt>nonascii</tt> is "most", because that is the correct
+value for the Latin-1 symbol set.
+
+<p><a name="showstack"></a>The <em>showstack</em> option causes some
+debugging output to appear on the bottom row of the window.
+It is false by default, and you should leave it that way.
+
+<h3><a name="MODE"></a>6.1.8 Options for a particular display mode</h3>
+<pre graphic>.---------------------.---------.--------.-----------------------------.
+| OPTION NAMES        | TYPE    | GROUP  | DESCRIPTION                 |
+|---------------------|---------|--------|-----------------------------|
+| <a href="#commentfont">commentfont, cfont</a>  | One-Of  | syntax | font used for comments      |
+| <a href="#stringfont">stringfont, sfont</a>   | One-Of  | syntax | font used for strings       |
+| <a href="#keywordfont">keywordfont, kfont</a>  | One-Of  | syntax | font used for reserved words|
+| <a href="#functionfont">functionfont, ffont</a> | One-Of  | syntax | font used for function names|
+| <a href="#variablefont">variablefont, vfont</a> | One-Of  | syntax | font used for variables     |
+| <a href="#prepfont">prepfont, pfont</a>     | One-Of  | syntax | font used for preprocessor  |
+| <a href="#otherfont">otherfont, ofont</a>    | One-Of  | syntax | font used for other symbols |
+| <a href="#includepath">includepath, inc</a>    | String  | syntax | where to find #include files|
+^---------------------^---------^--------^-----------------------------^
+</pre>
+
+<a name="commentfont"></a>
+<a name="stringfont"></a>
+<a name="keywordfont"></a>
+<a name="functionfont"></a>
+<a name="variablefont"></a>
+<a name="prepfont"></a>
+<a name="otherfont"></a>
+In the <a href="elvisdm.html#syntax">syntax</a> display mode, the
+<em>commentfont, stringfont, keywordfont, functionfont, variablefont,
+prepfont</em> and <em>otherfont</em> options specify which font is to be
+used for different parts of the source code.
+Each option can be set to <strong>normal, bold, emphasized, italic,
+underlined,</strong> or <strong>fixed.</strong>
+The prepfont is used for preprocessor directives.
+The keywordfont is used for reserved words such as "int" and "return".
+The functionfont is used for any other word which is followed by an
+opening parenthesis character.
+The otherfont is used for any other word which matches some language-dependent
+criteria; for C, the word must either contain no lowercase letters
+or end with a "_t" (probably a constant or a user-defined type).
+The variablefont is used for all other words.
+Punctuation is always in the normal font; you can't control that.
+
+<p>You can set these variables during initialization, in the .exrc or elvis.rc
+file.
+After that, your window must actually be in the "syntax" mode for these to
+be accessible.
+
+<p>As a separate step, some user interfaces allow you to specify a color to be
+used for each font, via the <a href="elvisex.html#color">:color</a> command.
+
+<p><a name="includepath"></a>
+The <em>includepath</em> option contains a list of directory names where
+elvis should look for #include files.
+When you look up a tag whose name begins with a quote character, elvis searches
+through those directories for a file with the same name as the tag (with the
+quotes stripped off).
+This means that you can move the cursor onto a #include file name,
+hit <a href="elvisvi.html#^cbra">^]</a>, and have elvis load the indicated
+header file.
+
+<h3><a name="MSG"></a>6.1.9 Messages</h3>
+<pre graphic>.---------------------.---------.--------.-----------------------------.
+| OPTION NAMES        | TYPE    | GROUP  | DESCRIPTION                 |
+|---------------------|---------|--------|-----------------------------|
+| <a href="#terse">terse, te</a>           | Boolean | global | don't translate messages    |
+| <a href="#verbose">verbose</a>             | Boolean | global | give more status messages   |
+| <a href="#errorbells">errorbells, eb</a>      | Boolean | global | ring bell for error message |
+| <a href="#warningbells">warningbells, wb</a>    | Boolean | global | ring bell for warning msg   |
+| <a href="#flash">flash, vbell</a>        | Boolean | global | substitute flash for bell   |
+^---------------------^---------^--------^-----------------------------^
+</pre>
+
+<a name="terse"></a>The <em>terse</em> option indicates whether elvis should
+attempt to translate messages via the
+<a href="elvismsg.html#elvis.msg">elvis.msg</a> file.
+If terse is true, then no such translation takes place; the built-in messages
+are used.
+If terse is false, then elvis will search through the file (actually the
+"Elvis messages" buffer) for a line which looks like
+"<var>terse</var>:<var>verbose</var>" and if found it'll use the verbose
+version instead.  
+By default, terse is false.
+
+<p><a name="verbose"></a>The <em>verbose</em> option has nothing to do with
+the terse option.
+Instead, it indicates whether elvis was started with the <strong>-V</strong>
+flag, indicating that the user wants more status messages to be generated.
+This is handy when elvis isn't initializing itself the way you expected it to.
+
+<p><a name="errorbells"></a><a name="warningbells"></a>
+The <em>errorbells</em> and <em>warningbells</em> options cause the
+terminal's bell to ring when an error message or warning message is generated,
+respectively.
+By default the errorbells option is true, and the warningbells option is
+false.
+
+<p><a name="flash"></a>Setting the <em>flash</em> option causes elvis to use a
+visible alternative to the bell, if one exists.
+This is nice in a crowded terminal room.
+By default this option is false.
+
+<h3><a name="GUI"></a>6.1.10 Options for a particular user interface</h3>
+<pre graphic>.---------------------.---------.--------.-----------------------------.
+| OPTION NAMES        | TYPE    | GROUP  | DESCRIPTION                 |
+|---------------------|---------|--------|-----------------------------|
+| <a href="#term">term, termtype</a>      | String  | tcap   | terminal's termcap entry    |
+| <a href="#ttyrows">ttyrows, ttylines</a>   | Number  | tcap   | height of screen            |
+| <a href="#ttycolumns">ttycolumns, ttycols</a> | Number  | tcap   | width of screen             |
+| <a href="#ttyunderline">ttyunderline, ttyu</a>  | Boolean | tcap   | okay to mix color & underln |
+| <a href="codepage">codepage, cp</a>        | Number  | win32  | console character set       |
+|---------------------|---------|--------|-----------------------------|
+| <a href="#normalfont">normalfont, xfn</a>     | String  | x11    | name of normal font         |
+| <a href="#boldfont">boldfont, xfb</a>       | String  | x11    | name of bold font           |
+| <a href="#italicfont">italicfont, xfi</a>     | String  | x11    | name of italic font         |
+| <a href="#controlfont">controlfont, xfc</a>    | String  | x11    | name of toolbar font        |
+| <a href="#toolbar">toolbar, xtb</a>        | Boolean | x11    | enables the toolbar         |
+| <a href="#scrollbarwidth">scrollbarwidth, xsw</a> | Number  | x11    | size of scrollbar, in pixels|
+| <a href="#scrollbartime">scrollbartime, xst</a>  | Number  | x11    | delay for scrollbar repeat  |
+| <a href="#dblclicktime">dblclicktime, xdct</a>  | Number  | x11    | double-click speed, 1/10 Sec|
+| <a href="#blinktime">blinktime, xbt</a>      | Number  | x11    | cursor blink rate, 1/10 Sec |
+| <a href="#xrows">xrows, xlines</a>       | Number  | x11    | height of new windows       |
+| <a href="#xcolumns">xcolumns, xcols</a>     | Number  | x11    | width of new windows        |
+| <a href="#firstx">firstx, xpos</a>        | Number  | x11    | horiz. position of first win|
+| <a href="#firsty">firsty, ypos</a>        | Number  | x11    | vert. position of first win |
+| <a href="#stagger">stagger</a>             | Number  | x11    | offset for next new window  |
+| <a href="#icon">icon</a>                | Boolean | x11    | use the built-in icon?      |
+| <a href="#stopshell">stopshell, ssh</a>      | String  | x11    | interactive shell command   |
+| <a href="#autoiconify">autoiconify, aic</a>    | Boolean | x11    | iconify old window          |
+| <a href="#altkey">altkey, metakey</a>     | One of  | x11    | effect of the Alt key       |
+| <a href="#focusnew">focusnew, fn</a>        | Boolean | x11    | force focus into new window |
+| <a href="#warpto">warpto, wt</a>          | One of  | x11    | ^W^W forces pointer movement|
+| <a href="#warpback">warpback, wb</a>        | Boolean | x11    | upon exit, point to xterm   |
+^---------------------^---------^--------^-----------------------------^
+</pre>
+
+<a name="term"></a><a name="ttyrows"></a><a name="ttycolumns"></a>
+<a name="ttyunderline"></a>
+The <em>term, ttyrows, ttycolumns,</em> and <em>ttyunderline</em> options
+are only present if you're using the <b>termcap</b> user interface.
+They indicate the name of the termcap entry being used (normally taken
+from the TERM environment variable), the size of the screen, and whether
+it is safe to try underlining text when colors have been assigned to fonts.
+The ttyunderline option is true by default, but it should be made false
+on the Linux console, because the console driver has a bug which prevents
+underlined text from being shown in color.
+
+<p><a name="codepage"></a>
+The <em>codepage</em> option only exists in the Win32 version
+(for WindowsNT and Windows95).
+It indicates which code page (character map) the console is using.
+Its value is persistent; if you change it in elvis, the console will
+remain changed even after you exit elvis.
+Changing the code page as no effect on the digraph table,
+or elvis' idea of which non-ASCII characters should be treated as letters;
+it only reconfigures the console driver.
+Typical values are 437 for the standard IBM PC character set,
+and 850 for extra European characters.
+
+<p><a name="normalfont"></a><a name="boldfont"></a><a name="italicfont"></a>
+The other options all apply to the <b>x11</b> interface.
+The <em>normalfont, boldfont,</em> and <em>italicfont</em> options
+control the X fonts used for displaying text.
+They can only be changed before the first window is created;
+typically, the <a href="elvisses.html#elvis.ini">elvis.ini</a>
+or ".exrc" file will set this.
+If you do choose to set it in one of these files, be sure to have your
+initialization script check which interface is being used because
+if elvis is using the termcap interface then these x11 options won't exist.
+These options all default to an empty string;
+this is a special case which causes elvis to use the "fixed" font for normal
+text, and to derive the bold and italic fonts from the normal font.
+
+<p><a name="controlfont"></a>
+The <em>controlfont</em> option determines which font is used for displaying
+the labels of toolbar buttons.
+Unlike the other fonts, this one is permitted to have a variable pitch.
+If it is unset, then elvis will use the font named "variable" by default.
+
+<p><a name="toolbar"></a>
+The <em>toolbar</em> option controls whether the toolbar is visible or not.
+This option can only be changed during initialization, before the first
+window is created.
+It is normally true.
+
+<p><a name="scrollbarwidth"></a>
+The <em>scrollbarwidth</em> option controls the size of the x11 scrollbar.
+The default value is 14 pixels, and the allowed range is 5 to 40 pixels.
+
+<p><a name="scrollbartime"></a>
+The scrollbar buttons automatically repeat if you hold a mouse button down
+<em>scrollbartime</em> tenths of a second.
+The default is 4 tenths of a second.
+
+<p><a name="dblclicktime"></a>
+The <em>dblclicktime</em> option allows you to adjust the speed of mouse
+double-clicks to match your own clicking habits.
+The default is 3 tenths of a second.
+
+<p><a name="blinktime"></a>
+The <em>blinktime</em> option controls the cursor blink rate.
+If set to 0, the cursor will not blink.
+If set to a value from 1 to 10, then the cursor will first be visible for
+that many tenths of a second, and then invisible for the same amount of time.
+The cursor will only blink in the window which currently has keyboard focus.
+
+<p><a name="xrows"></a><a name="xcolumns"></a>
+The <em>xrows</em> and <em>xcolumns</em> options control the
+initial size of windows.
+They default to 34 and 80, respectively, and can also be set via the
+<b>-geometry</b> command-line flag.
+After a window has been created, you can use your window manager to
+resize the window.
+
+<p><a name="firstx"></a><a name="firsty"></a><a name="stagger"></a>
+The <em>firstx</em> and <em>firsty</em> options, if set, control the position
+of the first window that elvis creates.
+If they are unset, then elvis doesn't specify a position for the window.
+The <b>-geometry</b> command-line flag can be used to set these options.
+After the first window has been created, if the <em>stagger</em> option is
+set to a non-zero value then any new windows are created that many pixels
+down and to the right of the current window.
+
+<p><a name="icon"></a>
+The <em>icon</em> option can only be set in an initialization file
+such as <a href="elvisses.html#elvis.ini">elvis.ini</a> or ".exrc";
+once the first window has been created it is too late to change it.
+This option controls whether the window will be given the default, built-in
+icon.
+It is true by default, so windows will get the icon.
+This is usually a good thing.
+Some window managers don't allow you to override built-in icons, though,
+so if you want your window manager to use a different icon for elvis then
+you'll need to have a "set noicon" in your
+<a href="elvisses.html#elvis.ini">elvis.ini</a> file.
+
+<p><a name="stopshell"></a>
+The <em>stopshell</em> option stores a command which runs an interactive
+shell.
+It is used for the <a href="elvisex.html#shell>:shell</a> and
+<a href="elvisex.html#stop">:stop</a> ex commands, and the
+<a href="elvisvi.html#^Z">^Z</a> visual command.
+Normally, this is set to "xterm &" so you get a shell in a window.
+The "&" at the end of the command allows elvis to continue responding to
+user input while the shell is running.
+
+<p><a name="autoiconify"></a>
+When the <a href="elvisvi.html#^W">^W^W</a> visual command switches keyboard
+control to an X11 window which as been iconified, elvis automatically
+deiconifies it.
+When it does this, if the <em>autoiconify</em> option is set then elvis
+will iconify the previous window, so the number of iconified elvis windows
+remains constant.
+By default, this option is false.
+Regardless of whether autoiconify is set, you can always use your window
+manager to iconify or deiconify windows manually.
+
+<p><a name="altkey"></a>
+The <em>altkey</em> option controls the effect of the <kbd>Alt</kbd> or
+<kbd>Meta</kbd> keys.
+It can be set to either <b>control-O, setbit,</b> or <b>ignore.</b>
+The <strong>ignore</strong> value is self explanatory.
+If the option is set to <strong>control-O</strong> then the x11 interface will
+simulate a <kbd>^O</kbd> keystroke before each actual keystroke.
+This is handy because if you're in input mode you can just hold down
+<kbd>Alt</kbd>/<kbd>Meta</kbd> to perform a series of visual commands.
+If the option is set to <strong>setbit</strong> then the x11 interface will
+set the most significant bit of each ASCII character while the
+<kbd>Alt</kbd>/<kbd>Meta</kbd> key is held down.
+Some other programs use this trick as a means of entering non-ASCII
+characters.
+(Elvis has a better way though;
+check out the <a href="elvisex.html#digraph">:digraph</a> command.)
+The default is <strong>setbit.</strong>
+
+<p><a name="focusnew"></a>
+The <em>focusnew</em> option causes elvis to force input focus to switch to
+any newly created window, or to one which has been deiconified.
+It is true by default; making it false ("<tt>:set nofocusnew</tt>") prevents
+elvis from forcing a change of input focus in those two situations.
+Note that elvis always forces a change of input focus when you give a command
+which switches windows, such as <a href="elvisvi.html#^W^W">^W^W</a>.
+
+<p><a name="warpto"></a>
+The <em>warpto</em> option can cause elvis to force the mouse pointer
+to move whenever you use keyboard commands such as <a href="elvisvi.html#^W^W">^W^W</a>
+to switch from one elvis window to another.
+There are two reasons you may wish to do this:
+either your window manager requires the pointer to be in a window for that
+window to receive keystrokes,
+or you want to have your X server automatically pan the screen to
+bring the next window into view.
+
+<p>You can set the warpto option to any one of the following values:
+<strong>don't, scrollbar, origin,</strong> or <strong>corners.</strong>
+The default is <strong>don't</strong> which prevents any automatic pointer
+movement.
+The <strong>scrollbar</strong> value causes the pointer to move to the
+scrollbar, and <strong>origin</strong> moves it to the upper-left corner.
+The <strong>corners</strong> value causes the pointer to move first to the
+corner furthest from the window's text cursor, and then to the nearest corner;
+this will cause the X server to pan (if necessary) to bring the entire window
+into view.
+
+<p><a name="warpback"></a>
+The <em>warpback</em> option, if set, causes the X terminal's graphic cursor
+to be moved back to the window which held keyboard focus at the time when elvis
+was started.
+Usually this will be the xterm where you typed in the "elvis files..." command
+line.
+Just as the <tt>firstx, firsty,</tt> and <tt>stagger</tt> options are intended
+to allow mouseless positioning of elvis windows, the <tt>warpback</tt> option
+is intended to serve as a mouseless way to switch keyboard focus back to the
+original xterm, so that mouse haters will find elvis' x11 interface as
+convenient to use as the termcap interface.
+By default, <tt>warpback</tt> is false.
+
+<h3><a name="REGEXP"></a>6.1.11 Regular expression options</h3>
+<pre graphic>.---------------------.---------.--------.-----------------------------.
+| OPTION NAMES        | TYPE    | GROUP  | DESCRIPTION                 |
+|---------------------|---------|--------|-----------------------------|
+| <a href="#ignorecase">ignorecase, ic</a>      | Boolean | global | regexp uppercase=lowercase  |
+| <a href="#magic">magic, ma</a>           | Boolean | global | use normal regexp syntax    |
+| <a href="#autoselect">autoselect, as</a>      | Boolean | global | visibly mark searched text  |
+| <a href="#wrapscan">wrapscan, ws</a>        | Boolean | global | searching wraps at EOF&lt;-&gt;BOF|
+| <a href="#gdefault">gdefault, gd</a>        | Boolean | global | default change all instances|
+| <a href="#edcompatible">edcompatible, ed</a>    | Boolean | global | remember regsub flags       |
+^---------------------^---------^--------^-----------------------------^
+</pre>
+
+<a name="ignorecase"></a>Setting the <em>ignorecase</em> option to true will
+cause elvis to treat uppercase and lowercase letters as being equal.
+When ignorecase is false (the default), they are treated as different.
+
+<p><a name="magic"></a>The <em>magic</em> option selects one of two different
+syntaxes for regular expressions.
+When magic is true, it uses the normal
+syntax in which * and . are special characters. 
+When magic is false, it uses a simplified syntax.
+
+<p><a name="autoselect"></a>The <em>autoselect</em> option, when true, causes
+a successful visual search command such as <a href="elvisvi.html#slash">/regexp</a>
+to visibly mark the matching text just like the <a href="elvisvi.html#v">v</a>
+command does.
+This is intended to compensate for elvis 2.0's lack of a "c" option in the
+<a href="elvisex.html#substitute">:s/old/new/</a> command.
+By default, autoselect is false.
+
+<p><a name="wrapscan"></a>The <em>wrapscan</em> option determines what
+happens when a search command bumps into the top or bottom of a buffer.
+If wrapscan is true, then the search will wrap around to the other end of the
+buffer, so if there's a match anywhere in the buffer, the search will find it.
+If wrapscan is false, then searches fail when they hit the end of the buffer.
+By default, wrapscan is true.
+
+<p><a name="gdefault"></a>
+The <em>gdefault</em> option affects the default behavior of the
+<a href="elvisex.html#substitute">:s/old/new/</a> command.
+It is false by default, which causes <tt>:s/old/new/</tt> to assume a count of 1 so only
+the first instance in each line is changed.
+Making gdefault true will cause it change all instances in each line,
+as though the &quot;g&quot flag had been given.
+If you give an explicit count or &quot;g&quot; flag, then the value of
+gdefault is ignored.
+<p><a name="edcompatible"></a>The <em>edcompatible</em> option causes
+elvis to remember any flags that are passed into the <a href="elvisex.html#substitute">:s/old/new/flags</a> command, and use them as the default for the next
+such command.
+Explicitly naming a flag will toggle that flag's value.
+This is <em>not</em> the way the old <tt>ed</tt> editor worked,
+but this option's name and behavior are traditional in vi.
+This option is false by default.
+
+<h3><a name="TAG"></a>6.1.12 Tag options</h3>
+<pre graphic>.---------------------.---------.--------.-----------------------------.
+| OPTION NAMES        | TYPE    | GROUP  | DESCRIPTION                 |
+|---------------------|---------|--------|-----------------------------|
+| <a href="#taglength">taglength, tl</a>       | Number  | global | significant length of tags  |
+| <a href="#tags">tags, tagpath</a>       | String  | global | list of possible tag files  |
+| <a href="#tagstack">tagstack, tsk</a>       | Boolean | global | remember origin of tag srch |
+^---------------------^---------^--------^-----------------------------^
+</pre>
+
+These options control how elvis performs tag lookup, as for the
+<a href="elvisex.html#tag">:tag</a> ex command or the
+<a href="elvisvi.html#^]>^]</a> visual command.
+You should also check out the <a href="#previoustag">previoustag</a> option.
+
+<p><a name="taglength"></a>The <em>taglength</em> option defines how many
+characters are significant in a tag name.
+By default this option is set to 0, which is a special value indicating that
+all characters are significant.
+If you have a lot of long names, you might want to set this to some other
+value so that you could type in abbreviated names.
+
+<p><a name="tags"></a>The <em>tags</em> option stores a list of filenames
+or directory names where tags are stored.
+(For directory names, it looks for a file named "tags" in that directory.)
+When performing tag lookup, elvis will begin by looking for it in the first
+directory/file mentioned in the list; if it doesn't find it there, then it
+moves on to the next one, and so on.
+By default, it just looks in a file named "tags" in the current directory.
+
+<p><a name="tagstack"></a>If the <em>tagstack</em> option is true, 
+then before switching to the file and location of a looked-up tag, elvis
+will store the original file and position on a stack.
+Later, you can use the <a href="elvisex.html#pop">:pop</a> or visual
+<a href="elvisvi.html#">^T</a> commands to return to your original position.
+If <tt>tagstack</tt> is false, then the tag stack is unaffected by tag look-up.
+It is true by default.
+
+<h3><a name="DRAW"></a>6.1.13 Window update parameters</h3>
+<pre graphic>.---------------------.---------.--------.-----------------------------.
+| OPTION NAMES        | TYPE    | GROUP  | DESCRIPTION                 |
+|---------------------|---------|--------|-----------------------------|
+| <a href="#exrefresh">exrefresh, er</a>       | Boolean | global | redraw scrn after each line |
+| <a href="#nearscroll">nearscroll, ns</a>      | Number  | global | scroll vs. jump&center param|
+| <a href="#sidescroll">sidescroll, ss</a>      | Number  | win    | sideways scrolling amount   |
+| <a href="#optimize">optimize, opt</a>       | Boolean | global | run faster                  |
+| <a href="#pollfrequency">pollfrequency, pf</a>   | Number  | global | rate of testing for ^C      |
+| <a href="#maptrace">maptrace, mt</a>        | One of  | global | debugger: off, run, or step |
+| <a href="#maplog">maplog, mlog</a>        | One of  | global | logging: off, reset, append |
+^---------------------^---------^--------^-----------------------------^
+</pre>
+
+<a name="exrefresh"></a>The <em>exrefresh</em> option affects the frequency
+of window updates when in EX mode.
+It is normally false, which causes the window to be refreshed at the end of
+each EX command.
+If you set exrefresh to true, then elvis will update the window's image
+every time an output line is generated; this makes the command run much
+slower, but gives you more feedback.
+
+<p><a name="nearscroll"></a>The <em>nearscroll</em> option controls elvis'
+behavior when the cursor is moved off the top or bottom of the window.
+If the new cursor position is within nearscroll lines of the window,
+then the window is scrolled to bring the new line into view.
+If the new cursor position is outside that range, then elvis uses
+a "jump and center" approach, in which the window's image is drawn from
+scratch with the new cursor line shown in the center of the window.
+Its default value is 5.
+
+<p><a name="sidescroll"></a>The <em>sidescroll</em> option is normally 0,
+which causes elvis to display long lines by wrapping them onto multiple rows
+of the window.
+This is the traditional vi behavior.
+Setting sidescroll to a larger value will switch to sidescrolling mode,
+where each row of the window displays part a single line, and you can
+scroll the window sideways by moving the cursor off the left or right edge.
+When you do this, the window will scroll in increments of sidescroll characters.
+
+<p><a name="optimize"></a>The <em>optimize</em> option affects the efficiency
+of screen updates.
+It is normally true, which tells elvis to update the screen image only
+when it must wait for user input.
+If you make it false, then elvis will update the screen after every command;
+among other things, this allows you to see intermediate effects of macros.
+
+<p><a name="pollfrequency"></a>When elvis is performing some time-consuming
+operations, such as a global substitution, it will periodically check to see
+if the user is trying to cancel the operation.
+For some user interfaces, this inspection takes a significant amount of time so
+elvis allows the <em>pollfrequency</em> option to reduce the frequency of
+these checks.
+The default is 20.
+Larger values of pollfrequency will make global substitutions run faster;
+smaller values make elvis respond to <kbd>^C</kbd> sooner.
+
+<p><a name="maptrace"></a>
+The <em>maptrace</em> option controls elvis' built-in macro debugger.
+It can be <strong>off, run</strong> or <strong>step.</strong>
+The default is <strong>off,</strong> which causes macros to run normally.
+If you change it to <strong>run</strong> then elvis will display the
+contents of the mapping queue at the bottom of the screen while running
+any macro.
+The <strong>step</strong> value also displays the mapping queue, but then
+waits for a keystroke before proceeding.
+If the keystroke is <kbd>^C</kbd> then the macro is terminated.
+If the keystroke is <kbd>r</kbd> then maptrace is set to <strong>run.</strong>
+Any other keystroke causes elvis to pause again after processing the macro's
+next character.
+See section <a href="elvistip.html#DEBUG">14.1 How to debug macros</a> for more
+suggestions for debugging macros.
+
+<p><a name="maplog"></a>
+The <em>maplog</em> option can be used to log the information displayed by
+the <a href="#maptrace">maptrace</a> option.
+It is <strong>off</strong> by default.
+Setting it to <strong>append</strong> causes the map trace information to be
+appended to an internal edit buffer named "Elvis map log".
+Setting it to <strong>reset</strong> causes that buffer to be clobbered
+before the next map trace; when that happens, maplog will be automatically
+switched to <strong>append</strong>.
+You can view the logged data via the command...
+<xmp>
+:(Elvis map log)split</xmp>
+
+<h3><a name="CACHE"></a>6.1.14 Cache options</h3>
+<pre graphic>.---------------------.---------.--------.-----------------------------.
+| OPTION NAMES        | TYPE    | GROUP  | DESCRIPTION                 |
+|---------------------|---------|--------|-----------------------------|
+| <a href="#blkcache">blkcache, cache</a>     | Number  | global | number of blocks in cache   |
+| <a href="#blksize">blksize, bsz</a>        | Number  | global | size of cache block         |
+| <a href="#blkfill">blkfill, bfill</a>      | Number  | global | initial chars per text block|
+| <a href="#blkhash">blkhash, hash</a>       | Number  | global | size of cache hash table    |
+| <a href="#blkgrow">blkgrow, bgr</a>        | Number  | global | allocation table parameter  |
+| <a href="#sync">sync</a>                | Boolean | global | force changes to disk       |
+^---------------------^---------^--------^-----------------------------^
+</pre>
+
+<a name="blkcache"></a><a name="blksize"></a><a name="blkfill"></a>
+<a name="blkhash"></a><a name="blkgrow"></a>
+You probably don't need to know about the "blk" options.
+The <em>blkcache</em> option indicates how many blocks
+from the session file elvis should keep in its own internal cache,
+<em>blksize</em> indicates the size of each block,
+<em>blkfill</em> indicates how many characters should be stuffed into
+each block initially (leaving room for more text that the user may insert
+later), and
+<em>blkhash</em> and <em>blkgrow</em> affect a couple of internal tables.
+
+<p><a name="sync"></a>If the <em>sync</em> option is true, then elvis will
+flush all dirty blocks from its cache at the end of each edit command.
+Doing this will just about guarantee that you can recover your changes
+after a crash, but it can slow down the computer tremendously.
+The sync option is false by default, and on multi-user systems it should
+be left that way.
+On a single-user system, you might consider setting the sync option.
+
+<h3><a name="SYSTEM"></a>6.1.15 Options that describe the system</h3>
+<pre graphic>.---------------------.---------.--------.-----------------------------.
+| OPTION NAMES        | TYPE    | GROUP  | DESCRIPTION                 |
+|---------------------|---------|--------|-----------------------------|
+| <a href="#version">version, ver</a>        | String  | global | elvis version number (2.0)  |
+| <a href="#bitsperchar">bitsperchar, bits</a>   | Number  | global | character size (always 8)   |
+| <a href="#gui">gui</a>                 | String  | global | name of user interface      |
+| <a href="#os">os</a>                  | String  | global | name of operating system    |
+| <a href="#session">session, ses</a>        | String  | global | name of session file        |
+| <a href="#tempsession">tempsession, temp</a>   | Boolean | global | delete session file on exit |
+| <a href="#newsession">newsession, newses</a>  | Boolean | global | session file is new         |
+| <a href="#recovering">recovering, rflag</a>   | Boolean | global | recovering after a crash    |
+| <a href="#exitcode">exitcode, exit</a>      | Number  | global | exit code of elvis process  |
+^---------------------^---------^--------^-----------------------------^
+</pre>
+
+<a name="version"></a>
+The <em>version</em> option stores the version number of elvis
+-- currently "2.0".
+If later versions of elvis have features which are incompatible with this
+version, your script files can use this to check the version number,
+and skip the uncompatible commands.
+
+<p><a name="bitsperchar"></a>
+The <em>bitsperchar</em> option indicates the size
+of characters that elvis uses internally.
+Currently this is always 8, but I expect to support 16-bit characters eventually.
+
+<p><a name="gui"></a>
+The <em>gui</em> option indicates which user interface is being used.
+This can be handy in your initialization files.
+For example, you might prefer white characters on a blue background when
+using the "termcap" interface, and black characters on a white background
+when using the "x11" interface.
+
+<p><a name="os"></a>
+The <em>os</em> option allows elvis' initialization files to act differently
+on different operating systems.
+Its value indicates the name of the local operating system.
+
+<p><a name="session"></a>
+The <em>session</em> option stores the name of
+the current session file.
+There is rarely any need to check this, but I had to store it someplace
+and it might as well be accessible, I figured.
+
+<p><a name="tempsession"></a><a name="newsession"></a><a name="recovering"></a>
+The <em>tempsession, newsession,</em> and <em>recovering</em> options
+describe different aspects of the session file.
+If tempsession is true, then elvis will delete the session file when it exits.
+If newsession is true, then elvis has just created the file so there may be
+extra initialization that needs to take place in
+<a href="elvisses.html#elvis.ini">elvis.ini</a> or someplace.
+If recovering is true, then the session file may be damaged, so it may be
+a good idea to skip some initialization steps, or automatically write out
+all user buffers.
+
+<p><a name="exitcode"></a>
+The <em>exitcode</em> is the value that elvis
+will return to its parent process when the elvis process exits.
+Initially this is 0, which is the conventional indication of a normal,
+successful exit.
+You can explicitly set it to other values to indicate special situations.
+Also, if elvis outputs an error message and exitcode has not been explicitly
+set, then elvis changes exitcode to 1, so the parent process can know that
+elvis had an error.
+
+<h3><a name="EXTERNAL"></a>6.1.16 External programs</h3>
+<pre graphic>.---------------------.---------.--------.-----------------------------.
+| OPTION NAMES        | TYPE    | GROUP  | DESCRIPTION                 |
+|---------------------|---------|--------|-----------------------------|
+| <a href="#ccprg">ccprg, cp</a>           | String  | buf    | shell command for :cc       |
+| <a href="#makeprg">makeprg, mp</a>         | String  | buf    | shell command for :make     |
+| <a href="#equalprg">equalprg, ep</a>        | String  | buf    | shell command for = operator|
+| <a href="#keywordprg">keywordprg, kp</a>      | String  | buf    | shell command for K command |
+| <a href="#shell">shell, sh</a>           | String  | global | name of shell program       |
+| <a href="#warn">warn</a>                | Boolean | global | warn if file not saved      |
+| <a href="#anyerror">anyerror, ae</a>        | Boolean | global | allow :errlist if readonly  |
+^---------------------^---------^--------^-----------------------------^
+</pre>
+
+<a name="ccprg"></a><a name="makeprg"></a>
+The <em>ccprg</em> and <em>makeprg</em> are the programs used by the
+<a href="elvisex.html#cc">:cc</a> and <a href="elvisex.html#make">:make</a>
+commands.
+Before the program strings are executed, they are subjected to the same
+sort of expression evaluation as the <a href="elvisex.html#eval">:eval</a>
+command, with $1 representing any extra arguments from the ex command line,
+and $2 representing the name of the current file.
+Their defaults are <tt>cc="cc ($1?$1:$2)"</tt> and <tt>make="make $1".</tt>
+
+<p><a name="equalprg"></a>The <em>equalprg</em> option stores the name
+of a program to be executed for the visual <a href="elvisvi.html#=">=</a>
+operator command.
+Its default value is "fmt", which is a simple text formatting program.
+
+<p><a name="keywordprg"></a>The <em>keywordprg</em> option stores the name
+of the program used by the visual <a href="elvisvi.html#K">K</a> command.
+This string is evaluated with $1 being replaced with the word
+under the cursor at that time.
+The default value is "ref $1"; the <em>ref</em> program looks up a tag and
+displays it.
+
+<p><a name="shell"></a>The <em>shell</em> option stores the name of the
+system's command-line interpreter.
+It is used when executing all of the above programs, as well as commands
+entered for the EX <a href="elvisex.html#bang">:!</a> and visual
+<a href="elvisvi.html#bang">!</a> commands.
+Its default value is system-dependent; typically it will be "/bin/sh"
+for UNIX, and "C:\COMMAND.COM" for MS-DOS.
+
+<p><a name="warn"></a>When any external program is executed, if the 
+current buffer has been changed but not written out to the file, then
+elvis will normally give a warning message.
+Setting the <em>warn</em> option to false disables this message.
+
+<p><a name="anyerror"></a>When searching for error messages after a
+<a href="elvisex.html#cc">:cc</a> or <a href="elvisex.html#make">:make</a>
+command, elvis will normally ignore errors about files that you don't
+have write access to.
+Usually this is convenient,
+because it prevents elvis from reading header files that you've misused.
+However, setting <em>anyerror</em> to true will make it read any file that
+generates a complaint, even if you can't write to it.
+
+<h3><a name="DIR"></a>6.1.17 Directory names</h3>
+<pre graphic>.---------------------.---------.--------.-----------------------------.
+| OPTION NAMES        | TYPE    | GROUP  | DESCRIPTION                 |
+|---------------------|---------|--------|-----------------------------|
+| <a href="#home">home, home</a>          | String  | global | home directory              |
+| <a href="#elvispath">elvispath, epath</a>    | String  | global | list of possible config dirs|
+| <a href="#directory">sessionpath, spath</a>  | String  | global | list of possible session dir|
+| <a href="#directory">directory, dir</a>      | String  | global | where to store temp files   |
+^---------------------^---------^--------^-----------------------------^
+</pre>
+
+<a name="home"></a>The <em>home</em> option is the name of your home directory.
+The value of this option is used for replacing the ~ character at the start of
+a full pathname.
+If an environment variable named HOME exists, then home is initialized from
+its value.
+Otherwise, its default value is set as follows:
+<dl>
+<dt>For UNIX:
+<dd>The default is "/".
+<dt>For Win32:
+<dd>The default is derived from environment variables named HOMEDRIVE and
+HOMEPATH, which will normally always be defined.
+Their default value is usually "C:/users/default".
+If either of those environment variables is undefined, then elvis will
+attempt to find the pathname of the program, and use its directory.
+As a last resort, elvis will use "C:\" as the default home directory.
+<dt>For MS-DOS:
+<dd>The default home directory is the one containing ELVIS.EXE.
+</dl>
+
+<p><a name="elvispath"></a>The <em>elvispath</em> option stores a list of
+directory names where elvis might find its configuration files.
+Usually it is set to a value such as "~/.elvislib:/usr/local/lib/elvis"
+so that elvis will search first in a subdirectory
+of the user's home directory, and then in the directory where the standard
+versions of those files were installed.
+A path like this allows users to override elvis' behavior if they want.
+The default value depends the operating system, as follows:
+<dl>
+<dt>For UNIX:
+<dd>The default contains <em>~/.elvislib</em> and the directory that you
+specified as the data directory when you ran the <tt>configure</tt> script.
+(E.g, "configure --datadir=/usr/lib/elvis")
+The default data directory is <em>/usr/local/lib/elvis</em>, so usually
+elvispath will default to "~/.elvislib:/usr/local/lib/elvis".
+<dt>For Win32 or MS-DOS:
+<dd>The default contains <em>~\elvislib</em>, the directory where
+<em>elvis.exe</em> resides, and a subdirectory under that named "lib".
+</dl>
+
+<p><a name="sessionpath"></a>The <em>sessionpath</em> option gives elvis a
+list of possible directories where <a href="elvisses.html#SESSION">session
+files</a> might be placed.
+When elvis uses the first writable directory in that list, and ignores
+all of the others.
+The default value depends on the operating system, and can be overridden
+by the SESSIONPATH environment variable.
+You can't change the sessionpath option after elvis has started, because
+the session file has already been created by then.
+
+<p><a name="directory"></a>The <em>directory</em> option gives the name of
+the directory where elvis will store its temporary files.
+The default value is system-dependent.
+Note that this is <em>not</em> where the session file is stored;
+the <a href="#session">session</a> option gives the name of the session file.
+
+<h3><a name="INIT"></a>6.1.18 Initialization options</h3>
+<pre graphic>.---------------------.---------.--------.-----------------------------.
+| OPTION NAMES        | TYPE    | GROUP  | DESCRIPTION                 |
+|---------------------|---------|--------|-----------------------------|
+| <a href="#exrc">exrc, ex</a>            | Boolean | global | interpret ./.exrc file      |
+| <a href="#modeline">modeline, ml</a>        | Boolean | global | interpret modelines         |
+| <a href="#modelines">modelines, mls</a>      | Number  | global | positions of modelines      |
+| <a href="#safer">safer, trapunsafe</a>   | Boolean | global | be paranoid                 |
+| <a href="#initialstate">initialstate, is</a>    | One-Of  | global | command mode of new windows |
+^---------------------^---------^--------^-----------------------------^
+</pre>
+
+<a name="exrc"></a>The <em>exrc</em> option has no built-in meaning to elvis,
+however the default <a href="elvisses.html#elvis.ini">elvis.ini</a> file uses this option to determine whether
+it should look for a ".exrc" file in the current directory.
+
+<p><a name="modelines"></a><a name="modelines"></a>
+The <em>modeline</em> option controls whether
+elvis will look for modelines in each buffer after it has been loaded from
+a file.
+If modelines is true, then elvis will search through the first and last 
+<em>modelines</em> lines of the buffer for something that looks like
+"<tt>ex:</tt><var>commands</var><tt>:</tt>" or
+"<tt>vi:</tt><var>commands</var><tt>:</tt>" and
+if found, it executes the <var>commands</var> as an ex command line.
+This is typically used for changing tabstops and the like.
+The modeline option is false by default, and modelines is 5.
+
+<p><a name="safer"></a>The <em>safer</em> option closes some security holes.
+It is intended to make modelines and a .exrc file in the current directory
+safe to use, but I'm not making any promises.
+When the "safer" option is true, certain commands are disabled, wildcard
+expansion in filenames is disabled, and certain options are locked (including
+the safer option itself).
+Typically you will use the ex command <a href="elvisex.html#safer">:safer</a>
+to execute an untrusted file, and <a href="elvisex.html#source">:source</a>
+to execute a trusted one, rather than futz with the value of the safer option
+directly.
+
+<p><a name="initialstate"></a>The <em>initialstate</em> option determines
+what command mode new windows will start in.
+It can be one of <b>input, replace, vi,</b> or <b>ex.</b>
+The default is <b>vi,</b> the visual command mode.
+
+<h3><a name="MAP"></a>6.1.19 Keyboard map options</h3>
+<pre graphic>.---------------------.---------.--------.-----------------------------.
+| OPTION NAMES        | TYPE    | GROUP  | DESCRIPTION                 |
+|---------------------|---------|--------|-----------------------------|
+| <a href="#remap">remap</a>               | Boolean | global | allow key maps to use maps  |
+| <a href="#keytime">keytime, kt</a>         | Number  | global | timeout for function keys   |
+| <a href="#usertime">usertime, ut</a>        | Number  | global | timeout for multi-key maps  |
+^---------------------^---------^--------^-----------------------------^
+</pre>
+
+Elvis allows keystrokes to be mapped via the <a href="elvisex.html#map">:map</a>
+command.
+Once a map has been defined, these options control how and when those maps are
+recognized.
+
+<p><a name="remap"></a>The <em>remap</em> option controls how many times elvis
+will attempt to reapply key maps.
+If the remap option is true (the default), then elvis will repeatedly attempt
+to reapply maps as long as there are any that match.
+This means that maps can be written to use other maps, allowing some very
+complex behavior.
+If remap is false, then it will attempt to apply maps only once, so the
+result of any map is not altered any further.
+By default, remap is true.
+
+<p><a name="keytime"></a><a name="usertime"></a>
+The <em>keytime</em> and <em>usertime</em> options come into play when
+characters are received which <em>partially</em> match one or more maps.
+For example, suppose the arrow keys are mapped to <kbd>h, j, k,</kbd> and <kbd> l</kbd>,
+those arrow keys send escape sequences when pressed,
+and elvis has just received an escape character.
+How can it tell whether the user hit the <kbd>Esc</kbd> key or an arrow key?
+
+<p>In this situation, elvis must perform a read-keystrokes-with-timeout
+operation to determine which map applies, if any.
+If all of the partially matching maps are for special keys such as function
+keys, then elvis will use the keytime value.
+If at least one of them is for a user map, then elvis will use the usertime
+value.
+Either way, the values indicate the time, in tenths of a second, that
+elvis should allow for the rest of the map characters to arrive.
+If they don't arrive, then none of the partially matching maps is used.
+
+<p>Typically, the usertime value will be much longer than the keytime value,
+because the user must hit a series of keys for a user map.
+For example, many people like to create maps consisting of a semicolon
+and one or two following letters.
+(If you're a touch typist, then your right-hand pinky normally rests on
+the semicolon key, so this is convenient.)
+By distinguishing between key maps and user maps, elvis can give quick
+response to the <kbd>Esc</kbd> while still allowing users to key in their
+own keymaps at a leisurely pace.
+Their default values are <tt>keytime=3</tt> and <tt>usertime=15.</tt>
+
+<h3><a name="LPR"></a>6.1.20 Printing options</h3>
+<pre graphic>.---------------------.---------.--------.-----------------------------.
+| OPTION NAMES        | TYPE    | GROUP  | DESCRIPTION                 |
+|---------------------|---------|--------|-----------------------------|
+| <a href="#lptype">lptype, lpt</a>         | String  | lp     | printer type                |
+| <a href="#lpconvert">lpconvert, lpcvt</a>    | Boolean | lp     | convert Latin-1 to PC-8     |
+| <a href="#lpcrlf">lpcrlf, lpc</a>         | Boolean | lp     | printer needs CR-LF newline |
+| <a href="#lpout">lpout, lpo</a>          | String  | lp     | printer file or filter      |
+| <a href="#lpcolumns">lpcolumns, lpcols</a>   | Number  | lp     | width of printer page       |
+| <a href="#lpwrap">lpwrap, lpw</a>         | Boolean | lp     | simulate line-wrap          |
+| <a href="#lplines">lplines, lprows</a>     | Number  | lp     | length of printer page      |
+| <a href="#lpformfeed">lpformfeed, lpff</a>    | Boolean | lp     | send form-feed after last pg|
+| <a href="#lppaper">lppaper, lpp</a>        | String  | lp     | paper size (letter, a4, ...)|
+^---------------------^---------^--------^-----------------------------^
+</pre>
+
+These options all affect hardcopy output, done via the
+<a href="elvisex.html#lprt">:lpr</a> command.
+Note that these options are in a separate group, so you can display all of
+them by giving the command "<tt>se lp?</tt>". 
+<p><a name="lptype"></a>The <em>lptype</em> option lets elvis know what type of
+printer you're using, so it can use the correct escape codes (or whatever)
+to switch fonts.
+The default is "dumb" because it is the most conservative value, but it is
+also the least expressive.
+You should set lptype to one of the following values:
+<pre graphic>
+	.-------.----------------------------------------------.
+	| VALUE | PRINTER DESCRIPTION                          |
+	|-------|----------------------------------------------|
+	| ps    | PostScript, one logical page per sheet       |
+	| ps2   | PostScript, two logical pages per sheet      |
+	| epson | Most dot-matrix printers, no graphic chars   |
+	| pana  | Panasonic dot-matrix printers                |
+	| ibm   | Dot-matrix printers with IBM graphic chars   |
+	| hp    | HP printers, and most non-PostScript lasers  |
+	| cr    | Line printers, overtypes via carriage-return |
+	| bs    | Overtypes via backspace, like nroff          |
+	| dumb  | Plain ASCII, no font control                 |
+	^-------^----------------------------------------------^
+</pre>
+
+<a name="lpconvert"></a>
+The <em>lpconvert</em> option, when set, causes some printer types to convert
+non-ASCII Latin-1 characters to PC-8 characters.
+Most computers use Latin-1 internally for storing text, but many
+printers use PC-8; hence the need for conversion.
+This option has no effect on ASCII characters because
+they never need conversion.
+This option is ignored if your computer doesn't appear to be using Latin-1
+(or, more precisely, if there is no digraph which maps AE to 0xc6, the
+Latin-1 code for the &AElig; ligature.)
+This option is false by default.
+
+<blockquote>NOTE: Not all printer types obey the <b>lpconvert</b> option.
+Postscript printers don't do conversion because they use Latin-1 themselves.
+The "cr", "bs", and "dumb" printer types ignore it simply because they
+are typically used for writing to files, not actual printers, and as long
+as the text remains in the computer no conversion is necessary.
+Only the "epson", "pana", "ibm", and "hp" printers will obey the
+<b>lpconvert</b> option.
+</blockquote>
+
+<p><a name="lpcrlf"></a>
+The <em>lpcrlf</em> option forces elvis to convert
+each newline character to a CR/LF pair.  Some printers, on some systems,
+require this.
+Most don't, so this option is false by default.
+If you attempt to print something and only the
+first line is visible, or the text is badly jumbled, then try
+"<tt>:set lpcrlf</tt>" and maybe that'll fix it.
+
+<p><a name="lpout"></a>
+The <em>lpout</em> option should be either the name
+of a file or device (such as "prn" or "/dev/lp0") to which the printer output
+should be sent, or ! character followed by a shell command (such as "!lp -s")
+which reads printer text from stdin and submits it to the printer spooler.
+The default is system dependent.
+
+<p><a name="lpcolumns"></a>
+The <em>lpcolumns</em> option tells elvis how wide the printer page is.
+The default is 80 columns.
+If you have a wide-carriage printer, you may wish to set lpcolumns=132.
+If you have a postscript printer and set lpcolumns to a value greater than 80,
+elvis will compress the characters to make the longer lines fit.
+
+<p><a name="lpwrap"></a>The <em>lpwrap</em> option tells elvis how to
+handle lines that are wider than lpcolumns.
+If this options is true (the default) then long lines will wrap onto
+multiple printed lines.
+If lpwrap is false, then it will clip long lines.
+
+<p><a name="lplines"></a>
+The <em>lplines</em> option tells elvis how long the usable portion of each
+page is; i.e., how many lines it should print on each page.
+The default is 60.
+Some display modes ("html" and "man") print headers at the top of each page;
+those lines are included in the lplines count.
+Setting lplines=0 causes elvis to assume that pages are infinitely long,
+which sounds about right for fan-fold printer paper.
+If you have a PostScript printer and set lplines to a value greater than 60,
+then the page will be compressed vertically to make it fit.
+
+<p><a name="lpformfeed"></a>
+The <em>lpformfeed</em> option controls whether elvis will send a form-feed
+control character after the last page of any print job.
+This should generally be false if you're printing through a print spooler
+program, because print spoolers usually add the final formfeed themselves.
+Under MS-DOS, elvis is normally configured to send the text directly to the
+printer device, <strong>prn,</strong> and you may wish to set the lpformfeed
+option there.
+
+<p><a name="lppaper"></a>
+The <em>lppaper</em> option is only significant for PostScript printers.
+The value of lppaper is inserted into the PostScript output before
+the contents of the <a href="elvisses.html#elvis.ps">elvis.ps</a> file.
+<tt>elvis.ps</tt> contains code which scales the output to fit on the paper.
+The default version supports <strong>letter, legal, executive, a4</strong>
+and <strong>a3</strong> paper sizes.
+Adding new paper sizes to that file is fairly easy.
+You should be careful when setting lppaper because elvis won't prevent you
+from setting it to an unsupported value.
+The default value is <strong>letter.</strong>
+
+<h3><a name="PREVIOUS"></a>6.1.21 Previous arguments</h3>
+<pre graphic>.---------------------.---------.--------.-----------------------------.
+| OPTION NAMES        | TYPE    | GROUP  | DESCRIPTION                 |
+|---------------------|---------|--------|-----------------------------|
+| <a href="#previousfile">previousfile</a>        | String  | global | name of alternate file      |
+| <a href="#previousfileline">previousfileline</a>    | Number  | global | line# from previousfile     |
+| <a href="#previouscommand">previouscommand</a>     | String  | global | previous shell command line |
+| <a href="#previoustag">previoustag, ptag</a>   | String  | global | previous search tag         |
+^---------------------^---------^--------^-----------------------------^
+</pre>
+
+These options all store the previous value of some type of input, so that
+the same value can be used again later.
+You can set these options, but there really isn't much point to it, usually.
+
+<p><a name="previousfile"></a><a name="previousfileline"></a>
+The <em>previousfile</em> option stores the name of an alternate file.
+Usually this is the name of the last file you mentioned, other than that of
+the current file.
+When you switch from one file to another, the name of the previous file
+is stored here, along with the line number (in <em>previousfileline</em>),
+so you can easily bounce between this file and the previous one.
+Whenever you type in a filename as an argument to an ex command,
+any instances of the # character are replaced by the value of previousfile.
+ 
+<p><a name="previouscommand"></a>The <em>previouscommand</em> option stores
+the last shell command you typed in.
+When you enter the next shell command line, any instances of the ! character
+will be replaced by the value of previouscommand.
+
+<p><a name="previoustag"></a>The <em>previoustag</em> option stores the
+name of the last tag you looked up.  This value is also stored on the tagstack
+in the hope that it may help you remember where you were when you performed
+all of your recent tag lookups.
+
+<h3><a name="UNSUP"></a>6.1.22 Unsupported options</h3>
+<pre graphic>.---------------------.---------.--------.-----------------------------.
+| OPTION NAMES        | TYPE    | GROUP  | DESCRIPTION                 |
+|---------------------|---------|--------|-----------------------------|
+| <a href="#window">window, wi</a>          | Number  | global | lines to show (ignored)     |
+| <a href="#novice">novice</a>              | Boolean | global | beginner mode               |
+| <a href="#mesg">mesg</a>                | Boolean | global | disable SysAdmin messages   |
+^---------------------^---------^--------^-----------------------------^
+</pre>
+
+<a name="window"></a><a name="novice"></a><a name="mesg"></a>
+The <em>window, novice</em> and <em>mesg</em> options exist in
+elvis, but they don't do anything.
+Perhaps some day...
+
+<h3><a name="USER"></a>6.1.23 User variables</h3>
+<pre graphic>.---------------------.---------.--------.-----------------------------.
+| OPTION NAMES        | TYPE    | GROUP  | DESCRIPTION                 |
+|---------------------|---------|--------|-----------------------------|
+| <a href="#a">a</a>                   | String  | user   | user variable               |
+| <a href="#b">b</a>                   | String  | user   | user variable               |
+| <a href="#c">c</a>                   | String  | user   | user variable               |
+| <a href="#d">d</a>                   | String  | user   | user variable               |
+| <a href="#e">e</a>                   | String  | user   | user variable               |
+| <a href="#f">f</a>                   | String  | user   | user variable               |
+| <a href="#g">g</a>                   | String  | user   | user variable               |
+| <a href="#h">h</a>                   | String  | user   | user variable               |
+| <a href="#i">i</a>                   | String  | user   | user variable               |
+| <a href="#j">j</a>                   | String  | user   | user variable               |
+| <a href="#k">k</a>                   | String  | user   | user variable               |
+| <a href="#l">l</a>                   | String  | user   | user variable               |
+| <a href="#m">m</a>                   | String  | user   | user variable               |
+| <a href="#n">n</a>                   | String  | user   | user variable               |
+| <a href="#o">o</a>                   | String  | user   | user variable               |
+| <a href="#p">p</a>                   | String  | user   | user variable               |
+| <a href="#q">q</a>                   | String  | user   | user variable               |
+| <a href="#r">r</a>                   | String  | user   | user variable               |
+| <a href="#s">s</a>                   | String  | user   | user variable               |
+| <a href="#t">t</a>                   | String  | user   | user variable               |
+| <a href="#u">u</a>                   | String  | user   | user variable               |
+| <a href="#v">v</a>                   | String  | user   | user variable               |
+| <a href="#w">w</a>                   | String  | user   | user variable               |
+| <a href="#x">x</a>                   | String  | user   | user variable               |
+| <a href="#y">y</a>                   | String  | user   | user variable               |
+| <a href="#z">z</a>                   | String  | user   | user variable               |
+^---------------------^---------^--------^-----------------------------^
+</pre>
+
+<a name="a"></a>
+<a name="b"></a>
+<a name="c"></a>
+<a name="d"></a>
+<a name="e"></a>
+<a name="f"></a>
+<a name="g"></a>
+<a name="h"></a>
+<a name="i"></a>
+<a name="j"></a>
+<a name="k"></a>
+<a name="l"></a>
+<a name="m"></a>
+<a name="n"></a>
+<a name="o"></a>
+<a name="p"></a>
+<a name="q"></a>
+<a name="r"></a>
+<a name="s"></a>
+<a name="t"></a>
+<a name="u"></a>
+<a name="v"></a>
+<a name="w"></a>
+<a name="x"></a>
+<a name="y"></a>
+<a name="z"></a>These one-letter options have no preset purpose.
+They are useful for holding temporary values which you expect to use
+in an expression later.
+These are all string values, but because the expression evaluator doesn't
+distinguish between a number and a string which happens to look like number,
+you can also use these as numbers.
+For example, the command...
+<xmp>:let i=i+1</xmp>
+...does exactly what you would expect.
+
+<h2><a name="INDEX"></a>6.2 Alphabetical list of options</h2>
+<pre graphic>
+.---------------------.---------.--------.-----------------------------.
+| OPTION NAMES        | TYPE    | GROUP  | DESCRIPTION                 |
+|---------------------|---------|--------|-----------------------------|
+| <a href="#a">a</a>                   | String  | user   | user variable               |
+| <a href="#altkey">altkey, metakey</a>     | One of  | x11    | effect of the Alt key       |
+| <a href="#anyerror">anyerror, ae</a>        | Boolean | global | allow :errlist if readonly  |
+| <a href="#autoiconify">autoiconify, aic</a>    | Boolean | x11    | iconify old window          |
+| <a href="#autoindent">autoindent, ai</a>      | Boolean | buf    | auto-indent new text        |
+| <a href="#autoprint">autoprint, ap</a>       | Boolean | global | print current line in ex    |
+| <a href="#autoselect">autoselect, as</a>      | Boolean | global | visibly mark searched text  |
+| <a href="#autotab">autotab, at</a>         | Boolean | buf    | allow autoindent to use '\t'|
+| <a href="#autowrite">autowrite, aw</a>       | Boolean | global | save file before switching  |
+| <a href="#b">b</a>                   | String  | user   | user variable               |
+| <a href="#backup">backup, bk</a>          | Boolean | global | make *.bak file before write|
+| <a href="#beautify">beautify, bf</a>        | Boolean | global | strip ctrl chars from files |
+| <a href="#binary">binary, bin</a>         | Boolean | buf    | buffer's data is not text   |
+| <a href="#bitsperchar">bitsperchar, bits</a>   | Number  | global | character size (always 8)   |
+| <a href="#blkcache">blkcache, cache</a>     | Number  | global | number of blocks in cache   |
+| <a href="#blkfill">blkfill, bfill</a>      | Number  | global | initial chars per text block|
+| <a href="#blkgrow">blkgrow, bgr</a>        | Number  | global | allocation table parameter  |
+| <a href="#blkhash">blkhash, hash</a>       | Number  | global | size of cache hash table    |
+| <a href="#blksize">blksize, bsz</a>        | Number  | global | size of cache block         |
+| <a href="#boldfont">boldfont, xfb</a>       | String  | x11    | name of bold font           |
+| <a href="#bufchars">bufchars, bc</a>        | Number  | buf    | number of characters        |
+| <a href="#bufdisplay">bufdisplay, bd</a>      | String  | buf    | default display mode        |
+| <a href="#buflines">buflines, bl</a>        | Number  | buf    | number of lines             |
+| <a href="#bufname">bufname, buffer</a>     | String  | buf    | name of buffer              |
+| <a href="#c">c</a>                   | String  | user   | user variable               |
+| <a href="#ccprg">ccprg, cp</a>           | String  | buf    | shell command for :cc       |
+| <a href="codepage">codepage, cpg</a>       | Number  | win32  | console character set       |
+| <a href="#columns">columns, cols</a>       | Number  | win    | width of window             |
+| <a href="#commentfont">commentfont, cfont</a>  | One-Of  | syntax | font used for comments      |
+| <a href="#d">d</a>                   | String  | user   | user variable               |
+| <a href="#dblclicktime">dblclicktime, xdct</a>  | Number  | x11    | double-click milliseconds   |
+| <a href="#defaultreadonly">defaultreadonly, dro</a>| Boolean | global | assume all files readonly   |
+| <a href="#digraph">digraph, dig</a>        | Boolean | global | allow X-backspace-Y entry   |
+| <a href="#directory">directory, dir</a>      | String  | global | where to store temp files   |
+| <a href="#display">display, mode</a>       | String  | win    | name of current display mode|
+| <a href="#e">e</a>                   | String  | user   | user variable               |
+| <a href="#edcompatible">edcompatible, ed</a>    | Boolean | global | remember regsub flags       |
+| <a href="#edited">edited, samename</a>    | Boolean | buf    | buffer loaded from filename |
+| <a href="#elvispath">elvispath, epath</a>    | String  | global | list of possible config dirs|
+| <a href="#equalprg">equalprg, ep</a>        | String  | buf    | shell command for = operator|
+| <a href="#errlines">errlines</a>            | Number  | buf    | buflines when :make was run |
+| <a href="#errorbells">errorbells, eb</a>      | Boolean | global | ring bell for error message |
+| <a href="#exitcode">exitcode, exit</a>      | Number  | global | exit code of elvis process  |
+| <a href="#exrc">exrc, ex</a>            | Boolean | global | interpret ./.exrc file      |
+| <a href="#exrefresh">exrefresh, er</a>       | Boolean | global | redraw scrn after each line |
+| <a href="#f">f</a>                   | String  | user   | user variable               |
+| <a href="#filename">filename, file</a>      | String  | buf    | name of file in buffer      |
+| <a href="#firstx">firstx, xpos</a>        | Number  | x11    | horiz. position of first win|
+| <a href="#firsty">firsty, ypos</a>        | Number  | x11    | vert. position of first win |
+| <a href="#flash">flash, vbell</a>        | Boolean | global | substitute flash for bell   |
+| <a href="#focusnew">focusnew, fn</a>        | Boolean | x11    | force focus into new window |
+| <a href="#functionfont">functionfont, ffont</a> | One-Of  | syntax | font used for function names|
+| <a href="#g">g</a>                   | String  | user   | user variable               |
+| <a href="#gdefault">gdefault, gd</a>        | Boolean | global | default change all instances|
+| <a href="#gui">gui</a>                 | String  | global | name of user interface      |
+| <a href="#h">h</a>                   | String  | user   | user variable               |
+| <a href="#home">home, home</a>          | String  | global | home directory              |
+| <a href="#i">i</a>                   | String  | user   | user variable               |
+| <a href="#icon">icon</a>                | Boolean | x11    | use the built-in icon?      |
+| <a href="#ignorecase">ignorecase, ic</a>      | Boolean | global | regexp uppercase=lowercase  |
+| <a href="#initialstate">initialstate, is</a>    | One-Of  | global | command mode of new windows |
+| <a href="#inputtab">inputtab, itab</a>      | One-Of  | buf    | input mode's (Tab) key      |
+| <a href="#internal">internal</a>            | Boolean | buf    | elvis requires this buffer  |
+| <a href="#italicfont">italicfont, xfi</a>     | String  | x11    | name of italic font         |
+| <a href="#j">j</a>                   | String  | user   | user variable               |
+| <a href="#k">k</a>                   | String  | user   | user variable               |
+| <a href="#keytime">keytime, kt</a>         | Number  | global | timeout for function keys   |
+| <a href="#keywordfont">keywordfont, kfont</a>  | One-Of  | syntax | font used for reserved words|
+| <a href="#keywordprg">keywordprg, kp</a>      | String  | buf    | shell command for K command |
+| <a href="#l">l</a>                   | String  | user   | user variable               |
+| <a href="#lines">lines, rows</a>         | Number  | win    | height of window            |
+| <a href="#list">list, li</a>            | Boolean | win    | show markups, newlines, etc.|
+| <a href="#lpcolumns">lpcolumns, lpcols</a>   | Number  | lp     | width of printer page       |
+| <a href="#lpcrlf">lpcrlf, lpc</a>         | Boolean | lp     | printer needs CR-LF newline |
+| <a href="#lpformfeed">lpformfeed, lpff</a>    | Boolean | lp     | send form-feed after last pg|
+| <a href="#lplines">lplines, lprows</a>     | Number  | lp     | length of printer page      |
+| <a href="#lppaper">lppaper, lpp</a>        | String  | lp     | paper size (letter, a4, ...)|
+| <a href="#lpout">lpout, lpo</a>          | String  | lp     | printer file or filter      |
+| <a href="#lptype">lptype, lpt</a>         | String  | lp     | printer type                |
+| <a href="#lpwrap">lpwrap, lpw</a>         | Boolean | lp     | simulate line-wrap          |
+| <a href="#m">m</a>                   | String  | user   | user variable               |
+| <a href="#magic">magic, ma</a>           | Boolean | global | use normal regexp syntax    |
+| <a href="#makeprg">makeprg, mp</a>         | String  | buf    | shell command for :make     |
+| <a href="#maplog">maplog, mlog</a>        | One of  | global | logging: off, reset, append |
+| <a href="#maptrace">maptrace, mt</a>        | One of  | global | debugger: off, run, or step |
+| <a href="#mesg">mesg</a>                | Boolean | global | disable SysAdmin messages   |
+| <a href="#modeline">modeline, ml</a>        | Boolean | global | interpret modelines         |
+| <a href="#modelines">modelines, mls</a>      | Number  | global | positions of modelines      |
+| <a href="#modified">modified, mod</a>       | Boolean | buf    | buffer differs from file    |
+| <a href="#n">n</a>                   | String  | user   | user variable               |
+| <a href="#nearscroll">nearscroll, ns</a>      | Number  | global | scroll vs. jump&center param|
+| <a href="#newfile">newfile, new</a>        | Boolean | buf    | filename doesn't exist yet  |
+| <a href="#newsession">newsession, newses</a>  | Boolean | global | session file is new         |
+| <a href="#nonascii">nonascii, asc</a>       | One-Of  | global | how to display non-ascii    |
+| <a href="#normalfont">normalfont, xfn</a>     | String  | x11    | name of normal font         |
+| <a href="#novice">novice</a>              | Boolean | global | beginner mode               |
+| <a href="#number">number, nu</a>          | Boolean | win    | display line numbers        |
+| <a href="#o">o</a>                   | String  | user   | user variable               |
+| <a href="#optimize">optimize, opt</a>       | Boolean | global | run faster                  |
+| <a href="#os">os</a>                  | String  | global | name of operating system    |
+| <a href="#otherfont">otherfont, ofont</a>    | One-Of  | syntax | font used for other symbols |
+| <a href="#p">p</a>                   | String  | user   | user variable               |
+| <a href="#paragraphs">paragraphs, para</a>    | String  | buf    | nroff paragraph commands    |
+| <a href="#pollfrequency">pollfrequency, pf</a>   | Number  | global | rate of testing for ^C      |
+| <a href="#prepfont">prepfont, pfont</a>     | One-Of  | syntax | font used for preprocessor  |
+| <a href="#previouscommand">previouscommand</a>     | String  | global | previous shell command line |
+| <a href="#previousfile">previousfile</a>        | String  | global | name of alternate file      |
+| <a href="#previousfileline">previousfileline</a>    | Number  | global | line# from previousfile     |
+| <a href="#previoustag">previoustag, ptag</a>   | String  | global | previous search tag         |
+| <a href="#prompt">prompt</a>              | Boolean | global | issue ":" prompt in ex mode |
+| <a href="#q">q</a>                   | String  | user   | user variable               |
+| <a href="#r">r</a>                   | String  | user   | user variable               |
+| <a href="#readonly">readonly, ro</a>        | Boolean | buf    | don't overwrite filename    |
+| <a href="#recovering">recovering, rflag</a>   | Boolean | global | recovering after a crash    |
+| <a href="#remap">remap</a>               | Boolean | global | allow key maps to use maps  |
+| <a href="#report">report</a>              | Number  | global | minimum # lines to report   |
+| <a href="#retain">retain, ret</a>         | Boolean | buf    | keep buffer in session file |
+| <a href="#ruler">ruler, ru</a>           | Boolean | win    | display cursor's line/column|
+| <a href="#s">s</a>                   | String  | user   | user variable               |
+| <a href="#safer">safer, trapunsafe</a>   | Boolean | global | be paranoid                 |
+| <a href="#scroll">scroll, scr</a>         | Number  | win    | scroll amount for ^D/^U     |
+| <a href="#scrollbartime">scrollbartime, xst</a>  | Number  | x11    | delay for scrollbar repeat  |
+| <a href="#scrollbarwidth">scrollbarwidth, xsw</a> | Number  | x11    | size of scrollbar, in pixels|
+| <a href="#sections">sections, sect</a>      | String  | buf    | nroff section commands      |
+| <a href="#sentenceend">sentenceend, se</a>     | String  | global | punct at end of sentence    |
+| <a href="#sentencegap">sentencegap, sg</a>     | Number  | global | spaces required after sq    |
+| <a href="#sentencequote">sentencequote, sq</a>   | String  | global | punct allowed after se      |
+| <a href="#session">session, ses</a>        | String  | global | name of session file        |
+| <a href="#directory">sessionpath, spath</a>  | String  | global | list of possible session dir|
+| <a href="#shell">shell, sh</a>           | String  | global | name of shell program       |
+| <a href="#shiftwidth">shiftwidth, sw</a>      | Number  | buf    | width used by &lt; and &gt;       |
+| <a href="#showcmd">showcmd, sc</a>         | Boolean | win    | display command characters  |
+| <a href="#showmatch">showmatch, sm</a>       | Boolean | win    | highlight matching parens   |
+| <a href="#showmarkups">showmarkups, smu</a>    | Boolean | global | show markup at cursor       |
+| <a href="#showmode">showmode, smd</a>       | Boolean | win    | display the command state   |
+| <a href="#showstack">showstack, sstk</a>     | Boolean | win    | display some debugging info |
+| <a href="#sidescroll">sidescroll, ss</a>      | Number  | win    | sideways scrolling amount   |
+| <a href="#stagger">stagger</a>             | Number  | x11    | offset for next new window  |
+| <a href="#stringfont">stringfont, sfont</a>   | One-Of  | syntax | font used for strings       |
+| <a href="#sync">sync</a>                | Boolean | global | force changes to disk       |
+| <a href="#t">t</a>                   | String  | user   | user variable               |
+| <a href="#tabstop">tabstop, ts</a>         | Number  | buf    | width of tabstop columns    |
+| <a href="#taglength">taglength, tl</a>       | Number  | global | significant length of tags  |
+| <a href="#tags">tags, tagpath</a>       | String  | global | list of possible tag files  |
+| <a href="#tagstack">tagstack, tsk</a>       | Boolean | global | remember origin of tag srch |
+| <a href="#tempsession">tempsession, temp</a>   | Boolean | global | delete session file on exit |
+| <a href="#term">term, termtype</a>      | String  | tcap   | terminal's termcap entry    |
+| <a href="#terse">terse, te</a>           | Boolean | global | don't translate messages    |
+| <a href="#textwidth">textwidth, tw</a>       | Number  | buf    | width for word-wrap, or 0   |
+| <a href="#ttycolumns">ttycolumns, ttycols</a> | Number  | tcap   | width of screen             |
+| <a href="#ttyrows">ttyrows, ttylines</a>   | Number  | tcap   | height of screen            |
+| <a href="#ttyunderline">ttyunderline, ttyu</a>  | Boolean | tcap   | okay to mix color & underln |
+| <a href="#u">u</a>                   | String  | user   | user variable               |
+| <a href="#undolevels">undolevels, ul</a>      | Number  | buf    | number of undoable commands |
+| <a href="#usertime">usertime, ut</a>        | Number  | global | timeout for multi-key maps  |
+| <a href="#v">v</a>                   | String  | user   | user variable               |
+| <a href="#variablefont">variablefont, vfont</a> | One-Of  | syntax | font used for variables     |
+| <a href="#verbose">verbose</a>             | Boolean | global | give more status messages   |
+| <a href="#w">w</a>                   | String  | user   | user variable               |
+| <a href="#warn">warn</a>                | Boolean | global | warn if file not saved      |
+| <a href="#warningbells">warningbells, wb</a>    | Boolean | global | ring bell for warning msg   |
+| <a href="#warpback">warpback, wb</a>        | Boolean | x11    | upon exit, point to xterm   |
+| <a href="#warpto">warpto, wt</a>          | One of  | x11    | ^W^W forces pointer movement|
+| <a href="#window">window, wi</a>          | Number  | global | lines to show (ignored)     |
+| <a href="#windowid">windowid, id</a>        | Number  | win    | ID number of current window |
+| <a href="#wrapmargin">wrapmargin, wm</a>      | (weird) | win    | set textwidth from right    |
+| <a href="#wrapscan">wrapscan, ws</a>        | Boolean | global | searching wraps at EOF&lt;-&gt;BOF|
+| <a href="#writeany">writeany, wa</a>        | Boolean | global | don't warn of existing file |
+| <a href="#x">x</a>                   | String  | user   | user variable               |
+| <a href="#xcolumns">xcolumns, xcols</a>     | Number  | x11    | width of new windows        |
+| <a href="#xrows">xrows, xlines</a>       | Number  | x11    | height of new windows       |
+| <a href="#y">y</a>                   | String  | user   | user variable               |
+| <a href="#z">z</a>                   | String  | user   | user variable               |
+^---------------------^---------^--------^-----------------------------^
+</pre>
+
+</body></html>

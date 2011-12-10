@@ -1,0 +1,267 @@
+# Makefile.in
+# $Id: Makefile.in,v 2.21 1996/10/01 19:53:00 steve Exp $
+#
+# Makefile.in should not be modified!  The "configure" script reads Makefile.in
+# and writes a customized Makefile by editing the values of the following
+# macros.  If the "configure" script doesn't support your version of UNIX,
+# I suggest you do a plain "configure unix" and then hand-edit the resulting
+# Makefile.  That will also create a "config.h" file which may require some
+# tweaking.
+
+################################################################################
+# This is the name of the compiler, along with any flags that should be used
+# both for compiling and for linking.  Typical values are "cc -g" or "cc -O".
+# If you're compiling with X-windows support, you may need to add a
+# "-I/usr/X11/include" flag or something similar.
+#CC=gcc -g -Wall -pedantic -Wtraditional -Wpointer-arith -Wstrict-prototypes -Wmissing-prototypes
+CC=cc -O
+
+################################################################################
+# This macro gives any arguments which will be needed during linking.
+# Mostly, this means "-Llibdir" and "-llib" flags.  If you're compiling with
+# X-windows support, then you'll have to add a "-lX11" and maybe a
+# "-L/usr/X11/lib" flag or something similar.
+LIBS=-ltermcap
+
+################################################################################
+# This should be "unix" for all UNIX variants.  It causes the compiler to use
+# files from the osunix subdirectory, and do a UNIX-style installation.
+OS=unix
+
+################################################################################
+# This is a command for compiling files in a subdirectory, and placing the
+# resultant object files in the current directory.  Most UNIX compilers behave
+# this way naturally, so you probably won't need to modify this.
+OSCC=$(CC) -I. $(CFLAGS) $(FLAGC)
+
+################################################################################
+# This is the separator between a subdirectory name and a file name.  For UNIX
+# this should always be a "/" character.
+SLASH=/
+
+################################################################################
+# This is the file name extension for object files.  For UNIX, this is almost
+# always ".o"
+OBJ=.o
+
+################################################################################
+# This is the file name extension for executable files.  For UNIX, this is
+# always a null string because UNIX doesn't use file name extensions to mark
+# executable files.
+EXE=
+
+################################################################################
+# This is the shell command which is used for deleting a file if it exists.
+# The "-f" causes "rm" to be silent if the file doesn't exist.
+RM=rm -f
+
+################################################################################
+# This is the compiler flag which causes compilation but not linking.  For
+# most UNIX compilers, this is "-c".
+FLAGC=-c
+
+################################################################################
+# This is the compiler flag for adding a directory to the list of directories
+# to be searched for #include files.  For most UNIX compilers, this is "-I".
+FLAGI=-I
+
+################################################################################
+# This is a list of programs to be created by "make all".  The possible list
+# includes elvis$(EXE), ref$(EXE), ctags$(EXE), and fmt$(EXE).  The $(EXE) on
+# the end is just in case this Makefile is reconfigured for an operating
+# system which requires the EXE macro to be something like ".exe".
+ALL=elvis$(EXE) ref$(EXE)
+
+################################################################################
+# This is the directory where "make install" will place the executable programs
+BINDIR=/usr/local/bin
+
+################################################################################
+# This is the directory where "make install" will place elvis' support files,
+# such as the help text and the default initialization scripts.  If you change
+# the value here, then you also need to change it in "config.h"
+LIBDIR=/usr/local/lib/elvis
+
+################################################################################
+# This is the shell command for copying one file to another
+CP=cp
+
+###############################################################################
+###############################################################################
+###############################################################################
+###########                                                         ###########
+###########                         S T O P !                       ###########
+###########                                                         ###########
+###########  You shouldn't need to modify anything below this line  ###########
+###########                                                         ###########
+###############################################################################
+###############################################################################
+###############################################################################
+
+###############################################################################
+# Portable compilation rules
+
+MISC=	BUGS README.html COPYING INSTALL Makefile.in configure instman.sh\
+	elvis.lsm makwin32.bat makmsdos.bat e2
+OSSRCS=	os$(OS)$(SLASH)osblock.c os$(OS)$(SLASH)osdir.c\
+	os$(OS)$(SLASH)osprg.c os$(OS)$(SLASH)ostext.c\
+	os$(OS)$(SLASH)tcaphelp.c
+OSOBJS=	osblock$(OBJ) osdir$(OBJ) osprg$(OBJ) ostext$(OBJ)
+OSOBJS2=tcaphelp$(OBJ)
+OSHDRS=	os$(OS)$(SLASH)osdef.h
+GUISRCS=guix11.c guicurs.c guitcap.c guiopen.c
+GUIOBJS=guix11$(OBJ) guicurs$(OBJ) guitcap$(OBJ) guiopen$(OBJ)
+LPSRCS=	lpescape.c lpovrtyp.c lpps.c
+LPOBJS=	lpescape$(OBJ) lpovrtyp$(OBJ) lpps$(OBJ)
+HDRS=	$(OSHDRS) buffer.h buffer2.h calc.h cut.h digraph.h display.h\
+	display2.h draw.h draw2.h elvis.h elvisio.h event.h ex.h gui.h gui2.h\
+	input.h lowbuf.h lp.h map.h mark.h message.h misc.h more.h move.h\
+	need.h operator.h opsys.h optglob.h options.h regexp.h safe.h scan.h\
+	session.h state.h state2.h version.h vi.h vicmd.h window.h config.h
+SRCS=	$(OSSRCS) $(GUISRCS) $(LPSRCS) buffer.c calc.c cut.c digraph.c\
+	display.c dmhex.c dmmarkup.c dmnormal.c dmsyntax.c draw.c\
+	event.c ex.c exaction.c exconfig.c exedit.c exmake.c gui.c input.c\
+	io.c lowbuf.c lp.c map.c mark.c message.c misc.c more.c move.c\
+	need.c operator.c optglob.c options.c regexp.c regsub.c safe.c scan.c\
+	search.c session.c state.c vi.c vicmd.c window.c
+OBJ1=	$(OSOBJS) optglob$(OBJ) options$(OBJ) safe$(OBJ) session$(OBJ)
+OBJ2=	buffer$(OBJ) calc$(OBJ) digraph$(OBJ) display$(OBJ) gui$(OBJ)\
+	lowbuf$(OBJ) mark$(OBJ) misc$(OBJ) io$(OBJ) dmhex$(OBJ)\
+	dmmarkup$(OBJ) dmnormal$(OBJ) dmsyntax$(OBJ) scan$(OBJ)
+OBJ3=	$(OSOBJS2) cut$(OBJ) draw$(OBJ) event$(OBJ) ex$(OBJ) exaction$(OBJ)\
+	exconfig$(OBJ) exedit$(OBJ) exmake$(OBJ) input$(OBJ) lp$(OBJ)\
+	map$(OBJ) message$(OBJ) move$(OBJ) more$(OBJ) need$(OBJ) operator$(OBJ)\
+	regexp$(OBJ) regsub$(OBJ) search$(OBJ) state$(OBJ) tinytcap$(OBJ)\
+	vi$(OBJ) vicmd$(OBJ) window$(OBJ)
+OBJS=	$(OBJ1) $(OBJ2) $(OBJ3)
+CFLAGS=	$(FLAGI)os$(OS)
+EVERY=	$(ALL) verify$(EXE) elvdump$(EXE) calc$(EXE)
+SHELL=	/bin/sh
+DISTRIB=elvis-2.0
+
+all: $(ALL)
+
+every: $(EVERY)
+
+elvis$(EXE): $(HDRS) main$(OBJ) $(OBJS) $(GUIOBJS) $(LPOBJS)
+	$(CC) $(CFLAGS) main$(OBJ) $(OBJS) $(GUIOBJS) $(LPOBJS) $(LIBS) -o elvis$(EXE)
+
+ctags$(EXE): ctags.c os$(OS)$(SLASH)osdir.c
+	$(CC) $(CFLAGS) -DSORT$(OS) ctags.c -o ctags$(EXE)
+
+ref$(EXE): ref.c os$(OS)$(SLASH)osdir.c
+	$(CC) $(CFLAGS) ref.c -o ref$(EXE)
+
+fmt$(EXE): fmt.c os$(OS)$(SLASH)osdir.c
+	$(CC) $(CFLAGS) fmt.c -o fmt$(EXE)
+
+verify$(EXE): $(HDRS) verify$(OBJ) $(OBJ1) $(OBJ2)
+	$(CC) $(CFLAGS) verify$(OBJ) $(OBJ1) $(OBJ2) -o verify$(EXE)
+
+elvdump$(EXE): $(HDRS) elvdump$(OBJ) $(OBJ1)
+	$(CC) $(CFLAGS) elvdump$(OBJ) $(OBJ1) -o elvdump$(EXE)
+
+calc: $(HDRS) calc.c
+	$(CC) $(CFLAGS) -DTRY calc.c -o calc
+
+###############################################################################
+# Rules for os-dependent files
+
+osblock$(OBJ): os$(OS)$(SLASH)osblock.c
+	$(OSCC) os$(OS)$(SLASH)osblock.c
+
+osdir$(OBJ): os$(OS)$(SLASH)osdir.c
+	$(OSCC) os$(OS)$(SLASH)osdir.c
+
+osprg$(OBJ): os$(OS)$(SLASH)osprg.c
+	$(OSCC) os$(OS)$(SLASH)osprg.c
+
+ostext$(OBJ): os$(OS)$(SLASH)ostext.c
+	$(OSCC) os$(OS)$(SLASH)ostext.c
+
+tcaphelp$(OBJ): os$(OS)$(SLASH)tcaphelp.c
+	$(OSCC) os$(OS)$(SLASH)tcaphelp.c
+
+###############################################################################
+# Handy commands
+
+clean: clean.$(OS)
+
+clean.unix:
+	$(RM) *$(OBJ)
+	$(RM) core
+	$(RM) errlist
+	$(RM) verify.elv
+	$(RM) $(DISTRIB).tgz
+
+clean.msdos:
+	$(RM) *$(OBJ)
+
+clobber: clean
+	$(RM) $(EVERY)
+	$(RM) tags
+	$(RM) detail
+	$(RM) .elv*
+	$(RM) foo
+	$(RM) stderr
+
+sure: verify
+	$(RM) verify.elv
+	verify >detail || gdb verify core
+
+wc: $(SRCS) $(HDRS)
+	wc $(SRCS) $(HDRS) | sort -n
+
+tags: $(SRCS) $(HDRS)
+	ctags -stv $(SRCS) $(HDRS)
+
+ciall: $(SRCS) $(HDRS)
+	ci -u$(REV) Makefile $(SRCS) $(HDRS)
+
+cinever:
+	for i in *.[ch]; do [ -f RCS/$$i,v ] || echo $$i; done
+	for i in os*/.; do (cd $$i; for j in *.[ch]; do [ -f $$j,v ] || echo $$i/$$j; done); done
+
+$(DISTRIB).tgz:
+	rm -rf $(DISTRIB)
+	mkdir $(DISTRIB)
+	mkdir $(DISTRIB)/lib
+	for i in os*; do if [ -d $$i ]; then mkdir $(DISTRIB)/$$i; fi; done
+	#for i in gui*; do if [ -d $$i ]; then mkdir $(DISTRIB)/$$i; fi; done
+	cp *.c *.h $(MISC) $(DISTRIB)
+	rm -f $(DISTRIB)/sample.c
+	cp lib/* $(DISTRIB)/lib
+	for i in os*/*.c os*/*.h os*/*.mak; do cp $$i $(DISTRIB)/$$i; done
+	#for i in gui*/*; do if [ -f $$i ]; then cp $$i $(DISTRIB)/$$i; fi; done
+	rm -f $(DISTRIB)/osunix/osconfig.h
+	rm -f $(DISTRIB)/config.h
+	rm -f $(DISTRIB)/Makefile
+	tar czf $(DISTRIB).tgz $(DISTRIB)
+	rm -rf $(DISTRIB)
+
+lib$(SLASH)elvistrs.msg: $(SRCS)
+	sed -n '/%[cds]/d; /[a-z]:/d; s/\[[a-zA-Z]*\]//; s/\\\\/\\/g; s/.*msg(MSG_[A-Z]*, "\([^ 	"][^"]*\)".*/\1/p' *.c os*$(SLASH)*.c | sort -u >lib$(SLASH)elvistrs.msg
+
+###############################################################################
+
+install: install.$(OS)
+
+install.unix: $(ALL)
+	rm -f lib/*.bak
+	cp $(ALL) $(BINDIR)
+	(cd $(BINDIR); chmod 0755 $(ALL))
+	test -d $(LIBDIR) || mkdir $(LIBDIR)
+	rm -f $(LIBDIR)/elvis*.hlp
+	cp lib/* $(LIBDIR)
+	(cd lib; for i in *; do chmod 0644 $(LIBDIR)/$$i; done)
+	sh instman.sh -b$(BINDIR) $(ALL)
+
+###############################################################################
+
+uninstall: uninstall.$(OS)
+
+uninstall.unix:
+	(cd $(BINDIR); $(RM) $(ALL))
+	(cd lib; for i in *; do $(RM) $(LIBDIR)/$$i; done)
+	-rmdir $(LIBDIR)
+	sh instman.sh -r -b$(BINDIR) $(ALL)

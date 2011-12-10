@@ -1,0 +1,130 @@
+<html><head>
+<title>Elvis 2.0 Documentation</title>
+</head><body>
+<h1><a name="CONTENTS"></a>TABLE OF CONTENTS</h1>
+<menu>
+   <li><a href="#WHATIS">		1. What is elvis?</a>
+   <li><a href="elvisvi.html">		2. Introduction to VI command mode</a>
+   <li><a href="elvisvi.html#GROUP">	2.2 VI commands, grouped by function</a>
+   <li><a href="elvisvi.html#INDEX">	2.3 VI commands, listed in ASCII order</a>
+   <li><a href="elvisinp.html">		3. Input mode</a>
+   <li><a href="elvisex.html">		4. Introduction to EX command mode</a>
+   <li><a href="elvisex.html#GROUP">	4.2 EX commands, grouped by function</a>
+   <li><a href="elvisex.html#INDEX">	4.3 EX commands, listed alphabetically</a>
+   <li><a href="elvisre.html">		5. Regular expressions</a>
+   <li><a href="elvisopt.html">		6. Introduction to options</a>
+   <li><a href="elvisopt.html#GROUP">	6.1 Options, grouped by function</a>
+   <li><a href="elvisopt.html#INDEX">	6.2 Options, listed alphabetically</a>
+   <li><a href="elvisdm.html">		7. Display modes</a>
+   <li><a href="elvisgui.html">		8. User interfaces</a>
+   <li><a href="elvisos.html">		9. Operating systems</a>
+   <li><a href="elvisses.html">		10. Initialization and sessions</a>
+   <li><a href="elviscut.html">		11. Using cut buffers</a>
+   <li><a href="elvismsg.html">		12. Messages</a>
+   <li><a href="elvisexp.html">		13. Arithmetic expressions</a>
+   <li><a href="elvistip.html">		14. Tips</a>
+   <li><a href="elvistrs.msg">		A. List of terse messages</a>
+   <li><a href="elvisqr.html">           B. Quick Reference</a>
+   <li><a href="elvis.man">		elvis(1) Man-page for elvis</a>
+   <li><a href="ctags.man">		ctags(1) Man-page for ctags</a>
+   <li><a href="ref.man">		ref(1) Man-page for ref</a>
+   <li><a href="fmt.man">		fmt(1) Man-page for fmt</a>
+</menu>
+
+<p><strong>HINT:</strong> If you're reading this via elvis' built-in
+<a href="elvisex.html#help">:help</a>
+command, then you should probably begin by reading about
+<a href="elvisex.html#help">:help</a>
+itself.  To do that, move the cursor onto the word
+"<a href="elvisex.html#help">:help</a>"
+and press the <kbd>Enter</kbd> key.
+
+<pre graphic>
+.--------------------------------------------------------------.
+| Copyright &copy; 1995 by Steve Kirkendall.  Permission is granted |
+| to use and distribute this software in either source code    |
+| form, or executable form.  This software is provided with no |
+| warranty of any kind.  The author is not liable for any      |
+| consequences arising from the use of this software.          |
+^--------------------------------------------------------------^
+</pre>
+
+<p>You can contact the author via e-mail at <em>kirkenda@cs.pdx.edu,</em>
+or via postal mail at:
+<blockquote><em>
+Steve Kirkendall<br>
+1500 SW Park Avenue, #326<br>
+Portland OR 97201<br>
+USA
+</em> </blockquote>
+
+<h1><a name="WHATIS"></a>1. WHAT IS ELVIS?</h1>
+Elvis is a clone of vi/ex, the standard UNIX editor.
+Elvis supports nearly all of the vi/ex commands,
+in both visual mode and ex mode.
+Elvis adds support for multiple files, multiple windows, a variety of
+display modes, on-line help, and other miscellaneous extensions.
+
+<p>Like vi/ex, Elvis stores most of the text in a temporary file,
+instead of RAM.
+This allows it to edit files that are too large to fit
+in a single process' data space.
+Also, the edit buffer can survive a power failure or crash.
+
+<p>Elvis 2.0 runs under the following operating systems:
+<ul>
+<li>UNIX.  If you have X-windows, elvis can use a graphical interface, in addition to the traditional text-based interface.
+<li>MS-Windows/95 and Windows/NT.  Currently it can only run as a console
+application (text-based interface); hopefully this will change soon.
+The mouse is supported here.
+<li>MS-DOS.  It can also run in a DOS window under Windows 3.1.
+<li>OS/2 (not yet, but soon).  Elvis will offer a graphical interface here, too.
+</ul>
+
+<p>Elvis is freely redistributable, in either source form or executable form.
+There are no restrictions on how you may use it.
+
+<h2>1.1 About this manual</h2>
+This document is written in HTML.
+You should be able to view it with any Web browser, such as Mosaic or Netscape.
+These browsers also allow you to print the manual, if you prefer.
+
+<p>You can also use elvis to view it or print it;
+elvis has a built-in HTML display mode.
+To print this document using elvis, you must first set some
+<a href="elvisopt.html#LPR">printer options.</a>
+After that, you can just load any of these files,
+maybe set the display mode to HTML via the command ":display html"
+(if elvis doesn't set the display mode automatically),
+and then give the command ":lp".
+
+<p>Each chapter is stored in a separate file;
+you'll need to print each one separately.
+
+<h2>1.2 Overview of Elvis</h2>
+The user interface of Elvis/vi/ex is weird.
+There are two major command modes in Elvis, and a few text input modes as well.
+Each command mode has a command which allows you to switch to the other mode.
+
+<p> You will probably use the <a href="elvisvi.html">visual command mode</a>
+most of the time.
+This is the mode that Elvis normally starts up in.
+
+<p> In visual command mode, the entire screen is filled with lines of text
+from your file.
+Each keystroke is interpreted as part of a visual command.
+If you start typing text, it will <em>not</em> be inserted,
+it will be treated as part of a command.
+To insert text, you must first give an "insert text" command, such as
+<a href="elvisvi.html#i">i</a>.
+This will take some getting used to.
+(An alternative exists.
+Look up the <a href="elvisopt.html#initialstate">initialstate</a> option.)
+
+<p> The <a href="elvisex.html">ex mode</a> is quite different.
+Elvis displays a ":" character on the bottom line of the screen, as a prompt.
+You are then expected to type in a command line and hit the <b>Enter</b> key.
+The set of commands recognized in the ex mode is different
+from visual mode's.
+
+</body></html>

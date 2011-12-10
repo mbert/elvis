@@ -1,0 +1,330 @@
+<html><head>
+<title>Elvis 2.0 Operating System Notes</title>
+</head><body>
+
+<h1>9. Operating System Notes</h1>
+
+Elvis 2.0 currently runs under <a href="#msdos">MS-DOS</a>,
+<a href="#win32">MS-WindowsNT/MS-Winsdows95</a>,
+and many versions of <a href="#unix">UNIX</a>.
+This describes the quirks of each implementation.
+
+<h2><a name="msdos"></a>9.1 MS-DOS</h2>
+
+Elvis 2.0 was ported to MS-DOS by Steve Kirkendall, using code from
+Guntram Blohm and Martin Patzel's MS-DOS port elvis 1.X.
+
+<dl>
+
+<dt>The "os" option
+<dd>Under MS-DOS, the <a href="elvisopt.html#os">os</a> option's value is
+"msdos".
+
+<dt>The "shell" option
+<dd>The default value of <a href="elvisopt.html#shell">shell</a> is
+"C:\COMMAND.COM".
+This can be overridden by the value of the COMSPEC environment variable.
+
+<dt>The "lpout" option
+<dd>The default value of the <a href="elvisopt.html#lpout">lpout</a> option
+is "prn", which causes the
+<a href="elvisex.html#lpr">:lpr</a> command to write its output directly
+to the printer.
+
+<p>I tried to make it use the spooler program, PRINT, but failed.
+The first problem I ran into was the fact that PRINT can't read data from
+stdin; it must be given the name of a file.
+To work around this problem, I modified the osmsdos/osprg.c file to allow
+$1 in the command line to be replaced by the name of elvis' temporary file
+that contains the print data.
+
+<p>This lead to the the second problem:
+PRINT doesn't make a copy of the file, and elvis deletes the temporary file
+as soon as PRINT exits.
+Since PRINT exits before the file has been printed completely, this means
+that the file is deleted before PRINT is through reading it.
+The print job is truncated.
+I was unable to find a way around this problem, so I gave up and just
+set lpout=prn.
+
+<dt>The "ccprg" option
+<dd>The default value of the <a href="elvisopt.html#ccprg">ccprg</a> option
+is "<tt>cl /c ($1?$1:$2)</tt>", which is appropriate for MSVC++ 1.5.
+This way, you can run <a href="elvisex.html#cc">:cc</a> without arguments
+to compile (but not link) the current source file.
+If you supply arguments, they'll be used instead of the filename.
+
+<dt>The "makeprg" option
+<dd>The default value of the <a href="elvisopt.html#makeprg">makeprg</a> option
+is "<tt>nmake -f ($1?$1:basename($2)".mak")</tt>", which is appropriate for
+MSVC++ 1.5.
+When <a href="elvisex.html#make">:make</a> is run without arguments, the
+NMAKE program will be run on a *.MAK file with the same basename as the
+current source file.
+Or you can explicitly give a different *.MAK file name as an argument.
+
+<dt>The "elvispath" option
+<dd>The default value of the <a href="elvisopt.html#elvispath">elvispath</a>
+option is "<tt>~\lib;~</tt>".
+Note that elements of the path are separated with semicolons.
+The ~ character is replaced by the value of the
+<a href="elvisopt.html#home">home</a> option, which is usually the
+name of the directory where ELVIS.EXE resides.
+
+<dt>The "blksize" option
+<dd>The <a href="elvisopt.html">blksize</a> option controls the size of
+elvis' data blocks.
+Under other operating systems this is usually 2048, but for MS-DOS is it
+reduced to 512 because memory is tight.
+(I'm trying to leave enough room in the lower 640k for the compiler to be
+run from inside elvis.)
+
+<p>If you're going to be editing a large file, you may want to increase the
+block size.
+The simplest way to do that is to invoke elvis with a "-b2048" argument.
+<dt>The "TERM" environment variable
+<dd>The TERM environment variable tells elvis how to access the screen.
+If it is undefined, or set to "pcbios", then elvis will use BIOS calls to
+access the screen.
+This should work on all MS-DOS systems, but it isn't very fast.
+
+<p>If TERM is set to "ansi" then elvis will output escape sequences which
+are supported by the ANSI.SYS driver.
+This isn't recommended;
+ANSI.SYS is just as slow as the BIOS, and it isn't as powerful so elvis is
+forced to redraw the screen instead of scrolling it, in some circumstances.
+
+<p>If TERM is set to "nansi" then elvis will output escape sequences which
+are supported by more capable drivers, such as NANSI.SYS and FANSI.SYS.
+These drivers usually bypass the BIOS, so they are very fast.
+If you're looking for a way to speed up elvis, this is probably your best bet.
+
+</dl>
+
+<h2><a name="win32"></a>9.2 MS-Windows95/MS-WindowsNT</h2>
+
+Elvis 2.0 was ported to Windows95/WindowsNT by Steve Kirkendall.
+
+<dl>
+<dt>The "os" option
+<dd>Under Windows95/WindowsNT, the <a href="elvisopt.html#os">os</a> option's
+value is "win32".
+
+<dt>The "shell" option
+<dd>The default value of <a href="elvisopt.html#shell">shell</a> is "cmd".
+If the COMSPEC environment variable is set (and it normally is),
+then its value will be used instead of "cmd".
+This is important, because Windows95 uses "COMMAND.COM" instead of "CMD.EXE".
+
+<dt>The "lpout" option
+<dd>The default value of the <a href="elvisopt.html#lpout">lpout</a> option
+is "print $1", which causes the <a href="elvisex.html#lpr">:lpr</a> command
+to print via the standard spooler.
+
+<p>The "$1" is there to work around a problem: PRINT can't read data from
+stdin.
+It must be given the name of a file,
+so I modified the oswin32/osprg.c file to allow
+$1 in the command line to be replaced by the name of elvis' temporary file
+that contains the print data.
+
+<dt>The "ccprg" option
+<dd>The default value of the <a href="elvisopt.html#ccprg">ccprg</a> option
+is "<tt>cl /c ($1?$1:$2)</tt>", which is appropriate for MSVC++ 2.0 or later.
+This way, you can run <a href="elvisex.html#cc">:cc</a> without arguments
+to compile (but not link) the current source file.
+If you supply arguments, they'll be used instead of the filename.
+
+<dt>The "makeprg" option
+<dd>The default value of the <a href="elvisopt.html#makeprg">makeprg</a> option
+is "<tt>nmake -f ($1?$1:basename($2)".mak")</tt>", which is appropriate for
+MSVC++ 2.0 or later.
+When <a href="elvisex.html#make">:make</a> is run without arguments, the
+NMAKE program will be run on a *.MAK file with the same basename as the
+current source file.
+Or you can explicitly give a different *.MAK file name as an argument.
+
+<dt>The "elvispath" option
+<dd>The default value of <a href="elvisopt.html#elvispath">elvispath</a>
+is "<tt>~\elvislib;BIN;BIN\lib</tt>", where BIN is the name of the
+directory where ELVIS.EXE resides.
+Note that elements of the path are separated with semicolons.
+The ~ character is replaced by the value of the
+<a href="elvisopt.html#home">home</a> option, which is usually
+C:\users\default for WindowsNT.
+
+<p>Unlike MS-DOS, Win32 doesn't pass the full pathname of the .EXE file
+as an argument to the program.
+So the when the Win32 version of elvis starts up, the first thing it does
+is search for ELVIS.EXE in your execution path.
+It must do this in order to find the value to use as BIN.
+
+<dt>The "TERM" environment variable
+<dd>The TERM environment variable tells elvis how to access the screen.
+It should probably be left undefined, or set to "console".
+Other values have not been tested, but the following should work via
+terminal emulators or whatever: dosansi, nansi, vt100, vt100w, and vt52.
+
+<dt>Console size
+<dd>Win32 distinguishes between a console's buffer size and its window size.
+Many users like to set the buffer to a huge size (e.g., 100 lines) but leave
+the window set at 25 lines.
+They do this so they can scroll back and review earlier programs' output.
+
+<p>When elvis starts, it creates a separate buffer which is the same size
+as the window.
+Elvis does this mostly so the scrollbar will go away.
+If you change the buffer size while elvis is running, elvis will adjust
+the size of the window to match the new buffer size, and then redraw the
+text to take advantage of the new screen size.
+
+<p>When you exit elvis, the console will revert to its original buffer and
+original window size.
+
+<dt>Mouse
+<dd>The mouse should work, whether run in full-screen mode or in a window.
+Dragging with the left, right, or both buttons pressed is will select
+characters, whole lines, or a rectangular block, respectively.
+Clicking the left button will cancel a pending text selection, and move
+the cursor.
+Clicking the right button will move the cursor; if a text selection is
+pending, it will be extended to the new cursor position.
+Double-clicking the left or right button will follow a hypertext reference
+or return from one, respectively.
+
+<p>There is a weird bug in WindowsNT's console mouse support.
+If, when the console is shown in a window, part of that console is located
+off-screen, then the mouse won't be able to move there, <em>even if you're
+currently in full-screen mode!</em>
+Since WindowsNT will sometimes resize your console when you switch between
+full-screen and windowed modes, this might not be obvious.
+But if the mouse refuses to move onto part of your full-screen console,
+I suggest you switch back to windowed mode and reduce the size of your font
+there.
+When you switch back to full-screen mode again it will look exactly the same,
+but the mouse should be able to go where no mouse has gone before.
+
+</dl>
+
+<h2><a name="unix"></a>9.3 UNIX</h2>
+
+Elvis was originally written under UNIX, so it seems strange to say I ported
+it to UNIX, but I'll say it anyway:
+Elvis 2.0 was ported to UNIX by Steve Kirkendall, with a lot of feedback
+from many people on the net.
+
+<p>Since elvis (and vi, for that matter) were originally designed and written
+for UNIX, there aren't many quirks that show up for generic UNIX.
+Most of this section will describe the quirks of individual
+<a href="#versions">UNIX versions.</a>
+
+
+<dl>
+
+<dt>The "os" option
+<dd>Under all versions of UNIX, the <a href="elvisopt.html#os">os</a> option's
+value is "unix".
+
+<dt>The "lpout" option
+<dd>The default value of the <a href="elvisopt.html#lpout">lpout</a> option
+is either "!lp -s" or "!lpr".
+The choice is made by the <tt>configure</tt> script; if <tt>/usr/bin/lp</tt>
+exists then it will use "!lp&nbsp;-s", else it will use "!lpr".
+
+<dt>The "elvispath" option
+<dd>The default value of <a href="elvisopt.html#elvispath">elvispath</a>
+is usually <tt>~/.elvislib:/usr/local/lib/elvis</tt>.
+The <tt>/usr/local/lib/elvis</tt> member of that path can be set via the
+<strong>--datadir=</strong><var>directory</var> flag.
+
+<dt>Missing functions
+<dd>If your linker reports an undefined function, such as strdup(),
+then you should check the <tt>need.h</tt> and <tt>need.c</tt> files;
+they contain implementations of many such functions.
+To use elvis' version of the missing function, edit the config.h file
+and change "#undef NEED_XXX" to "#define NEED_XXX".
+
+</dl>
+
+<h3><a name="versions"></a>9.3.1  UNIX versions</h3>
+
+The <tt>configure</tt> script works around most of the quirks of individual
+UNIX versions.
+Here, I will describe what <tt>configure</tt> does, or fails to do, for
+each type of UNIX.
+
+<dl>
+
+<dt>SunOS and Solaris
+<dd>SunOS and Solaris2 both claim to be SunOS, according to the <tt>uname</tt>
+command.
+However, their configuration is quite different, so the <tt>configure</tt>
+script distinguishes between them by looking at the revision number output by
+"<tt>uname -r</tt>".
+
+<p>The SunOS port uses BSD's sgtty ioctl calls, instead of the POSIX calls,
+even though SunOS supports the POSIX calls.
+This choice was made because differences in signal handling
+were preventing the SunOS port from responding to window resize signals.
+
+<p>Solaris2 seems to have a bad implementation of rlogin, at least on the
+system where I tested it.
+It couldn't handle 2000-character write() calls.
+Because this is a communication issue, and not purely a Solaris issue, I
+decided to reduce the size of the output buffer for <em>all</em> systems
+to 1500 bytes.
+
+<p>The SunOS port uses termcap because I prefer it.
+The Solaris port uses terminfo because Solaris doesn't seem to have a
+termcap library.
+
+<p>If you configure elvis to support X-windows, and your LD_LIBRARY_PATH
+environment variable doesn't contain an X11 library directory, then
+the <tt>configure</tt> script will output a warning message telling you
+how to set that variable.
+However, you might not need to set it; try running elvis without setting
+it first.
+
+<dt>OSF-1
+<dd>This configuration is rather weird.
+I don't have access to an OSF-1 system myself, so it's hard for me to
+make it less weird.
+
+<p>The primary weirdness is that it uses tinytcap.c (by defining NEED_TGETENT
+in the config.h file) instead of the real terminfo functions.
+I suggest you try compiling without NEED_TGETENT.
+
+<dt>BSD
+<dd>For BSD, <tt>configure</tt> will try to use the shlicc2 compiler if it
+is available, so elvis can use shared libraries.
+
+<p>Interestingly, the BSD port is configured to use POSIX ioctl calls instead
+of BSD's own sgtty calls.
+This may be a mistake.
+If elvis fails to adjust when you resize your xterm,
+then I suggest you add -DUSE_SGTTY to the end of the CC= line in Makefile,
+and recompile.
+
+<dt>SCO
+<dd>SCO used to change the operating system name (as reported by the
+"<tt>uname</tt>" command)
+to match the network node name.
+Does it still do that?
+If "<tt>uname</tt>" doesn't output some string containing "sco" then you'll
+need to explicitly give the name "sco" as an argument to the <tt>configure</tt>
+script.
+
+<p>When using an ANSI compiler,
+SCO seems to require extern declarations of the termcap functions.
+I added those declarations to the end of the "osunix/osdef.h" file.
+
+<dt>Linux
+<dd>Newer versions of Linux seem to have moved the definition of the speed_t
+data type from its tradional location, <sys/types.h>.
+The new location is <termios.h>, which makes sense since that's where the
+legal values of speed_t are defined...
+but because it is non-standard, I had to add a little extra code to the
+"osunix/osdef.h" file to include <termios.h> for Linux.
+</dl>
+
+</body></html>

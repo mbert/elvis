@@ -1,0 +1,346 @@
+<html><head>
+<title>Elvis 2.0 Tips</title>
+</head><body>
+
+<h1>14. TIPS</h1>
+This section of the manual explains some of the more complex, obscure,
+and useful features of elvis (or larger subjects).
+The following subjects are discussed:
+<menu>
+<li><a href="#URLS">14.1 Information via the Web</a>
+<li><a href="#DEBUG">14.2 How to debug macros</a>
+<li><a href="#TAGS">14.3 What tags are, and how to use them</a>
+<li><a href="#MAKE">14.4 Running your compiler from within elvis</a>
+<li><a href="#INTER">14.5 Internationalization</a>
+</menu>
+
+<h2>14.1 Information via the Web</h1>
+Here are some URLs (World Wide Web links to other documents)
+which are relevent to vi.
+Each of these, in turn, has links to other sites.
+Directly or indirectly, these links will lead you to a huge amount
+of information about vi.
+
+<p>I've tried to limit this list to advertized sites;
+there are others that I run across from time to time, but their URLs
+tend to vary over time, so it isn't a good idea to place them in a
+static document such as this one.
+It makes for a short list, though.
+
+<dl>
+
+<dt><a href="ftp://ftp.cs.pdx.edu/pub/elvis/README.html">
+ftp://ftp.cs.pdx.edu/pub/elvis/README.html</a>
+<dd>The "home" site of elvis.
+This is where you can find the latest release.
+
+<dt><a href="http://www.cs.vu.nl/~tmgil/vi.html">
+http://www.cs.vu.nl/~tmgil/vi.html</a>
+<dd>"The VI lover's home page."
+This contains links to a wide variety of vi documentation, and practically all vi clones.
+<strong>A very good resource!</strong>
+
+<dt><a href="http://www.math.fu-berlin.de/~guckes/vi/features.html">
+http://www.math.fu-berlin.de/~guckes/vi/features.html</a>
+<dd>Feature comparison between different VI implementations, plus a few
+other editors.
+Mostly, it just lists which options are supported by which clones.
+The maintainer is fond of VIM, so there is a bias towards that.
+
+<dt><a href="http://www.cahe.wsu.edu/~bsyse/faculty/rnelson/editors/editors.htm">
+http://www.cahe.wsu.edu/~bsyse/faculty/rnelson/editors/editors.htm</a>
+<dd>A compendium of text editors.
+It describes all kinds of text editors, not just vi clones.
+It lists the features and supported platforms for each editor.
+
+<dt><a href="http://fly.hiwaay.net/~darren/ctags.html">
+http://fly.hiwaay.net/~darren/ctags.html</a>
+<dd>Home page Darren Hiebert's "exuberant" ctags program.
+It supports all features of elvis' ctags, except for the "-r" flag for
+generating a "refs" file.
+This ctags has a smarter parsing algorithm, which causes it to generate
+fewer bogus tags (i.e., tags for things that really shouldn't have tags).
+It also adds the ability to generate tags for "enum" values and a few
+other useful things.
+
+</dl>
+
+<h2><a name="DEBUG"></a>14.2 How to debug macros</h2>
+
+There are two ways to create a macro in elvis:
+You can either assign a series of commands to a keystroke (or series of
+keystrokes) via the <a href="elvisex.html#map">:map</a> command, or you
+can store a series of commands in a cut buffer and execute them via the
+visual <a href="elvisvi.html#AT">@x</a> command.
+You will often use a combination of techniques, in which :map macro
+constructs a customized @x macro and runs it.
+
+<p>Elvis has several features that make debugging macros much easier.
+For example, you can create a window which continuously displays the
+contents of a given cut buffer, such as "m, via the command:
+<xmp>:(Elvis cut buffer m)split</xmp>
+
+<p>Note: The cut buffer must exist before you can display it.
+Cut buffers are created the first time anything is yanked into them.
+
+<p>The <a href="elvisopt.html#maptrace">maptrace</a> option allows you to
+trace the execution of macros.
+You can either allow it to run through the macro, or wait for a keypress
+before each mapped command character.
+You can also use the <a href="elvisex.html#break">:break</a> and
+<a href="elvisex.html#unbreak">:unbreak</a> commands to set or clear a
+breakpoint on a given :map macro.
+Breakpoints cause the maptrace option to switch from "run" to "step" when
+that macro is expanded.
+
+<p>The <a href="elvisopt.html#maplog">maplog</a> option can be used to
+log the trace information to a buffer named "Elvis map log".
+The idea here is that you will give the command...
+<xmp>:se mt=r mlog=r</xmp>
+... (or its full-length form, <tt>:set maptrace=run maplog=reset</tt>)
+before starting the macro, and then when the macro fails you can
+give the command...
+<xmp>:(Elvis map log)split</xmp>
+... to see what it was doing shortly before the failure.
+Note that the maplog option has no effect if maptrace is "off".
+
+<p><strong>Warning:</strong> Elvis has a single keystroke queue which is
+shared by all windows.
+Because of this, while elvis is running a macro in one window you can't
+switch to another window and type in commands.
+Even if the GUI allows you to switch windows without using the keyboard,
+doing so will simply force the macro to continue execution in the new window.
+<em>So don't switch windows while a macro is running!</em>
+
+<p>Here's a debugging methodology that works for me:
+<ol>
+<li>Begin by loading the macro package and a test file.
+<li>Give the command "<tt>:se mt=r mlog=r</tt>", and run the macro.
+<li>If the macro fails, give the command "<tt>:(Elvis map log)split</tt>"
+    to find out what commands executed immediately before the failure.
+    In particular look for a :map macro that was expanded shortly before
+    the failure.
+<li>Set a breakpoint on that macro with "<tt>:break</tt> <var>macrokey</var>".
+<li>Turn off logging, via "<tt>:se mlog=o</tt>".
+<li>Reload the test file.
+<li>Execute the macro again.  When the macro with the breakpoint is encounted,
+    elvis will switch to single-step mode.  Step slowly through the next few
+    instructions, looking for one which does something unexpected.
+</ol>
+
+<p>If your macro reveals a bug in elvis, please let me know!
+My email address is <address>kirkenda@cs.pdx.edu</address>.
+Please tell me which version of elvis you're using as reported by the
+<a href="elvisex.html#version">:version</a> command.
+
+<h2><a name="TAGS"></a>14.3 What tags are, and how to use them</h2>
+
+Tags provide a fast way to locate specific points in a collection of files.
+This is done by storing a list of tag names, and their corresponding
+locations, in a file named "tags".
+
+<p>For C source code, you will typically use a program such as
+<a href="ctags.man">ctags</a> to automatically generate a "tags" file
+containing tags for each function definition.
+You can optionally make it generate tags for other interesting points
+in your source code, such as global variables and data type definitions.
+To have tags generated for all C source files in the current directory,
+give a command such as the following:
+<xmp>
+ctags -stv *.c *.h</xmp>
+
+<p>Once the tags file has been created, you can have elvis start on a
+given tag via the command:
+<xmp>
+elvis -t <var>tagname</var></xmp>
+
+<p>The tagname is the same as the function, variable, or data type that
+it identifies.
+Note that you don't need to tell elvis which file that tag is defined in.
+Whenever elvis is told to go to a tag, it scans the tags file for the
+requested tag, determines the file name and line from the data there,
+loads the file, and moves the cursor to correct line of that file.
+Elvis does all this automatically; you just need to tell it the tagname.
+
+<p>Once elvis is running, it offers several commands for looking up tags:
+<ul>
+<li><a href="elvisex.html#tag">:tag <var>tagname</var></a> looks up <var>tagname.</var>
+<li>Double-clicking the left mouse button on a word looks up that word.
+<li><a href="elvisvi.html#^]">^]</a> looks up the word that the cursor is on.<li><a href="elvisvi.html#K">shift-K</a> displays the definition of the word
+that the cursor is on, but doesn't actually move the cursor to the definition
+point.
+This is accomplished by running the <a href="ref.man">ref</a> program (or
+whatever program the <a href="elvisopt.html#keywordprg">keywordprg</a> option
+is set to).
+</ul>
+
+<p>If the <a href="elvisopt.html#tagstack">tagstack</a> option is set
+(and it is, by default)
+then whenever elvis looks up a tag, it saves the old cursor position on
+a stack.
+Each window has its own stack.
+The following commands can be used to come back after you've looked up a tag:
+<ul>
+<li><a href="elvisex.html#pop">:pop</a>
+<li>Double-clicking on the right mouse button
+<li><a href="elvisvi.html#^T">^T</a>
+</ul>
+
+<p>Elvis can also find tags in other directories.
+The TAGPATH environment variable
+(or <a href="elvisopt.html#tags">tags</a> option)
+gives the search path for tags files.
+Each element of the path can be either the name of a directory containing
+a file named "tags", or the name of a file to be used as a tags file.
+Both elvis and the <a href="ref.man">ref</a> program obey the TAGPATH
+environment variable.
+You can create tags files in the directories containing your header files
+and the source code for your library functions.
+With TAGPATH set to include those directories, you can then use the
+visual <a href="elvisvi.html#K">shift-K</a> command as a quick on-line reference.
+
+<p>If licensing restrictions prevent you from making the source code for
+your library functions available to everybody, then you can use
+<a href="ctags.man">ctags'</a> <strong>-r</strong> flag to create a "refs"
+file in addition to "tags".
+The refs file contains a copy of the source code, but with the bodies removed
+from every function definition.
+You should be able to make refs readable by everybody.
+If you don't posess the source code to your libraries, then perhaps
+you can create a usable tags from the lint libraries (typically named /usr/lib/*.ln or /usr/lib/lib/*).
+
+<p>Note: In the "html" display mode, hypertext links are implemented as a
+type of tags.
+Instead of looking up a word in the "tags" file, elvis will search backward
+for an &lt;a href=<var>URL</var>&gt; tag, and use the <var>URL</var> to find
+the referenced location.
+All of the tag commands are the same, plus there are a couple of new ones:
+The <kbd>Enter</kbd> key looks up a hypertext reference like <kbd>^]</kbd>,
+and the <kbd>Tab</kbd> key searches forward for the next hypertext reference.
+
+<h2><a name="MAKE"></a>14.4 Running your compiler from within elvis</h2>
+
+Elvis can parse most compilers' error messages.
+When it parses an error message, elvis loads the faulty file, moves the
+cursor to the line where the error was reported, and shows the descriptive
+portion of the error message on the bottom row of the window.
+You can step through all reported errors very quickly, making changes
+along the way.
+
+<p>Usually, you will invoke your compiler or "make" utility via the
+<a href="elvisex.html#cc">:cc</a> or <a href="elvisex.html#make">:make</a>
+commands.
+The only difference between these commands is that <tt>:cc</tt> invokes
+the program named by the <a href="elvisopt.html#ccprg">ccprg</a> option,
+and <tt>:make</tt> uses the <a href=:elvisopt.html#makeprg">makeprg</a> option.
+
+<p>Both of those options' values are evaluated using the
+<a href="elvisexp.html#13.2">simpler expression syntax,</a> with $1 set to
+any extra command-line parameters, and $2 set to the current file name.
+
+<p>You can also read error messages from some other program with the command
+"<a href="elvisex.html#errlist">:errlist !<var>program</var></a>",
+or read them from a file with the command
+"<a href="elvisex.html#errlist">:errlist <var>filename</var></a>".
+
+<p>I often invoke elvis via the command "<tt>elvis +make</tt>" so
+elvis will attempt to compile the program, and move the cursor to the
+first error (if there are any errors).
+
+<p>All of the compiler's output text is collected  into a buffer named
+"Elvis error list".
+If you wish, you can view this list in a separate window via this command:
+<xmp>
+:(Elvis error list)split</xmp>
+
+<p>Here's how elvis parses each line of compiler output:
+Starting from the left, it divides the line into "words", which are defined as
+a series of letters, digits, and/or certain punctuation characters.
+
+<p>If the word looks like a number, and no line number has been seen yet,
+then the word is taken to be a line number.
+If the word is the name of an existing, writable file
+(or any existing file if the <a href="elvisopt.html#anyerror">anyerror</a>
+option is set), then it is taken to be a file name.
+Other words are ignored.
+
+<p>When elvis has found both a file name and a line number, then it skips
+over any whitespace or punctuation immediately following them, and uses
+the remainder of the line as the error's description.
+
+<p>If elvis fails to find a file name/line number pair, then it skips that
+whole line of compiler output.
+
+<p>Immediately after collecting compiler output, elvis moves the cursor to
+the source of the first error.
+After that, you can use <a href="elvisex.html#errlist">:errlist</a>
+(with no arguments) or the visual <a href="elvisvi.html#*">*</a> command
+to step through each following error.
+
+<p>Each time elvis collects a new set of error messages, it remembers how many
+lines are in each buffer.
+Later, when you insert or delete lines to correct an error, elvis can
+compare the current number of lines to original number of lines, and adjust
+the reported line numbers accordingly.
+
+<h2><a name="INTER"></a>14.5 Internationalization</h2>
+
+Elvis can be configured to translate its messages into different languages,
+and to use different symbol sets.
+These things are accomplished via the
+<a href="elvismsg.html#elvis.msg">elvis.msg</a> file and
+<a href="elvisex.html#digraph">:digraph</a> command, respectively.
+
+<p>Elvis locates the <tt>elvis.msg</tt> file during initialization.
+Ordinarily it searches through each directory named in the ELVISPATH
+environment variable.
+However, if there is an environment variable named LC_ALL, LC_MESSAGES,
+or LANG (listed in order or precedence) which is set to a non-null value,
+then elvis will look for <tt>elvis.msg</tt> first in a subdirectory whose
+name matches the environment variable's value.
+For example, if ELVISPATH=~/.elvis:/usr/local/lib/elvis, LC_ALL is unset,
+and LC_MESSAGES=german, then elvis would try to load its messages from...
+<ol>
+<li>~/.elvis/german/elvis.msg
+<li>~/.elvis/elvis.msg
+<li>/usr/local/lib/elvis/german/elvis.msg
+<li>/usr/local/lib/elvis/elvis.msg
+</ol>
+
+<p>The digraph table affects more than just keyboard input.
+It also affects "html" mode, and character type classifications.
+
+<p>Digraphs are used by the "html" display mode to translate
+<a href="elvisdm.html#htmlescapes">character escapes</a> into characters.
+For example, when elvis encounters &amp;ntilde; in an HTML document,
+it tries to find a digraph which combines 'n' with '~'.
+If there is such a digraph, elvis will use it to display an '&ntilde;';
+if not, then elvis will display a plain 'n' character.
+
+<p>The digraph table affects the character classes, too.
+This affects the definition of a "word", as used by the visual
+<a href="elvisvi.html#w">w</a> command, among others.
+A non-ascii character is treated as an uppercase letter if, according
+to the digraph table, it is the result of combining an ASCII uppercase letter
+with either a punctuation character or a second uppercase letter.
+A similar rule holds for lowercase letters.
+
+<p>Also, elvis tries to find uppercase/lowercase pairs through the digraph
+table.
+This is used for case conversions, as performed by the visual <a href="elvisvi.html#~">~</a> command, or the <tt>\U</tt> metacharacter in the <a href="elvisex.html#substitute">:s/old/new</a> command.
+
+<p>There is no way to specify a sorting order.
+This means, in particular, that the
+<a href="elvisre.html">regular expression</a>
+<tt>/[a-z]/</tt> will only match the ASCII lowercase letters, not the non-ASCII ones.
+Sorry.
+
+<p>The default <a href="elvisses.html#elvis.ini">elvis.ini</a> file tries
+to load digraphs by executing either <tt>elvis.pc8</tt> for Microsoft
+operating systems, or <tt>elvis.lat</tt> for any other operating system.
+
+<p>The "win32" version of the "termcap" user interface has a
+<a href="elvisopt.html#codepage">codepage</a> option which determines
+which symbol set is used for console output.
+If you change codepage, you should also adjust your digraph table.
+</body></html>

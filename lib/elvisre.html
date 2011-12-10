@@ -1,0 +1,236 @@
+<html><head>
+<title>Elvis 2.0 Regular Expressions</title>
+</head><body>
+
+<h1>5. REGULAR EXPRESSIONS</h1>
+
+Elvis uses regular expressions for searching and substitutions.
+A regular expression is a text string in which some characters have
+special meanings.
+This is much more powerful than simple text matching.
+
+<h2>5.1 Syntax</h2>
+Elvis' regexp package treats the following one- or two-character
+strings (called meta-characters) in special ways:
+
+<dl>
+
+<dt>\(<em>subexpression</em>\)<dd>
+The \( and \) metacharacters are used to delimit subexpressions.
+When the regular expression matches a particular chunk of text,
+Elvis will remember which portion of that chunk matched the <em>subexpression</em>.
+The <a href="elvisex.html#substitute">:s/regexp/newtext/</a> command makes use of this feature.
+
+<dt>^<dd>
+The ^ metacharacter matches the beginning of a line.
+If, for example, you wanted to find "foo" at the beginning of a line,
+you would use a regular expression such as <tt>/^foo/.</tt>
+Note that ^ is only a metacharacter if it occurs
+at the beginning of a regular expression;
+practically anyplace else, it is treated as a normal character.
+(Exception: It also has a special meaning inside a [<var>character-list</var>]
+metacharacter, as described below.)
+<dt>$<dd>
+The $ metacharacter matches the end of a line.
+It is only a metacharacter when it occurs at the end of a regular expression;
+elsewhere, it is treated as a normal character.
+For example, the regular expression <tt>/$$/</tt> will search for a dollar sign at
+the end of a line.
+
+<dt>\&lt;<dd>
+The \&lt; metacharacter matches a zero-length string at the beginning of
+a word.
+A word is considered to be a string of 1 or more letters and digits.
+A word can begin at the beginning of a line
+or after 1 or more non-alphanumeric characters.
+
+<dt>\&gt;<dd>
+The \&gt; metacharacter matches a zero-length string at the end of a word.
+A word can end at the end of the line
+or before 1 or more non-alphanumeric characters.
+For example, <tt>/\&lt;end\&gt;/</tt> would find any instance of the word "end",
+but would ignore any instances of e-n-d inside another word
+such as "calendar".
+
+<dt>\@<dd>
+When you're performing a search in visual mode, and the cursor is on a word
+before you start typing the search command, then \@ matches the word at the
+cursor.
+
+<dt>\=<dd>
+Ordinarily, the visual mode search command leaves the cursor on the first
+character of the matching text that it finds.
+If your regular expression includes a \= metacharacter, then it will leave
+the cursor at the position that matched the \=.
+For example, if you place \= at the end of your regular expression, then
+the cursor will be left after the matching text instead of at the start
+of it.
+
+<dt>.<dd>
+The . metacharacter matches any single character.
+
+<p>NOTE: If the <a href="elvisopt.html#magic">magic</a> option is turned off,
+then . is treated as an ordinary, literal character.
+You should use \. to get the meta-character version in this case.
+
+<dt>[<em>character-list</em>]<dd>
+This matches any single character from the <em>character-list</em>.
+Inside the <em>character-list</em>, you can denote a span of characters
+by writing only the first and last characters, with a hyphen between
+them.
+If the <em>character-list</em> is preceded by a ^ character, then the
+list is inverted -- it will match character that <em>isn't</em> mentioned
+in the list.
+For example, <tt>/[a-zA-Z]/</tt> matches any letter, and <tt>/[^ ]/</tt>
+matches anything other than a blank.
+
+<p>NOTE: If the <a href="elvisopt.html#magic">magic</a> option is turned off,
+then opening [ is treated as an ordinary, literal character.
+To get the meta-character behavior, you should use \[<em>character-list</em>]
+in this case.
+
+<dt>\{<em>n</em>\}<dd>
+This is a closure operator,
+which means that it can only be placed after something that matches a
+single character.
+It controls the number of times that the single-character expression
+should be repeated.
+The \{<em>n</em>\} operator, in particular, means that the preceding
+expression should be repeated exactly <em>n</em> times.
+For example, <tt>/^-\{80\}$/</tt> matches a line of eighty hyphens, and
+/\&lt;[a-zA-Z]\{4\}\&gt;/</tt> matches any four-letter word.
+
+<dt>\{<em>n</em>,<em>m</em>\}<dd>
+This is a closure operator which means that the preceding single-character
+expression should be repeated between <em>n</em> and <em>m</em> times,
+inclusive.
+If the <em>m</em> is omitted (but the comma is present) then <em>m</em> is
+taken to be infinity.
+For example, <tt>/"[^"]\{3,5\}"/</tt> matches any pair of quotes which contains
+three, four, or five non-quote characters.
+
+<dt>*<dd>
+The * metacharacter is a closure operator which means that the preceding
+single-character expression can be repeated zero or more times.
+It is equivalent to \{0,\}.
+For example, <tt>/.*/</tt> matches a whole line.
+
+<p>NOTE: If the <a href="elvisopt.html#magic">magic</a> option is turned off,
+then * is treated as an ordinary, literal character.
+You should use \* to get the meta-character version in this case.
+
+<dt>\+<dd>
+The \+ metacharacter is a closure operator which means that the preceding
+single-character expression can be repeated one or more times.
+It is equivalent to \{1,\}.
+For example, <tt>/.\+/</tt> matches a whole line, but only if the line contains
+at least one character.
+It doesn't match empty lines.
+
+<dt>\?<dd>
+The \? metacharacter is a closure operator which indicates that the
+preceding single-character expression is optional -- that is, that it
+can occur 0 or 1 times.
+It is equivalent to \{0,1\}.
+For example, <tt>/no[ -]\?one/</tt> matches "no one", "no-one", or "noone".
+
+</dl>
+
+<p>Anything else is treated as a normal character which must exactly match
+a character from the scanned text.
+The special strings may all be preceded by a backslash to
+force them to be treated normally.
+
+<a name="SUBST"></a>
+<h2>5.2 Substitutions</h2>
+The <a href="elvisex.html#ex">:s</a> command has at least two arguments:
+a regular expression, and a substitution string.
+The text that matched the regular expression is replaced by text
+which is derived from the substitution string.
+
+<p>You can use any punctuation character to delimit the regular expression
+and the replacement text.
+The first character after the command name is used as the delimiter.
+Most folks prefer to use a slash character most of the time, but if either
+the regular expression or the replacement text uses a lot of slashes, then
+some other punctuation character may be more convenient.
+
+<p>Most other characters in the substitution string are copied into the
+text literally but a few have special meaning:
+
+<pre graphic>
+.-------.----------------------------------------------------------.
+|SYMBOL | MEANING                                                  |
+|-------|----------------------------------------------------------|
+|   &amp;   | Insert a copy of the original text                       |
+|   ~   | Insert a copy of the previous replacement text           |
+|  \1   | Insert a copy of that portion of the original text which |
+|       |      matched the first set of \( \) parentheses          |
+| \2-\9 | Do the same for the second (etc.) pair of \( \)          |
+|  \U   | Convert all chars of any later & or \# to uppercase      |
+|  \L   | Convert all chars of any later & or \# to lowercase      |
+|  \E   | End the effect of \U or \L                               |
+|  \u   | Convert the first char of the next & or \# to uppercase  |
+|  \l   | Convert the first char of the next & or \# to lowercase  |
+^-------^----------------------------------------------------------^
+</pre>
+These may be preceded by a backslash to force them to be treated normally.
+The delimiting character can also be preceeded by a backslash to include
+it in either the regular expression or the substitution string.
+
+
+<h2>5.3 Options</h2>
+Elvis has two options which affect the way regular expressions are used.
+These options may be examined or set via the <a href="elvisex.html#set">:set</a>
+command.
+
+<p>The first option is called "<a href="elvisopt.html#magic">[no]magic</a>".
+This is a boolean option, and it is "magic" (TRUE) by default.
+While in magic mode, all of the meta-characters behave as described above.
+In nomagic mode, the ., [...], and * characters loose their special meaning unless
+preceeded by a backslash.
+Also, in substitution text the &amp; and ~ characters are treated literally
+unless preceeded by a backslash.
+ 
+<p>The second option is called "<a href="elvisopt.html#ignorecase">[no]ignorecase</a>".
+This is a boolean option, and it is "noignorecase" (FALSE) by default.
+While in ignorecase mode, the searching mechanism will not distinguish between
+an uppercase letter and its lowercase form.
+In noignorecase mode, uppercase and lowercase are treated as being different.
+
+<p>Also, the "<a href="elvisopt.html#wrapscan">[no]wrapscan</a>" and
+"<a href="elvisopt.html#autoselect">[no]autoselect</a>"
+options affect searches.
+
+<h2>5.4 Examples</h2>
+This example changes every occurrence of "utilize" to "use":
+<xmp>
+:%s/utilize/use/g
+</xmp>
+This example deletes all whitespace that occurs at the end of a line anywhere
+in the file.
+(The brackets contain a single space and a single tab.):
+<xmp>
+:%s/[   ]\+$//
+</xmp>
+This example converts the current line to uppercase:
+<xmp>
+:s/.*/\U&/
+</xmp>
+This example underlines each letter in the current line,
+by changing it into an "underscore backspace letter" sequence.
+(The ^H is entered as "control-V backspace".):
+<xmp>
+:s/[a-zA-Z]/_^H&/g
+</xmp>
+This example locates the last colon in a line,
+and swaps the text before the colon with the text after the colon.
+The first \( \) pair is used to delimit the stuff before the colon,
+and the second pair delimit the stuff after.
+In the substitution text, \1 and \2 are given in reverse order
+to perform the swap:
+<xmp>
+:s/\(.*\):\(.*\)/\2:\1/
+</xmp>
+
+</body></html>

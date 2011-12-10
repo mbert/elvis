@@ -1,0 +1,8 @@
+#!/bin/sh
+
+# This is a little "wrapper" shell script, which runs ./elvis with elvispath
+# set to "./lib".  This is handy for testing before it is installed.
+
+ELVISPATH=./lib
+export ELVISPATH
+exec ./elvis "$@"

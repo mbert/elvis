@@ -1,6 +1,0 @@
-#col -bx | sed '1,4d;s/^      //'
-col -bx | sed '1,4d'
-echo
-echo
-echo
-echo

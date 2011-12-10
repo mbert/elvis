@@ -1,0 +1,1469 @@
+<html><head>
+<title>Elvis 2.0 Ex Mode</title>
+<head><body>
+
+<h1>4. EX COMMAND MODE</h1>
+
+Ex is an editing mode in which elvis acts like a line editor.
+This means that you type in a command line, and when the line is complete
+elvis executes it on the current text buffer.
+I.e., in ex each <em>line</em> (or group of lines) is a command,
+as opposed to vi where each <em>character</em> (or group of characters) is a
+command.
+
+<p>Typically, ex commands are used to do perform complex actions such as
+global search &amp; replace, or actions which require an argument such as
+writing the edit buffer out to a different file.
+
+<p>Ex is also used as the configuration language for elvis;
+configuration scripts such as <a href="elvisses.html#elvis.ini">elvis.ini</a>,
+.exrc (or elvis.rc), and <a href="elvisses.html#elvis.arf">elvis.arf</a>
+contain a series of ex commands.
+
+<p>You can switch freely between vi and ex.
+If you're in vi mode, you can enter a single ex command line via the
+visual <a href="elvisvi.html#colon">:</a> command, or more permanently switch via
+the visual <a href="elvisvi.html#Q">Q</a> command.
+If you're in ex mode, you can switch to vi mode via ex's
+<a href="#visual">:vi</a> command.
+
+<p>Normally elvis will start in vi mode, but you can force it to start in
+ex mode by supplying a <strong>-e</strong> command line flag.
+On UNIX systems, you can link elvis to a name which ends with "x" to
+achieve the same effect.
+
+<p>The remainder of this section discusses how to enter lines, the general
+syntax of an ex command line, and the specific commands which elvis supports.
+
+<h2>4.1 Entering lines</h2>
+In elvis, when you're typing in an ex command line
+you're really inputting text into a buffer named "Elvis ex history".
+All of the usual <a href="elvisinp.html">input mode</a> commands are available,
+including <kbd>Backspace</kbd> to erase the previous character,
+<kbd>Control-W</kbd> to erase the previous word, and so on.
+
+<p>Any previously entered lines will still be in the "Elvis ex history"
+buffer, and you can use the arrow keys to move back and edit earlier commands.
+You can even use the <kbd>Control-O</kbd> input-mode command with
+the <a href="elvisvi.html#slash">?<var>regexp</var></a> visual command,
+to search for an earlier command line.
+
+<p>The <kbd>Tab</kbd> key has a special function when you're inputting
+text into the "Elvis ex history" buffer.
+It is used for file name expansion.
+The preceding word is assumed to be a partial file name, and elvis searches
+for all matching files.
+If there are multiple matches, then elvis fills in as many characters of the
+name as possible, and then beeps;
+or, if no additional characters are implied by the matching file names,
+then elvis lists all matching names and redisplays the command line.
+If there is a single match, then elvis completes the name and appends a
+tab character.
+If there are no matches, then elvis simply inserts a tab character.
+
+<p>You can bypass the file name expansion by typing a <kbd>Control-V</kbd>
+before the <kbd>Tab</kbd> key.
+You can also disable file name completion all together by setting the
+"Elvis ex history" buffer's <a href="elvisopt.html#inputtab">inputtab</a>
+option to "tab", via the following command:
+<xmp>
+	:(Elvis ex history)set inputtab=tab</xmp>
+
+<p>When you hit the <kbd>Enter</kbd> key on a line in the "Elvis ex history"
+buffer, elvis sends that line to the ex command parser,
+which is described in the next section.
+
+<h2>4.2 Syntax and Addressing</h2>
+In general, ex command lines can begin with an optional window id.
+This may be followed by an optional buffer id,
+and then 0, 1, or 2 line addresses,
+followed by a command name, and perhaps some arguments after that
+(depending on the command name).
+
+<p>A window ID is typed in as a decimal number followed by a colon character.
+If you don't supply a window ID (and you almost never will) then it defaults
+to the window where you typed in the command line.
+The <a href="#buffer">:buffer</a> command lists the buffers, and shows which
+one is being edited in which window.
+Also, the <a href="elvisopt.html#windowid">windowid</a> option indicates the
+ID of the current window.
+
+<p>A buffer ID is given by typing an opening parenthesis, the name of the
+buffer, and a closing parenthesis.
+For user buffers, the name of the buffer is usually identical to the name of
+the file that it corresponds to.
+
+<p>Commands which don't access the text, such as "<a href="#quit">:quit</a>",
+don't allow any line addresses.
+Other commands, such as "<a href="#mark">:mark</a>",
+only allow a single line address.
+Most commands, though, allow two line addresses;
+the command is applied to all lines between the two specified lines,
+inclusively.
+The tables below indicate how many line addresses each command allows.
+
+<p>Line addresses are always optional.
+The first line address of most commands usually defaults to the current line.
+The second line address usually defaults to be the same as the first line address.
+Exceptions are <a href="#write">:write,</a> <a href="#lpr">:lpr,</a>
+<a href="#global">:global,</a> and <a href="#vglobal">:vglobal,</a>
+which act on all lines of the file by  default,  and
+<a href="#BANG">:!,</a> which acts on no lines by default.
+
+<p>If you use the visual <a href="elvisvi.html#V">V</a> command to mark
+a range of lines, and then use the visual <a href="elvisvi.html#colon">:</a>
+command to execute a single ex command,
+then the default range affected by the ex command will
+be the visibly marked text.
+
+<p>Line addresses consist of an absolute part and a relative part.
+The <em>absolute part</em> of a line specifier may be either an
+explicit line number, a mark, a dot to denote the current line,
+a dollar sign to denote the last line of the file, or a
+forward or backward search.
+
+An <em>explicit line number</em> is  simply a decimal number,
+expressed as a string of digits.
+
+A <em>mark</em> is typed in as an apostrophe followed by a letter.
+Marks must be set before they can be used.
+You can set a mark in visual command mode by typing "m" and a letter,
+or you can set it in ex command mode via the "mark" command.
+
+A <em>forward search</em> is typed in as a regular expression surrounded by
+slash characters; searching begins at the default line.
+A <em>backward search</em> is typed in as a  regular  expression
+surrounded by question marks;
+searching begins at the line before the default line.
+
+<p>If you omit the <em>absolute part,</em> then the default line is used.
+
+<p>The <em>relative part</em> of a line specifier is typed as a <tt>+</tt>
+or <tt>-</tt> character followed by a decimal number.
+The number is added to or subtracted from the absolute part of the line
+specifier to produce the final line number.
+
+<p>As a special case, the <tt>%</tt> character may be used to specify
+all lines of the file.
+It is roughly equivalent to saying <tt>1,$</tt>.
+This can be a handy shortcut.
+
+<p>Here are some addressing examples, using the <a href="#print">:p</a> command:
+<pre graphic>
+   COMMAND      | ACTION
+   -------------|-------------------------------------------
+   :p           | print the current line
+   :37p         | print line 37
+   :'gp         | print the line which contains mark g
+   :/foo/p      | print the next line that contains "foo"
+   :$p          | print the last line of the buffer
+   :20,30p      | print lines 20 through 30
+   :1,$p        | print all lines of the buffer
+   :%p          | print all lines of the buffer
+   :(zot)%p     | print all lines of the "zot" buffer
+   :/foo/-2,+4p | print 5 lines around the next "foo"</pre>
+
+<p>The optional addresses are followed by the command name.
+Command names may be abbreviated.
+In the sections that follow, the command's full name is given with the
+optional part enclosed in square brackets.
+
+<p>Some commands allow a '!' character to appear immediately after the
+command name.
+The significance of the '!' varies from one command to another,
+but typically it forces the command to do something dangerous that it would
+ordinarily refuse to do.
+For example, <a href="#write">:w <var>file</var></a> refuses to overwrite an
+existing file, but <a href="#write">:w! <var>file</var></a> will do it.
+
+<p>Many commands allow (or even require) additional arguments.
+The descriptions below list which arguments each command accepts
+with optional commands denoted by square brackets.
+The most common argument types are:
+
+<dl>
+
+<dt>/regexp/
+<dd>This is a <a href="elvisre.html">regular expression.</a>
+You can use any punctuation character to delimit it, but the '/' character
+is the most commonly used.
+
+<dt>/regexp/newtext/
+<dd>This is a <a href="elvisre.html">regular expression</a>
+followed by replacement text.
+
+<dt>count
+<dd>This is a number - a string of digits.
+Generally, it is used as the repeat count for certain commands.
+
+<dt>cutbuf
+<dd>This is the name of a cut buffer - a single letter.
+Elvis also allows (but does not require) a quote character before the letter.
+
+<dt>excmds
+<dd>This is another ex command, or list of ex commands.
+Traditionally, the whole list of commands had to appear on the same line,
+delimited by '|' characters.
+Elvis has the added versatility of allowing a '{' character on the first line,
+each command on a separate following  line, and then '}' on a line by itself to mark
+the end of the ex command list.
+
+<dt>lhs
+<dd>This is string of characters.
+If whitespace characters are to be included in it, then they must be
+quoted by embedding a <kbd>^V</kbd> character before them.
+
+<dt>line
+<dd>This is a line address, as described earlier.
+
+<dt>mark
+<dd>This is the name of a mark - a single lowercase letter.
+Elvis allows (but does not require) an apostrophe before the letter.
+
+<dt>rhs
+<dd>This is a string of characters.
+If it begins with a whitespace character, then that character must be quoted
+by embedding a <kbd>^V</kbd> character in the command line before it.
+Other whitespace characters in the string do not need to be quoted.
+
+<dt>shellcmd
+<dd>This is a command line which is passed to the system's command interpretter.
+Within the command line, the following character substitutions take place,
+unless preceded by a backslash:
+<pre graphic>
+	.-----------.-------------------------.
+	| CHARACTER | REPLACED BY             |
+	|-----------|-------------------------|
+	|     %     | Name of current file    |
+	|     #     | Name of altername file  |
+	|     !     | Previous command line   |
+	|    \@     | Word at cursor location |
+	^-----------^-------------------------^
+</pre>
+Note that the <tt>\@</tt> substitution <em>requires</em> a backslash.
+This quirk exists for the sake of backward compatibility -
+the real vi doesn't perform any substitutions for just plain @.
+</dl>
+
+<p>Most commands can be followed by a '|' character and another ex command.
+Others can't.  In particular, any command which takes a <strong>excmd</strong>
+or <strong>shellcmd</strong> argument doesn't treat '|' as a command delimiter.
+
+<p>If a command does treat '|' as a delimiter, and you want '|' to be treated
+as part of a command argument, then you'll need to quote the '|' character
+by preceding it with a backslash or ^V, depending on the command.
+(Sadly, different commands require different quote characters.)
+
+<h2><a name="GROUP"></a>4.3 Ex Commands, Grouped by Function</h2>
+<menu>
+<li><a href="#HELP">	4.3.1 The help command itself</a>
+<li><a href="#EDIT">	4.3.2 Editing commands</a>
+<li><a href="#GLOBAL">	4.3.3 Global edit commands</a>
+<li><a href="#PRINT">	4.3.4 Displaying text</a>
+<li><a href="#TAGS">	4.3.5 Tags</a>
+<li><a href="#IO">	4.3.6 File I/O commands</a>
+<li><a href="#ARGS">	4.3.7 The args list, and selecting a file to edit</a>
+<li><a href="#QUIT">	4.3.8 Quitting</a>
+<li><a href="#MACRO">	4.3.9 Scripts and macros</a>
+<li><a href="#ERRLIST">	4.3.10 Working with a compiler</a>
+<li><a href="#CALC">	4.3.11 Built-in calculator</a>
+<li><a href="#BUFFER">	4.3.12 Buffer commands</a>
+<li><a href="#WINDOW">	4.3.13 Window commands</a>
+<li><a href="#SETUP">	4.3.14 Configuration</a>
+<li><a href="#MISC">	4.3.15 Miscellaneous</a>
+</menu>
+
+<h3><a name="HELP"></a>4.3.1 The help command itself</h3>
+<pre graphic>.-------.-------------------.-----------------------------------.
+|ADDRESS| COMMAND           | ARGUMENTS                         |
+|-------|-------------------|-----------------------------------|
+|       | <a href="#help">h[elp]</a>            | topic                             |
+^-------^-------------------^-----------------------------------^
+</pre>
+
+<a name="help"></a>The <em>:help</em> command loads and displays a
+help file for a given topic.
+There are several help files, covering a wide variety of topics.
+
+<p>Elvis looks at the topic you supply, and tries to determine whether
+it is an ex command name, vi keystroke, option name, or something else.
+Based on this, it generates a hypertext link to the topic in the appropriate
+help file, and shows the topic in a separate window.
+Elvis uses the following rules to convert your requested topic into
+a hypertext reference:
+<pre graphic>
+	.---------------.-------------------------------------------.
+	| COMMAND       | ELVIS' INTERPRETATION                     |
+	|---------------|-------------------------------------------|
+	| :help         | With no topic, elvis loads the table of   |
+	|               |   contents. This has hypertext links that |
+	|               |   can lead you to any other topic.        |
+	| :help ex      | Elvis loads the chapter describing ex     |
+	|               |   commands.                               |
+	| :help vi      | Elvis loads the chapter describing vi     |
+	|               |   commands.                               |
+	| :help set XXX | If XXX is an option name, elvis will show |
+	|               |   the description of that option; else it |
+	|               |   will list groups of all options.        |
+	| :help :XXX    | If XXX is an ex command name, elvis will  |
+	|               |   show its description; else elvis will   |
+	|               |   list groups of all ex commands.         |
+	| :help XXX     | If XXX appears to be represent a keystroke|
+	|               |   then elvis will assume it is meant to be|
+	|               |   a vi command and will show the command's|
+	|               |   description.  Else if it is an option   |
+	|               |   name elvis will show that. Else if it is|
+	|               |   an ex command, elvis will show that.    |
+	|               |   Else elvis will show this description of|
+	|               |   the :help command itself.               |
+	^---------------^-------------------------------------------^</pre>
+<p>Although this chart only mentions sections on ex commands, vi commands,
+and options, there are many others which are only accessible via the
+table of contents shown by ":help" with no arguments.
+
+<p>All of these help files are HTML documents.
+Elvis' standard HTML editing facilities are available while you're
+viewing the help text.
+Some of the highlights of this are:
+<ul>
+<li>To close this help window, type <kbd>ZQ</kbd>.  Actually, this works
+	for all windows.  (You must hold the <kbd>Shift</kbd> key
+	as you type <kbd>ZQ</kbd>, because lowercase <kbd>zq</kbd> does
+	something else entirely.)
+<li>Any underlined text is a hypertext reference.  This means that you
+	can move the cursor onto it, and hit the <kbd>Enter</kbd> key,
+	and the cursor will move to a topic describing the underlined text.
+<li>To return to your original position after following a hypertext reference, hit <kbd>^T</kbd> (Control-T).
+<li>The <kbd>Tab</kbd> key moves the cursor forward to the next
+	hypertext reference.
+</ul>
+<p>You can use elvis to print the document via the <a href="#lpr">:lpr</a>
+command.  This assumes you have set the <a href="elvisopt.html#LPR">printing
+options</a> correctly.
+
+<h3><a name="EDIT"></a>4.3.2 Editing commands</h3>
+<pre graphic>.-------.-------------------.-----------------------------------.
+|ADDRESS| COMMAND           | ARGUMENTS                         |
+|-------|-------------------|-----------------------------------|
+| line  | <a href="#append">a[ppend]</a>[!]       | [text]                            |
+| line  | <a href="#insert">i[nsert]</a>[!]       | [text]                            |
+| range | <a href="#change">c[hange]</a>[!]       | [count] [text]                    |
+| range | <a href="#delete">d[elete]</a>          | [cutbuf] [count]                  |
+| range | <a href="#yank">y[ank]</a>            | [cutbuf] [count]                  |
+| line  | <a href="#put">pu[t]</a>             | [cutbuf]                          |
+| range | <a href="#copy">co[py]</a>            | line                              |
+| range | <a href="#move">m[ove]</a>            | line                              |
+| range | <a href="#to">t[o]</a>              | line                              |
+| range | <a href="#BANG">!</a>                 | shellcmd                          |
+| range | <a href="#GT">&gt;</a>                 |                                   |
+| range | <a href="#LT">&lt;</a>                 |                                   |
+| range | <a href="#join">j[oin]</a>[!]         |                                   |
+|       | <a href="#undo">u[ndo]</a>            | [count]                           |
+|       | <a href="#redo">red[o]</a>[!]         | [count]                           |
+^-------^-------------------^-----------------------------------^
+</pre>
+
+<a name="append"></a>The <em>:append</em> command inserts text after the
+current line.
+If no new text is supplied on the command line, then elvis will wait for
+you to type in text;
+you can then mark the end of the new text by typing a "." (period) on a
+line by itself.
+
+<p><a name="insert"></a>The <em>:insert</em> command inserts text before the
+current line.
+Other than that, it is identical to the <a href="#append">:append</a>
+command.
+
+<p><a name="change"></a>The <em>:change</em> command deletes old text lines
+(optionally into a named cut buffer) and then waits for you to enter new
+text to replace it.
+You can then mark the end of the new text by typing a "." (period) on a
+line by itself.
+
+<p><a name="delete"></a><a name="yank"></a>The <em>:delete</em> command copies
+text into a cut buffer, and then deletes it from the edit buffer.
+The <em>:yank</em> command copies text into a cut buffer but leaves the
+edit buffer unchanged.
+
+<p><a name="put"></a>The <em>:put</em> command "pastes" text from a cut buffer
+back into the edit buffer.
+The cut buffer's contents are inserted after the addressed line.
+If you want to insert before the first line, you can use address 0 like
+this:
+<xmp>
+:0put</xmp>
+
+<p><a name="copy"></a><a name="to"></a>
+The <em>:copy</em> and <em>:to</em> commands are identical.
+They both make a copy of a portion of an edit buffer, and insert that copy
+at a specific point.
+The destination line can be specified with an optional buffer name and the
+full address syntax as described in section 4.1.
+Consequently, you can use this command to copy part of one edit buffer
+into another edit buffer.
+The following example copies an 11-line window from the current buffer
+onto the end of a buffer named "otherbuf"
+<xmp>
+:-5,+5t(otherbuf)$</xmp>
+
+<p><a name="move"></a>
+The <em>:move</em> command resembles <a href="#copy">:copy</a> except that
+<em>:move</em> deletes the original text.
+
+<p><a name="BANG"></a>
+The <em>:!</em> command allows you to send parts of your edit buffer though
+some external "filter" program.
+The output of the program then replaces the original text.
+For example, this following will sort lines 1 through 10 using the "sort"
+program.
+<xmp>
+:1,10!sort</xmp>
+
+<p>If you use the <em>:!</em> command without any line addresses, then
+elvis will simply execute the program and display its output.
+This is only guaranteed to work correctly for non-interactive programs;
+to execute an interactive program you should use the <a href="#shell">:shell</a>
+command.
+
+<p><a name="LT"></a><a name="GT"></a>
+The <em>:&lt;</em> and <em>:&gt;</em> commands adjust the indentation on the
+addressed lines.
+The <em>:&lt;</em> command decreases the leading whitespace by the number of
+spaces indicated in the <a href="elvisopt.html#shiftwidth">shiftwidth</a> option,
+and <em>:&gt;</em> does the reverse.
+
+<p><a name="join"></a>
+The <em>:join</em> command joins multiple lines together so they form one
+long line.
+Normally it will intelligently decide how much whitespace it should place
+between lines, depending on the <a href="elvisopt.html#sentenceend">sentenceend,</a>
+<a href="elvisopt.html#sentencegap">sentencegap,</a> and
+<a href="elvisopt.html#sentencequote">sentencequote</a> options.
+When invoked with an exclamation point, as <tt>:join!</tt>, it joins the lines
+without doing fancy things to whitespace.
+
+<p><a name="undo"></a><a name="redo"></a>
+The <em>:undo</em> command undoes recent changes.
+The number of undoable changes is controllable on a buffer-by-buffer basis,
+via the <a href="elvisopt.html#undolevels">undolevels</a> option.
+The <em>:redo</em> command undoes an undo.
+
+<h3><a name="GLOBAL"></a>4.3.3 Global edit commands</h3>
+<pre graphic>.-------.-------------------.-----------------------------------.
+|ADDRESS| COMMAND           | ARGUMENTS                         |
+|-------|-------------------|-----------------------------------|
+| range | <a href="#global">g[lobal]</a>[!]       | /regexp/ excmds                   |
+| range | <a href="#vglobal">v[global]</a>[!]      | /regexp/ excmds                   |
+| range | <a href="#substitute">s[ubstitute]</a>      | /regexp/newtext/[g][p][x][count]  |
+| range | <a href="#AMP">&amp;</a>                 |                                   |
+| range | <a href="#TILDE">~</a>                 |                                   |
+^-------^-------------------^-----------------------------------^
+</pre>
+
+<a name="global"></a>
+<a name="vglobal"></a>
+The <em>:global</em> command searches for lines which contain the
+<a href="elvisre.html">/regexp/</a> and executes the given <var>excmds</var>
+for each matching line.
+The <em>:vglobal</em> command executes the <var>excmds</var> for each line
+which <em>does not</em> match the <var>/regexp/.</var>
+
+<p>In script files, you can supply multiple command lines to a single
+<tt>:global</tt> or <tt>:vglobal</tt> by placing a '{' character on the
+<tt>:global/:vglobal</tt> line,
+following that with any number of command lines, and then finally a '}'
+character on a line by itself to mark the end.
+This notation doesn't allow nesting; you can't use {...} inside a larger
+{...} command list.
+(Hopefully this limitation will be lifted soon.)
+
+<p><a name="substitute"></a>
+The <em>:substitute</em> command searches for the <var>/regexp/</var> in each
+line, and replaces the matching text with <var>newtext.</var>
+The interpretation of <var>newtext</var> is described in
+<a href="elvisre.html#SUBST">section 5.2</a>
+
+<p>The <var>newtext</var> can be followed by a count or <kbd>g</kbd> flag to
+determine which matches are changed within each line.
+Without any count or <kbd>g</kbd> flag, only the first match within each line
+is changed.
+If a count is supplied, then only that match within each line will be
+replaced.
+If a <kbd>g</kbd> flag is given, then all matches in each line will be
+replaced.
+
+<p>You can also supply a <kbd>p</kbd> flag.
+This causes each affected line to be printed, after all substitutions have
+been made to that line.
+
+<p>Standard vi supports a <kbd>c</kbd> flag, which prompts for confirmation
+before each substitution, but <em>elvis doesn't support that yet.</em>
+Until elvis supports <kbd>c,</kbd> the suggested work-around is:
+set the <a href="elvisopt.html#autoselect">autoselect</a> option,
+use the visual <a href="elvisvi.html#slash">/</a> command to search for
+the first match,
+then use the visual <a href="elvisvi.html#c">c</a> command to change the
+text.
+After that, you can use <a href="elvisvi.html#n">n</a> to find the next
+match, and <a href="elvisvi.html#stop">.</a> to change the text.
+If you want to leave a match unchanged, just hit <a href="elvisvi.html#n">n</a>
+without hitting the <a href="elvisvi.html#stop">.</a> key.
+
+<p>Elvis supports a special <kbd>x</kbd> flag.
+Instead of performing each substitution,
+elvis will execute the final replacement text as an ex command line.
+This is used in the implementation of modelines, like this:
+<xmp>
+1,5 s/ex:\(.*\):/\1/x
+$-4,$ s/ex:\(.*\):/\1/x</xmp>
+
+<p><a name="AMP"></a><a name="TILDE"></a>
+The <em>:&amp;</em> and <em>:~</em> commands are identical to each other.
+They both repeat the previous <em>:substitute</em> command.
+
+<h3><a name="PRINT"></a>4.3.4 Displaying text</h3>
+<pre graphic>.-------.-------------------.-----------------------------------.
+|ADDRESS| COMMAND           | ARGUMENTS                         |
+|-------|-------------------|-----------------------------------|
+| range | <a href="#print">p[rint]</a>           | [count]                           |
+| range | <a href="#list">l[ist]</a>            | [count]                           |
+| range | <a href="#number">nu[mber]</a>          | [count]                           |
+| range | <a href="#HASH">#</a>                 | [count]                           |
+| line  | <a href="#z">z</a>                 | [spec]                            |
+| range | <a href="#EQ">=</a>                 |                                   |
+^-------^-------------------^-----------------------------------^
+</pre>
+
+<a name="print"></a>
+The <em>:print</em> command displays lines from the edit buffer.
+It displays them the normal way -- with tabs expanded and so on.
+
+<p><a name="list"></a>
+The <em>:list</em> command also displays lines, but it tries to make
+all non-printing characters visible, and it marks the end of each line with
+a '$' character.
+
+<p><a name="number"></a><a name="HASH"></a>
+The <em>:number</em> and <em>:#</em> commands are identical to each other.
+They both display lines the normal way except that each line is preceded by
+its line number.
+
+<p><a name="z"></a>
+The <em>:z</em> command shows a "window" of lines surrounding the current line.
+The default size of the "window" is taken from the
+<a href="elvisopt.html#window">window</a> option.
+If a line address is supplied, then it becomes the current line before this
+command is executed.
+The <var>spec</var> can be one of the following characters;
+the default is <kbd>z+.</kbd>
+<pre graphic>
+   .------.-----------------------------------------------------.
+   | SPEC | OUTPUT STYLE                                        |
+   |------|-----------------------------------------------------|
+   |  -   | Place the current line at the bottom of the window. |
+   |------|-----------------------------------------------------|
+   |  +   | Place the current line at the top of the window.    |
+   |      | Upon completion of this command, the last line      |
+   |      | output will become the current line.                |
+   |------|-----------------------------------------------------|
+   |  ^   | Jump back 2 windows' worth of lines, and then do    |
+   |      | the equivalent of z+.  Note that z+ is like paging  |
+   |      | forward and z^ is like paging backward.             |
+   |------|-----------------------------------------------------|
+   |  .   | Place the current line in the middle of the window. |
+   |      | Upon completion of this command, the last line      |
+   |      | output will become the current line.                |
+   |------|-----------------------------------------------------|
+   |  =   | Place the current line in the middle of the window, |
+   |      | and surround it with lines containing hyphens.      |
+   ^------^-----------------------------------------------------^ </pre>
+
+<p><a name="EQ"></a>
+The <em>:=</em> command the line number of the current line, or the addressed
+line if given one address.
+If given a range of addresses, it tells you the line numbers of the two
+endpoints and the total number of lines in the range.
+
+<h3><a name="TAGS"></a>4.3.5 Tags</h3>
+<pre graphic>.-------.-------------------.-----------------------------------.
+|ADDRESS| COMMAND           | ARGUMENTS                         |
+|-------|-------------------|-----------------------------------|
+|       | <a href="#tag">ta[g]</a>[!]          | [tag]                             |
+|       | <a href="#stack">stac[k]</a>           |                                   |
+|       | <a href="#pop">po[p]</a>[!]          |                                   |
+^-------^-------------------^-----------------------------------^
+</pre>
+
+Tags provide a way to associate names with certain places within certain files.
+Typically, you will run the <strong>ctags</strong> program to create a file
+named "tags" which describes the location of each function and macro
+used in the source code for your project.
+The tag names are the same as the function names, in this case.
+
+<p>In HTML mode, elvis uses the tags commands to follow hypertext links,
+but we'll generally ignore that in the following discussions.
+
+<p><a name="tag"></a>
+The <em>:tag</em> command performs tag lookup.
+It reads the "tags" file to locate the named tag.
+It then loads the source file where that tag is defined, and moves the
+cursor to the specific point within that buffer where the tag is defined.
+
+<p><a name="stack"></a>
+Before moving the cursor, elvis will save the old cursor position on a stack.
+You can use the <em>:stack</em> command to display the contents of that stack.
+Each window has an independent stack.
+
+<p><a name="pop"></a>
+The <em>:pop</em> command pops a cursor position off the stack, restoring
+the cursor to its previous position.
+When you're browsing though source code, you will typically use <em>:tag</em>
+to go deeper into the call tree, and <em>:pop</em> to come back out again.
+
+<p>In HTML mode, these all work the same except that <em>:tag</em> expects to
+be given an URL instead of a tag name.
+URLs don't depend on having a "tags" file, so the "tags" file is ignored
+when in HTML mode.
+Elvis doesn't support any network protocols, so its URLs can only consist
+of a file name and/or a #label.
+The following example would move the cursor to the start of this section:
+<xmp>
+:tag elvisopt.html#TAGS</xmp>
+
+<h3><a name="IO"></a>4.3.6 File I/O commands</h3>
+<pre graphic>.-------.-------------------.-----------------------------------.
+|ADDRESS| COMMAND           | ARGUMENTS                         |
+|-------|-------------------|-----------------------------------|
+| line  | <a href="#read">r[ead]</a>            | file | !shellcmd                  |
+| range | <a href="#write">w[rite]</a>[!]        | [file | >>file | !shellcmd]       |
+| range | <a href="#lpr">lp[r]</a>[!]          | [file | >>file | !shellcmd]       |
+^-------^-------------------^-----------------------------------^
+</pre>
+
+<a name="read"></a>
+The <em>:read</em> command reads a file or external program,
+and inserts the new text into the edit buffer after the addressed line.
+If you don't explicitly give a line address, then the text will be
+inserted after the current line.
+To insert the file's contents into the top of the buffer (before line 1),
+you should specify line 0.
+For example, to insert the contents of "foo.txt" before line 1, you would
+give the command...
+<xmp>:0 read foo.txt</xmp>
+
+<p><a name="write"></a>
+The <em>:write</em> command writes either the entire edit buffer (if no
+address range is given) or a part of it (if a range is given) out to either
+a file or an external filter program.
+If you don't specify the output file or external command,
+then elvis will assume it should write to the file that the buffer was
+originally loaded from.
+
+<p>Elvis will normally prevent you from overwriting existing files.
+(The exact details of this protection depend on the
+<a href="elvisopt.html#edited">edited,</a>
+<a href="elvisopt.html#filename">filename,</a>
+<a href="elvisopt.html#newfile">newfile,</a>
+<a href="elvisopt.html#readonly">readonly,</a> and
+<a href="elvisopt.html#writeany">writeany</a> options.)
+If you want to force elvis to overwrite an existing file,
+you can append a "!" to the end of the command name, but before the file name.
+In order to avoid ambiguity, <em>there must not be any whitespace between
+the "write" command name and the "!" character</em> when you want to
+overwrite an existing file.
+Conversely, when writing to an external program there <em>should</em> be
+whitespace before the "!" that marks the start of the program's command line.
+The ">>file" notation tells elvis to append to "file" instead of overwriting it.
+
+<p><a name="lpr"></a>
+The <em>:lpr</em> command sends text to the printer.
+It is similar to <tt>:write</tt> except that <tt>:lpr</tt>
+formats the buffer contents as defined by the
+<a href="elvisopt.html#bufdisplay">bufdisplay</a> option and the
+<a href="elvisopt.html#LPR">printing options.</a>
+If no output file or external program is specified,
+then the printer output is sent to the file or external program
+specified by the <a href="elvisopt.html#lpout">lpout</a> option.
+
+<h3><a name="ARGS"></a>4.3.7 The args list, and selecting a file to edit</h3>
+<pre graphic>.-------.-------------------.-----------------------------------.
+|ADDRESS| COMMAND           | ARGUMENTS                         |
+|-------|-------------------|-----------------------------------|
+|       | <a href="#args">ar[gs]</a>            | [file...]                         |
+|       | <a href="#next">n[ext]</a>[!]         | [file...]                         |
+|       | <a href="#previous">N[ext]</a>[!]         |                                   |
+|       | <a href="#previous">pre[vious]</a>[!]     |                                   |
+|       | <a href="#rewind">rew[ind]</a>[!]       |                                   |
+|       | <a href="#last">la[st]</a>            |                                   |
+|       | <a href="#wnext">wn[ext]</a>[!]        |                                   |
+|       | <a href="#file">f[ile]</a>            | [file]                            |
+|       | <a href="#edit">e[dit]</a>[!]         | [+line] [file]                    |
+|       | <a href="#ex">ex</a>[!]             | [+line] [file]                    |
+|       | <a href="#visual">vi[sual]</a>[!]       | [+line] [file]                    |
+|       | <a href="#open">o[pen]</a>[!]         | [+line] [file]                    |
+^-------^-------------------^-----------------------------------^
+</pre>
+
+The "args list" is a list of file names.
+It provides an easy way to edit a whole series of files, one at a time.
+Initially, it contains any file names that you named on the command line
+when you invoked elvis.
+
+<p><a name="args"></a>
+The <em>:args</em> command displays the args list, with the
+current file name enclosed in brackets.
+You can also use <tt>:args</tt> to replace the args list with a new
+set of files;
+this has no effect on whatever file you're editing at that time, but
+it will affect any <a href="#next">:next</a> commands that you give later.
+
+<p><a name="next"></a>
+The <em>:next</em> command switches to the next file in the args list.
+This means it loads the next file from the args list into an edit buffer,
+and makes that edit buffer be the current buffer for this window.
+You can also give a new args list on the <tt>:next</tt> command line;
+this acts like a <tt>:args</tt> command to set the args list, followed by
+an argumentless <tt>:next</tt> command to load the next (first) file in
+that list.
+
+<p><a name="Next"></a><a name="previous"></a>
+The <em>:Next</em> (with a capital "N") and <em>:previous</em> commands
+are identical to each other.
+They both move backwards through the args list.
+
+<p><a name="rewind"></a><a name="last"></a>
+The <em>:rewind</em> and <em>:last</em> commands switch to the first and
+last files in the args list, respectively.
+
+<p><a name="wnext"></a>
+The <em>:wnext</em> command is like a <a href="#write">:write</a> command
+followed by a <a href="#next">:next</a> command.
+It saves any changes made to the current file before switching to the next
+file.
+(The <a href="elvisopt.html#autowrite">autowrite</a> option offers a better
+alternative.)
+
+<p><a name="file"></a>
+The <em>:file</em> command displays information about the current buffer.
+It can also be used to change the filename associated with this buffer.
+
+<p><a name="edit"></a><a name="ex"></a>
+The <em>:edit</em> and <em>:ex</em> commands are identical to each other.
+They both switch to a new file, or if no file is named then they reread
+the current file.
+This has no effect on the args list.
+
+<p><a name="visual"></a><a name="open"></a>
+The <em>:visual</em> and <em>:open</em> commands switch to a new file if
+one is named; otherwise they continue to use the current buffer <em>without</em>
+reloading it from the original file.
+These commands have the side-effect of switching the window mode from ex mode
+to either the normal visual mode or the uglier "open" mode, respectively.
+"Open" mode allows you to use all of the visual commands, but it only displays
+a single line (the line that the cursor is on) at the bottom of the screen.
+The sole advantage that "open" mode has over "visual" mode is that "open"
+mode doesn't need to know what kind of terminal you're using.
+
+<h3><a name="QUIT"></a>4.3.8 Quitting</h3>
+<pre graphic>.-------.-------------------.-----------------------------------.
+|ADDRESS| COMMAND           | ARGUMENTS                         |
+|-------|-------------------|-----------------------------------|
+|       | <a href="#close">cl[ose]</a>[!]        |                                   |
+|       | <a href="#quit">q[uit]</a>[!]         |                                   |
+|       | <a href="#wquit">wq[uit]</a>[!]        | [file]                            |
+|       | <a href="#xit">x[it]</a>[!]          | [file]                            |
+|       | <a href="#qall">qa[ll]</a>[!]         |                                   |
+|       | <a href="#preserve">pres[erve]</a>        |                                   |
+^-------^-------------------^-----------------------------------^
+</pre>
+
+Except for <tt>:qall,</tt> all of these commands attempt to close the current
+window without losing any changes.
+When the last window is closed, elvis exits.
+The differences between these commands concern how modified buffers are handled.
+In the discussions below, it is assumed that
+<a href="elvisopt.html#tempsession">tempsession</a> is True and the buffer's
+<a href="elvisopt.html#retain">retain</a> option is False, which is usually
+the case.
+
+<p><a name="close"></a>
+The <em>:close</em> command is the simplest.
+If the current window is the only window, then <tt>:close</tt> will fail;
+otherwise the current window will be closed.
+The visual <a href="elvisvi.html#^Wq">^Wq</a> command uses this command internally.
+If the window's buffer was modified, then elvis will just have a modified
+buffer lying around, which may or may not be visible in some other window.
+That's okay.
+The other quitting commands won't allow you to lose that buffer accidentally.
+You can make some other window view that buffer by giving that buffer's
+name in parentheses on an ex command line in that other window.
+
+<p><a name="quit"></a>
+The <em>:quit</em> command fails if the current buffer has been modified.
+If you wish to abandon the changes made to the current buffer, you can add
+a "!" to the end of the command name; this has the effect of turning off
+the buffer's <a href="elvisopt.html#modified">modified</a> flag.
+
+<p><a name="xit"></a>
+The <em>:xit</em> command saves the file if it has been modified, and then
+closes the window.
+The visual <a href="elvisvi.html#Z">ZZ</a> command uses this command internally.
+
+<p><a name="wquit"></a>
+The <em>:wquit</em> command saves the file regardless of whether it has been
+modified, and then closes the window.
+
+<p><a name="qall"></a>
+The <em>:qall</em> command tries to close all of the windows at once.
+It is equivalent to giving the <tt>:quit</tt> command in each window.
+
+<p><a name="preserve"></a>
+The <em>:preserve</em> command closes all windows and exits, but it doesn't
+delete the session file.
+You can restart the same edit session later by giving the command...
+<pre>
+	elvis -s<em>sessionfile</em>
+</pre>
+...where <em>sessionfile</em> is the name of the session file, 
+usually "~/elvis1.ses".
+You may want to check the value of the
+<a href="elvisopt.html#session">session</a> option first, just to make sure.
+<h3><a name="MACRO"></a>4.3.9 Scripts and macros</h3>
+<pre graphic>.-------.-------------------.-----------------------------------.
+|ADDRESS| COMMAND           | ARGUMENTS                         |
+|-------|-------------------|-----------------------------------|
+|       | <a href="#AT">@</a>                 | cutbuf                            |
+|       | <a href="#source">so[urce]</a>[!]       | file                              |
+|       | <a href="#safer">saf[er]</a>[!]        | file                              |
+^-------^-------------------^-----------------------------------^
+</pre>
+
+<a name="AT"></a>
+The <em>:@</em> command executes the contents of a cut buffer as a series
+of ex command lines.
+
+<p><a name="source"></a>
+The <em>:source</em> reads a file, and executes its contents as a series of
+ex commands.
+Normally, elvis would issue an error message if the requested file didn't
+exist but when a "!" is appended to the command name, elvis will silently
+ignore the command if it doesn't exist.
+
+<p><a name="safer"></a>
+The <em>:safer</em> command is exactly like <tt>:source</tt>, except that
+<tt>:safer</tt> will temporarily set the <a href="elvisopt.html#safer">safer</a>
+option while it is executing the commands.
+You should use <tt>:safer</tt> instead of <tt>:source</tt> when it is possible
+that the file to be executed could contain potentially harmful commands.
+For example, the default "elvis.ini" file use <tt>:source</tt> to execute
+the ".exrc" file in your home directory since it is presumably secure,
+but <tt>:safer</tt> is used to execute the ".exrc" file in the current
+directory since it could have been created by anybody.
+
+<h3><a name="ERRLIST"></a>4.3.10 Working with a compiler</h3>
+<pre graphic>.-------.-------------------.-----------------------------------.
+|ADDRESS| COMMAND           | ARGUMENTS                         |
+|-------|-------------------|-----------------------------------|
+|       | <a href="#cc">cc</a>[!]             | [args]                            |
+|       | <a href="#make">mak[e]</a>[!]         | [args]                            |
+|       | <a href="#errlist">er[rlist]</a>[!]      | [file]                            |
+^-------^-------------------^-----------------------------------^
+</pre>
+
+If you use elvis to edit source code for programs, then you can have
+elvis read the output of your compiler and parse that output for error
+messages.
+When elvis finds an error message, it can move the cursor to the file and
+line number where the error was reported.
+
+<p>To parse the compiler output, elvis first breaks the output into lines.
+Each line is then broken into words.
+If a word looks like a number, then it is assumed to be a line number.
+If a word looks like the name of an existing file, then it is assumed to
+be a file name.
+Any line which contains both a line number and a file name is treated as
+an error report (with the remainder of the line serving as a description
+of the error); lines which don't have both of these are simply ignored.
+
+<p><a name="cc"></a><a name="make"></a>
+The <em>:cc</em> and <em>:make</em> commands use the
+<a href="elvisopt.html#ccprg">ccprg</a> and
+<a href="elvisopt.html#makeprg">makeprg</a> options, respectively,
+to run your compiler or "make" utility, and collect the output.
+Elvis will then move the cursor to where the first error was detected.
+(If there were no errors, elvis will say so and leave the cursor unchanged.)
+
+<p><a name="errlist"></a>
+After that, the <em>:errlist</em> command can be used repeatedly to move
+to each successive error.
+You can also use the <tt>:errlist</tt> command with a file name argument
+to load a new batch of error messages from a file; the cursor is then moved
+to the first error in that batch.
+
+<h3><a name="CALC"></a>4.3.11 Built-in calculator</h3>
+<pre graphic>.-------.-------------------.-----------------------------------.
+|ADDRESS| COMMAND           | ARGUMENTS                         |
+|-------|-------------------|-----------------------------------|
+|       | <a href="#calculate">ca[lculate]</a>       | expr                              |
+|       | <a href="#eval">ev[al]</a>            | expr                              |
+^-------^-------------------^-----------------------------------^
+</pre>
+
+Elvis has a built-in calculator which uses a C-like syntax.
+It is described in section <a href="elvisexp.html">12: Arithmetic Expressions.</a>
+The <a href="#if">:if</a> and <a href="#let">:let</a> commands also use
+the calculator.
+
+<p><a name="calculate"></a>
+The <em>:calculate</em> command evaluates an expression and displays the
+result.
+
+<p><a name="eval"></a>
+The <em>:eval</em> command evaluates an expression using the simpler syntax
+(which basically means that text outside of parentheses is left alone),
+and then executes the result as an ex command line.
+This provides a way to use expressions with commands which would not
+ordinarily use expressions.
+For example, the following command line inserts the value the
+<a href="elvisopt.html#elvispath">elvispath</a> option into the current
+edit buffer.
+<xmp>:eval insert elvispath=(elvispath)</xmp>
+
+<h3><a name="BUFFER"></a>4.3.12 Buffer commands</h3>
+<pre graphic>.-------.-------------------.-----------------------------------.
+|ADDRESS| COMMAND           | ARGUMENTS                         |
+|-------|-------------------|-----------------------------------|
+|       | <a href="#all">al[l]</a>[!]          | excmds                            |
+|       | <a href="#buffer">b[uffer]</a>[!]       | [newname]                         |
+|       | <a href="#OPEN">(</a>                 | buffer                            |
+^-------^-------------------^-----------------------------------^
+</pre>
+
+<a name="all"></a>
+The <em>:all</em> command applies a given ex command line to each edit buffer
+in turn.
+Normally the command is applied just to the user edit buffers, but if you
+append a "!" to the command name, then the ex command line is applied to
+internal buffers as well.
+For example, the following sets the "bufdisplay" option of all user
+edit buffers:
+<xmp>:all set bufdisplay=c</xmp>
+
+<p>In script files, you can supply multiple command lines to a single
+<tt>:all</tt> commands
+by placing a '{' character on the <tt>:all</tt>
+line, following that with any number of command lines, and then finally a '}'
+character on a line by itself to mark the end.
+This notation doesn't allow nesting; you can't use {...} inside a larger
+{...} command list.
+(Hopefully this limitation will be lifted soon.)
+
+<p><a name="buffer"></a>
+The <em>:buffer</em> command lists either all user edit buffers, or
+(when "!" is appended to the command name) <em>all</em> buffers including
+internal ones.
+If the buffer is being edited in one or more windows, then the window ID
+is also displayed.
+Buffers which have been modified will be marked with an asterisk.
+
+<p>You can also use the <tt>:buffer</tt> command to change the name of
+an existing buffer.
+Right now I can't remember why I bothered to implement this feature.
+
+<p><a name="OPEN"></a>
+The <em>(buffer</em> notation causes the current window to display the
+named buffer, instead of the current buffer.
+This isn't really a command;
+it is part of an address.
+Whenever you give an address without specifying a command, elvis
+moves the cursor to the addressed line.
+In this particular case, we're addressing the most recently changed line
+of a given buffer, so that's where the cursor is moved to.
+
+<h3><a name="WINDOW"></a>4.3.13 Window commands</h3>
+<pre graphic>.-------.-------------------.-----------------------------------.
+|ADDRESS| COMMAND           | ARGUMENTS                         |
+|-------|-------------------|-----------------------------------|
+|       | <a href="#split">sp[lit]</a>           | [file]                            |
+|       | <a href="#new">new</a>               |                                   |
+|       | <a href="#snew">sne[w]</a>            |                                   |
+|       | <a href="#snext">sn[ext]</a>           | [file...]                         |
+|       | <a href="#sNext">sN[ext]</a>           |                                   |
+|       | <a href="#srewind">sre[wind]</a>[!]      |                                   |
+|       | <a href="#slast">sl[ast]</a>           |                                   |
+|       | <a href="#stag">sta[g]</a>            | [tag]                             |
+|       | <a href="#sall">sa[ll]</a>            |                                   |
+|       | <a href="#window">wi[ndow]</a>          | [+ | - | number | buffer ]        |
+|       | <a href="#display">di[splay]</a>         | [modename [language]]             |
+|       | <a href="#normal">no[rmal]</a>          |                                   |
+^-------^-------------------^-----------------------------------^
+</pre>
+
+<a name="split"></a>
+The <em>:split</em> command creates a new window.
+If you supply a file name, then it will load that file into an edit buffer
+and the new window will show that buffer.
+Otherwise, the new window will show the same buffer as the current window.
+
+<p><a name="new"></a><a name="snew"></a>
+The <em>:new</em> and <em>:snew</em> commands are identical to each other.
+They both create a new empty buffer, and then create a new window to
+show that buffer.
+
+<p><a name="snext"></a><a name="sNext"></a><a name="srewind"></a>
+<a name="slast"></a><a name="stag"></a>
+The <em>:snext, :sNext, :srewind, :slast,</em> and <em>:stag</em> commands
+resemble the
+<a href="#next">:next,</a>
+<a href="#Next">:Next,</a>
+<a href="#rewind">:rewind,</a>
+<a href="#last">:last,</a> and
+<a href="#tag">:tag</a> commands, respectively,
+except that these "s" versions create a new window for the newly loaded file,
+and leave the current window unchanged.
+
+<p><a name="sall"></a>
+The <em>:sall</em> command creates a new window for any files named in the
+args list, which don't already have a window.
+(See section <a href="#ARGS">4.3.7: The args list...</a> for a discussion
+of the args list.)
+
+<p><a name="window"></a>
+The <em>:window</em> command either lists all windows
+(when invoked with no arguments) or switches to a given window.
+You can specify which which to switch to by giving one of the following
+arguments.
+<pre graphic>
+    .----------.-----------------------------------------------.
+    | ARGUMENT | MEANING                                       |
+    |----------|-----------------------------------------------|
+    |    +     | Switch to the next window, like <a href="elvisvi.html#^Wk">^Wk</a>           |
+    |    ++    | Switch to the next window, wrapping like <a href="elvisvi.html#^W^W">^W^W</a> |
+    |    -     | Switch to the previous window, like <a href="elvisvi.html#^Wj">^Wj</a>       |
+    |    --    | Switch to the previous window, wrapping       |
+    |  number  | Switch to the window whose windowid=number    |
+    |  buffer  | Switch to the window editing the named buffer |
+    ^----------^-----------------------------------------------^
+<p><a name="display"></a>
+The <em>:display</em> command switches the window to a new display mode,
+overriding the value of the <a href="elvisopt.html#bufdisplay">bufdisplay</a>
+option.
+The <a href="elvisopt.html#display">display</a> option indicates the current
+display mode.
+If you omit the new modename, then the <tt>:display</tt> command will list
+all supported display modes, with an asterisk next to the current mode.
+The "syntax" mode allows you to specify which language's syntax it is supposed
+to use; if you don't specify a language, elvis will guess the language from
+the file name's extension.
+
+<p><a name="normal"></a>
+The <em>:normal</em> command is equivalent to "<tt>:display normal</tt>".
+It can be abbreviated to ":no", which is certainly easier to type than
+":dis normal".
+
+<h3><a name="SETUP"></a>4.3.14 Configuration</h3>
+<pre graphic>.-------.-------------------.-----------------------------------.
+|ADDRESS| COMMAND           | ARGUMENTS                         |
+|-------|-------------------|-----------------------------------|
+|       | <a href="#abbreviate">ab[breviate]</a>[!]   | [lhs rhs]                         |
+|       | <a href="#unabbreviate">una[bbreviate]</a>[!] | lhs                               |
+|       | <a href="#map">map</a>[!]            | [lhs rhs]                         |
+|       | <a href="#unmap">unm[ap]</a>[!]        | lhs                               |
+|       | <a href="#break">br[eak]</a>[!]        | lhs                               |
+|       | <a href="#unbreak">unb[reak]</a>[!]      | lhs                               |
+|       | <a href="#digraph">dig[raph]</a>[!]      | [lhs [rhs]]                       |
+|       | <a href="#color">col[or]</a>           | [font color ["on" color]]         |
+|       | <a href="#gui">gu[i]</a>             | text                              |
+|       | <a href="#set">se[t]</a>[!]          | [option=value | option? | all]    |
+|       | <a href="#let">le[t]</a>[!]          | option=expr                       |
+|       | <a href="#if">if</a>                | expr                              |
+|       | <a href="#then">th[en]</a>            | excmds                            |
+|       | <a href="#else">el[se]</a>            | excmds                            |
+|       | <a href="#mkexrc">mk[exrc]</a>[!]       | [file]                            |
+^-------^-------------------^-----------------------------------^
+</pre>
+
+<a name="abbreviate"></a><a name="unabbreviate"></a>
+The <em>:abbreviate</em> and <em>:unabbreviate</em> commands add and remove
+entries to the abbreviation table, respectively.
+Also, the <tt>:abbreviate</tt> command can be used with no arguments to list
+the current contents of the abbreviation table.
+For a discussion of abbreviations, see section
+<a href="elvisinp.html#ABBR">3.3: Abbreviations.</a>
+
+<p><a name="map"></a><a name="unmap"></a>
+The <em>:map</em> and <em>:unmap</em> commands add and remove entries to the
+map tables, respectively.
+When the <tt>:map</tt> command is given without any arguments, it lists
+the contents of a map table.
+
+<p>There are two map tables.
+When a "!" is appended to the command name, these commands use the table
+that applies to input mode; without the "!" these commands use the table
+that applied to visual command mode.
+
+<p>The primary purpose of map tables is to assign actions to the cursor keypad
+and the function keys.
+Each of these keys sends an arbitrary but distinctive sequence of characters
+when pressed.
+The map tables are used to convert these arbitrary character sequences into
+command keystrokes that elvis can do something useful with.
+For example, arrow keys are normally mapped to the
+<a href="elvisvi.html#h">h,</a>
+<a href="elvisvi.html#j">j,</a>
+<a href="elvisvi.html#k">k,</a> and
+<a href="elvisvi.html#l">l</a> commands.
+
+<p>The first argument to <tt>:map</tt> is the raw character sequence sent
+by a key, and the remaining arguments are the characters that elvis should
+pretend you pressed.
+The second argument may be preceded by the word "visual" which causes the
+remaining argument characters to be processed as visual commands, even if
+the key is pressed in input mode.
+This trick is used to allow the cursor to be moved via the arrow keys when
+in input mode.
+
+<p><a name="break"></a><a name="unbreak"></a>
+The <em>:break</em> and <em>:unbreak</em> commands set and reset the breakpoint
+flag for a given macro, respectively.
+This is used for debugging macros, as described in section
+<a href="elvistip.html#DEBUG">14.1: How to debug macros.</a>
+If a macro has its breakpoint flag set, and the
+<a href="elvisopt.html#maptrace">maptrace</a> option is set to <strong>run,</strong>
+then when that map is encountered elvis will automatically switch maptrace
+to <strong>step</strong> mode.
+
+<p><a name="digraph"></a>
+The <em>:digraph</em> command manipulates the digraph table.
+(See section <a href="elvisinp.html#DIG">3.2: Digraphs</a> for a discussion
+on digraphs.)
+With no arguments, it lists the digraph table.
+With one argument, it removes the given digraph from the table.
+With two arguments, it adds the given digraph to the table, or
+if the same two ASCII characters are already in the table then it alters
+the existing entry.
+
+<p>Normally, the <tt>:digraph</tt> command sets the most significant bit
+in the last argument's character.
+That way you don't need to be able to type a non-ASCII character on your
+keyboard in order to enter it into the table; you can type the ASCII
+equivalent and allow elvis to convert it to non-ASCII before storing the
+digraph.
+If you don't want elvis to set the most significant bit, then append a
+"!" to the end of the command name.
+
+<p><a name="color"></a>
+The <em>:color</em> command allows you to choose a color to use for displaying
+each font.
+Some user interfaces don't support this.
+The ones that do will vary in the color names that they support.
+The termcap interface supports <strong>black, white, gray, red, green, blue,
+brown, yellow, magenta,</strong> and <strong>cyan,</strong> plus
+<strong>bright</strong> versions of most of those.
+The x11 interface supports all standard X color names.
+
+<p>The first argument should be the name of the font to change.
+This can be "normal", "bold", "emphasized", "italic", "underlined",
+"standout", or "fixed".
+Some user interfaces may also support "cursor" and/or "scrollbar".
+All of these can be either spelled out completely, or abbreviated to
+the first letter.
+(Currently no user interface supports both "standout" and "scrollbar"
+so there is no ambiguity.)
+If you omit the font name, then "normal" is assumed.
+The termcap interface requires you to assign a "normal" color before
+any of the other fonts.
+
+<p>You can specify an optional background color.
+The word "on" is used to delimit the foreground color name from the background
+color name.
+For example, the command "<tt>:color yellow on blue</tt>" causes normal text
+to be displayed as yellow characters on a blue background.
+
+<p><a name="gui"></a>
+The <em>:gui</em> command provides a way to pass unusual commands to the
+user interface.
+Currently, the only user interface which uses this is the "x11" interface,
+which uses it to <a href="elvisgui.html#x11.toolbar">configure the toolbar.</a>
+
+<p><a name="set"></a>
+The <em>:set</em> command allows you to examine or change the values of
+<a href="elvisopt.html">options.</a>
+Adding a "!" to the end of the command name causes it to include the
+group name of any option that is output.
+
+<p>With no arguments, <tt>:set</tt> lists the names and values of any
+options that have been altered or are of frequent interest.
+If given the argument "all" it will list the names and values of
+most (but not really all) options.
+If given name of an option followed by a "?"  character,
+<tt>:set</tt> will output the option's name and value.
+If given the name of a group of options, followed by a "?" character,
+<tt>:set</tt> will output the names and values of all options in that group.
+
+<p>To turn a Boolean option on, just give the name of the option.
+You can turn it off by adding the prefix "no" to the option name, and you
+can negate it by adding the "neg" prefix to its name.
+
+<p>To change the value of a non-Boolean option, give the name followed
+<em>immediately</em> by an "=" and the new value.
+If the new value contains whitespace, you should either enclose the
+entire value in quotes, or precede each whitespace character with a backslash.
+
+<pre graphic>
+.-----------.--------------------------------------------------------.
+| EXAMPLE   | WHAT IT DOES                                           |
+|-----------|--------------------------------------------------------|
+| :set      | display names &amp; values of changed/interesting options  |
+| :set all  | display names &amp; values of most POSIX-compliant options |
+| :set ts?  | display name &amp; value of the tabstop option             |
+| :set lp?  | display names &amp; values of all printing options         |
+| :set ts=4 | set value of the tabstop option to 4                   |
+| :set ai   | turn on the autoindent option                          |
+| :set noai | turn off the autoindent option                         |
+| :set negai| toggle the autoindent option                           |
+^-----------^--------------------------------------------------------^</pre>
+
+<p><a name="let"></a>
+The <em>:let</em> command computes a new value for an option.
+The <tt>:let</tt> command should be followed by the name of an option,
+then an "=" sign, and then an <a href="elvisexp.html">expression</a>
+that produces the new value.
+Note that even Boolean options use the "=" notation here.
+
+<p><a name="if"></a><a name="then"></a><a name="else"></a>
+The <em>:if</em> command evaluates an <a href="elvisexp.html">expression</a>,
+and sets an internal variable according to whether the result was true or false.
+Later, the <em>:then</em> and <em>:else</em> commands can be used to test
+that variable, and conditionally execute other ex commands.
+
+<p>Note that after an <tt>:if</tt> command, any other ex commands which
+don't start with <tt>:then</tt> or <tt>:else</tt> will be executed
+unconditionally.
+Another thing to watch out for is the fact that there is only one "if" variable
+and therefore you can't nest <tt>:if</tt> commands as you might expect.
+
+<p>In script files, you can supply multiple command lines to a single
+<tt>:then</tt> or <tt>:else</tt> by placing a '{' character on the
+<tt>:then/:else</tt> line,
+following that with any number of command lines, and then finally a '}'
+character on a line by itself to mark the end.
+This notation doesn't allow nesting; you can't use {...} inside a larger {...} command list.
+(Hopefully this limitation will be lifted soon.)
+
+<p>An <tt>:if</tt> command inside the {...} list will not affect the value of
+elvis' internal "if" variable outside the {...} list.
+This means that you can use {...} to nest <tt>:if/:then/:else</tt> clauses
+<em>once.</em>
+If {...} itself allowed nesting, then you could use this trick to nest
+<tt>:if/:then/:else</tt> clauses to any level.
+That day hasn't come yet, but one level of nesting <em>does</em> work,
+when written like this:
+<pre>
+	if os="win32"
+	then {
+		if gui=="win32"
+		then source elvis.lat
+		else source elvis.pc8
+	}
+	else source elvis.lat
+</pre>
+
+<p><a name="mkexrc"></a>
+The <em>:mkexrc</em> command creates a file containing ex commands which
+recreate the current map, abbreviation, and digraph tables, and also sets
+any options which have been changed.
+Basically it stores your current configuration in a file which you can later
+<tt>:source</tt> to restore your configuration.
+If you don't specify a filename, then it will write to ".exrc" or "elvis.rc"
+in the current directory.
+
+<h3><a name="MISC"></a>4.3.15 Miscellaneous</h3>
+<pre graphic>.-------.-------------------.-----------------------------------.
+|ADDRESS| COMMAND           | ARGUMENTS                         |
+|-------|-------------------|-----------------------------------|
+|       | <a href="#QUOTE">&quot;</a>                 | text                              |
+|       | <a href="#cd">cd</a>[!]             | [directory]                       |
+|       | <a href="#chdir">chd[ir]</a>[!]        | [directory]                       |
+|       | <a href="#echo">ec[ho]</a>            | text                              |
+|       | <a href="#shell">sh[ell]</a>           |                                   |
+|       | <a href="#stop">st[op]</a>[!]         |                                   |
+|       | <a href="#suspend">sus[pend]</a>[!]      |                                   |
+|       | <a href="#version">ve[rsion]</a>         |                                   |
+| line  | <a href="#goto">go[to]</a>            |                                   |
+| line  | <a href="#mark">ma[rk]</a>            | mark                              |
+| line  | <a href="#k">k</a>                 | mark                              |
+|       | <a href="#OCUR">{</a>                 |                                   |
+^-------^-------------------^-----------------------------------^
+</pre>
+
+<a name="QUOTE"></a>
+The <em>&quot;</em> command causes the remainder of the line to be ignored.
+It is used for inserting comments into ex scripts.
+
+<p><a name="cd"></a><a name="chdir"></a>
+The <em>:cd</em> and <em>:chdir</em> commands are identical.
+They both change the current working directory for elvis and all its windows.
+The you don't specify a new directory name then elvis will switch to your
+home directory.
+
+<p><a name="echo"></a>
+The <em>:echo</em> command displays its arguments as a message.
+This may be useful in ex scripts.
+
+<p><a name="shell"></a>
+The <em>:shell</em> command starts up an interactive shell
+(command-line interpreter).
+Elvis will be suspended while the shell executes.
+(Exception: the "x11" GUI runs the shell in a separate xterm window.
+The elvis and the shell can then run simultaneously.)
+
+<p><a name="stop"></a><a name="suspend"></a>
+The <em>:stop</em> and <em>:suspend</em> commands are identical to each other.
+If the operating system and user interface support it, they will suspend
+elvis and resume the shell that started elvis.
+(This is like hitting <kbd>^Z</kbd> on many UNIX systems.)
+If the OS or GUI don't support it, then elvis will generally treat these
+commands as synonyms for the <tt>:shell</tt> command.
+
+<p><a name="version"></a>
+The <em>:version</em> command identifies this version number of elvis,
+and displays credits.
+
+<p><a name="goto"></a>
+The <em>:goto</em> moves the cursor to the addressed line.
+This is the only command which can be abbreviated down to zero characters,
+so if you type in a line containing just a line address, then elvis will
+treat that as a <tt>:goto</tt> command.
+
+<p><a name="mark"></a><a name="k"></a>
+The <em>:mark</em> and <em>:k</em> commands are identical to each other.
+They set a named mark to equal the addressed line, or the current line if
+no address was given.
+
+<p><a name="OCUR"></a>
+The <em>{ commands }</em> notation isn't really a command;
+it is a feature of elvis' syntax which allows you to pass several command lines
+to a command which normally expects a single command line as its argument.
+It is supported by the
+<a href="#global">:global</a>, <a href="#vglobal">:vglobal</a>,
+<a href="#all">:all</a>, <a href="then">:then</a>, and <a href="else">:else</a>
+commands.
+Instead of placing the argument command at the end of one of those command
+lines, you can place a single '{' character there.
+That should be followed by one or more command lines, and terminated
+by a '}' on a line by itself.
+
+<h2><a name="INDEX"></a>4.4
+Alphabetical list of ex commands</h2>
+
+<pre graphic>
+.-------.-------------------.-----------------------------------.
+|ADDRESS| COMMAND           | ARGUMENTS                         |
+|-------|-------------------|-----------------------------------|
+|       | <a href="#abbreviate">ab[breviate]</a>[!]   | [lhs rhs]                         |
+|       | <a href="#all">al[l]</a>[!]          | excmds                            |
+| line  | <a href="#append">a[ppend]</a>[!]       | [text]                            |
+|       | <a href="#args">ar[gs]</a>            | [file...]                         |
+|       | <a href="#break">br[eak]</a>[!]        | lhs                               |
+|       | <a href="#buffer">b[uffer]</a>[!]       | [buffer]                          |
+|       | <a href="#calculate">ca[lculate]</a>       | expr                              |
+|       | <a href="#cc">cc</a>[!]             | [args]                            |
+|       | <a href="#cd">cd</a>[!]             | [directory]                       |
+| range | <a href="#change">c[hange]</a>[!]       | [count] [text]                    |
+|       | <a href="#chdir">chd[ir]</a>[!]        | [directory]                       |
+|       | <a href="#close">cl[ose]</a>[!]        |                                   |
+|       | <a href="#color">col[or]</a>           | [font color ["on" color]]         |
+| range | <a href="#copy">co[py]</a>            | line                              |
+| range | <a href="#delete">d[elete]</a>          | [cutbuf] [count]                  |
+|       | <a href="#digraph">dig[raph]</a>[!]      | [lhs [rhs]]                       |
+|       | <a href="#display">di[splay]</a>         | [modename [language]]             |
+|       | <a href="#echo">ec[ho]</a>            | text                              |
+|       | <a href="#edit">e[dit]</a>[!]         | [+line] [file]                    |
+|       | <a href="#else">el[se]</a>            | excmds                            |
+|       | <a href="#errlist">er[rlist]</a>[!]      | [file]                            |
+|       | <a href="#eval">ev[al]</a>            | expr                              |
+|       | <a href="#ex">ex</a>[!]             | [+line] [file]                    |
+|       | <a href="#file">f[ile]</a>            | [file]                            |
+| range | <a href="#global">g[lobal]</a>[!]       | /regexp/ excmds                   |
+| line  | <a href="#goto">go[to]</a>            |                                   |
+|       | <a href="#gui">gu[i]</a>             | text                              |
+|       | <a href="#help">h[elp]</a>            | topic                             |
+|       | <a href="#if">if</a>                | expr                              |
+| line  | <a href="#insert">i[nsert]</a>[!]       | [text]                            |
+| range | <a href="#join">j[oin]</a>[!]         |                                   |
+| line  | <a href="#k">k</a>                 | mark                              |
+|       | <a href="#last">la[st]</a>            |                                   |
+|       | <a href="#let">le[t]</a>[!]          | option=expr                       |
+| range | <a href="#list">l[ist]</a>            | [count]                           |
+| range | <a href="#lpr">lp[r]</a>[!]          | [ file | >>file | !shellcmd ]     |
+|       | <a href="#make">mak[e]</a>[!]         | [args]                            |
+|       | <a href="#map">map</a>[!]            | [lhs rhs]                         |
+| line  | <a href="#mark">ma[rk]</a>            | mark                              |
+|       | <a href="#mkexrc">mk[exrc]</a>[!]       | [file]                            |
+| range | <a href="#move">m[ove]</a>            | line                              |
+|       | <a href="#new">new</a>               |                                   |
+|       | <a href="#next">n[ext]</a>[!]         | [file...]                         |
+|       | <a href="#Next">N[ext]</a>[!]         |                                   |
+|       | <a href="#normal">no[rmal]</a>          |                                   |
+| range | <a href="#number">nu[mber]</a>          | [count]                           |
+|       | <a href="#open">o[pen]</a>[!]         | [+line] [file]                    |
+|       | <a href="#pop">po[p]</a>[!]          |                                   |
+|       | <a href="#previous">pre[vious]</a>[!]     |                                   |
+| range | <a href="#print">p[rint]</a>           | [count]                           |
+| line  | <a href="#put">pu[t]</a>             | [cutbuf]                          |
+|       | <a href="#qall">qa[ll]</a>[!]         |                                   |
+|       | <a href="#quit">q[uit]</a>[!]         |                                   |
+| line  | <a href="#read">r[ead]</a>            | file | !shellcmd                  |
+|       | <a href="#redo">red[o]</a>[!]         | [count]                           |
+|       | <a href="#rewind">rew[ind]</a>[!]       |                                   |
+|       | <a href="#sNext">sN[ext]</a>           |                                   |
+|       | <a href="#safer">saf[er]</a>[!]        | file                              |
+|       | <a href="#sall">sa[ll]</a>            |                                   |
+|       | <a href="#set">se[t]</a>[!]          | [option=value | option? | all]    |
+|       | <a href="#shell">sh[ell]</a>           |                                   |
+|       | <a href="#slast">sl[ast]</a>           |                                   |
+|       | <a href="#snew">sne[w]</a>            |                                   |
+|       | <a href="#snext">sn[ext]</a>           | [file...]                         |
+|       | <a href="#source">so[urce]</a>[!]       | file                              |
+|       | <a href="#split">sp[lit]</a>           | [file]                            |
+|       | <a href="#srewind">sre[wind]</a>[!]      |                                   |
+|       | <a href="#stack">stac[k]</a>           |                                   |
+|       | <a href="#stag">sta[g]</a>            | [tag]                             |
+|       | <a href="#stop">st[op]</a>[!]         |                                   |
+| range | <a href="#substitute">s[ubstitute]</a>      | /regexp/newtext/[g][p][x][count]  |
+|       | <a href="#suspend">sus[pend]</a>[!]      |                                   |
+|       | <a href="#tag">ta[g]</a>[!]          | [tag]                             |
+|       | <a href="#then">th[en]</a>            | excmds                            |
+| range | <a href="#to">t[o]</a>              | line                              |
+|       | <a href="#unabbreviate">una[bbreviate]</a>[!] | lhs                               |
+|       | <a href="#unbreak">unb[reak]</a>[!]      | lhs                               |
+|       | <a href="#undo">u[ndo]</a>            | [count]                           |
+|       | <a href="#unmap">unm[ap]</a>[!]        | lhs                               |
+|       | <a href="#version">ve[rsion]</a>         |                                   |
+| range | <a href="#vglobal">v[global]</a>[!]      | /regexp/ excmds                   |
+|       | <a href="#visual">vi[sual]</a>[!]       | [+line] [file]                    |
+|       | <a href="#window">wi[ndow]</a>          | [+ | - | number | buffer ]        |
+|       | <a href="#wnext">wn[ext]</a>[!]        |                                   |
+|       | <a href="#wquit">wq[uit]</a>[!]        | [file]                            |
+| range | <a href="#write">w[rite]</a>[!]        | [file | >>file | !shellcmd]       |
+|       | <a href="#xit">x[it]</a>[!]          | [file]                            |
+| range | <a href="#yank">y[ank]</a>            | [cutbuf] [count]                  |
+| line  | <a href="#z">z</a>                 | [spec]                            |
+| range | <a href="#BANG">!</a>                 | shellcmd                          |
+|       | <a href="#QUOTE">&quot;</a>                 | text                              |
+| range | <a href="#HASH">#</a>                 | [count]                           |
+| range | <a href="#AMP">&amp;</a>                 |                                   |
+|       | <a href="#OPEN">(</a>                 | buffer                            |
+| range | <a href="#LT">&lt;</a>                 |                                   |
+| range | <a href="#EQ">=</a>                 |                                   |
+| range | <a href="#GT">&gt;</a>                 |                                   |
+|       | <a href="#AT">@</a>                 | cutbuf                            |
+|       | <a href="#OCUR">{</a>                 |                                   |
+| range | <a href="#TILDE">~</a>                 |                                   |
+^-------^-------------------^-----------------------------------^
+
+</pre>
+
+</body></html>

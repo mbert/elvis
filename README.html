@@ -1,0 +1,585 @@
+<HTML><HEAD>
+<TITLE>README.html file for elvis 2.0</TITLE>
+<META name="description" content="Quick intro to elvis 2.0, with links to source code and binaries">
+<META name="keywords" content="vi, elvis, unix, linux, msdos, win32, windows95 windowsNT, nt, editor, source">
+</HEAD><BODY>
+
+<STRONG>CONTENTS</STRONG>
+<MENU>
+<LI><A HREF="#thisfile">1. ABOUT THIS FILE</A>
+<LI><A HREF="#newfeatures">2. NEW FEATURES</A>
+    <MENU>
+    <li><a href="#multibuf">2.1 Multiple edit buffers</a>
+    <li><a href="#multigui">2.2 Multiple user interfaces</a>
+    <li><a href="#multiwin">2.3 Multiple windows (if the user interface supports them)</a>
+    <li><a href="#display">2.4 A variety of display modes</a>
+    <li><a href="#lpr">2.5 Hardcopy from within elvis</a>
+    <li><a href="#calc">2.6 C-like expression evaluator</a>
+    <li><a href="#config">2.7 Extremely customizable</a>
+    <li><a href="#help">2.8 Online help</a>
+    </MENU>
+<LI><A HREF="#chgfeatures">3. CHANGED FEATURES</A>
+    <MENU>
+    <li><a href="#exsyn">3.1 Ex command syntax</a>
+    <li><a href="#crash">3.2 Crash recovery</a>
+    <li><a href="#options">3.3 Options</a>
+    <li><a href="#fileinit">3.4 File initialization</a>
+    <li><a href="#if">3.5 The :if command</a>
+    </MENU>
+<LI><A HREF="#future">4. FUTURE PLANS</A>
+<LI><A HREF="#links">5. LINKS TO RELATED FILES</A>
+</MENU>
+
+<hr>
+<H1><A NAME="thisfile"></A>1. ABOUT THIS FILE</H1>
+
+This file is written in the HTML markup language.
+You can view it with any WWW viewer, such as Mosaic or Netscape.
+You can also use elvis 2.0 to view it; this version of elvis
+has the ability to view HTML documents, and print them.
+
+<P>This file has many hypertext links.
+Use them!
+If you're using elvis 2.0 to browse this file, then hypertextual
+references will appear as underlined text.
+(Except on color PCs;
+since color video cards don't support underlining,
+hypertextual references will be colored -- white on red, by default.)
+To follow the hypertext link, move the cursor onto the underlined
+text and press (Enter).
+To go back, press (Control-T).
+The (Tab) key moves the cursor forward to the next hypertext reference.
+
+<P>If elvis 2.0 doesn't automatically start up in HTML mode when you view this file,
+then you'll need to force it into HTML mode by giving the command
+"<tt>:display html</tt>".
+
+
+<H1><A NAME="newfeatures"></A>2. NEW FEATURES (Relative to elvis 1.8pl4)</H1>
+
+There are <em>a lot</em> of new features.
+The major ones are:
+<ul>
+<li><a href="#multibuf">2.1 Multiple edit buffers</a>
+<li><a href="#multigui">2.2 Multiple user interfaces</a>
+<li><a href="#multiwin">2.3 Multiple windows (if the user interface supports them)</a>
+<li><a href="#display">2.4 A variety of display modes</a>
+<li><a href="#lpr">2.5 Hardcopy from within elvis</a>
+<li><a href="#calc">2.6 C-like expression evaluator</a>
+<li><a href="#config">2.7 Extremely customizable</a>
+<li><a href="#help">2.8 Online help</a>
+</ul>
+
+<h2>2.1 Multiple edit buffers</h2><a name="multibuf"></a>
+You can be editing many files concurrently.
+Also, elvis uses some buffers internally, in addition to the buffers that
+are created for holding your files.
+The command "<tt>:bu</tt>" lists the buffers that hold your files, and
+"<tt>:bu!</tt>" (with a !) lists <em>all</em> buffers.
+
+<p>The command "<tt>:all </tt><var>command</var>" applies an ex command to all
+user buffers, and "<tt>:all! </tt><var>command</var>" applies an ex command to
+<em>all</em> buffers including internal ones.
+An example of this would be "<tt>:all set filename? readonly?</tt>" which tells you
+the status of each buffer's "readonly" option.
+
+<p>Any ex command can be preceded by a buffer name in parentheses.
+This indicates that the command should be applied to that buffer instead
+of the default buffer.
+For example, "<tt>:(foo)set noreadonly</tt>" turns off the readonly option for
+the buffer "foo" even if we're editing some other buffer.
+
+<p>To switch from one buffer to another, enter an ex command line which
+contains <em>only</em> the name of the desired buffer in parentheses.
+For example, the command "<tt>:(foo)</tt>" would cause elvis to switch to the
+buffer "foo".
+(This is intended to be analogous to giving just a line number when
+you want to move the cursor to a given line, as in "<tt>:10</tt>" to move to line 10.)
+
+<h2>2.2 Multiple user interfaces</h2><a name="multigui"></a>
+A single elvis executable can contain several user interfaces.
+Each time elvis starts up it will choose one and use that interface until
+elvis exits.
+The usage message lists the available user interfaces;
+to see this message, give the shell command "elvis -?".
+
+<p>Currently, the most important interfaces are named "x11" and "termcap".
+By default, elvis will use the x11 interface under UNIX if the DISPLAY environment
+variable is set, and the termcap interface otherwise.
+Currently both of these are very basic, but I expect them to become more
+elaborate over time.
+
+<p>The "x11" interface allows you to use the mouse to move the cursor or
+select text.
+Dragging the mouse with the left button pressed selects characters;
+the middle button selects a rectangular region of text; and the right
+button selects whole lines.
+Clicking the left button (without dragging) cancels any pending selection
+and moves the cursor; the middle button simulates keystrokes like xterm;
+the right button moves the cursor like the left button, except that the
+right button doesn't cancel any pending selection.
+Double-clicking the left button will simulate a <kbd>^]</kbd> command,
+which performs tag lookup.
+Double-clicking the right button will simulate a <kbd>^T</kbd> command,
+which returns to the previous position via the tag stack.
+When using the "x11" interface, elvis recognizes some additional command-line
+flags, including
+<strong>-fn</strong> <var>font</var> to set the normal font,
+<strong>-fb</strong> <var>font</var> to set the bold font,
+<strong>-fi</strong> <var>font</var> to set the italic font, and
+<strong>-courier</strong> <var>pointsize</var> to set all three fonts to
+appropriate Courier fonts.
+
+<p>Code is also provided for a "curses" interface, but I don't recommend it.
+I wrote this interface mostly to prove that it could be done.
+
+<h2>2.3 Multiple windows (if the user interface supports them)</h2><a name="multiwin"></a>
+Both the x11 and termcap interfaces support multiple windows.
+(The x11 interface creates a new top-level application window for each
+editing window, and the termcap interface subdivides the screen.)
+Each window can show a different edit buffer, or different windows can
+show the same buffer.
+In the latter case, any changes made in one window are immediately
+reflected in all windows that show that buffer.
+
+<p>Elvis supports most of the same window commands as <em>nvi</em> and
+<em>vim</em>.
+This includes commands such as "<tt>:split</tt>" to create a new window, and
+<kbd>^W ^W</kbd> to switch to a different window.
+
+<h2>2.4 A variety of display modes</h2><a name="display"></a>
+Display modes determine how a text is displayed.
+Elvis supports display modes named "normal", "syntax", "hex", "html", and "man".
+
+<p>Each window can be in a different display mode.
+You set the display mode via the "<tt>:dis </tt><var>mode</var>" command.
+The command "<tt>:dis</tt>" (with no <var>mode</var>) lists all available modes,
+with an asterisk next to the one that this window is currently using.
+There is also a "<tt>:no</tt>" command which is short for "<tt>:dis normal</tt>".
+
+<p>Each buffer has a "bufdisplay" option.
+Each time a window starts to display a buffer, the window's display mode
+is set according to the buffer's bufdisplay option.
+The default "elvis.arf" file automatically sets bufdisplay to a reasonable value.
+
+<p>In visual command mode, <kbd>^W d</kbd> toggles between "normal" mode and the
+buffer's bufdisplay mode.
+If the buffer's bufdisplay option is also "normal", then <kbd>^W d</kbd>
+toggles between "normal" and "hex" modes.
+
+<h2>2.5 Hardcopy from within elvis</h2><a name="lpr"></a>
+Elvis uses its display modes when sending text to the printer, just as it
+does when updating the window.  Consequently elvis can be used to print 
+hex dumps, pretty-printed C code, or formatted HTML documents or "man" pages.
+
+<p>Throughout the life of elvis 1.x, I was always concerned about how to
+distribute elvis' documentation.
+Many users don't have access to troff; they prefer plain text documentation.
+But people who do have troff would prefer to use it when printing the
+documentation, because the resulting output is prettier than a plain-text
+file.
+For elvis 2.0, this won't be an issue because I'll distribute the documentation
+in the form of HTML documents, and people who have Netscape or another fancy
+HTML reader can use it to print the documentation.
+People who have no fancy HTML readers can still print the documentation
+using elvis itself.
+
+<p>The command for printing a buffer is "<tt>:lpr</tt>"
+(which can be abbreviated to "<tt>:lp</tt>").
+But before you do that, you'll need to set some options...
+<pre graphic>
+.-----------.------------------------------------.
+| OPTION    | MEANING                            |
+|-----------|------------------------------------|
+| lpcolumns | Width of the printer, in columns   |
+| lpconvert | Convert Latin-1 chars to PC-8?     |
+| lpcrlf    | Convert newlines to CR-LF pairs?   |
+| lpformfeed| Output a ^L after the last page?   |
+| lplines   | Length of the page, in lines       |
+| lpout     | Print spooler program, or filename |
+| lppaper   | Paper size (for PostScript only)   |
+| lptype    | Printer type (see below)           |
+| lpwrap    | Wrap long lines? (else clip them)  |
+^-----------^------------------------------------^
+</pre>
+The most important option is "lptype", since it controls what type of
+escape codes (or whatever) elvis will use to perform font changes.
+The compiled-in default value is "lptype=dumb" which is the most conservative
+value -- it doesn't attempt to perform any font changes.
+The complete list of acceptable values is:
+<pre graphic>
+.-------.----------------------------------------------.
+| VALUE | PRINTER DESCRIPTION                          |
+|-------|----------------------------------------------|
+| ps    | PostScript, one logical page per sheet       |
+| ps2   | PostScript, two logical pages per sheet      |
+| epson | Most dot-matrix printers, no graphic chars   |
+| pana  | Panasonic dot-matrix printers                |
+| ibm   | Dot-matrix printers with IBM graphic chars   |
+| hp    | HP printers, and most non-PostScript lasers  |
+| cr    | Line printers, overtypes via carriage-return |
+| bs    | Overtypes via backspace, like nroff          |
+| dumb  | Plain ASCII, no font control                 |
+^-------^----------------------------------------------^
+</pre>
+
+<h2>2.6 C-like expression evaluator</h2><a name="calc"></a>
+Elvis has a built-in calculator which uses a syntax resembling
+C expressions.
+The names of options can be used in place of variables, and you
+can also use "$<var>NAME</var>" to access the value of an environment
+variable.
+
+<p>Strings are supported.
+Any two strings (or expressions which evaulate to strings) placed side-by-side with no operator between them
+will have their values concatenated.
+You can truncate strings using "<var>string</var>&lt;&lt;<var>length</var>"
+or "<var>string</var>&gt;&gt;<var>length</var>".
+
+<p>There are several built-in functions.
+When you call one of these functions, there must <strong>not</strong> be any
+whitespace between the function name and the following parenthesis.
+The built-in functions are:
+<pre graphic>
+.------------------.--------------------------------------------.
+| FUNCTION(ARG)    | RETURN VALUE                               |
+|------------------|--------------------------------------------|
+| strlen(string)   | number of characters in the string         |
+| toupper(string)  | uppercase version of string                |
+| tolower(string)  | lowercase version of string                |
+| isnumber(string) | "true" iff string is a decimal number      |
+| hex(number)      | string of hex digits representing number   |
+| octal(number)    | string of octal digits representing number |
+| char(number)     | convert number to 1 ASCII char, as a string|
+| exists(path)     | "true" iff file exists                     |
+| dirperm(path)    | string indicating file attributes          |
+| dirfile(path)    | filename.ext part of a path                |
+| dirname(path)    | directory part of a pathname               |
+| dirdir(path)     | directory, like dirname(file)              |
+| dirext(path)     | extension (including the . )               |
+| basename(path)   | filename without extension                 |
+| elvispath(file)  | locate a file in elvis' configuration path |
+| knownsyntax(path)| "true" iff file type is listed in elvis.syn|
+| buffer(bufname)  | "true" iff buffer exist                    |
+| current(name)    | value of an internal variable (limited)    |
+| feature(name)    | "true" iff a given feature is supported    |
+^------------------^--------------------------------------------^
+</pre>
+<p>Expressions are used by several commands, including the
+"<tt>:if </tt><var>expression</var>" command.
+The "<tt>:and</tt>" and "<tt>:or</tt>" commands of elvis 1.8 have been removed since "<tt>:if</tt>"
+can easily achieve the same effect simply by using the &amp;&amp; or
+|| operators.
+
+<p>There is also a "<tt>:let </tt><var>option</var><tt>=</tt><var>expression</var>" command,
+which evaluates the <var>expression</var> and sets the <var>option</var>
+to the resulting value.
+Note that unlike :set, :let can only assign a value to a single option at
+a time.
+
+<p>There is also a "</tt>:calc </tt><var>expression</var>" command which simply
+displays the result of the <var>expression.</var>
+Also, if you visibly select some characters (using the <kbd>v</kbd> command) and
+then apply the <kbd>=</kbd> operator to those characters, elvis will evaluate the
+selected text and replace it with the result.
+When <kbd>=</kbd> is applied to lines, it still runs an external filter program
+just as it did in version 1.8.
+
+<p>A slightly different expression syntax is used by the "<tt>:eval </tt><var>expression</var>"
+command.
+The <var>expression</var> is mostly left unchanged, except that text inside
+parentheses is evaluated in the normal syntax.  Outside of parentheses the
+only characters that have special meaning are \ and $<var>NAME</var>.
+The :eval command is used to calculate commands and then execute them.
+For example, during initialization elvis performs a "<tt>:eval $EXINIT</tt>" to
+execute the value of the EXINIT environment variable.
+
+<h2>2.7 Extremely customizable</h2><a name="config"></a>
+NOTE: In the following paragraphs, when I say elvis "looks for" a file,
+I mean that it searches through any directories named in the value of the
+"elvispath" option.
+
+<p>When elvis starts up, it looks for a file named "elvis.ini".
+If this file is found, its contents are executed as a series of ex commands.
+The default "elvis.ini" file performs the traditional vi initialization
+such as "<tt>:source $HOME/.exrc</tt>".
+By changing this file, you can completely change the way elvis initializes
+itself.
+As a mild example, you could make it read <em>.elvisrc</em> instead of <em>.exrc.</em>
+
+<p>After interpretting "elvis.ini", elvis looks for a few more files
+right away.
+If it finds them, it loads them into internal edit buffers right away but
+doesn't interpret them yet.
+The most interesting ones are "elvis.arf" and "elvis.bwf".
+
+<p>The "elvis.brf" file is interpretted <b>B</b>efore <b>R</b>eading a
+<b>F</b>ile into an edit buffer.
+Typically, this will set the buffer's "binary" option, depending on its
+file name extension.
+
+<p>The "elvis.arf" file is interpretted <b>A</b>fter <b>R</b>eading a
+<b>F</b>ile into an edit buffer.
+Typically, this will set the buffer's "bufdisplay" option, depending on its
+file name extension.
+
+<p>The "elvis.bwf" files is interpretted <b>B</b>efore <b>W</b>riting the
+<b>F</b>ile back out again.
+It will typically be used to copy the original file to "filename.bak" or
+something like that.
+
+<p>Elvis also supports an "elvis.awf" files, but I haven't
+found much use for it yet.
+Perhaps it could tie-in to a revision control system?
+
+<p>You can use an "elvis.msg" file to translate the normal terse messages
+into verbose messages.
+This is meant to allow elvis to issue messages in a local language.
+Each time elvis issues a message, it attempts to look for a line that
+looks like "<var>terse message</var>: <var>verbose message</var>" and
+if found it will substitute the verbose message for the terse one.
+Messages are then subjected to the same sort of evaluation as for the
+"<tt>:eval </tt><var>expression</var>" command,
+with $1 through $9 used to represent any arguments of the message.
+
+<h2>2.8 Online help</h2><a name="help"></a>
+The command "<tt>:help</tt>" reads the file <em>elvis.html</em>
+(which is an HTML document) and displays it in a separate window.
+When "<tt>:help</tt>" is run with no arguments, it lists the Table of Contents
+which has hypertext links to all the rest of the documentation.
+You can also supply the name of an ex command, option, or vi command
+as an argument to jump directly to the relevent part of the documentation.
+For example, I suggest you try "<tt>:help :help</tt>" to get a description
+of the help command itself.
+
+<H1><a name="chgfeatures"></a>3. CHANGED FEATURES</H1>
+A few features of elvis 1.8 have changed significantly in 2.0.
+They are:
+<MENU>
+<li><a href="#exsyn">3.1 Ex command syntax</a>
+<li><a href="#crash">3.2 Crash recovery</a>
+<li><a href="#options">3.3 Options</a>
+<li><a href="#fileinit">3.4 File initialization</a>
+<li><a href="#if">3.5 The :if command</a>
+</MENU>
+
+<h2><a name="exsyn"></a>3.1 Ex command syntax</h2>
+
+The ex command interpretter in elvis 2.0 is intended to meet POSIX
+specifications, with extensions to support multiple buffers.
+
+<p>POSIX requires most commands to support print flags.
+This is a 'p', 'l', or '#' appended to the end of the command line,
+which causes the current line to be printed when the command is complete.
+For example, ":dp" deletes the current line and then prints the line that
+the cursor is left on.
+
+<p>POSIX also indicates that certain commands can take a "count" argument
+to indicate how many lines are affected.
+For example, ":10d5" is equivelent to ":10,14d".
+
+<p>To support multiple buffers, elvis allows you to precede a line address
+with the name of an edit buffer, in parentheses.
+The line address will then be interpretted as referring to lines in that
+buffer, rather than the window's current buffer.
+For example, "(foo)%t(bar)$" copies all lines of the "foo" buffer onto the
+end of the "bar" buffer.
+This notation is used during crash recovery, so you had better know it!
+
+<h2><a name="crash"></a>3.2 Crash recovery</h2>
+In elvis 1.8, if a crash occured while you were editing text, your changes
+could be preserved (moved to the /usr/preserve directory) by a program named
+<tt>elvprsv</tt>, and then recovered (moved from /usr/preserve to your working
+directory) by another program named <tt>elvrec</tt>.
+
+<p>elvis 2.0 uses a different method.
+The change was made mostly with the idea of having elvis eventualy support
+COSE desktop standards on X-windows systems, which call for all applications
+to be restartable.
+To do this, elvis stores all aspects of the edit session in a single file,
+and a later elvis process can be told to reload the same session file.
+(Note: elvis doesn't meet COSE specs yet, but this is a big step in that
+direction.)
+
+<p>The session file also offers a simple way to recover after a crash:
+simply start a new elvis process on the old session file, write your text
+using a ":w" command, and then exit elvis and delete the old session file.
+A more detailed description follows.
+
+<p>Begin by invoking "<tt>elvis -r</tt>".
+The "<tt>-r</tt>" tells elvis to look for an old session file,
+to disregard the "in use" flag,
+and to perform extra integrity checks when reloading that session file.
+If you aren't using the default session file, you'll probably need to add a
+"<tt>-f sessionfile</tt>" argument to the command line, so elvis knows which
+session you wish to recover.
+<em>Don't</em> give the name of your text file on the command line!
+
+<p>When elvis starts up, you will see an empty buffer.
+<strong>DON'T PANIC!</strong>
+Remember, elvis supports multiple edit buffers.
+It simply created a new, empty edit buffer and is showing that;
+your old edit buffer is still in there somewhere.
+You can use the command "<tt>:buf</tt>" to list the buffers.
+
+<p>Write your old buffer out to a new file.
+The command for writing the buffer is "<tt>:(buffer)w file</tt>", where
+<var>buffer</var> is the name of the buffer (usually the same as the
+name of the original file) and <var>file</var> is the name of a new file.
+(For safety's sake, you shouldn't overwrite your old text file yet.)
+Note the parentheses around the buffer name!  They're important!
+
+<p>You should then exit elvis.
+Although I've tried to make elvis ensure that the recovered session file is
+intact, there will always be some doubt.
+This makes it dangerous to perform any actual editing using that session file.
+
+<p>Inspect the new file and if it looks okay, replace the old file with it.
+If it <em>doesn't</em> look okay, then there's still hope.
+Restart elvis on that session file again, and try to find an "undo" version
+of that buffer, by giving the command ":(buffer)u" where <var>buffer</var>
+is the buffer name, and then write it out to a new file via the
+"<tt>:(buffer)w file</tt>" command again.
+Hopefully the "undo" version will be in better shape.
+
+<p>After recovering the text files from the session file, you should delete
+the session file.
+The simplest way to find the name of the session file is to invoke elvis
+as "<tt>elvis -r -Gquit</tt>".
+Normally elvis deletes session files automatically when it exits,
+when in recovery mode it becomes more conservative.
+
+<p>(See?  Isn't that simpler?)
+
+<h2><a name="options"></a>3.2 Options</h2>
+
+The syntax of the ":set" command has changed;
+I suggest you look it up in the online manual by starting elvis and giving
+the command ":help :set".
+In short, the changes are intended to make elvis more compatible with the
+real vi, and to handle the huge number of options that elvis 2.0 supports.
+
+<p>Not all options are global.
+Some are associated with buffers, and different buffers may have different
+values.
+When you switch buffers, the value of the option will appear to change.
+Simiarly, some are associated with windows and will vary when you switch
+from one window to another.
+Some options are associated with a particular display mode or or user
+interface, and will not exist if you switch to a different display mode or
+user interface.
+
+<p>The "flipcase" option has gone away.
+Elvis 2.0 determines which non-ascii characters are uppercase or lowercase
+letters by examining the digraph table.
+
+<p>The "charattr" and "hideformat" options have gone away.
+Elvis 2.0 has a "man" display mode which does a much nicer job
+of previewing man pages.
+
+<p>The "inputmode" option has been replaced by the new "initialstate" option,
+which is more versatile.
+
+<h2><a name="fileinit"></a>3.3 File initialization</h2>
+
+The ~/.exfilerc file is no longer executed after loading a file.
+Instead, the lib/elvis.arf file is executed.
+For a description of this, see section 10 (Initialization and sessions)
+of the online manual.
+A shorted description of this appears in the
+"<a href="#config">Extremely customizable</a>" subtopic earlier in this file.
+
+<h2><a name="if"></a>3.4 The :if command</h2>
+
+The syntax of the "<tt>:if</tt>" command has changed.
+It now uses a <a href="#calc">C-like expression syntax</a>.
+
+<p>The "<tt>:and</tt>" and "<tt>:or</tt>" commands have gone away.
+They are no longer needed, because the "<tt>:if</tt>" command can easily
+achieve the same effect using the && and || operators.
+
+<H1><a name="future"></a>3. FUTURE</H1>
+
+I haven't added any major new features for the last several months, because
+that would have interfered with the beta-testing of 2.0.
+Now that 2.0 has been released, I'm able to add features again.
+
+<p>The first feature to be added will be a graphical Win32 interface, for
+Windows95 and WindowsNT.
+Serge Pirotte has been working on this for months, and it is nearly ready
+for testing.
+There has been a lot of interest in this, so I want to make it available
+as soon as possible.
+I expect to have an alpha-test version of it available around
+the end of October.
+
+<p>Lee Johnson is working on a graphical port to OS/2, but it will probably
+take longer.
+I can't make any estimates on when it will be available.
+
+<p>To date, nobody has volunteered to port elvis to the Mac.
+(Nudge nudge wink wink)
+
+<p>The first thing I plan to do myself is add some extra smarts to the tags,
+so they can handle overloaded names better.
+I intend to make elvis use some heuristics to rank all matching tags according
+to the likelyhood that they're the tag you're trying to load.
+The most likely one will then be loaded.
+If you immediately look up the exact same tag name again, then it'll move to the second
+match, and so on.
+
+<p>I also intend to rewrite the ctags program so that it will be able to parse
+C++ code, and (optionally) place extra hints in the tags file so that elvis'
+heuristics can do a better job.
+I'm also toying with the idea of a statistical tags generator, but that's
+still pretty nebulous at this point.
+
+<p>I intend to add a true extension language to elvis someday, but I'm not
+sure it'll be in 2.1.
+Currently I'm leaning towards using Perl as the extension language.
+
+<H1><a name="links"></a>4. LINKS TO RELATED FILES</H1>
+
+Most of the following are binary files, not text or HTML files,
+so you can't view then with your Web browser.
+But you can use your browser to download the files.
+
+<dl>
+
+<dt><a href="ftp://ftp.cs.pdx.edu/pub/elvis/untar.c">untar.c</a>
+<dd>This is the complete source code for "untar",
+a little program which extracts files from a gzipped tar archive.
+Comments near the top of "untar.c" describe how to compile and use it.
+If you already have the gzip and tar utilities, then you don't need this.
+
+<dt><a href="ftp://ftp.cs.pdx.edu/pub/elvis/untardos.exe">untardos.exe</a>
+<dd>This is an MS-DOS executable, produced from the above "untar.c" file.
+It can also be run under Windows 3.1, in a Dos-prompt window.
+For brief instructions on how to use <tt>untardos,</tt>
+run it with no arguments.
+
+<dt><A href="ftp://ftp.cs.pdx.edu/pub/elvis/untarw32.exe">untarw32.exe</a>
+<dd>This is a Win32 executable, produced from the above "untar.c" file.
+It runs under WindowsNT, and (I believe) Windows95.
+It runs somewhat faster than the MS-DOS version.
+It also supports long file names, but that doesn't matter for the files in the
+following archives because all of the files in those archives have short names.
+For brief instructions on how to use <tt>untarw32,</tt>
+run it with no arguments.
+
+<dt><a href="ftp://ftp.cs.pdx.edu/pub/elvis/elvis-2.0.tgz">elvis-2.0.tgz</a>
+<dd>This is a gzipped tar archive of the source code and documentation for
+Elvis and its related programs.
+
+<dt><a href="ftp://ftp.cs.pdx.edu/pub/elvis/msdosexe.tgz">msdosexe.tgz</a>
+<dd>This archive contains the documentation and MS-DOS executables
+for Elvis 2.0.
+
+<dt><a href="ftp://ftp.cs.pdx.edu/pub/elvis/win32exe.tgz">win32exe.tgz</a>
+<dd>This archive contains the documentation and Win32 executables for Elvis 2.0.
+These were compiled and tested under WindowsNT, but should work under
+Windows95 as well.
+
+</dl>
+
+</BODY></HTML>

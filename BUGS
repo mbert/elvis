@@ -1,0 +1,101 @@
+Report bugs to kirkenda@cs.pdx.edu (Steve Kirkendall)
+
+NOTE: Each bug in this file is marked with either "*", "/", or "?" character.
+The "*" means the bug is still pending.  The "/" means that I believe it has
+been solved.  A "?" means that I've done some work on it, and *hope* it is
+solved because it seems to work better but I never really understood what
+was wrong in the first place.  A "?" will become a "/" if I don't receive
+more reports of that bug.
+
+NOTE: Not all of these are truly bugs.  This file also serves as my "to do"
+list, so some items are just unimplemented features that sounded like a good
+idea at one time or another.
+
+* If you use the scrollbar to scroll to the bottom of a large file in html,
+  man, or hex mode, then when you reach the very end of the file (where you
+  would expect see no part of the file, just ~'s) it jumps back so the window
+  is completely filled with lines from the file.
+
+* The "hex" display mode does strange things to 0x0a characters.  Those quirks
+  are hard to eliminate, because that's the newline character and several
+  commands are sensitive to newlines.  But eventually something should be done.
+
+* Problems with German keyboards under X11.  The modifiers don't appear to
+  work correctly, which prevents { } [ ] ~ @ \ | from being enterable.
+  Reported by Juergen Preuss (preuss@cach02.chm.tu-dresden.de).
+
+* In the "html" display mode, if a token begins with &nbsp; then elvis
+  mistakes the token for a whitespace token; the remaining characters aren't
+  displayed.
+
+* Under Win32, it should be able to parse UNC names (\\machine\directory\file)
+
+* Control-V should display a carat on the screen, while waiting for the
+  quoted character.
+
+* In the "syntax" display mode, if a multi-line comment ends on the last
+  character of the line just above the top of the window, and the comment
+  ender string is one character long (which happens in Pascal, but not C),
+  then elvis assumes that the top line of the window is a continuation of
+  that comment.
+
+? Sometimes the X11 interface refuses to give up keyboard focus.  I've seen
+  this *VERY RARELY* with FVWM under Linux.  It has also been reported under
+  OLVWM.  I suspect there is a race condition, perhaps because elvis (or
+  something else?) isn't including a timestamp on a request?
+
+* In normal mode, you can't edit text that occurs after the last newline.
+  The vertical movement function for "normal" display mode won't let you
+  move the cursor past the last newline, even if there are other characters
+  after it. (You can edit those extra bytes in hex mode, though.)
+
+* The htmlescape() function in dmmarkup.c is reported to cause core dumps
+  on an RS6000 running AIX, when compiled with optimization enabled.  If
+  compiled for debugging, it doesn't dump core so specifics are hard to
+  come by on this one.
+
+* An expose event causes the scrollbar to be redrawn, even if it should really
+  be blanked out (because the cursor is on the bottom row).
+
+* Ex command-line history is very weird.  If you recall an earlier command
+  and edit it, you're actually editing the historic version.  I would prefer
+  to have a new copy of that line created at the end of the history buffer,
+  and have the editing take place on that new copy.
+
+  The same thing happens with regular-expression history, and filter-program
+  history.
+
+* The :& command doesn't seem to be working correctly in all circumstances.
+  After doing a ":%s/.$" on one buffer, and then switching to another buffer,
+  the command ":%&" did not work.
+
+	This is because the "elvis.arf" file uses a :s command to locate and
+	execute modelines.  There is no easy way to fix this, unless you think
+	":set nomodelines" is an acceptable solution.
+
+* Idea for ex macros:
+	* ":macro name [argtypes]" is followed by existing commands which
+	  implement the new command.  A line containing a single "."
+	  marks the end of the definition.  This is handy because :insert
+	  already uses a similar notation.
+	* The new commands are added to the end of the command list in ex.c,
+	  so if existing commands are abbreviated, they'll never be mistaken
+	  for new commands.
+	* While executing new commands, some options are temporarily inserted
+	  into the option list, so the definition can access the arguments.
+	* The visual : command also adds options giving the current line and
+	  column, and the word under the cursor (if any).
+	* Each macro has a recursion counter which is incremented when the
+	  macro starts, and decremented when it ends.  If the counter exceeds
+	  some limit, a "macro recursion" error is generated.
+
+* Some ideas for errlist:
+	* Allow the "makeprg" and "ccprg" options to be set from elvis.syn
+	/ If there is a window showing (Elvis error list)...
+		/ Highlight the current line, and leave the cursor at the end
+		  of it (so we can be sure the window will show that line).
+		/ Start the next error search at its cursor position.
+
+* It occurs to me that the digraph table could be used to assign a collation
+  sequence to the non-ascii letters.  This would allow regular expressions
+  such as /[a-z]/ to match non-ascii letters as well as ascii ones.

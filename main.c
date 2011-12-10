@@ -1,622 +1,719 @@
 /* main.c */
+/* Copyright 1995 by Steve Kirkendall */
 
-/* Author:
- *	Steve Kirkendall
- *	1500 SW Park #326
- *	Portland OR, 97201
- *	kirkenda@cs.pdx.edu
+char id_main[] = "$Id: main.c,v 2.29 1996/09/21 02:12:31 steve Exp $";
+
+#include "elvis.h"
+
+#if USE_PROTOTYPES
+static void usage(char *hint);
+static void guiusage(void);
+static int parseflags(int argc, char **argv);
+static int choosegui(int argc, char **argv);
+static void doexrc(void);
+static void buildargs(int argc, char **argv);
+static void startfirst(void);
+static void init(int argc, char **argv);
+void mainfirstcmd(WINDOW win);
+void term(void);
+void main(int argc, char **argv);
+#endif
+
+
+/* This array contains pointers to all known GUIs.  Ideally, they should be
+ * sorted so that fancy/rarely-available GUIs appear near the front of the
+ * list, and basic/universal GUIs appear near the end.
  */
-
-
-/* This file contains the main() function of vi */
-
-/* HACK! bcc needs to disable use of precompiled headers for this file,
-   or else command line args will not be passed to elvis */
-#if __BORLANDC__
-#include "borland.h"
-#endif
-
-#include "config.h"
-#include <setjmp.h>
-#include "vi.h"
-
-extern SIGTYPE	trapint(); /* defined below */
-jmp_buf		jmpenv;
-
-#ifndef NO_DIGRAPH
-static init_digraphs P_((void));
-#endif
-
-/*---------------------------------------------------------------------*/
-
-#ifndef NO_GNU
-/* This function writes a string out to stderr */
-static void errout(str)
-	char	*str;	/* the string to be output */
+static GUI *allguis[] =
 {
-	write(2, str, strlen(str));
-}
+#ifdef GUI_WIN32
+	&guiwin32
 #endif
 
-/*---------------------------------------------------------------------*/
-
-#if AMIGA
-# include "amiwild.c"
-main (argc, argv)
-#else
-# if VMS
-#  include "vmswild.c"
-main (argc, argv)
-# else
-#  if TURBOC
-int main(argc, argv)
-#  else
-void main(argc, argv)
-#  endif
-# endif
+#ifdef GUI_X11
+	&guix11,
 #endif
-	int	argc;
-	char	*argv[];
+
+#ifdef GUI_TERMCAP
+	&guitermcap,
+#endif
+
+#ifdef GUI_CURSES
+	&guicurses,
+#endif
+
+#ifdef GUI_BIOS
+	&guibios,
+#endif
+
+#ifdef GUI_OPEN
+	&guiopen,
+	&guiquit
+#endif
+};
+
+/* These flags are set according to command-line flags */
+static char	*initialcommand;
+static char	*initialtag;
+static BOOLEAN	initialall;
+GUI	*chosengui;
+
+/* Give a usage message, and then exit */
+static void usage(hint)
+	char	*hint;	/* an error message */
 {
 	int	i;
-	char	*cmd = (char *)0;
-	char	*err = (char *)0;
-	char	*str;
-	char	*tag = (char *)0;
+	char	guinames[80];
 
-#ifdef __EMX__
-	/* expand wildcards a la Unix */
-	_wildcard(&argc, &argv);
-#endif
-#ifndef NO_GNU
-	/* check for special GNU options. */
-	if (argc == 2 && (!strcmp(argv[1], "--help") || !strcmp(argv[1], "-?")))
+	msg(MSG_INFO, "Usage: elvis [flags] [files]...");
+	msg(MSG_INFO, "Flags: -V          Verbose -- give more status information");
+	msg(MSG_INFO, "       -a          Create a separate window for each file");
+	msg(MSG_INFO, "       -r          Restart a session after a crash");
+	msg(MSG_INFO, "       -R          Mark new buffers as \"readonly\"");
+	msg(MSG_INFO, "       -e          Start in ex mode instead of vi mode");
+	msg(MSG_INFO, "       -i          Start in input mode instead of vi mode");
+	msg(MSG_INFO, "       -s          Set the \"safer\" option, for security");
+	msg(MSG_INFO, "       -w lines    Set scroll amount to \"lines\"");
+	msg(MSG_INFO, "       -f session  Use \"session\" as the session file");
+	msg(MSG_INFO, "       -G gui      Use the \"gui\" user interface \\(see below\\)");
+	msg(MSG_INFO, "       -c command  Execute \"command\" after loading first file");
+	msg(MSG_INFO, "       -t tag      Perform a tag search");
+	msg(MSG_INFO, "       -b blksize  Use blocks of size \"blksize\"");
+	msg(MSG_INFO, "       +command    Archaic form of \"-c command\" flag");
+	guinames[0] = '\0';
+	for (i = 0; i < QTY(allguis); i++)
 	{
-		errout("usage: ");
-		errout(argv[0]);
-		errout(" [options] [+excmd] [files]...\n");
-		errout("options: -R          readonly -- discourage accidental overwrites\n");
-#ifndef NO_SAFER
-		errout("         -s          safer -- disallow some unsecure commands\n");
-#endif
-		errout("         -v          start in \"vi\" screen editor mode\n");
-		errout("         -e          start in \"ex\" line editor mode\n");
-# ifndef NO_EXTENSIONS
-		errout("         -i          start in vi's \"input\" mode\n");
-# endif
-		errout("         -t tagname  begin by looking up the tag \"tagname\"\n");
-# ifndef NO_ERRLIST
-		errout("         -m errlist  begin at first error listed in file \"errlist\"\n");
-# endif
-# ifndef CRUNCH
-		errout("         -c excmd    begin by executing ex command \"excmd\"\n");
-		errout("         -w wsize    set window size to \"wsize\" lines\n");
-# endif
-		exit(0);
-	}
-	else if (argc == 2 && !strcmp(argv[1], "--version"))
-	{
-		errout(VERSION);
-		errout("\n");
-		exit(0);
-	}
-#endif /* ndef NO_GNU*/
+		/* space between names */
+		if (i > 0)
+			strcat(guinames, " ");
 
-	/* set mode to MODE_VI or MODE_EX depending on program name */
-	switch (argv[0][strlen(argv[0]) - 1])
-	{
-	  case 'x':			/* "ex" */
-		mode = MODE_EX;
-		break;
-
-	  case 'w':			/* "view" */
-		mode = MODE_VI;
-		*o_readonly = TRUE;
-		break;
-#ifndef NO_EXTENSIONS
-	  case 't':			/* "edit" or "input" */
-		mode = MODE_VI;
-		*o_inputmode = TRUE;
-		break;
-#endif
-	  default:			/* "vi" or "elvis" */
-		mode = MODE_VI;
-	}
-
-#ifndef DEBUG
-# ifdef	SIGQUIT
-	/* normally, we ignore SIGQUIT.  SIGINT is trapped later */
-	signal(SIGQUIT, SIG_IGN);
-# endif
-#endif
-
-	/* temporarily ignore SIGINT */
-	signal(SIGINT, SIG_IGN);
-
-	/* start curses */
-	initscr();
-	cbreak();
-	noecho();
-	scrollok(stdscr, TRUE);
-
-	/* arrange for deadly signals to be caught */
-# ifdef SIGHUP
-	signal(SIGHUP, deathtrap);
-# endif
-# ifndef DEBUG
-#  ifdef SIGILL
-	signal(SIGILL, deathtrap);
-#  endif
-#  ifdef SIGBUS
-	signal(SIGBUS, deathtrap);
-#  endif
-#  ifdef SIGSEGV
-	signal(SIGSEGV, deathtrap);
-#  endif
-#  ifdef SIGSYS
-	signal(SIGSYS, deathtrap);
-#  endif
-# endif /* !DEBUG */
-# ifdef SIGPIPE
-	signal(SIGPIPE, deathtrap);
-# endif
-# ifdef SIGTERM
-	signal(SIGTERM, deathtrap);
-# endif
-# ifdef SIGUSR1
-	signal(SIGUSR1, deathtrap);
-# endif
-# ifdef SIGUSR2
-	signal(SIGUSR2, deathtrap);
-# endif
-
-	/* initialize the options - must be done after initscr(), so that
-	 * we can alter LINES and COLS if necessary.
-	 */
-	initopts();
-
-	/* map the arrow keys.  The KU,KD,KL,and KR variables correspond to
-	 * the :ku=: (etc.) termcap capabilities.  The variables are defined
-	 * as part of the curses package.
-	 */
-	if (has_KU) mapkey(has_KU, "k",    WHEN_VICMD|WHEN_INMV, "<Up>");
-	if (has_KD) mapkey(has_KD, "j",    WHEN_VICMD|WHEN_INMV, "<Down>");
-	if (has_KL) mapkey(has_KL, "h",    WHEN_VICMD|WHEN_INMV, "<Left>");
-	if (has_KR) mapkey(has_KR, "l",    WHEN_VICMD|WHEN_INMV, "<Right>");
-	if (has_HM) mapkey(has_HM, "^",    WHEN_VICMD|WHEN_INMV, "<Home>");
-	if (has_EN) mapkey(has_EN, "$",    WHEN_VICMD|WHEN_INMV, "<End>");
-	if (has_PU) mapkey(has_PU, "\002", WHEN_VICMD|WHEN_INMV, "<PageUp>");
-	if (has_PD) mapkey(has_PD, "\006", WHEN_VICMD|WHEN_INMV, "<PageDn>");
-	if (has_KI) mapkey(has_KI, "i",    WHEN_VICMD|WHEN_INMV, "<Insert>");
-#if MSDOS || OS2
-# ifdef RAINBOW
-	if (!strcmp("rainbow", o_term))
-	{
-		mapkey("\033[1~",  "/",		WHEN_VICMD,		"<Find>");
-		mapkey("\033[3~",  "x",		WHEN_VICMD|WHEN_INMV,	"<Remove>");
-		mapkey("\033[4~",  "v",		WHEN_VICMD|WHEN_INMV,	"<Select>");
-		mapkey("\033[17~", ":sh\n",	WHEN_VICMD,		"<Intrpt>");
-		mapkey("\033[19~", ":q\n",	WHEN_VICMD,		"<Cancel>");
-		mapkey("\033[21~", "ZZ",	WHEN_VICMD,		"<Exit>");
-		mapkey("\033[26~", "V",		WHEN_VICMD|WHEN_INMV,	"<AddlOp>");
-		mapkey("\033[28~", "\\",	WHEN_VICMD|WHEN_INMV,	"<Help>");
-		mapkey("\033[29~", "K",		WHEN_VICMD|WHEN_INMV,	"<Do>");
-	}
-	else
-# endif /* RAINBOW */
-	{
-		mapkey("#s", "B", WHEN_VICMD|WHEN_INMV,	"^<Left>");
-		mapkey("#t", "W", WHEN_VICMD|WHEN_INMV,	"^<Right>");
-	}
-#else /* not MSDOS */
-# if AMIGA
-	mapkey("\233?~", "\\",	WHEN_VICMD|WHEN_INMV,	"<Help>");
-# endif
-	if (has_kD && *has_kD != ERASEKEY)
-	{
-		mapkey(has_kD, "x", WHEN_VICMD|WHEN_INMV, "<Del>");
-	}
-	else if (ERASEKEY != '\177')
-	{
-		mapkey("\177", "x", WHEN_VICMD|WHEN_INMV, "<Del>");
-	}
-# if ANY_UNIX
-	if (!strcmp(o_term, "xterm"))
-	{
-		write(1, "\033[?9h", 5); /* xterm: enable mouse events */
-		mapkey("\033[M", "\021", WHEN_VICMD, "<Mouse>");
-	}
-# endif
-#endif
-
-#ifndef NO_DIGRAPH
-	init_digraphs();
-#endif /* NO_DIGRAPH */
-
-	/* process any flags */
-	for (i = 1; i < argc && *argv[i] == '-'; i++)
-	{
-		switch (argv[i][1])
+		/* concatenate the gui names into a list */
+		switch ((*allguis[i]->test)())
 		{
-		  case 'R':	/* readonly */
-			*o_readonly = TRUE;
+		  case 0:
+			sprintf(guinames + strlen(guinames), "(%s)", allguis[i]->name);
 			break;
 
-		  case 'L':
-		  case 'r':	/* recover */
-			msg("Use the `elvrec` program to recover lost files");
-			endmsgs();
-			refresh();
-			endwin();
-			exit(1);
+		  case 2:
+			sprintf(guinames + strlen(guinames), "%s?", allguis[i]->name);
 			break;
 
-		  case 't':	/* tag */
-			if (argv[i][2])
-			{
-				tag = argv[i] + 2;
-			}
-			else
-			{
-				tag = argv[++i];
-			}
-			break;
-
-		  case 'v':	/* vi mode */
-			mode = MODE_VI;
-			break;
-
-		  case 'e':	/* ex mode */
-			mode = MODE_EX;
-			break;
-#ifndef NO_EXTENSIONS
-		  case 'i':	/* input mode */
-			*o_inputmode = TRUE;
-			break;
-#endif
-#ifndef NO_ERRLIST
-		  case 'm':	/* use "errlist" as the errlist */
-			if (argv[i][2])
-			{
-				err = argv[i] + 2;
-			}
-			else if (i + 1 < argc)
-			{
-				err = argv[++i];
-			}
-			else
-			{
-				err = "";
-			}
-			break;
-#endif
-#ifndef NO_SAFER
-		  case 's':
-			*o_safer = TRUE;
-			break;
-#endif
-#ifndef CRUNCH
-		  case 'c':	/* run the following command, later */
-			if (argv[i][2])
-			{
-				cmd = argv[i] + 2;
-			}
-			else
-			{
-				cmd = argv[++i];
-			}
-			break;
-
-		  case 'w':	/* set the window size */
-			if (argv[i][2])
-			{
-				*o_window = atoi(argv[i] + 2);
-			}
-			else
-			{
-				*o_window = atoi(argv[++i]);
-			}
-			break;
-#endif
 		  default:
-			msg("Ignoring unknown flag \"%s\"", argv[i]);
+			strcat(guinames, allguis[i]->name);
 		}
 	}
-
-	/* if we were given an initial ex command, save it... */
-	if (i < argc && *argv[i] == '+')
+	msg(MSG_INFO, "[s]User interfaces: $1", guinames);
+	msg(MSG_INFO, "For more information about user interfaces, give the command 'elvis -G?'");
+	msg(MSG_INFO, "[s]Report bugs to $1", "kirkenda@cs.pdx.edu");
+	if (hint)
 	{
-		if (argv[i][1])
-		{
-			cmd = argv[i++] + 1;
-		}
-		else
-		{
-			cmd = "$"; /* "vi + file" means start at EOF */
-			i++;
-		}
+		msg(MSG_INFO, hint);
 	}
+	if (chosengui)
+		(*chosengui->term)();
+	exit(0);
+}
 
-	/* the remaining args are file names. */
-	if (i < argc)
+static void guiusage P_((void))
+{
+	int	i;
+	BOOLEAN	found;
+	char	*msgfmt;
+
+	msg(MSG_INFO, "user interfaces:");
+	for (i = 0, found = False; i < QTY(allguis); i++)
 	{
-		unsigned char *p = (unsigned char *)args - 1;
+		switch ((*allguis[i]->test)())
+		{
+		  case 0:
+			msgfmt = "[ss]   -G ($1<<12) $2 \\(UNAVAILABLE\\)";
+			break;
 
-		strcpy(args, argv[i]);
-		/* convert spaces in filenames to CRs so can use space as
-		 * delimiter for multiple filenames */
-		while (*++p)
-		{
-			if (*p == ' ')
-			{
-				*p = SPACEHOLDER;
-			}
+		  case 2:
+			msgfmt = "[ss]   -G ($1<<12) $2 \\(MAYBE\\)";
+			break;
+
+		  default:
+			if (found)
+				msgfmt = "[ss]   -G ($1<<12) $2";
+			else
+				msgfmt = "[ss]   -G ($1<<12) $2 \\(DEFAULT\\)";
+			found = True;
 		}
-		while (++i < argc && strlen(args) + 1 + strlen(argv[i]) < sizeof args)
+		msg(MSG_INFO, msgfmt, allguis[i]->name, allguis[i]->desc);
+		if (allguis[i]->usage)
+			(*allguis[i]->usage)();
+	}
+	if (chosengui)
+		(*chosengui->term)();
+	exit(0);
+}
+
+/* parse command-line flags.  Leave global variables set to reflect the
+ * flags discovered.  Upon return, any arguments handled here should be
+ * deleted from argv[]; the return value is the new argc value.
+ */
+static int parseflags(argc, argv)
+	int	argc;	/* number of command-line arguments */
+	char	**argv;	/* values of command-line arguments */
+{
+	int	i, j, del;
+	long	size = 0;
+
+	/* copy argv[0] into an option so we can access it in "elvis.ini" */
+	o_program = toCHAR(argv[0]);
+
+	/* for each argument... */
+	for (i = 1; i < argc; i++)
+	{
+		/* for now, assume we'll be deleting 0 arguements */
+		del = 0;
+
+		/* check for some special flags */
+		if (!strcmp(argv[i], "-version")
+		 || !strcmp(argv[i], "--version")
+		 || !strcmp(argv[i], "-v"))
 		{
-			*p = ' ';
-			strcpy(p+1, argv[i]);
-			while (*++p)
+			msg(MSG_INFO, "[s]elvis $1", VERSION);
+#ifdef COPY1
+			msg(MSG_INFO, "[s]$1", COPY1);
+#endif
+#ifdef COPY2
+			msg(MSG_INFO, "[s]$1", COPY2);
+#endif
+#ifdef COPY3
+			msg(MSG_INFO, "[s]$1", COPY3);
+#endif
+#ifdef COPY4
+			msg(MSG_INFO, "[s]$1", COPY4);
+#endif
+#ifdef PORTEDBY
+			msg(MSG_INFO, "[s]$1", PORTEDBY);
+#endif
+			if (chosengui)
+				(*chosengui->term)();
+			exit(0);
+		}
+		else if (!strcmp(argv[i], "-help")
+		      || !strcmp(argv[i], "--help")
+		      || !strcmp(argv[i], "-?"))
+		{
+			usage(NULL);
+		}
+
+		/* recognize any normal flags */
+		if (argv[i][0] == '-')
+		{
+			for (j = 1; j != 0 && argv[i][j]; j++)
 			{
-				if (*p == ' ')
+				switch (argv[i][j])
 				{
-					*p = SPACEHOLDER;
+				  case 'a':
+					initialall = True;
+					del = 1;
+					break;
+
+				  case 'r':
+					o_recovering = True;
+					del = 1;
+					break;
+
+				  case 'R':
+					o_defaultreadonly = True;
+					del = 1;
+					break;
+
+				  case 'V':
+				  	o_verbose = True;
+				  	del = 1;
+				  	break;
+
+				  case 'f':
+					if (argv[i][j + 1])
+					{
+						o_session = toCHAR(&argv[i][j + 1]);
+						del = 1;
+					}
+					else if (i + 1 < argc)
+					{
+						o_session = toCHAR(argv[i + 1]);
+						del = 2;
+						i++;
+					}
+					else
+					{
+						usage("-s requires the name of a session file");
+					}
+					j = -1; /* so we stop processing this arg */
+					break;
+
+				  case 'G':
+					usage("only one \"-G gui\" is allowed");
+					break;
+
+				  case 'c':
+					if (argv[i][j + 1])
+					{
+						initialcommand = &argv[i][j + 1];
+						del = 1;
+					}
+					else if (i + 1 < argc)
+					{
+						initialcommand = argv[i + 1];
+						del = 2;
+						i++;
+					}
+					else
+					{
+						usage("-c requires an initial command");
+					}
+					j = -1; /* so we stop processing this arg */
+					break;
+
+				  case 't':
+					if (argv[i][j + 1])
+					{
+						initialtag = &argv[i][j + 1];
+						del = 1;
+					}
+					else if (i + 1 < argc)
+					{
+						initialtag = argv[i + 1];
+						del = 2;
+						i++;
+					}
+					else
+					{
+						usage("-t requires a tag name");
+					}
+					j = -1; /* so we stop processing this arg */
+					break;
+
+				  case 'b':
+					if (argv[i][j + 1])
+					{
+						size = atol(&argv[i][j + 1]);
+						del = 1;
+					}
+					else if (i + 1 < argc)
+					{
+						size = atol(argv[i + 1]);
+						del = 2;
+						i++;
+					}
+					else
+					{
+						usage("-b requires a block size for the session file");
+					}
+					if (size < 256 || size > 8192)
+					{
+						usage("bad blksize given for -b");
+					}
+					j = -1; /* so we stop processing this arg */
+					o_blksize = size;
+					break;
+
+				  case 'e':
+				  case 'i':
+					o_initialstate = argv[i][j];
+					del = 1;
+					break;
+
+				  case 's':
+					o_safer = True;
+					del = 1;
+					break;
+
+				  case 'w':
+					if (argv[i][j + 1])
+					{
+						size = atol(&argv[i][j + 1]);
+						del = 1;
+					}
+					else if (i + 1 < argc)
+					{
+						size = atol(argv[i + 1]);
+						del = 2;
+						i++;
+					}
+					else
+					{
+						usage("-w requires a window size");
+					}
+					j = -1; /* so we stop processing this arg */
+					break;
+
+				  default:
+					if (del)
+					{
+						usage(NULL);
+					}
+					j = -1;
 				}
 			}
 		}
-#ifndef __EMX__
-# if MSDOS || TOS || OS2
-		/* expand wildcard characters, if necessary */
-		if (strchr(args, '*') || strchr(args, '?'))
+		else if (argv[i][0] == '+')
 		{
-			strcpy(args, wildcard(args));
-		}
-# endif
-#endif
-		strcpy(tmpblk.c, args);
-		cmd_args(MARK_UNSET, MARK_UNSET, CMD_ARGS, TRUE, tmpblk.c);
-	}
-	else
-	{
-		/* empty args list */
-		args[0] = '\0';
-		nargs = 1;
-		argno = -1;
-	}
-
-	/* perform the .exrc files and EXINIT environment variable */
-#ifdef SYSEXRC
-	doexrc(SYSEXRC);
-#endif
-#ifdef EXINIT
-	str = getenv(EXINIT);
-	if (str)
-	{
-	  	if (*str == '"')
-		  	str++;
-		if (str[strlen(str) - 1] == '"')
-		  	str[strlen(str) - 1] = 0;
-		doexcmd(str, ctrl('V'));
-	}
-	else
-#endif
-#ifdef HMEXRC
-	if ((str = gethome(argv[0]))	/* yes, ASSIGNMENT! */
-		&& *str)
-	{
-		strcpy(tmpblk.c, str);
-		str = tmpblk.c + strlen(tmpblk.c);
-#if !VMS
-# if AMIGA	/* Don't SLASH a device. "Elvis:.exrc" */
-		if (str[-1] != COLON && str[-1] != SLASH)
-# else
-		if (str[-1] != SLASH)
-# endif
-		{
-			*str++ = SLASH;
-		}
-#endif
-		strcpy(str, HMEXRC);
-		doexrc(tmpblk.c);
-	}
-#else
-		; /* marks end of EXINT's "else" */
-#endif
-#ifndef CRUNCH
-	if (*o_exrc)
-#endif
-	{
-#ifndef NO_SAFER
-		i = *o_safer;
-		*o_safer = TRUE;
-		doexrc(EXRC);
-		*o_safer = i;
-#else
-		doexrc(EXRC);
-#endif
-	}
-
-	/* search for a tag (or an error) now, if desired */
-	blkinit();
-	if (tag)
-	{
-		cmd_tag(MARK_UNSET, MARK_FIRST, CMD_TAG, 0, tag);
-	}
-#ifndef NO_ERRLIST
-	else if (err)
-	{
-		cmd_errlist(MARK_FIRST, MARK_FIRST, CMD_ERRLIST, 0, err);
-	}
-#endif
-
-	/* if no tag/err, or tag failed, then start with first arg */
-	if (tmpfd < 0)
-	{
-		/* start with first arg */
-		cmd_next(MARK_UNSET, MARK_UNSET, CMD_NEXT, FALSE, "");
-
-		/* pretend to do something, just to force a recoverable
-		 * version of the file out to disk
-		 */
-		ChangeText
-		{
-		}
-		clrflag(file, MODIFIED);
-	}
-
-	/* now we do the immediate ex command that we noticed before */
-	if (cmd)
-	{
-		doexcmd(cmd, '\\');
-	}
-
-	/* repeatedly call ex() or vi() (depending on the mode) until the
-	 * mode is set to MODE_QUIT
-	 */
-	while (mode != MODE_QUIT)
-	{
-		if (setjmp(jmpenv))
-		{
-			/* Maybe we just aborted a change? */
-			abortdo();
-		}
-		signal(SIGINT, trapint);
-
-		switch (mode)
-		{
-		  case MODE_VI:
-			if (canvi)
+			if (argv[i][1])
 			{
-				vi();
+				initialcommand = &argv[i][1];
 			}
 			else
 			{
-				mode = MODE_EX;
-				msg("This termcap entry doesn't support visual mode");
+				initialcommand = "$";
 			}
-			break;
+			del = 1;
+		}
 
-		  case MODE_EX:
-			ex();
-			break;
-#ifdef DEBUG
-		  default:
-			msg("mode = %d?", mode);
-			mode = MODE_QUIT;
-#endif
+		/* delete arguments, if we're supposed to */
+		if (del > 0)
+		{
+			for (j = i + 1 - del; j < argc - del; j++)
+			{
+				argv[j] = argv[j + del];
+			}
+			i -= del;
+			argc -= del;
 		}
 	}
 
-	/* free up the cut buffers */
-	cutend();
+	return argc;
+}
 
-	/* end curses */
-#ifndef	NO_CURSORSHAPE
-	if (has_CQ)
-		do_CQ();
-#endif
-#if ANY_UNIX
-	if (!strcmp(o_term, "xterm"))
+/* Choose a GUI.  If one was specified via "-G gui", then the o_gui option
+ * will be set already, and we just need to verify it.  Otherwise, we need
+ * to test each GUI until we find one which tests as being available or
+ * maybe available.  Call the GUI's init() function, and leave the global
+ * "gui" pointer pointing to the chosen GUI.
+ *
+ * Like parseflags(), this function should delete any arguments from argv that
+ * it uses, and return the new argc value.
+ */
+static int choosegui(argc, argv)
+	int	argc;	/* number of command-line arguments */
+	char	**argv;	/* values of command-line arguments */
+{
+	int	i, j, val;
+
+	/* Initialize "j" just to silence a compiler warning */
+	j = 0;
+
+	/* search for "-G gui" in the command line */
+	for (i = 1; i < argc; i++)
 	{
-		write(1, "\033[?9r", 5); /* xterm: disable mouse events */
+		if (argv[i][0] == '-' && argv[i][1] == 'G')
+		{
+			/* remember the gui name */
+			if (argv[i][2])
+				o_gui = toCHAR(&argv[i][2]), j = i + 1;
+			else if (i + 1 < argc)
+				o_gui = toCHAR(argv[i + 1]), j = i + 2;
+			else
+				usage("-G requires a user interface name");
+
+			/* delete the "-G" and its argument */
+			while (j < argc)
+			{
+				argv[i++] = argv[j++];
+			}
+			argv[i] = NULL;
+			argc = i;
+
+			/* stop looking for "-G" */
+			break;
+		}
 	}
-#endif
-	endmsgs();
-	move(LINES - 1, 0);
-	clrtoeol();
-	refresh();
-	endwin();
 
-	exit(exitcode);
-	/*NOTREACHED*/
-#if TURBOC
-	return 0;
-#endif
+	/* find the specified GUI, or the first available if none specified */
+	if (o_gui)
+	{
+		/* find the named GUI */
+		for (i = 0; i < QTY(allguis) && strcmp(allguis[i]->name, tochar8(o_gui)); i++)
+		{
+		}
+		if (i >= QTY(allguis))
+		{
+			if (CHARcmp(o_gui, toCHAR("?")))
+			{
+				msg(MSG_ERROR, "[s]invalid gui $1", o_gui);
+			}
+			guiusage();
+		}
+	}
+	else
+	{
+		/* Find the first GUI that is definitely available.  While
+		 * searching, also remember the first one that *MIGHT* be
+		 * available, just in case we don't find any that are definitely
+		 * available.
+		 */
+		for (i = 0, j = -1; i < QTY(allguis) && (val = (*allguis[i]->test)()) != 1; i++)
+		{
+			if (val == 2 && j == -1)
+			{
+				j = i;
+			}
+		}
+
+		/* If we didn't find a definite one, use the maybe one */
+		if (i >= QTY(allguis))
+		{
+			if (j >= 0)
+			{
+				i = j;
+			}
+			else
+			{
+				msg(MSG_ERROR, "no gui available", o_gui);
+				exit(0);
+			}
+		}
+	}
+
+	/* Call the GUI's init() function */
+	argc = (*allguis[i]->init)(argc, argv);
+	if (argc <= 0)
+	{
+		exit(0);
+	}
+
+	/* Remember the chosen GUI, but don't set the official "gui" pointer
+	 * yet because we want any initialization error message to go to
+	 * stderr instead of a window.
+	 */
+	chosengui = allguis[i];
+	return argc;
 }
 
-
-/*ARGSUSED*/
-SIGTYPE trapint(signo)
-	int	signo;
+/* execute the initialization buffer (which may create some windows) */
+static void doexrc()
 {
-	beep();
-	resume_curses(FALSE);
-	abortdo();
-#if OSK
-	sigmask(-1);
-#endif
-	signal(signo, trapint);
-	doingglobal = FALSE;
+	BUFFER	buf;	/* the buffer itself */
+	MARKBUF	top;	/* top of the buffer */
+	MARKBUF	bottom;	/* bottom of the buffer */
 
-	longjmp(jmpenv, 1);
-	/*NOTREACHED*/
+	/* If a buffer named "Elvis initialization" exists */
+	buf = bufpath(o_elvispath, INIT_FILE, toCHAR(INIT_BUF));
+	if (buf)
+	{
+		/* Temporarily make all display-mode options available */
+		dispinit(True);
+
+		/* Execute its contents. */
+		(void)experform((WINDOW)0, marktmp(top, buf, 0),
+			marktmp(bottom, buf, o_bufchars(buf)));
+
+		/* After this, only the current display-mode's options should
+		 * be available.
+		 */
+		dispinit(False);
+	}
 }
 
-
-
-#ifndef NO_DIGRAPH
-
-/* This stuff us used to build the default digraphs table. */
-static char	digtable[][4] =
-{
-# ifdef CS_IBMPC
-	"C,\200",	"u\"\1",	"e'\2",		"a^\3",
-	"a\"\4",	"a`\5",		"a@\6",		"c,\7",
-	"e^\10",	"e\"\211",	"e`\12",	"i\"\13",
-	"i^\14",	"i`\15",	"A\"\16",	"A@\17",
-	"E'\20",	"ae\21",	"AE\22",	"o^\23",
-	"o\"\24",	"o`\25",	"u^\26",	"u`\27",
-	"y\"\30",	"O\"\31",	"U\"\32",	"a'\240",
-	"i'!",		"o'\"",		"u'#",		"n~$",
-	"N~%",		"a-&",		"o-'",		"~?(",
-	"~!-",		"\"<.",		"\">/",
-#  ifdef CS_SPECIAL
-	"2/+",		"4/,",		"^+;",		"^q<",
-	"^c=",		"^r>",		"^t?",		"pp]",
-	"^^^",		"oo_",		"*a`",		"*ba",
-	"*pc",		"*Sd",		"*se",		"*uf",
-	"*tg",		"*Ph",		"*Ti",		"*Oj",
-	"*dk",		"*Hl",		"*hm",		"*En",
-	"*No",		"eqp",		"pmq",		"ger",
-	"les",		"*It",		"*iu",		"*/v",
-	"*=w",		"sq{",		"^n|",		"^2}",
-	"^3~",		"^_\377",
-#  endif /* CS_SPECIAL */
-# endif /* CS_IBMPC */
-# ifdef CS_LATIN1
-	"~!!",		"a-*",		"\">+",		"o-:",
-	"\"<>",		"~??",
-
-	"A`@",		"A'A",		"A^B",		"A~C",
-	"A\"D",		"A@E",		"AEF",		"C,G",
-	"E`H",		"E'I",		"E^J",		"E\"K",
-	"I`L",		"I'M",		"I^N",		"I\"O",
-	"-DP",		"N~Q",		"O`R",		"O'S",
-	"O^T",		"O~U",		"O\"V",		"O/X",
-	"U`Y",		"U'Z",		"U^[",		"U\"\\",
-	"Y'_",
-
-	"a``",		"a'a",		"a^b",		"a~c",
-	"a\"d",		"a@e",		"aef",		"c,g",
-	"e`h",		"e'i",		"e^j",		"e\"k",
-	"i`l",		"i'm",		"i^n",		"i\"o",
-	"-dp",		"n~q",		"o`r",		"o's",
-	"o^t",		"o~u",		"o\"v",		"o/x",
-	"u`y",		"u'z",		"u^{",		"u\"|",
-	"y'~",
-# endif /* CS_LATIN1 */
-	""
-};
-
-static int init_digraphs()
+/* make the "elvis args" buffer contain file names from command line */
+static void buildargs(argc, argv)
+	int	argc;	/* number of command-line arguments */
+	char	**argv;	/* values of command-line arguments */
 {
 	int	i;
 
-	for (i = 0; *digtable[i]; i++)
+	/* skip "--", if given */
+	argc--;
+	argv++;
+	if (argc > 0 && !strcmp(argv[0], "--"))
 	{
-		do_digraph(FALSE, digtable[i]);
+		argc--;
+		argv++;
 	}
-	do_digraph(FALSE, (char *)0);
-	return 0;
+
+	/* Copy each argument to the args list.  For some operating systems,
+	 * we'll be expanding wildcards in each argument as we do this.
+	 */
+	for (argnext = i = 0; i < argc; i++)
+	{
+		(void)exaddfilearg(&arglist, &argnext, argv[i], OSEXPANDARGS);
+	}
+
+	/* if nothing read was added, then still allocate something */
+	if (!arglist)
+		arglist = (char **)safealloc(1, sizeof(char *));
+
+	/* reset the "next" pointer */
+	argnext = 0;
 }
-#endif /* NO_DIGRAPH */
+
+/* start first file */
+static void startfirst()
+{
+	BUFFER	buf;
+
+	/* If "Elvis args" is empty */
+	if (!arglist[0])
+	{
+		/* Create an anonymous buffer and a window for it */
+		buf = bufalloc(NULL, 0);
+		assert(buf);
+		(void)(*gui->creategw)(tochar8(o_bufname(buf)), "");
+	}
+	else
+	{
+		/* Load buffers and make windows for either just the first
+		 * argument, or as many of the arguments as possible.
+		 */
+		assert(argnext == 0);
+		do
+		{
+			/* Create a buffer & window the first file */
+			buf = bufload((CHAR *)0, arglist[argnext++], True);
+			assert(buf);
+		} while ((*gui->creategw)(tochar8(o_bufname(buf)), "")
+					&& initialall && arglist[argnext]);
+	}
+}
+
+/* perform "-c cmd" or "-t tag" */
+void mainfirstcmd(win)
+	WINDOW	win;	/* the first window */
+{
+	CHAR	tagcmd[100];
+
+	/* If "-c cmd" was given */
+	if (initialcommand)
+	{
+		/* Execute the command */
+		exstring(win, toCHAR(initialcommand));
+	}
+
+	/* If "-t tag" was given */
+	if (initialtag)
+	{
+		/* Compose a ":tag" command */
+		CHARcpy(tagcmd, toCHAR("tag "));
+		CHARcat(tagcmd, toCHAR(initialtag));
+
+		/* Execute the command */
+		exstring(win, tagcmd);
+	}
+}
+
+static void init(argc, argv)
+	int	argc;	/* number of command-line arguments */
+	char	**argv;	/* values of command-line arguments */
+{
+	BUFFER	buf;
+	char	*lc;		/* locale name */
+	char	lcfile[100];	/* combination of locale name and file name */
+
+#ifdef OSINIT
+	/* initialize the OS */
+	osinit(argv[0]);
+#endif
+
+	/* initialize options */
+	optglobinit();
+
+	/* Choose a GUI, and call its init() function */
+	argc = choosegui(argc, argv);
+
+	/* Parse command-line flags */
+	argc = parseflags(argc, argv);
+
+	/* set up the default options for windows */
+	wininit();
+
+	/* Create or restart the session file */
+	bufinit();
+
+	/* Set the "gui" pointer to the chosen gui.  After this point, all
+	 * error/warning/info messages will written to the window instead
+	 * of stderr.
+	 */
+	gui = chosengui;
+	o_gui = toCHAR(gui->name);
+
+	/* Create the "Elvis ex history" buffer, and tweak its options */
+	buf = bufalloc(toCHAR(EX_BUF), (BLKNO)0);
+	o_inputtab(buf) = 'f';
+	o_internal(buf) = True;
+
+	/* Create the "Elvis error list" buffer, and tweak its options */
+	buf = bufalloc(toCHAR(ERRLIST_BUF), (BLKNO)0);
+	o_internal(buf) = True;
+	o_undolevels(buf) = 0;
+
+	/* Execute the initialization buffer (which may create some windows) */
+	doexrc();
+
+	/* Load the verbose messages, plus a few others */
+	if (((lc = getenv("LC_ALL")) != NULL && *lc)
+	 || ((lc = getenv("LC_MESSAGES")) != NULL && *lc)
+	 || ((lc = getenv("LANG")) != NULL && *lc))
+	{
+		/* Try to find "elvis.msg" in a locale-dependent subdirectory.
+		 * If you can't find it there, then look for the standard one.
+		 */
+		strcpy(lcfile, dirpath(lc, MSG_FILE));
+		buf = bufpath(o_elvispath, lcfile, toCHAR(MSG_BUF));
+		if (!buf || o_bufchars(buf) == 0)
+		{
+			(void)bufpath(o_elvispath, MSG_FILE, toCHAR(MSG_BUF));
+		}
+	}
+	else
+	{
+		/* just use the standard versbose messages */
+		(void)bufpath(o_elvispath, MSG_FILE, toCHAR(MSG_BUF));
+	}
+	(void)bufpath(o_elvispath, BEFOREREAD_FILE, toCHAR(BEFOREREAD_BUF));
+	(void)bufpath(o_elvispath, AFTERREAD_FILE, toCHAR(AFTERREAD_BUF));
+	(void)bufpath(o_elvispath, BEFOREWRITE_FILE, toCHAR(BEFOREWRITE_BUF));
+	(void)bufpath(o_elvispath, AFTERWRITE_FILE, toCHAR(AFTERWRITE_BUF));
+
+	/* Store the filename arguments in a list */
+	buildargs(argc, argv);
+
+	/* start the first file (i.e., make sure we have at least 1 window) */
+	startfirst();
+}
+
+/* Terminate elvis.  By the time this function is called, all windows have
+ * been closed, and hence any buffers that can be discarded have been.
+ */
+void term()
+{
+#ifdef DEBUG_ALLOC
+	int	i;
+#endif
+
+	/* Call the GUI's term() function */
+	gui->term();
+	gui = NULL;
+
+	/* Flush any final messages */
+	msgflush();
+
+	/* Close the session */
+	sesclose();
+
+#ifdef DEBUG_ALLOC
+	/* Free the args list so it isn't reported as a memory leak */
+	for (i = 0; arglist[i]; i++)
+		safefree(arglist[i]);
+	safefree(arglist);
+#endif
+
+	/* Check for any memory leaks */
+	safeterm();
+}
+
+void main(argc, argv)
+	int	argc;	/* number of command-line arguments */
+	char	**argv;	/* values of the command-line arguments */
+{
+	init(argc, argv);
+	(*gui->loop)();
+	term();
+#if !defined (GUI_WIN32)
+	exit((int)o_exitcode);
+#endif
+}

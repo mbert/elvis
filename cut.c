@@ -1,796 +1,558 @@
 /* cut.c */
+/* Copyright 1995 by Steve Kirkendall */
 
-/* Author:
- *	Steve Kirkendall
- *	1500 SW Park #326
- *	Portland OR, 97201
- *	kirkenda@cs.pdx.edu
- */
+char id_cut[] = "$Id: cut.c,v 2.24 1996/06/28 01:33:43 steve Exp $";
 
-
-/* This file contains function which manipulate the cut buffers. */
-
-#include "config.h"
-#include "vi.h"
-#if TURBOC
-#include <process.h>		/* needed for getpid */
-#endif
-#if TOS
-#include <osbind.h>
-#define	rename(a,b)	Frename(0,a,b)
+#include "elvis.h"
+#if USE_PROTOTYPES
+static void shiftbufs(void);
 #endif
 
-# define NANONS	9	/* number of anonymous buffers */
-
-static struct cutbuf
-{
-	short	*phys;	/* pointer to an array of #s of BLKs containing text */
-	int	nblks;	/* number of blocks in phys[] array */
-	int	start;	/* offset into first block of start of cut */
-	int	end;	/* offset into last block of end of cut */
-	int	tmpnum;	/* ID number of the temp file */
-	char	lnmode;	/* boolean: line-mode cut? (as opposed to char-mode) */
-}
-	named[27],	/* cut buffers "a through "z and ". */
-	anon[NANONS];	/* anonymous cut buffers */
-
-static char	cbname;	/* name chosen for next cut/paste operation */
-static char	dotcb;	/* cut buffer to use if "doingdot" is set */
 
 
-#ifndef NO_RECYCLE
-/* This function builds a list of all blocks needed in the current tmp file
- * for the contents of cut buffers.
- * !!! WARNING: if you have more than ~450000 bytes of text in all of the
- * cut buffers, then this will fail disastrously, because buffer overflow
- * is *not* allowed for.
+/* This is the name of the most recently named buffer.  It is used to
+ * implement the "" and "@ buffer names, and for incrementing "1 (etc.)
+ * when pasting from numbered cut buffers.
  */
-int cutneeds(need)
-	BLK		*need;	/* this is where we deposit the list */
+static CHAR previous;
+
+/* This function locates or creates the BUFFER used for storing the contents
+ * of a given cut buffer.  "cbname" is the single-character name of the cut
+ * buffer.
+ *
+ * The cutyank() and cutput() functions both use this function to locate the
+ * buffer, and then perform other name-dependent operations to determine how
+ * the buffer should be used.  For example, 'a' and 'A' both refer to the same
+ * buffer here, but cutyank() will treat them differently.
+ */
+BUFFER cutbuffer(cbname, create)
+	_CHAR_	cbname;	/* name of cut buffer, or '\0' for anonymous */
+	BOOLEAN	create;	/* create the edit buffer if it doesn't already exist? */
 {
-	struct cutbuf	*cb;	/* used to count through cut buffers */
-	int		i;	/* used to count through blocks of a cut buffer */
-	int		n;	/* total number of blocks in list */
+	char	tmpname[50];
+	char	*bufname;
+	BUFFER	buf;
 
-	n = 0;
-
-	/* first the named buffers... */
-	for (cb = named; cb < &named[27]; cb++)
+	/* handle the "" buffer */
+	if (cbname == '"' || cbname == '@')
 	{
-		if (cb->tmpnum != tmpnum)
-			continue;
-
-		for (i = cb->nblks; i-- > 0; )
+		if (!previous)
 		{
-			need->n[n++] = cb->phys[i];
+			msg(MSG_ERROR, "no previous cut buffer");
+			return NULL;
+		}
+		cbname = previous;
+	}
+
+	switch (cbname)
+	{
+	  case '\0':
+		bufname = CUTANON_BUF;
+		break;
+
+	  case '<':
+	  case '>':
+		bufname = CUTEXTERN_BUF;
+		break;
+
+	  case '.':
+		bufname = CUTINPUT_BUF;
+		break;
+
+	  default:
+		if ((cbname >= '1' && cbname <= '9') || islower(cbname))
+		{
+			sprintf(tmpname, CUTNAMED_BUF, cbname);
+			bufname = tmpname;
+		}
+		else if (isupper(cbname))
+		{
+			sprintf(tmpname, CUTNAMED_BUF, tolower((char)cbname));
+			bufname = tmpname;
+		}
+		else
+		{
+			msg(MSG_ERROR, "[C]bad cutbuf $1", cbname);
+			return NULL;
 		}
 	}
 
-	/* then the anonymous buffers */
-	for (cb = anon; cb < &anon[NANONS]; cb++)
-	{
-		if (cb->tmpnum != tmpnum)
-			continue;
-
-		for (i = cb->nblks; i-- > 0; )
-		{
-			need->n[n++] = cb->phys[i];
-		}
-	}
-
-	/* return the length of the list */
-	return n;
+	/* find the buffer, or create it */
+	previous = cbname;
+	buf = (create ? bufalloc(toCHAR(bufname), 0) : buffind(toCHAR(bufname)));
+	if (buf)
+		o_internal(buf) = True;
+	return buf;
 }
-#endif
 
-static void maybezap(num)
-	int	num;	/* the tmpnum of the temporary file to [maybe] delete */
+
+/* This function shifts the numbered cut buffers by renaming them. */
+static void shiftbufs()
 {
-	char	cutfname[80];
-	int	i;
+	CHAR	cbname;	/* buffer currently being considered. */
+	BUFFER	buf;	/* the edit buffer used to store a cut buffer's contents */
+	char	tmpname[50];
 
-	/* if this is the current tmp file, then we'd better keep it! */
-	if (tmpfd >= 0 && num == tmpnum)
+	/* We would like to delete "9 after this, but if it has any marks
+	 * referring to it then we must leave it, and delete "8 instead.
+	 * But "8 may have marks, forcing us to leave it too... search back
+	 * until we find a buffer we can delete.
+	 */
+	for (cbname = '9'; cbname > '1'; cbname--)
 	{
-		return;
-	}
-
-	/* see if anybody else needs this tmp file */
-	for (i = 27; --i >= 0; )
-	{
-		if (named[i].nblks > 0 && named[i].tmpnum == num)
-		{
+		/* Try to find the buffer.  If it doesn't exist then we
+		 * won't really need to delete ANY numbered cut buffer!
+		 */
+		buf = cutbuffer(cbname, False);
+		if (!buf)
 			break;
+
+		/* If any marks refer to this buffer, then we can't
+		 * delete this buffer.
+		 */
+		if (buf->marks)
+			continue;
+
+		/* Okay, this is the one!  Delete it and break out of loop */
+		buffree(buf);
+		break;
+	}
+
+	/* shift the lower-numbered buffers by renaming them */
+	while (cbname > '1')
+	{
+		/* generate the name new name that the buffer should have */
+		sprintf(tmpname, CUTNAMED_BUF, cbname);
+
+		/* find the preceding-numbered buffer */
+		cbname--;
+		buf = cutbuffer(cbname, False);
+
+		/* if the buffer exists, rename it one number higher */
+		if (buf)
+		{
+			buftitle(buf, toCHAR(tmpname));
 		}
 	}
-	if (i < 0)
+
+	/* At this point, the buffers have been shifted and there probably
+	 * is no "1 buffer.  The only way there could be a "1 buffer would be
+	 * if every cut buffer from "1 to "9 was referred to by a mark and
+	 * therefore undeleteable.  Even this case should be safe, though,
+	 * since the cutyank() function will just replace the old contents
+	 * of "1 with the new contents, causing the marks to be adjusted...
+	 * to safe (though probably useless) offsets.
+	 */
+}
+
+
+/* This function copies text between two marks into a cut buffer.  "cbname"
+ * is the single-character name of the cut buffer.  "from" and "to" delimit
+ * the source of the text.  "type" is 'c' for character cuts, 'l' for line
+ * cuts, and 'r' for rectangular cuts; for rectangular cuts only, the left
+ * and right limits are taken from the current window.
+ *
+ * "type" can also be 'L' for line-mode cuts which come from visual command
+ * mode operators.  This is different from 'l' in that 'L' boundaries have
+ * already been adjusted to match line boundaries, but for 'l' the cutyank()
+ * function will need to adjust the boundaries itself.
+ */
+void cutyank(cbname, from, to, type, del)
+	_CHAR_	cbname;	/* name of cut buffer to yank into */
+	MARK	from;	/* start of source */
+	MARK	to;	/* end of source */
+	_CHAR_	type;	/* yank style: c=character, l=line, r=rectangle */
+	BOOLEAN	del;	/* if True, the source text is deleted after it is yanked */
+{
+	BUFFER	dest;		/* cut buffer we're writing into */
+	MARKBUF	dfrom, dto;	/* region of destination buffer */
+	MARKBUF	sfrom, sto;	/* region of source buffer */
+	MARK	line;		/* end of current line, when type='r' */
+	long	prevline;	/* used for detecting failed move of "line" */
+	long	origlines;	/* number of lines in cut buffer before yank */
+	CHAR	*cp;
+
+	assert(markbuffer(from) == markbuffer(to) && markoffset(from) <= markoffset(to));
+	assert(type == 'c' || type == 'l' || type == 'r' || type == 'L');
+
+	/* if yanking into the anonymous cut buffer, then shift numbered */
+	if (!cbname)
+		shiftbufs();
+
+	/* If this is a character-mode cut, and both ends happen to be the
+	 * start of lines, then treat this as a line-mode cut.  Note that
+	 * we really should know what display mode is being used, but that
+	 * wasn't passed as an argument so we'll have to fudge it a little.
+	 */
+	if (type == 'c')
 	{
-		for (i = NANONS; --i >= 0 ; )
+		if (windefault && markbuffer(from) == markbuffer(windefault->cursor))
 		{
-			if (anon[i].nblks > 0 && anon[i].tmpnum == num)
+			if (markoffset((*windefault->md->move)(windefault, from, 0L, 0L, True)) == markoffset(from)
+			 && (markoffset(to) == o_bufchars(markbuffer(to))
+				|| markoffset((*windefault->md->move)(windefault, to, 0L, 0L, True)) == markoffset(to)))
 			{
-				break;
+				type = 'L';
+			}
+		}
+		else
+		{
+			if (markoffset((*dmnormal.move)(windefault, from, 0L, 0L, True)) == markoffset(from)
+			 && (markoffset(to) == o_bufchars(markbuffer(to))
+				|| markoffset((*dmnormal.move)(windefault, to, 0L, 0L, True)) == markoffset(to)))
+			{
+				type = 'L';
 			}
 		}
 	}
 
-	/* if nobody else needs it, then discard the tmp file */
-	if (i < 0)
-	{
-#if MSDOS || TOS || OS2
-		strcpy(cutfname, o_directory);
-		if ((i = strlen(cutfname)) && !strchr(":/\\", cutfname[i - 1]))
-			cutfname[i++] = SLASH;
-		sprintf(cutfname + i, TMPNAME + 3, getpid(), num);
-#else
-		sprintf(cutfname, TMPNAME, o_directory, getpid(), num);
-#endif
-		unlink(cutfname);
-	}
-}
-
-/* This function frees a cut buffer.  If it was the last cut buffer that
- * referred to an old temp file, then it will delete the temp file. */
-static void cutfree(buf)
-	struct cutbuf	*buf;
-{
-	int	num;
-
-	/* return immediately if the buffer is already empty */
-	if (buf->nblks <= 0)
+	/* find the cut buffer */
+	dest = cutbuffer(cbname, True);
+	if (!dest)
 	{
 		return;
 	}
 
-	/* else free up stuff */
-	num = buf->tmpnum;
-	buf->nblks = 0;
-#ifdef DEBUG
-	if (!buf->phys)
-		msg("cutfree() tried to free a NULL buf->phys pointer.");
-	else
-#endif
-	_free_((char *)buf->phys);
-
-	/* maybe delete the temp file */
-	maybezap(num);
-}
-
-/* This function is called when we are about to abort a tmp file.
- *
- * To minimize the number of extra files lying around, only named cut buffers
- * are preserved in a file switch; the anonymous buffers just go away.
- */
-void cutswitch()
-{
-	int	i;
-
-	/* mark the current temp file as being "obsolete", and close it.  */
-	storename((char *)0);
-	close(tmpfd);
-	tmpfd = -1;
-
-	/* discard all anonymous cut buffers */
-#ifndef NO_EXTENSIONS
-	if (!o_keepanon)
-#endif
+	/* discard the old contents, unless we want to append */
+	if (!isupper(cbname))
 	{
-		for (i = 0; i < NANONS; i++)
+		(void)marktmp(dfrom, dest, 0);
+		(void)marktmp(dto, dest, o_bufchars(dest));
+		switch (type)
 		{
-			cutfree(&anon[i]);
+		  case 'c': bufreplace(&dfrom, &dto, toCHAR("character\n"), CUT_TYPELEN); break;
+		  case 'L':
+		  case 'l': bufreplace(&dfrom, &dto, toCHAR("line     \n"), CUT_TYPELEN); break;
+		  case 'r': bufreplace(&dfrom, &dto, toCHAR("rectangle\n"), CUT_TYPELEN); break;
 		}
+		origlines = 1;
+	}
+	else
+	{
+		(void)marktmp(dfrom, dest, o_bufchars(dest));
+		origlines = o_buflines(dest);
 	}
 
-	/* delete the temp file, if we don't really need it */
-	maybezap(tmpnum);
-}
+	/* copy the text into the buffer. */
+	(void)marktmp(dfrom, dest, o_bufchars(dest));
+	switch (type)
+	{
+	  case 'c':
+		bufpaste(&dfrom, from, to);
+		if (del)
+		{
+			bufreplace(from, to, NULL, 0);
+		}
+		break;
 
-/* This function should be called just before termination of vi */
-void cutend()
-{
-	int	i;
+	  case 'l':
+		sfrom = *(*dmnormal.move)(windefault, from, 0, 0, True);
+		markaddoffset(to, -1);
+		sto = *(*dmnormal.move)(windefault, to, 1, INFINITY, True);
+		markaddoffset(&sto, 1);
+		bufpaste(&dfrom, &sfrom, &sto);
+		if (del)
+		{
+			bufreplace(&sfrom, &sto, NULL, 0);
+		}
+		break;
 
-	/* free the anonymous buffers, if they aren't already free */
-	cutswitch();
+	  case 'L':
+		bufpaste(&dfrom, from, to);
+		if (del)
+		{
+			bufreplace(from, to, NULL, 0);
+		}
+		break;
 
-	/* free all named cut buffers, since they might be forcing an older
-	 * tmp file to be retained.
+	  case 'r':
+		/* NOTE: the only way to yank a rectangle is by visibly
+		 * selecting it.  So we know that we're yanking from the
+		 * current window, and can find the left & right limits
+		 * there, and use the window's edit mode to determine how
+		 * the text is formatted.
+		 */
+		assert(windefault && from && markbuffer(from) == markbuffer(windefault->cursor));
+
+		/* we'll start at the bottom and work backward.  All text
+		 * will therefore be inserted into the cut-buffer at what
+		 * is currently its end.
+		 */
+		(void)marktmp(dfrom, dest, o_bufchars(dest));
+
+		/* The "to" mark is actually the start of the line *AFTER* the
+		 * last line to be included in the cut.  This makes display
+		 * updates easier, but we need to decrement the "to" mark
+		 * here or else we'll be cutting one line too many.
+		 */
+		line = markdup(to);
+		marksetoffset(line, markoffset((*windefault->md->move)(windefault, line, -1, INFINITY, True)));
+
+		/* for each line of the rectangle... */
+		do
+		{
+			/* Choose the starting point on this line.  Make sure
+			 * the left edge of the character is in the rectangle
+			 */
+			sfrom = *(*windefault->md->move)(windefault, line, 0, windefault->selleft, False);
+			if ((*windefault->md->mark2col)(windefault, &sfrom, False) < windefault->selleft)
+			{
+				markaddoffset(&sfrom, 1);
+			}
+
+			/* Choose the ending point on this line.  Add 1 so that
+			 * the final character is included in the yanking, but
+			 * be careful never to yank a newline.
+			 */
+			sto = *(*windefault->md->move)(windefault, line, 0, windefault->selright, False);
+			if (scanchar(&sto) != '\n')
+			{
+				markaddoffset(&sto, 1);
+			}
+
+			/* append this slice of the rectangle */
+			bufreplace(&dfrom, &dfrom, toCHAR("\n"), 1);
+			if (markoffset(&sfrom) < markoffset(&sto))
+			{
+				bufpaste(&dfrom, &sfrom, &sto);
+				if (del)
+				{
+					bufreplace(&sfrom, &sto, NULL, 0);
+				}
+			}
+
+			/* locate the next line */
+			prevline = markoffset(line);
+			marksetoffset(line, markoffset((*windefault->md->move)(windefault, line, -1, INFINITY, True)));
+			if (prevline == markoffset(line))
+			{
+				marksetoffset(line, markoffset(from));
+			}
+
+		} while (markoffset(line) > markoffset(from));
+		markfree(line);
+		break;
+	}
+
+	/* if this the external cut buffer, then write it */
+	if (cbname == '>' && gui->clipopen && (*gui->clipopen)(True))
+	{
+		for (scanalloc(&cp, marktmp(dfrom, dest, CUT_TYPELEN));
+		     cp;
+		     markaddoffset(&dfrom, scanright(&cp)), scanseek(&cp, &dfrom))
+		{
+			(*gui->clipwrite)(cp, scanright(&cp));
+		}
+		(*gui->clipclose)();
+		scanfree(&cp);
+	}
+
+	/* Report.  Except that we don't need to report how many new input
+	 * lines we've copied to the ELVIS_PREVIOUS_INPUT buffer.  Also, when
+	 * the mouse is used to mark text under X11, it is immediately copied
+	 * to the clipboard and we don't want to report that.
 	 */
-	for (i = 0; i < 27; i++)
+	if (o_buflines(dest) - origlines >= o_report
+	 && cbname != '.'
+	 && (cbname != '>' || !windefault || !windefault->seltop))
 	{
-		cutfree(&named[i]);
+		if (del)
+			msg(MSG_INFO, "[d]$1 lines deleted", o_buflines(dest) - origlines);
+		else if (isupper(cbname))
+			msg(MSG_INFO, "[d]$1 more lines yanked", o_buflines(dest) - origlines);
+		else
+			msg(MSG_INFO, "[d]$1 lines yanked", o_buflines(dest) - origlines);
 	}
-
-#ifndef NO_EXTENSIONS
-	/* free all anonymous buffers, same reason */
-	for (i = 0; i < NANONS; i++)
-	{
-		cutfree(&anon[i]);
-	}
-#endif
-
-	/* delete the temp file */
-	maybezap(tmpnum);
 }
 
-
-/* This function is used to select the cut buffer to be used next */
-void cutname(name)
-	int	name;	/* a single character */
-{
-	cbname = name;
-}
-
-
-#ifndef NO_LEARN
-/* This function appends a single character to a cut buffer; it is used
- * during "learn" mode to record a keystroke.  The buffer to use is determined
- * by an external variable, `learnbuf'; this variable contains the buffer's
- * name while learning, or '\0' if not learning.
+/* This function pastes text that was yanked by cutyank.  Returns NULL on
+ * errors, or the final cursor position if successful.
  */
-void learnkey(key)
-	char		key;	/* keystroke to append to learning buffer */
+MARK cutput(cbname, win, at, after, cretend, lretend)
+	_CHAR_	cbname;	/* cut buffer name */
+	WINDOW	win;	/* window showing that buffer */
+	MARK	at;	/* where to insert the text */
+	BOOLEAN	after;	/* if True, insert after "at"; else insert before */
+	BOOLEAN	cretend;/* if character-mode: True=return first, False=return last */
+	BOOLEAN	lretend;/* if not character-mode: True=return first, False=return last */
 {
-	static char	prevlearn;	/* previously learned buffer name */
-	static char	buf[BLKSIZE];	/* used for storing keystrokes */
-	static int	nkeys;		/* number of keystrokes in buf[] */
-	struct cutbuf	*cb;		/* ptr to buffer being saved */
-	long		seekpos;	/* where saved cutbuf's text goes */
+	BUFFER	src;
+	CHAR	iobuf[1000];
+	CHAR	type;
+	CHAR	*cp;
+	MARKBUF	sfrom, sto;
+	static MARKBUF ret;
+	int	i;
+	long	line, col;
+	BOOLEAN	cmd;
 
-	/* if we're ending a learn operation, then save keystokes in a cutbuf */
-	if (learn != prevlearn && prevlearn)
-	{
-		/* choose the cutbuffer to use; free its old contents, if any */
-		cb = &named[prevlearn - 'a'];
-		cutfree(cb);
-
-		/* delete the final "]a" (or whatever) from the keystoke buffer */
-		nkeys -= 2;
-
-		/* allocate a BLK for storage of the keystrokes */
-		cb->phys = (short *)malloc(sizeof(short));
-		cb->nblks = 1;
-		cb->start = 0;
-		cb->end = nkeys;
-		cb->tmpnum = tmpnum;
-#ifndef NO_RECYCLE
-		seekpos = allocate();
-		lseek(tmpfd, seekpos, 0);
-#else
-		seekpos = lseek(tmpfd, 0L, 2);
-#endif
-		cb->phys[0] = (short)(seekpos / BLKSIZE);
-
-		/* write the keystokes there */
-		if (write(tmpfd, buf, (unsigned)BLKSIZE) != BLKSIZE)
-		{
-			msg("Trouble writing to tmp file");
-			deathtrap(0);
-		}
-
-		/* saving complete */
-		prevlearn = '\0';
-		nkeys = 0;
-	}
-
-	/* if we're learning a buffer now, save the keystroke */
-	if (learn)
-	{
-		prevlearn = learn;
-		buf[nkeys++] = key;
-		if (nkeys >= BLKSIZE - 2)
-		{
-			msg("Learn buffer full");
-			learn = 0;
-			nkeys += 2; /* <- to fake "]a" in keystroke buffer */
-		}
-	}
-}
-#endif /* !NO_LEARN */
-
-
-
-/* This function copies a selected segment of text to a cut buffer */
-void cut(from, to)
-	MARK	from;		/* start of text to cut */
-	MARK	to;		/* end of text to cut */
-{
-	int		first;	/* logical number of first block in cut */
-	int		last;	/* logical number of last block used in cut */
-	long		line;	/* a line number */
-	int		lnmode;	/* boolean: will this be a line-mode cut? */
-	MARK		delthru;/* end of text temporarily inserted for apnd */
-	REG struct cutbuf *cb;
-	REG long	l;
-	REG int		i;
-	REG char	*scan;
-	char		*blkc;
-
-	/* detect whether this must be a line-mode cut or char-mode cut */
-	if (markidx(from) == 0 && markidx(to) == 0)
-		lnmode = TRUE;
-	else
-		lnmode = FALSE;
-
-	/* by default, we don't "delthru" anything */
-	delthru = MARK_UNSET;
-
-	/* handle the "doingdot" quirks */
-	if (doingdot)
-	{
-		if (!cbname)
-		{
-			cbname = dotcb;
-		}
-	}
-	else if (cbname != '.')
-	{
-		dotcb = cbname;
-	}
-
-	/* decide which cut buffer to use */
+	/* If anonymous buffer, and most recent paste was from a numbered
+	 * cut buffer, then use the successive numbered buffer by default.
+	 */
 	if (!cbname)
 	{
-		/* free up the last anonymous cut buffer */
-		cutfree(&anon[NANONS - 1]);
+		if (previous >= '1' && previous < '9')
+			cbname = previous + 1;
+		else if (previous == '9')
+			cbname = '9';
+	}
 
-		/* shift the anonymous cut buffers */
-		for (i = NANONS - 1; i > 0; i--)
+	/* find the cut buffer */
+	src = cutbuffer(cbname, True);
+	if (!src)
+	{
+		return NULL;
+	}
+
+	/* if external cut buffer, then fill it from GUI */
+	if (cbname == '<' && gui->clipopen && (*gui->clipopen)(False))
+	{
+		bufreplace(marktmp(sfrom, src, 0), marktmp(sto, src, o_bufchars(src)), toCHAR("character\n"), CUT_TYPELEN);
+		while ((i = (*gui->clipread)(iobuf, sizeof(iobuf))) > 0)
 		{
-			anon[i] = anon[i - 1];
+			bufreplace(marktmp(sfrom, src, CUT_TYPELEN), &sfrom, iobuf, i);
+		}
+		(*gui->clipclose)();
+	}
+
+	/* if the buffer is empty, fail */
+	if (o_bufchars(src) <= CUT_TYPELEN)
+	{
+		/* well, the '.' buffer is okay, but all others fail */
+		if (cbname == '.')
+		{
+			ret = *at;
+			return &ret;
+		}
+		msg(MSG_ERROR, "[C]cut buffer $1 empty", cbname);
+		return NULL;
+	}
+
+	/* figure out what type of yank this was */
+	type = scanchar(marktmp(sfrom, src, 0));
+
+	/* do the paste */
+	switch (type)
+	{
+	  case 'c': /* CHARACTER MODE */
+		/* choose the insertion point */
+		ret = *at;
+		if (after && scanchar(at) != '\n')
+		{
+			markaddoffset(&ret, 1);
 		}
 
-		/* use the first anonymous cut buffer */
-		cb = anon;
-		cb->nblks = 0;
-	}
-	else if (cbname >= 'a' && cbname <= 'z')
-	{
-		cb = &named[cbname - 'a'];
-		cutfree(cb);
-	}
-#ifndef CRUNCH
-	else if (cbname >= 'A' && cbname <= 'Z')
-	{
-		cb = &named[cbname - 'A'];
-		if (cb->nblks > 0)
+		/* paste it & set "ret" to the new cursor cursor */
+		bufpaste(&ret, marktmp(sfrom, src, CUT_TYPELEN), marktmp(sto, src, o_bufchars(src)));
+		if (cretend)
 		{
-			/* resolve linemode/charmode differences */
-			if (!lnmode && cb->lnmode)
-			{
-				from &= ~(BLKSIZE - 1);
-				if (markidx(to) != 0 || to == from)
-				{
-					to = to + BLKSIZE - markidx(to);
-				}
-				lnmode = TRUE;
-			}
-
-			/* insert the old cut-buffer before the new text */
-			mark[28] = to;
-			delthru = paste(from, FALSE, TRUE);
-			if (delthru == MARK_UNSET)
-			{
-				return;
-			}
-			delthru++;
-			to = mark[28];
+			markaddoffset(&ret, o_bufchars(src) - CUT_TYPELEN - 1);
 		}
-		cutfree(cb);
-	}
-#endif /* not CRUNCH */
-	else if (cbname == '.')
-	{
-		cb = &named[26];
-		cutfree(cb);
-	}
-	else
-	{
-		msg("Invalid cut buffer name: \"%c", cbname);
-		dotcb = cbname = '\0';
-		return;
-	}
-	cbname = '\0';
-	cb->tmpnum = tmpnum;
+		break;
 
-	/* detect whether we're doing a line mode cut */
-	cb->lnmode = lnmode;
-
-	/* ---------- */
-
-	/* Reporting... */	
-	if (markidx(from) == 0 && markidx(to) == 0)
-	{
-		rptlines = markline(to) - markline(from);
-		rptlabel = "yanked";
-	}
-
-	/* ---------- */
-
-	/* make sure each block has a physical disk address */
-	blksync();
-
-	/* find the first block in the cut */
-	line = markline(from);
-	for (first = 1; line > lnum[first]; first++)
-	{
-	}
-
-	/* fetch text of the block containing that line */
-	blkc = scan = blkget(first)->c;
-
-	/* find the mark in the block */
-	for (l = lnum[first - 1]; ++l < line; )
-	{
-		while (*scan++ != '\n')
-		{
-		}
-	}
-	scan += markidx(from);
-
-	/* remember the offset of the start */
-	cb->start = scan - blkc;
-
-	/* ---------- */
-
-	/* find the last block in the cut */
-	line = markline(to);
-	for (last = first; line > lnum[last]; last++)
-	{
-	}
-
-	/* fetch text of the block containing that line */
-	if (last != first)
-	{
-		blkc = scan = blkget(last)->c;
-	}
-	else
-	{
-		scan = blkc;
-	}
-
-	/* find the mark in the block */
-	for (l = lnum[last - 1]; ++l < line; )
-	{
-		while (*scan++ != '\n')
-		{
-		}
-	}
-	if (markline(to) <= nlines)
-	{
-		scan += markidx(to);
-	}
-
-	/* remember the offset of the end */
-	cb->end = scan - blkc;
-
-	/* ------- */
-
-	/* remember the physical block numbers of all included blocks */
-	cb->nblks = last - first;
-	if (cb->end > 0)
-	{
-		cb->nblks++;
-	}
-	else /*!!!*/
-	{
-		cb->end = BLKSIZE - 1;
-	}
-#ifdef lint
-	cb->phys = (short *)0;
-#else
-	cb->phys = (short *)malloc((unsigned)(cb->nblks * sizeof(short)));
-#endif
-	for (i = 0; i < cb->nblks; i++)
-	{
-		cb->phys[i] = hdr.n[first++];
-	}
-
-#ifndef CRUNCH
-	/* if we temporarily inserted text for appending, then delete that
-	 * text now -- before the user sees it.
-	 */
-	if (delthru)
-	{
-		line = rptlines;
-		delete(from, delthru);
-		rptlines = line;
-		rptlabel = "yanked";
-	}
-#endif /* not CRUNCH */
-}
-
-
-static void readcutblk(cb, blkno)
-	struct cutbuf	*cb;
-	int		blkno;
-{
-	char		cutfname[50];/* name of an old temp file */
-	int		fd;	/* either tmpfd or the result of open() */
-#if MSDOS || TOS || OS2
-	int		i;
-#endif
-
-	/* decide which fd to use */
-	if (cb->tmpnum == tmpnum)
-	{
-		fd = tmpfd;
-	}
-	else
-	{
-#if MSDOS || TOS || OS2
-		strcpy(cutfname, o_directory);
-		if ((i = strlen(cutfname)) && !strchr(":/\\", cutfname[i-1]))
-			cutfname[i++]=SLASH;
-		sprintf(cutfname+i, TMPNAME+3, getpid(), cb->tmpnum);
-#else
-		sprintf(cutfname, TMPNAME, o_directory, getpid(), cb->tmpnum);
-#endif
-		fd = open(cutfname, O_RDONLY);
-	}
-
-	/* get the block */
-	lseek(fd, (long)cb->phys[blkno] * (long)BLKSIZE, 0);
-	if (read(fd, tmpblk.c, (unsigned)BLKSIZE) != BLKSIZE)
-	{
-		msg("Error reading back from tmp file for pasting!");
-	}
-
-	/* close the fd, if it isn't tmpfd */
-	if (fd != tmpfd)
-	{
-		close(fd);
-	}
-}
-
-
-/* This function inserts text from a cut buffer, and returns the MARK where
- * insertion ended.  Return MARK_UNSET on errors.
- */
-MARK paste(at, after, retend)
-	MARK	at;	/* where to insert the text */
-	int	after;	/* boolean: insert after mark? (rather than before) */
-	int	retend;	/* boolean: return end of text? (rather than start) */
-{
-	REG struct cutbuf	*cb;
-	REG int			i;
-
-	/* handle the "doingdot" quirks */
-	if (doingdot)
-	{
-		if (!cbname)
-		{
-			if (dotcb >= '1' && dotcb < '1' + NANONS - 1)
-			{
-				dotcb++;
-			}
-			cbname = dotcb;
-		}
-	}
-	else if (cbname != '.')
-	{
-		dotcb = cbname;
-	}
-
-	/* decide which cut buffer to use */
-	if (cbname >= 'A' && cbname <= 'Z')
-	{
-		cb = &named[cbname - 'A'];
-	}
-	else if (cbname >= 'a' && cbname <= 'z')
-	{
-		cb = &named[cbname - 'a'];
-	}
-	else if (cbname >= '1' && cbname <= '9')
-	{
-		cb = &anon[cbname - '1'];
-	}
-	else if (cbname == '.')
-	{
-		cb = &named[26];
-	}
-	else if (!cbname)
-	{
-		cb = anon;
-	}
-	else
-	{
-		msg("Invalid cut buffer name: \"%c", cbname);
-		cbname = '\0';
-		return MARK_UNSET;
-	}
-
-	/* make sure it isn't empty */
-	if (cb->nblks == 0)
-	{
-		if (cbname)
-			msg("Cut buffer \"%c is empty", cbname);
-		else
-			msg("Cut buffer is empty");
-		cbname = '\0';
-		return MARK_UNSET;
-	}
-	cbname = '\0';
-
-	/* adjust the insertion MARK for "after" and line-mode cuts */
-	if (cb->lnmode)
-	{
-		at &= ~(BLKSIZE - 1);
+	  case 'l': /* LINE MODE */
+		/* choose the insertion point */
 		if (after)
 		{
-			at += BLKSIZE;
-		}
-#if 1
-		/* screen updates still have a glitch.  Force total redraw */
-		if (!o_optimize)
-		{
-			redrawrange(at, INFINITY, INFINITY);
-		}
-#endif
-	}
-	else if (after)
-	{
-		/* careful! if markidx(at) == 0 we might be pasting into an
-		 * empty line -- so we can't blindly increment "at".
-		 */
-		if (markidx(at) == 0)
-		{
-			pfetch(markline(at));
-			if (plen != 0)
-			{
-				at++;
-			}
+			ret = *(win->md->move)(win, at, 0, INFINITY, False);
+			markaddoffset(&ret, 1);
 		}
 		else
 		{
-			at++;
+			ret = *(win->md->move)(win, at, 0, 0, False);
 		}
-	}
 
-	/* put a copy of the "at" mark in the mark[] array, so it stays in
-	 * sync with changes made via add().
-	 */
-	mark[27] = at;
-
-	/* simple one-block paste? */
-	if (cb->nblks == 1)
-	{
-		/* get the block */
-		readcutblk(cb, 0);
-
-		/* isolate the text we need within it */
-		if (cb->end)
+		/* paste it & set "ret" to the start of the new cursor line */
+		bufpaste(&ret, marktmp(sfrom, src, CUT_TYPELEN), marktmp(sto, src, o_bufchars(src)));
+		if (lretend)
 		{
-			tmpblk.c[cb->end] = '\0';
+			markaddoffset(&ret, o_bufchars(src) - CUT_TYPELEN);
+			ret = *(win->md->move)(win, &ret, -1, 0, True);
 		}
 
-		/* insert it */
-		ChangeText
+		/* move new cursor past any whitespace at start of line */
+		for (scanalloc(&cp, &ret);
+		     cp && (*cp == '\t' || *cp == ' ');
+		     scannext(&cp))
 		{
-			add(at, &tmpblk.c[cb->start]);
 		}
-	}
-	else
-	{
-		/* multi-block paste */
+		if (cp)
+			ret = *scanmark(&cp);
+		scanfree(&cp);
+		break;
 
-		ChangeText
+	  case 'r': /* RECTANGLE MODE */
+		/* choose a starting point, and a column to try for */
+		if (after)
 		{
-			i = cb->nblks - 1;
-
-			/* add text from the last block first */
-			if (cb->end > 0)
-			{
-				readcutblk(cb, i);
-				tmpblk.c[cb->end] = '\0';
-				add(at, tmpblk.c);
-				i--;
-			}
-
-			/* add intervening blocks */
-			while (i > 0)
-			{
-				readcutblk(cb, i);
-				add(at, tmpblk.c);
-				i--;
-			}
-
-			/* add text from the first cut block */
-			readcutblk(cb, 0);
-			add(at, &tmpblk.c[cb->start]);
+			cmd = True;
+			col = (*win->md->mark2col)(win, at, cmd) + 1;
 		}
+		else
+		{
+			cmd = False;
+			col = (*win->md->mark2col)(win, at, cmd);
+		}
+		ret = *(*win->md->move)(win, at, 0, col, cmd);
+		(void)marktmp(sto, src, lowline(bufbufinfo(src), 2) - 1);
+
+		/* for each data line in the cut buffer... */
+		for (line = 2;
+		     line <= o_buflines(src) && markoffset(&ret) < o_bufchars(markbuffer(&ret));
+		     line++)
+		{
+			/* delimit the contents of the next line in this cutbuf */
+			sfrom = sto;
+			markaddoffset(&sfrom, 1);
+			(void)marktmp(sto, src, lowline(bufbufinfo(src), line + 1) - 1);
+
+			/* paste it */
+			bufpaste(&ret, &sfrom, &sto);
+
+			/* move to the next line in destination buffer */
+			ret = *(*win->md->move)(win, &ret, 1, col, cmd);
+		}
+		if (!lretend)
+		{
+			ret = *at;
+		}
+		break;
+
+	  default:
+		msg(MSG_ERROR, "[C]cut buffer $1 scrambled", cbname);
+		return NULL;
 	}
 
-	/* Reporting... */
-	rptlines = markline(mark[27]) - markline(at);
-	rptlabel = "pasted";
 
-	/* return the mark at the beginning/end of inserted text */
-	if (retend)
+	/* report */
+	if (o_buflines(src) - 1 >= o_report && cbname != '.')
 	{
-		return mark[27] - 1L;
+		msg(MSG_INFO, "[d]$1 lines pasted", o_buflines(src) - 1);
 	}
-	return at;
+
+	return &ret;
 }
 
-
-
-
-#ifndef NO_AT
-
-/* This function copies characters from a cut buffer into a string.
- * It returns the number of characters in the cut buffer.  If the cut
- * buffer is too large to fit in the string (i.e. if cb2str() returns
- * a number >= size) then the characters will not have been copied.
- * It returns 0 if the cut buffer is empty, and -1 for invalid cut buffers.
+/* This function copies the contents of a cut buffer into RAM.  The memory
+ * image contains no hint as to whether it was a line mode cut, or character
+ * cut, or rectangle.  The calling function is responsible for calling
+ * safefree() when the memory image is no longer needed.  Returns NULL if
+ * the buffer is empty, doesn't exist, or appears to be corrupt.  The
+ * "< cut buffer is illegal in this contents, and will also return NULL.
  */
-int cb2str(name, buf, size)
-	int	name;	/* the name of a cut-buffer to get: a-z only! */
-	char	*buf;	/* where to put the string */
-	unsigned size;	/* size of buf */
+CHAR *cutmemory(cbname)
+	_CHAR_	cbname;	/* cut buffer name */
 {
-	REG struct cutbuf	*cb;
-	REG char		*src;
-	REG char		*dest;
+	BUFFER	src;
+	MARKBUF	from, to;
 
-	/* decide which cut buffer to use */
-	if (name >= 'a' && name <= 'z')
+	/* Find the cut buffer.  If it looks wrong, then return NULL. */
+	src = cutbuffer(cbname, False);
+	if (cbname == '<' || !src || o_bufchars(src) <= CUT_TYPELEN)
 	{
-		cb = &named[name - 'a'];
-	}
-#if 1 /* [sdw] allow selection of anonymous buffer */
-	else if (!name)
-	{
-		cb = anon;
-	}
-#endif
-	else
-	{
-		return -1;
+		return NULL;
 	}
 
-	/* if the buffer is empty, return 0 */
-	if (cb->nblks == 0)
-	{
-		return 0;
-	}
-
-	/* !!! if not a single-block cut, then fail */
-	if (cb->nblks != 1)
-	{
-		return size;
-	}
-
-	/* if too big, return the size now, without doing anything */
-	if ((unsigned)(cb->end - cb->start) >= size)
-	{
-		return cb->end - cb->start;
-	}
-
-	/* get the block */
-	readcutblk(cb, 0);
-
-	/* isolate the string within that blk */
-	if (cb->start == 0)
-	{
-		tmpblk.c[cb->end] = '\0';
-	}
-	else
-	{
-		for (dest = tmpblk.c, src = dest + cb->start; src < tmpblk.c + cb->end; )
-		{
-			*dest++ = *src++;
-		}
-		*dest = '\0';
-	}
-
-	/* copy the string into the buffer */
-	if (buf != tmpblk.c)
-	{
-		strcpy(buf, tmpblk.c);
-	}
-
-	/* return the length */
-	return cb->end - cb->start;
+	/* copy the contents into the memory */
+	return bufmemory(marktmp(from, src, CUT_TYPELEN), marktmp(to, src, o_bufchars(src)));
 }
-#endif

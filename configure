@@ -1,0 +1,572 @@
+#!/bin/sh
+
+# This is a UNIX shell script that generates a custom "Makefile" file and
+# a "config.h" file.
+#
+# usage: configure [[flags] system]
+#
+# flags: --with-x[=no]		enable/disable support for X-windows interface
+#	 --without-x		disable support for X-windows interface
+#	 --x-includes=DIR	add DIR to path for X-windows include files
+#	 --x-libraries=DIR	add DIR to path for X-windows libraries
+#        --libs=STRING		define the non-X11 part of the LIBS= line
+#	 --bindir=DIR		where to install the executables
+#	 --datadir=DIR		where to install the supporting data files
+#	 --libs=STRING		non-X11 part of the LIBS= string in Makefile
+#	 --ioctl=VARIETY	type of tty ioctl to use: termios, termio, sgtty
+#
+# system: *one* of the following...
+#	 linux			UNIX clone for IBM clones
+#	 sunos			Sun's Ancient SunOS variant of BSD
+#	 solaris		Sun's OLDER Solaris systems
+#	 solaris2		Sun's NEWER Solaris 2 systems
+#	 aix			IBM's variant of POSIX
+#	 osf-1			DEC's variant of POSIX
+#	 ultrix			DEC's variant of BSD
+#	 hp-ux			HP's variant of POSIX
+#	 qnx			QNX's POSIXish real-time operating system
+#	 irix			SGI's variant of POSIX
+#	 xenix			ancient SCO Xenix-386 systems
+#	 sco			SCO UNIX or Open Desktop systems
+#	 bsd			typical BSD implementations
+#	 posix			generic POSIX implementations
+#        (anything else)	generic UNIX, including SysV
+# If no system is specified, this script will attempt to obtain the system
+# type by running the "uname" command.  If it can't recognize the system name
+# returned by "uname", then it uses generic UNIX settings.  The script also
+# inspects the files on your system to refine those settings, so it'll still
+# work okay, usually.
+
+# Set some defaults
+XINCPATH="/usr/include /usr/include/X11 /usr/X11/include /usr/local/X11/include /usr/openwin/include"
+XLIBPATH="/lib /usr/lib /usr/X11/lib /usr/local/X11/lib /usr/openwin/lib "`echo "$LD_LIBRARY_PATH" | tr ':' ' '`
+GNUPATH=`echo "$PATH" | tr ':' ' '`
+BINDIR=/usr/local/bin
+LIBDIR=/usr/local/lib/elvis
+SYS=`uname | tr '[A-Z]' '[a-z]'`
+CC="cc -O"
+IOCTL=""
+
+# Initialize some variables.  These aren't merely defaults; don't change them!
+args=""
+XLIBS=""
+
+# Solaris 2 masquerades as SunOS.  Check for that, by examining the
+# release number.
+if [ "$SYS" = sunos ]
+then
+	case `uname -r` in
+	  [5-9]*)	SYS=solaris2	;;
+	esac
+fi
+
+# Ultrix has a broken /bin/sh; it doesn't support shell functions.  Try to be
+# clever about running bash instead of /bin/sh there.
+if [ "$SYS" = ultrix ]
+then
+	case "$0" in
+	  *configure)
+		(echo set - "$@"; cat configure) | bash
+		exit 0
+		;;
+	esac
+fi
+
+# This function is used to look for a file in a path. $1 is the name of the
+# file, and the remaining args are the path.  It write the absolute file file
+# to stdout if successful
+searchpath()
+{
+	file=$1
+	shift
+	for i
+	do
+		if [ -f $i/$file ]
+		then
+			echo $i/$file
+			return
+		fi
+	done
+}
+
+# This function outputs a usage message, and then exits
+usage()
+{
+	echo "usage: configure [[flags] system]"
+	echo "flags: --with-x[=no]      enable/disable support for X-windows interface"
+	echo "       --without-x        disable support for X-windows interface"
+	echo "       --x-includes=DIR   add DIR to path for X-windows include files"
+	echo "       --x-libraries=DIR  add DIR to path for X-windows libraries"
+	echo "       --bindir=DIR       where to install the executables"
+	echo "       --datadir=DIR      where to install the supporting data files"
+	echo "       --libs=STRING      non-X11 part of the LIBS= string in Makefile"
+	echo "       --ioctl=VARIETY    type of tty ioctl to use: termios, termio, or sgtty"
+	echo "system: linux, sunos, solaris, solaris2, bsd, posix, aix, osf-1, ultrix,"
+	echo "        hp-ux, qnx, irix, xenix, sco (meaning SCO Unix or Open Desktop)"
+	if [ "$*" ]
+	then
+		echo "$*"
+	fi
+	exit
+}
+
+# Check the arguments
+for i
+do
+	case "$i" in
+	  --with-x=no|--without-x)
+		GUI_X11=undef
+		args="$args --with-x=no"
+		;;
+	  --with-x*)
+		GUI_X11=define
+		args="$args --with-x"
+		;;
+	  --x-includes=*)
+		XINCPATH=`echo "$i"|sed 's/^--x-includes=//'`" $XINCPATH"
+		args="$args $i"
+		;;
+	  --x-libraries=*)
+		XLIBPATH=`echo "$i"|sed 's/^--x-libraries=//'`" $XLIBPATH"
+		args="$args $i"
+		;;
+	  --bindir=*)
+		BINDIR=`echo "$i"|sed 's/^--bindir=//'`
+		args="$args $i"
+		;;
+	  --datadir=*)
+		LIBDIR=`echo "$i"|sed 's/^--datadir=//'`
+		args="$args $i"
+		;;
+	  --libs=*)
+		LIBS=`echo "$i"|sed 's/^--libs=//'`
+		args="$args $i"
+		;;
+	  --ioctl=termios|--ioctl=termio|--ioctl=sgtty)
+		IOCTL=`echo "$i"|sed 's/^--ioctl=//'`
+		args="$args $i"
+		;;
+	  --ioctl=*)
+		usage "bad --ioctl value; must be termios, termio, or sgtty"
+		;;
+	  --help|-\?)
+		usage
+		;;
+	  --*)
+		# Ignore other --symbol flags
+		;;
+	  -*)
+		usage invalid option $i
+		;;
+	  *)
+		SYS="$i"
+		;;
+	esac
+done
+
+# Try to locate some files
+xinc=`searchpath X11/Xlib.h $XINCPATH`
+xlib=`searchpath libX11.a $XLIBPATH`
+gnu=`searchpath gcc $GNUPATH`
+
+# If X-windows is unspecified, and the X files are present, then assume with-x
+if [ "$GUI_X11" = "" -a "$xinc" ]
+then
+	GUI_X11=define
+	args="$args --with-x"
+elif [ "$GUI_X11" = "" ]
+then
+	GUI_X11=undef
+	args="$args --with-x=no"
+fi
+
+# Save these arguments in a "config.stat" script
+echo exec configure $args $SYS >config.stat
+
+
+################################################################################
+
+
+# Check for some known system quirks
+if [ -f /usr/include/sys/ptem.h ]
+then
+	NEED_WINSIZE=define
+fi
+if [ -f /usr/include/termcap.h ]
+then
+	NEED_SPEED_T=define
+fi
+if [ -f /usr/include/sys/wait.h ]
+then
+	NEED_WAIT_H=define
+fi
+if [ -f /usr/include/sys/select.h ]
+then
+	NEED_SELECT_H=define
+fi
+if [ -f /usr/include/sys/ioctl.h ]
+then
+	NEED_IOCTL_H=define
+fi
+if grep setpgid /usr/include/unistd.h >/dev/null 2>/dev/null
+then
+	NEED_SETPGID=undef
+else
+	NEED_SETPGID=define
+fi
+case "$IOCTL" in
+  termios)	USE=			;;
+  termio)	USE=" -DUSE_TERMIO"	;;
+  sgtty)	USE=" -DUSE_SGTTY"	;;
+  *)
+	if [ -f /usr/include/termios.h ]
+	then
+		USE=
+	else
+		if [ -f /usr/include/termio.h ]
+		then
+			USE=" -DUSE_TERMIO"
+		else
+			USE=" -DUSE_SGTTY"
+		fi
+	fi
+	;;
+esac
+case "$SYS" in
+  *linux*)
+	if [ ! -f /usr/lib/libtermcap.a -a ! -f /lib/libtermcap.a ]
+	then
+		if [ -f /usr/lib/libncurses.a -o -f /usr/lib/ncurses.a ]
+		then
+			TLIBS="-lncurses"
+		else
+			TLIBS="-lcurses"
+		fi
+	fi
+	;;
+  *osf*)
+	NEED_TGETENT=define
+	TLIBS="-lucb -lcurses"
+	;;
+  *ultrix*)
+	CC="cc -std"
+	NEED_STRDUP=define
+	TLIBS="-lcurses -ltermcap"
+	if [ "$GUI_X11" = "define" ]
+	then
+		XLIBS=" -ldnet"
+	fi
+	;;
+  *hp-ux*)
+	CC="cc -Ae"
+	gnu=""
+	NEED_OSPEED=define
+	TLIBS="-lcurses -ltermcap"
+	;;
+  *solaris2*)
+	TLIBS="-lcurses"
+	if [ "$GUI_X11" = "define" ]
+	then
+		XLIBS=" -lsocket -lnsl"
+		if [ "$gnu" ]
+		then
+			xlibdir=`dirname "$xlib"`
+			XLIBS=" -R$xlibdir$XLIBS"
+		fi
+	fi
+	;;
+  *solaris*)
+	# This is only for old solaris systems
+	TLIBS="-L/usr/ucblib -lucb -lcurses -ltermcap"
+	;;
+  *sunos*)
+	TLIBS="-ltermcap"
+	;;
+  *sco*)
+	tmp=`searchpath icc $GNUPATH`
+	if [ "$tmp" ]
+	then
+		CC="icc"
+		# but it may be overridden by gcc
+	fi
+	if [ "$GUI_X11" = "define" ]
+	then
+		XLIBS=" -lsocket"
+	fi
+	;;
+  *xenix*)
+	TLIBS="-lx -ltermcap"
+	if [ "$GUI_X11" = "define" ]
+	then
+		XLIBS=" -lsocket"
+	fi
+	;;
+  *bsd*)
+	tmp=`searchpath shlicc2 $GNUPATH`
+	if [ "$tmp" ]
+	then
+		CC="shlicc2"
+		gnu=""
+	fi
+	if [ "$GUI_X11" = "define" ]
+	then
+		XLIBS=" -lipc"
+	fi
+	;;
+  *irix*)
+  	# If "cc" in installed, use it in preference to "gcc"
+	tmp=`searchpath cc $GNUPATH`
+	if [ "$tmp" ]
+	then
+		CC="cc"
+		gnu=""
+	fi
+esac
+if [ -f /usr/bin/lp ]
+then
+	LPOUT="!lp -s"
+fi
+
+
+################################################################################
+
+
+#Set some options that'll be used in the here-files below
+if [ "$gnu" ]
+then
+	CC="gcc -O2"
+fi
+CC="$CC$USE"
+if [ "$GUI_X11" = "define" ]
+then
+	case "$xlib" in
+	  /lib/libX11.a|/usr/lib/libX11.a|"")
+		XLIBS="-lX11$XLIBS"
+		;;
+	  *)
+		XLIBS="-L`echo $xlib | sed 's/\/libX11.a$//'` -lX11$XLIBS"
+		;;
+	esac
+	case "$xinc" in
+	  /usr/include/X11/Xlib.h)
+		;;
+	  *)
+		CC="$CC -I"`echo $xinc | sed 's/X11\/Xlib.h$//'`
+		;;
+	esac
+fi
+if [ "$LIBS" = "" ]
+then
+	LIBS=${TLIBS:--ltermcap}
+fi
+case "$LIBS" in
+  *ncurses*) NEED_BC=undef;;
+  *)	     NEED_BC=define;;
+esac
+
+
+################################################################################
+
+
+# Generate the "config.h" file
+cat >config.h <<eof-config
+/* config.h */
+
+/* Originally, this file was automatically generated by the "configure"
+ * shell script.
+ *
+ * This file contains C macro definitions which indicate which features
+ * are to be supported, and which library functions are to be emulated.
+ * In general, #define enables the feature or emulating function, and
+ * #undef disables the feature or causes the library function to be used.
+ */
+
+
+/* The following determine which user interfaces are to be supported */
+#${GUI_X11:-undef}	GUI_X11		/* simple X-windows interface */
+#undef	GUI_CURSES	/* curses interface */
+#define	GUI_TERMCAP	/* termcap interface */
+#define	GUI_OPEN	/* open-mode only, does nothing fancy */
+#undef	GUI_MFC  	/* MS-Windows gui interface */
+
+
+/* These allow you to selectively disable the display modes.  If you disable
+ * "html" then the help files won't look right.  #define to enable the mode,
+ * #undef to exclude it.
+ */
+#define	DISPLAY_HEX	/* hex		interactive hex dump */
+#define	DISPLAY_MARKUP	/* html, man	formatted text */
+#define	DISPLAY_SYNTAX	/* syntax	generic syntax coloring */
+
+
+/* The following provide custom implementation of some common functions which
+ * are either missing or poorly implemented on some systems.
+ */
+#undef	NEED_ABORT	/* replaces abort() with a simpler macro */
+#undef	NEED_ASSERT	/* defines an custom assert() macro */
+#${NEED_TGETENT:-undef}	NEED_TGETENT	/* causes tinytcap.c to be used instead of library */
+#${NEED_WINSIZE:-undef}	NEED_WINSIZE	/* includes <ptem.h> -- required by SCO */
+#${NEED_SPEED_T:-undef}	NEED_SPEED_T	/* includes <termcap.h> -- common on POSIX systems */
+#${NEED_STRDUP:-undef}	NEED_STRDUP	/* uses a custom version of strdup() */
+#${NEED_OSPEED:-undef}	NEED_OSPEED	/* causes guitcap.c to supply an ospeed variable */
+#${NEED_BC:-undef}	NEED_BC		/* causes guitcap.c to supply a BC variable */
+#${NEED_SETPGID:-undef}	NEED_SETPGID	/* use setpgrp() instead of setpgid() */
+#define	NEED_CTYPE	/* uses a custom <ctype.h>, driven by :digraph */
+#${NEED_WAIT_H:-undef}	NEED_WAIT_H	/* must include <sys/wait.h> */
+#${NEED_SELECT_H:-undef}	NEED_SELECT_H	/* must include <sys/select.h> */
+#${NEED_IOCTL_H:-undef}	NEED_IOCTL_H	/* must include <sys/ioctl.h> */
+
+
+/* The following control debugging features.  NDEBUG slows elvis down a lot,
+ * and the others tend to make it output some confusing messages, so these
+ * are all disabled by default.  (Note that NDEBUG is #define'd to disable it)
+ */
+#define	NDEBUG		/* undef to enable assert() calls; define to disable */
+#undef	DEBUG_ALLOC	/* define to debug memory allocations; undef to disable */
+#undef	DEBUG_SCAN	/* define to debug character scans; undef to disable */
+#undef	DEBUG_SESSION	/* define to debug the block cache; undef to disable */
+#undef	DEBUG_EVENT	/* define to trace events; undef to disable */
+#undef	DEBUG_MARKUP	/* define to debug markup display modes */
+
+
+/* The following macros, and their values, are mostly used to determine the
+ * default values of some options.
+ */
+#define	OSLPOUT	"${LPOUT:-!lpr}"	/* default value of lpout option */
+#define OSLIBPATH "~/.elvislib:${LIBDIR}"	/* default elvispath */
+eof-config
+
+
+################################################################################
+
+
+# Generate a sed script for converting "Makefile.in" to "Makefile"
+tmp=mfsed.$$
+case "$SYS" in
+
+*sunos*)
+cat >$tmp <<eof-sunos
+s!^# Makefile.in\$!# Makefile - configured for $SYS!
+s!^CC=.*!CC=$CC -DUSE_SGTTY!
+eof-sunos
+;;
+
+*solaris*)
+cat >$tmp <<eof-solaris
+s!^# Makefile.in\$!# Makefile - configured for $SYS!
+s!^CC=.*!CC=$CC!
+eof-solaris
+;;
+
+*osf*)
+cat >$tmp <<eof-osf
+s!^# Makefile.in\$!# Makefile - configured for $SYS!
+s!^CC=.*!CC=$CC!
+eof-osf
+;;
+
+*ultrix*)
+cat >$tmp <<eof-ultrix
+s!^# Makefile.in\$!# Makefile - configured for $SYS!
+s!^CC=.*!CC=$CC!
+eof-ultrix
+;;
+
+*hp-ux*)
+cat >$tmp <<eof-hp-ux
+s!^# Makefile.in\$!# Makefile - configured for $SYS!
+s!^CC=.*!CC=$CC!
+eof-hp-ux
+;;
+
+*linux*)
+cat >$tmp <<eof-linux
+s!^# Makefile.in\$!# Makefile - configured for $SYS!
+s!^CC=.*!CC=$CC!
+s!^ALL=.*!ALL=elvis\$(EXE) ref\$(EXE) ctags\$(EXE) fmt\$(EXE)!
+eof-linux
+;;
+
+*sco*)
+cat >$tmp <<eof-sco
+s!^# Makefile.in\$!# Makefile - configured for $SYS!
+s!^CC=.*!CC=$CC!
+eof-sco
+;;
+
+*xenix*)
+cat >$tmp <<eof-xenix
+s!^# Makefile.in\$!# Makefile - configured for $SYS!
+s!^CC=.*!CC=$CC!
+eof-xenix
+;;
+
+*bsd*)
+cat >$tmp <<eof-bsd
+s!^# Makefile.in\$!# Makefile - configured for $SYS!
+s!^CC=.*!CC=$CC!
+eof-bsd
+;;
+
+*qnx*)
+cat >$tmp <<eof-qnx
+s!^# Makefile.in\$!# Makefile - configured for $SYS!
+s!^CC=.*!CC=$CC -D_POSIX_SOURCE!
+eof-qnx
+;;
+
+*)
+cat >$tmp <<eof-generic
+s!^# Makefile.in\$!# Makefile - configured for generic Unix!
+s!^CC=.*!CC=$CC!
+eof-generic
+;;
+esac
+cat >>$tmp <<eof-all
+s!^LIBS=.*!LIBS=$XLIBS $LIBS!
+s!^BINDIR=.*!BINDIR=$BINDIR!
+s!^LIBDIR=.*!LIBDIR=$LIBDIR!
+eof-all
+
+# Run "Makefile.in" through that sed script, to produce "Makefile"
+sed -f $tmp Makefile.in >Makefile && rm $tmp
+
+# Some parting advice
+case "$SYS" in
+  *solaris*|*sunos*)
+	if [ "$GUI_X11" = "define" ]
+	then
+		xlibdir=`dirname "$xlib"`
+		case "$LD_LIBRARY_PATH" in
+		  *X11*)
+			# Probably do nothing
+			;;
+		  "")
+			# set path = xlibdir
+			echo "You *may* need to..."
+			echo
+			case "$SHELL" in
+			  *csh)
+			  	echo "     setenv LD_LIBRARY_PATH=$xlibdir"
+				;;
+			  *)
+				echo "     LD_LIBRARY_PATH=$xlibdir"
+				echo "     export LD_LIBRARY_PATH"
+				;;
+			esac
+			echo
+			echo "... before you can run elvis, but try running it without doing that first."
+			;;
+		  *)
+			# add xlibdir to path
+			echo "You may need to..."
+			echo
+			echo "     LD_LIBRARY_PATH=\$LD_LIBRARY_PATH:$xlibdir"
+			echo "     export LD_LIBRARY_PATH"
+			echo
+			echo "... before you can run elvis"
+			;;
+		esac
+	fi
+	;;
+esac

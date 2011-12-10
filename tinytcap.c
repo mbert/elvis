@@ -13,70 +13,76 @@
  * at run time there is no way to tell the difference between ':' and '\072'
  * so I sure hope your terminal definition doesn't require a ':' character.
  *
- * getenv(TERM) on VMS checks the SET TERM device setting.  To implement
- * non-standard terminals set the logical ELVIS_TERM in VMS. (jdc)
- *
- * Other possible terminal types are...
- * 	TERM_WYSE925	- "wyse925", a Wyse 50 terminal emulating Televideo 925
- * ... or you could set $TERMCAP to the terminal's description string, which
- * $TERM set up to match it.
- *
  * Note that you can include several terminal types at the same time.  Elvis
  * chooses which entry to use at runtime, based primarily on the value of $TERM.
+ * Exception: getenv(TERM) on VMS checks the SET TERM device setting.  To
+ * implement non-standard terminals set the logical ELVIS_TERM in VMS. (jdc)
  */
 
 
-#include "config.h"
-#if HAS_STDLIB
+#include "elvis.h"
+#ifdef NEED_TGETENT
 # include <stdlib.h>
-#else
-extern char *getenv();
-#endif
-#include <stdio.h>	/* for 'sprintf()' */
+# include <stdio.h>	/* for 'sprintf()' */
 
-/* decide which terminal descriptions should *always* be included. */
-#if MSDOS || OS2
-# define	TERM_NANSI
-# define	TERM_DOSANSI
-# ifdef RAINBOW
-#  define	TERM_RAINBOW
+#define TRACE(x)
+
+#if USE_PROTOTYPES
+static char *find(char *id, int vtype);
+#endif
+
+short ospeed;
+
+
+/* If no TERM_XXX macros are defined, then assume they should ALL be defined.
+ * Note that many of these are traditionally called "ansi", but in fact none
+ * of them truly are.  The Coherent console comes closest to true ANSI, so
+ * that's the only one that is called "ansi" here; the OS-specific ttytype()
+ * functions of all other ports must detect when the name "ansi" is used
+ * and convert it to a unique name.
+ */
+#if !defined(TERM_925) && !defined(TERM_AMIGA) && !defined(TERM_ATARI)
+# if !defined(TERM_COHERENT) && !defined(TERM_DOSANSI) && !defined(TERM_MINIX)
+#  if !defined(TERM_NANSI) && !defined(TERM_CONSOLE) && !defined(TERM_RAINBOW)
+#   if !defined(TERM_VT100) && !defined(TERM_VT100W) && !defined(TERM_VT52)
+#    define TERM_925		/* 925, and many other non-ANSI terminals */
+#    define TERM_AMIGA		/* Amiga'a console emulator */
+#    define TERM_ATARI		/* Atari's console emulator */
+#    define TERM_COHERENT	/* Coherent's console */
+#    define TERM_DOSANSI	/* PC with ANSI.SYS driver */
+#    define TERM_MINIX		/* Minix console, regardless of computer type */
+#    define TERM_NANSI		/* PC with NANSI.SYS driver, or BIOS */
+#    define TERM_CONSOLE	/* Win32 console */
+#    define TERM_RAINBOW	/* DEC Rainbow PC */
+#    define TERM_VT100		/* DEC VT100 terminal, 80-column mode */
+#    define TERM_VT100W		/* DEC VT100 terminal, 132-column mode */
+#    define TERM_VT52		/* DEC VT52 terminal */
+#   endif
+#  endif
 # endif
 #endif
 
-#if VMS
-# define	TERM_VT100
-# define	TERM_VT100W
-# define	TERM_VT52
-#endif
-
-#if AMIGA
-# define	TERM_AMIGA	/* Internal Amiga termcap entry */
-/* # define	TERM_VT52	/* The rest of these are here for those */
-# define	TERM_VT100	/* people who want to use elvis over an */
-/* # define	TERM_NANSI	/* AUX: port (serial.device). */
-/* # define	TERM_DOSANSI	/* Take out all but AMIGA to save memory. */
-/* # define	TERM_MINIX	/* Vanilla ANSI? */
-/* # define	TERM_925	/* Hang a terminal off your Amiga */
-#endif
-
-#if MINIX || UNIXV
-# define	TERM_MINIX
-#endif
-
-#if COHERENT
-# define	TERM_COHERENT
-#endif
-
-#if TOS
-# define	TERM_ATARI
-#endif
 
 static char *termcap[] =
 {
+
+#ifdef TERM_925
+"925",
+":xn@:\
+:hs:am:bs:co#80:li#24:cm=\033=%+ %+ :cl=\033*:cd=\033y:\
+:ce=\033t:is=\033l\033\":\
+:al=\033E:dl=\033R:im=:ei=:ic=\033Q:dc=\033W:\
+:ho=\036:nd=\014:bt=\033I:pt:so=\033G4:se=\033G0:sg#1:us=\033G8:ue=\033G0:ug#1:\
+:up=\013:do=\026:kb=\010:ku=\013:kd=\026:kl=\010:kr=\014:\
+:kh=\036:ma=\026\012\014 :\
+:k1=\001@\r:k2=\001A\r:k3=\001B\r:k4=\001C\r:k5=\001D\r:k6=\001E\r:k7=\001F\r:\
+:k8=\001G\r:k9=\001H\r:k0=\001I\r:ko=ic,dc,al,dl,cl,ce,cd,bt:\
+:ts=\033f:fs=\033g:ds=\033h:sr=\033j:",  /* was :xn: for tvi925 alone*/
+#endif
+
 #ifdef TERM_AMIGA
 "AA",
 "amiga",
-"Amiga ANSI",
 /* Amiga termcap modified from version 1.3 by Kent Polk */
 ":co#80:li#24:am:bs:bw:xn:\
 :AL=\233%dL:DC=\233%dP:DL=\233%dM:DO=\233%dB:\
@@ -99,22 +105,47 @@ static char *termcap[] =
 "fansi",
 "nnansi",
 "nansi",
-"pcbios",
-":al=\033[L:dl=\033[M:am:bs:ce=\033[K:cl=\033[2J:\
-:cm=\033[%i%d;%dH:co#80:do=\033[B:\
+":al=\033[L:dl=\033[M:AL=\033[%dL:DL=\033[%dM:am:xn:bs:ce=\033[K:cl=\033[2J:\
+:cm=\033[%i%d;%dH:co#80:\
 :k1=#;:k2=#<:k3=#=:k4=#>:k5=#?:k6=#@:k7=#A:k8=#B:k9=#C:k0=#D:\
 :s1=#T:s2=#U:s3=#V:s4=#W:s5=#X:s6=#Y:s7=#Z:s8=#[:s9=#\\:s0=#]:\
 :c1=#^:c2=#_:c3=#`:c4=#a:c5=#b:c6=#c:c7=#d:c8=#e:c9=#f:c0=#g:\
 :a1=#h:a2=#i:a3=#j:a4=#k:a5=#l:a6=#m:a7=#n:a8=#o:a9=#p:a0=#q:\
 :kd=#P:kh=#G:kH=#O:kI=#R:kD=#S:kl=#K:kN=#Q:kP=#I:kr=#M:ku=#H:\
 :li#25:md=\033[1m:me=\033[m:nd=\033[C:se=\033[m:so=\033[7m:\
-:ue=\033[m:up=\033[A:us=\033[4m:",
+:ue=\033[m:up=\033[A:us=\033[4m:\
+:ac=q\304x\263m\300v\301j\331t\303n\305u\264l\332w\302k\277:",
+
+"pcbios",
+":al=\033[L:dl=\033[M:AL=\033[%dL:DL=\033[%dM:am:bs:ce=\033[K:cl=\033[2J:\
+:cm=\033[%i%d;%dH:co#80:\
+:k1=#;:k2=#<:k3=#=:k4=#>:k5=#?:k6=#@:k7=#A:k8=#B:k9=#C:k0=#D:\
+:s1=#T:s2=#U:s3=#V:s4=#W:s5=#X:s6=#Y:s7=#Z:s8=#[:s9=#\\:s0=#]:\
+:c1=#^:c2=#_:c3=#`:c4=#a:c5=#b:c6=#c:c7=#d:c8=#e:c9=#f:c0=#g:\
+:a1=#h:a2=#i:a3=#j:a4=#k:a5=#l:a6=#m:a7=#n:a8=#o:a9=#p:a0=#q:\
+:kd=#P:kh=#G:kH=#O:kI=#R:kD=#S:kl=#K:kN=#Q:kP=#I:kr=#M:ku=#H:\
+:li#25:md=\033[1m:me=\033[m:se=\033[m:so=\033[7m:\
+:ue=\033[m:up=\033[A:us=\033[4m:\
+:ac=q\304x\263m\300v\301j\331t\303n\305u\264l\332w\302k\277:",
+#endif
+
+#ifdef TERM_CONSOLE
+"console",
+":al=\033[L:dl=\033[M:AL=\033[%dL:DL=\033[%dM:am:xn:bs:ce=\033[K:cl=\033[2J:\
+:cm=\033[%i%d;%dH:co#80:\
+:k1=#;:k2=#<:k3=#=:k4=#>:k5=#?:k6=#@:k7=#A:k8=#B:k9=#C:k0=#D:\
+:s1=#T:s2=#U:s3=#V:s4=#W:s5=#X:s6=#Y:s7=#Z:s8=#[:s9=#\\:s0=#]:\
+:c1=#^:c2=#_:c3=#`:c4=#a:c5=#b:c6=#c:c7=#d:c8=#e:c9=#f:c0=#g:\
+:a1=#h:a2=#i:a3=#j:a4=#k:a5=#l:a6=#m:a7=#n:a8=#o:a9=#p:a0=#q:\
+:kd=#P:kh=#G:kH=#O:kI=#R:kD=#S:kl=#K:kN=#Q:kP=#I:kr=#M:ku=#H:\
+:li#25:md=\033[1m:me=\033[m:nd=\033[C:se=\033[m:so=\033[7m:\
+:ti=\033[?1h:te=\033[?1l:\
+:ue=\033[m:up=\033[A:us=\033[4m:\
+:vs=\033[?12h:ve=\033[?12l:\
+:ac=q\304x\263m\300v\301j\331t\303n\305u\264l\332w\302k\277:",
 #endif
 
 #ifdef TERM_DOSANSI
-#if !ANY_UNIX
-"ansi",
-#endif
 "dosansi",
 ":am:bs:ce=\033[K:cl=\033[2J:\
 :cm=\033[%i%d;%dH:co#80:do=\033[B:\
@@ -124,7 +155,8 @@ static char *termcap[] =
 :a1=#h:a2=#i:a3=#j:a4=#k:a5=#l:a6=#m:a7=#n:a8=#o:a9=#p:a0=#q:\
 :kd=#P:kh=#G:kH=#O:kI=#R:kD=#S:kl=#K:kN=#Q:kP=#I:kr=#M:ku=#H:\
 :li#25:md=\033[1m:me=\033[m:nd=\033[C:se=\033[m:so=\033[7m:\
-:ue=\033[m:up=\033[A:us=\033[4m:",
+:ue=\033[m:up=\033[A:us=\033[4m:\
+:ac=q\304x\263m\300v\301j\331t\303n\305u\264l\332w\302k\277:",
 #endif
 
 #ifdef TERM_RAINBOW
@@ -138,6 +170,7 @@ static char *termcap[] =
 #endif
 
 #ifdef TERM_VT100
+"vt100",
 "vt100-80",
 "vt101-80",
 ":am:bs:ce=\033[K:cl=\033[2J:cm=\033[%i%d;%dH:\
@@ -148,9 +181,14 @@ static char *termcap[] =
 :kr=\033[C:ku=\033[A:li#24:md=\033[1m:me=\033[m:nd=\033[C:\
 :se=\033[m:so=\033[7m:\
 :ue=\033[m:up=\033[A:us=\033[4m:xn:",
+
+"vt200",
 "vt200-80",
+"vt300",
 "vt300-80",
+"vt102",
 "vt102-80",
+"xterm",
 ":al=\033[L:am:bs:ce=\033[K:cl=\033[2J:cm=\033[%i%d;%dH:\
 :co#80:dl=\033[M:do=\033[B:k0=\033[20~:k1=\033[1~:\
 :k2=\033[2~:k3=\033[3~:k4=\033[4~:k5=\033[5~:k6=\033[6~:\
@@ -174,6 +212,7 @@ static char *termcap[] =
 :kr=\033[C:ku=\033[A:li#24:md=\033[1m:me=\033[m:nd=\033[C:\
 :se=\033[m:so=\033[7m:\
 :ue=\033[m:up=\033[A:us=\033[4m:xn:",
+
 "vt200-w",
 "vt300-w",
 "vt102-w",
@@ -199,7 +238,6 @@ static char *termcap[] =
 
 #ifdef TERM_MINIX
 "minix",
-"ansi",
 "AT386",
 ":al=\033[L:am:bs:ce=\033[K:cl=\033[2J:cm=\033[%i%d;%dH:\
 :co#80:dl=\033[M:do=\033[B:k0=\033[20~:k1=\033[1~:\
@@ -212,7 +250,7 @@ static char *termcap[] =
 
 #ifdef TERM_COHERENT
 "coherent",
-"ansipc",
+"ansi"
 ":al=\033[L:am:bs:ce=\033[K:cl=\033[2J:cm=\033[%i%d;%dH:\
 :co#80:dl=\033[M:do=\033[B:k0=\033[0x:k1=\033[1x:k2=\033[2x:\
 :k3=\033[3x:k4=\033[4x:k5=\033[5x:k6=\033[6x:\
@@ -225,7 +263,6 @@ static char *termcap[] =
 
 #ifdef TERM_ATARI
 "atari-st",
-"vt52",
 ":al=\033L:am:bs:ce=\033K:cl=\033E:cm=\033Y%i%+ %+ :\
 :co#80:dl=\033M:do=\033B:\
 :k1=#;:k2=#<:k3=#=:k4=#>:k5=#?:k6=#@:k7=#A:k8=#B:k9=#C:k0=#D:\
@@ -236,19 +273,6 @@ kd=#P:kh=#G:kI=#R:kl=#K:kr=#M:ku=#H:li#25:nd=\033C:se=\033q:\
 :so=\033p:te=:ti=\033e\033v:up=\033A:",
 #endif
 
-#ifdef TERM_925
-"wyse925",
-":xn@:\
-:hs:am:bs:co#80:li#24:cm=\033=%+ %+ :cl=\033*:cd=\033y:\
-:ce=\033t:is=\033l\033\":\
-:al=\033E:dl=\033R:im=:ei=:ic=\033Q:dc=\033W:\
-:ho=\036:nd=\014:bt=\033I:pt:so=\033G4:se=\033G0:sg#1:us=\033G8:ue=\033G0:ug#1:\
-:up=\013:do=\026:kb=\010:ku=\013:kd=\026:kl=\010:kr=\014:\
-:kh=\036:ma=\026\012\014 :\
-:k1=\001@\r:k2=\001A\r:k3=\001B\r:k4=\001C\r:k5=\001D\r:k6=\001E\r:k7=\001F\r:\
-:k8=\001G\r:k9=\001H\r:k0=\001I\r:ko=ic,dc,al,dl,cl,ce,cd,bt:\
-:ts=\033f:fs=\033g:ds=\033h:sr=\033j:",  /* was :xn: for tvi925 alone*/
-#endif
 
 "unknown",
 ":",
@@ -301,9 +325,10 @@ int tgetent(bp, name)
 
 static char *find(id, vtype)
 	char	*id;	/* name of a value to locate */
-	int	vtype;	/* '=' for strings, '#' for numbers, or 0 for bools */
+	int	vtype;	/* '=' for strings, '#' for numbers, or ':' for bools */
 {
 	int	i;
+TRACE(fprintf(stderr, "find(\"%s\", '%c')\n", id, vtype);)
 
 	/* search for a ':' followed by the two-letter id */
 	for (i = 0; fields[i]; i++)
@@ -325,6 +350,7 @@ static char *find(id, vtype)
 int tgetnum(id)
 	char	*id;
 {
+TRACE(fprintf(stderr, "tgetnum(\"%s\")\n", id);)
 	id = find(id, '#');
 	if (id)
 	{
@@ -377,24 +403,47 @@ char *tgetstr(id, bp)
 
 /*ARGSUSED*/
 char *tgoto(cm, destcol, destrow)
-	char	*cm;	/* cursor movement string -- ignored */
+	char	*cm;	/* cursor movement string */
 	int	destcol;/* destination column, 0 - 79 */
 	int	destrow;/* destination row, 0 - 24 */
 {
 	static char buf[30];
+	char	*build;
+	int	tmp;
 
-#ifdef CRUNCH
-# if TOS
-	sprintf(buf, "\033Y%c%c", ' ' + destrow, ' ' + destcol);
-# else
-	sprintf(buf, "\033[%d;%dH", destrow + 1, destcol + 1);
-# endif
-#else
-	if (cm[1] == 'Y' || cm[1] == '=')
-		sprintf(buf, "\033%c%c%c", cm[1], ' ' + destrow, ' ' + destcol);
-	else
-		sprintf(buf, "\033[%d;%dH", destrow + 1, destcol + 1);
-#endif
+	for (build = buf; *cm; cm++)
+	{
+		if (*cm == '%')
+		{
+			switch (*++cm)
+			{
+			  case '+':
+				tmp = destrow;
+				destrow = destcol;
+				destcol = tmp;
+				*build++ = *++cm + tmp;
+				break;
+
+			  case 'i':
+				destcol++;
+				destrow++;
+				break;
+
+			  case 'd':
+				tmp = destrow;
+				destrow = destcol;
+				destcol = tmp;
+				sprintf(build, "%d", tmp);
+				build += strlen(build);
+				break;
+			}
+		}
+		else
+		{
+			*build++ = *cm;
+		}
+	}
+	*build = '\0';
 	return buf;
 }
 
@@ -410,3 +459,4 @@ void tputs(cp, affcnt, outfn)
 		cp++;
 	}
 }
+#endif /* NEED_TGETENT */

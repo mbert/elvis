@@ -4,128 +4,105 @@
  * after a regexp match has been found.
  */
 
-#include "config.h"
-#include "ctype.h"
-#include "vi.h"
-#include "regexp.h"
+#include "elvis.h"
 
-
-/* perform substitutions after a regexp match */
-void regsub(re, src, dst)
-	regexp		*re;	/* the regexp with pointers into matched text */
-	REG char	*src;	/* the replacement string */
-	REG char	*dst;	/* where to put the result of the subst */
+/* Allocate a new copy of the replacement string, with all ~'s replaced by
+ * the previous replacement string.
+ *
+ * NOTE: The value returned by this function should never be freed from outside
+ * this function, because this function maintains an internal pointer to the
+ * same memory so it knows what value to substitute for ~ on next invocation.
+ */
+CHAR *regtilde(newp)
+	CHAR	*newp;	/* new text as supplied by user */
 {
-	REG char	*cpy;	/* pointer to start of text to copy */
-	REG char	*end;	/* pointer to end of text to copy */
-	REG char	c;
-	char		*start;
-#ifndef CRUNCH
-	int		mod = 0;/* used to track \U, \L, \u, \l, and \E */
-	int		len;	/* used to calculate length of subst string */
-	static char	*prev;	/* a copy of the text from the previous subst */
+	static CHAR *prev;	/* previous replacement text */
+	CHAR	*ret;		/* returned string */
+	CHAR	*scan;		/* used for stepping through chars of "prev" */
 
-	/* replace \~ (or maybe ~) by previous substitution text */
-
-	/* step 1: calculate the length of the new substitution text */
-	for (len = strlen(src), c = '\0', cpy = src; *cpy; cpy++)
+	/* copy new into ret, replacing the ~s by the previous text */
+	for (ret = NULL; *newp; )
 	{
-# ifdef NO_MAGIC
-		if (c == '\\' && *cpy == '~')
-# else
-		if (c == (*o_magic ? '\0' : '\\') && *cpy == '~')
-# endif
+		if (o_magic && *newp == '~')
 		{
-			if (!prev)
-			{
-				regerror("No prev text to substitute for ~");
-				return;
-			}
-			len += strlen(prev) - 1;
-# ifndef NO_MAGIC
-			if (!*o_magic)
-# endif
-				len -= 1; /* because we lose the \ too */
+			if (!prev) goto Fail;
+			for (scan = prev; *scan; scan++)
+				buildCHAR(&ret, *scan);
+			newp++;
 		}
-
-		/* watch backslash quoting */
-		if (c != '\\' && *cpy == '\\')
-			c = '\\';
-		else
-			c = '\0';
-	}
-
-	/* allocate memory for the ~ed version of src */
-	checkmem();
-	start = cpy = (char *)malloc((unsigned)(len + 1));
-	if (!cpy)
-	{
-		regerror("Not enough memory for ~ expansion");
-		return;
-	}
-
-	/* copy src into start, replacing the ~s by the previous text */
-	while (*src)
-	{
-# ifndef NO_MAGIC
-		if (*o_magic && *src == '~')
+		else if (!o_magic && *newp == '\\' && *(newp + 1) == '~')
 		{
-			strcpy(cpy, prev);
-			cpy += strlen(prev);
-			src++;
-		}
-		else if (!*o_magic && *src == '\\' && *(src + 1) == '~')
-# else /* NO_MAGIC */
-		if (*src == '\\' && *(src + 1) == '~')
-# endif /* NO_MAGIC */
-		{
-			strcpy(cpy, prev);
-			cpy += strlen(prev);
-			src += 2;
+			if (!prev) goto Fail;
+			for (scan = prev; *scan; scan++)
+				buildCHAR(&ret, *scan);
+			newp += 2;
 		}
 		else
 		{
-			if (*src == '\\')
+			if (*newp == '\\' && *(newp + 1))
 			{
-				*cpy++ = *src++;
+				buildCHAR(&ret, *newp++);
 			}
-			*cpy++ = *src++;
+			buildCHAR(&ret, *newp++);
 		}
 	}
-	*cpy = '\0';
-#ifdef DEBUG
-	if ((int)(cpy - start) != len)
-	{
-		msg("Bug in regsub.c! Predicted length = %d, Actual length = %d", len, (int)(cpy - start));
-	}
-#endif
-	checkmem();
+
+	/* if empty string, then allocate a single '\0' character */
+	if (!ret)
+		ret = safealloc(1, sizeof(CHAR));
 
 	/* remember this as the "previous" for next time */
 	if (prev)
-		_free_(prev);
-	prev = src = start;
+		safefree(prev);
+	prev = ret;
+	return ret;
 
-#endif /* undef CRUNCH */
+Fail:
+	msg(MSG_ERROR, "no previous text to substitute for ~");
+	if (ret)
+		safefree(ret);
+	return NULL;
+}
 
-	start = src;
-	while ((c = *src++) != '\0')
+/* Perform substitutions after a regexp match.  "re" is the compiled regular
+ * expression which has been matched to a text string.  "new" is a pointer to
+ * the replacement text string.  Return the actual replacement text (after all
+ * metacharacters have been processed) if successful, or NULL if error.  The
+ * calling function is responsible for calling safefree() on the returned
+ * string.
+ */
+CHAR *regsub(re, newp, doit)
+	regexp		*re;	/* a regular expression that has been matched */
+	REG CHAR	*newp;	/* the replacement text */
+	BOOLEAN		doit;	/* perform the substitution? (else just return string) */
+{
+	MARKBUF		cpy;	/* start of text to copy */
+	long		end;	/* length of text to copy */
+	REG CHAR	c;	/* a character from "new" text */
+	long		cval;	/* numeric value of 'c', if 'c' is digit */
+	CHAR		*inst;	/* the new next, after processing escapes */
+	int		mod = 0;/* used to track \U, \L, \u, \l, and \E */
+	int		len;	/* used to calculate length of subst string */
+	MARKBUF		tmp;	/* end of replacement region */
+	CHAR		*scan;	/* used for scanning a segment of orig text */
+
+	/* initialize "cval" just to silence a compiler warning */
+	cval = 0;
+
+	/* for each character of the new text... */
+	for (inst = NULL, len = 0; (c = *newp++) != '\0'; )
 	{
-#ifndef NO_MAGIC
 		/* recognize any meta characters */
-		if (c == '&' && *o_magic)
+		if (c == '&' && o_magic)
 		{
-			cpy = re->startp[0];
-			end = re->endp[0];
+			(void)marktmp(cpy, re->buffer, re->startp[0]);
+			end = re->endp[0] - re->startp[0];
 		}
-		else
-#endif /* not NO_MAGIC */
-		if (c == '\\')
+		else if (c == '\\')
 		{
-			c = *src++;
+			c = *newp++;
 			switch (c)
 			{
-#ifndef NO_MAGIC
 			  case '0':
 			  case '1':
 			  case '2':
@@ -137,11 +114,11 @@ void regsub(re, src, dst)
 			  case '8':
 			  case '9':
 				/* \0 thru \9 mean "copy subexpression" */
-				c -= '0';
-				cpy = re->startp[c];
-				end = re->endp[c];
+				cval = c - '0';
+				(void)marktmp(cpy, re->buffer, re->startp[cval]);
+				end = re->endp[cval] - re->startp[cval];
 				break;
-# ifndef CRUNCH
+
 			  case 'U':
 			  case 'u':
 			  case 'L':
@@ -155,32 +132,24 @@ void regsub(re, src, dst)
 				/* \E ends the \U or \L */
 				mod = 0;
 				continue;
-# endif /* not CRUNCH */
+
 			  case '&':
 				/* "\&" means "original text" */
-				if (*o_magic)
+				if (o_magic)
 				{
-					*dst++ = c;
+					len = buildCHAR(&inst, c);
 					continue;
 				}
-				cpy = re->startp[0];
-				end = re->endp[0];
+				(void)marktmp(cpy, re->buffer, re->startp[0]);
+				end = re->endp[0] - re->startp[0];
 				break;
 
-#else /* NO_MAGIC */
-			  case '&':
-				/* "\&" means "original text" */
-				cpy = re->startp[0];
-				end = re->endp[0];
-				break;
-#endif /* NO_MAGIC */
 			  default:
 				/* ordinary char preceded by backslash */
-				*dst++ = c;
+				len = buildCHAR(&inst, c);
 				continue;
 			}
 		}
-#ifndef CRUNCH
 # if OSK
 		else if (c == '\l')
 # else
@@ -188,62 +157,96 @@ void regsub(re, src, dst)
 # endif
 		{
 			/* transliterate ^M into newline */
-			*dst++ = '\n';
+			len = buildCHAR(&inst, '\n');
 			continue;
 		}
-#endif /* !CRUNCH */
 		else
 		{
 			/* ordinary character, so just copy it */
-			*dst++ = c;
+			len = buildCHAR(&inst, c);
 			continue;
 		}
 
-		/* Note: to reach this point in the code, we must have evaded
+		/* Note: to reach this point in the code, we have evaded
 		 * all "continue" statements.  To do that, we must have hit
 		 * a metacharacter that involves copying.
 		 */
 
 		/* if there is nothing to copy, loop */
-		if (!cpy)
-			continue;
+		if (markoffset(&cpy) < 0)
+		{
+			msg(MSG_ERROR, "[d]too few \\\\\\(\\\\\\)s to use \\\\$1", cval);
+			if (inst)
+				safefree(inst);
+			return NULL;
+		}
 
 		/* copy over a portion of the original */
-		while (cpy < end)
+		for (scanalloc(&scan, &cpy);
+		     scan && end > 0;
+		     scannext(&scan), end--)
 		{
-#ifndef NO_MAGIC
-# ifndef CRUNCH
 			switch (mod)
 			{
 			  case 'U':
 			  case 'u':
 				/* convert to uppercase */
-				*dst++ = toupper(*cpy++);
+				len = buildCHAR(&inst, (_CHAR_)toupper(*scan));
 				break;
 
 			  case 'L':
 			  case 'l':
 				/* convert to lowercase */
-				*dst++ = tolower(*cpy++);
+				len = buildCHAR(&inst, (_CHAR_)tolower(*scan));
 				break;
 
 			  default:
 				/* copy without any conversion */
-				*dst++ = *cpy++;
+				len = buildCHAR(&inst, *scan);
 			}
 
 			/* \u and \l end automatically after the first char */
-			if (mod && (mod == 'u' || mod == 'l'))
+			if (mod == 'u' || mod == 'l')
 			{
 				mod = 0;
 			}
-# else /* CRUNCH */
-			*dst++ = *cpy++;
-# endif /* CRUNCH */
-#else /* NO_MAGIC */
-			*dst++ = *cpy++;
-#endif /* NO_MAGIC */
+		}
+		scanfree(&scan);
+	}
+
+	/* if we're supposed to perform the substitution, then do it */
+	if (doit)
+	{
+		/* replace the old text with the new text in the buffer */
+		bufreplace(marktmp(cpy, re->buffer, re->startp[0]),
+			marktmp(tmp, re->buffer, re->endp[0]), inst, len);
+	
+		/* Adjust the offset of the end of the whole expression
+		 * to compensate for the change in the length of text.
+		 * Also, if this regexp could conceivably match a
+		 * zero-length string, then require at least 1 unmatched
+		 * character between matches.
+		 */
+		re->endp[0] = re->startp[0] + len;
+		if (re->minlen == 0
+			&& re->endp[0] < o_bufchars(re->buffer)
+			&& scanchar(marktmp(tmp, re->buffer, re->endp[0])) != '\n')
+		{
+			re->endp[0]++;
 		}
 	}
-	*dst = '\0';
+
+	/* At this point, we know we were successful but the "inst" pointer
+	 * will be NULL if the replacement text is 0 characters long.  We don't
+	 * want to return NULL for a successful substitution, so allocate
+	 * a string which contains only a '\0' character and return that.
+	 */
+	if (!inst)
+	{
+		assert(len == 0);
+		buildCHAR(&inst, (_CHAR_)'\0');
+		assert(inst != NULL);
+	}
+
+	return inst;
 }

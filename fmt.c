@@ -1,34 +1,61 @@
 /* fmt.c */
 
-/* usage: fmt [-width] [files]...
+/* Usage: fmt [-s] [-w width] [-width] [files]...
  *
  * Fmt rearrages text in order to make each line have roughly the
  * same width.  Indentation and word spacing is preserved.
  *
- * The default width is 72 characters, but you can override that via -width.
- * If no files are given on the command line, then it reads stdin.
+ * The default width is 72 characters, but you can override that via -width,
+ * which is the older BSD way, or -w width, which is more common these days.
+ * If you don't want short lines to be joined, -s prevents fmt from its
+ * default of doing so.
+ *
+ * If no files are given on the command line, then fmt reads stdin.
  */
 
+#include "config.h"
+#if HAS_STDLIB
+# include <stdlib.h>
+#endif
 #include <stdio.h>
+#include "elvis.h"
+#if OSEXPANDARGS
+# define JUST_DIRFIRST
+# include "osdir.c"
+#endif
 
 #ifndef TRUE
 # define TRUE	1
 # define FALSE	0
 #endif
 
+#ifndef P_
+# define P_(args)	()
+#endif
+
 #define iswhite(c)	((c) == ' ' || (c) == '\t')
 
+#if USE_PROTOTYPES
+void usage(void);
+void putword(int shortlines);
+void fmt(FILE *in);
+int main(int argc, char **argv);
+#endif
 
 int	width = 72;	/* the desired line width */
+int	shortlines = 0;	/* keep short lines, instead of joining them */
 int	isblankln;	/* is the current output line blank? */
 int	indent;		/* width of the indentation */
 char	ind[512];	/* indentation text */
 char	word[1024];	/* word buffer */
 
 /* This function displays a usage message and quits */
-void usage()
+void usage P_((void))
 {
-	fprintf(stderr, "usage: fmt [-width] [files]...\n");
+	fprintf(stderr, "Usage: fmt [-w width|-width] [-s] [files]...\n");
+	fprintf(stderr, "    -w width   make lines roughly \"width\" columns wide\n");
+	fprintf(stderr, "    -s         split long lines, but don't join short lines\n");
+	fprintf(stderr, "Report bugs to kirkenda@cs.pdx.edu");
 	exit(2);
 }
 
@@ -37,7 +64,8 @@ void usage()
 /* This function outputs a single word.  It takes care of spacing and the
  * newlines within a paragraph.
  */
-void putword()
+void putword(shortlines)
+	int		shortlines;	/* keep short lines (don't join) */
 {
 	int		i;		/* index into word[], or whatever */
 	int		ww;		/* width of the word */
@@ -93,13 +121,23 @@ void putword()
 
 	/* write the word itself */
 	fputs(word, stdout);
-	tab += ww;
+	if (shortlines)
+	{
+		putchar('\n');
+        	tab = 0;
+        	psw = 0;
+        	isblankln = TRUE;
+	}
+	else
+	{
+		tab += ww;
 
-	/* remember this word's spacing */
-	psw = sw;
+		/* remember this word's spacing */
+		psw = sw;
 
-	/* this output line isn't blank anymore. */
-	isblankln = FALSE;
+		/* this output line isn't blank anymore. */
+		isblankln = FALSE;
+	}
 }
 
 
@@ -130,7 +168,7 @@ void fmt(in)
 				{
 					/* output it */
 					word[i] = '\0';
-					putword();
+					putword(shortlines);
 				}
 			}
 			else /* blank line in input */
@@ -197,7 +235,7 @@ void fmt(in)
 		{
 			/* yes!  output the previous word */
 			word[i] = '\0';
-			putword();
+			putword(0);
 
 			/* reset `i' to the start of the word[] buffer */
 			i = 0;
@@ -224,23 +262,70 @@ int main(argc, argv)
 	FILE	*in;	/* an input stream */
 	int	error;	/* if non-zero, then an error occurred */
 	int	i;
-
-
-#ifdef __EMX__
-	/* expand command-line wildcards first */
-	_wildcard(&argc, &argv);
+#if OSEXPANDARGS
+	char	*name;
 #endif
 
-	/* handle the -width flag, if given */
-	if (argc > 1 && argv[1][0] == '-')
+	/* detect special GNU flags */
+	if (argc >= 2)
 	{
-		width = atoi(argv[1] + 1);
-		if (width <= 0)
+		if (!strcmp(argv[1], "-v")
+		 || !strcmp(argv[1], "-version")
+		 || !strcmp(argv[1], "--version"))
 		{
-			usage();
+			printf("fmt (elvis) %s\n", VERSION);
+#ifdef COPY1
+			puts(COPY1);
+#endif
+#ifdef COPY2
+			puts(COPY2);
+#endif
+#ifdef COPY3
+			puts(COPY3);
+#endif
+#ifdef COPY4
+			puts(COPY4);
+#endif
+			exit(0);
 		}
-		argc--;
-		argv++;
+	}
+
+        while (argc > 1 && argv[1][0] == '-')
+        {
+        	switch (argv[1][1])
+        	{
+        		case 'w':
+        		{
+                                /* -w width */
+        			width = (argc > 2 ? atoi(argv[2]) : -1);
+                                if (width <= 0)
+                                {
+                                	usage();
+                                }
+                                argc-=2;
+                                argv+=2;
+                                break;
+        		}
+        		case 's':
+        		{
+                                /* -s */
+        			shortlines = 1;
+        			--argc;
+        			++argv;
+        			break;
+        		}
+        		default:
+                        {
+				/* -width */
+				width = atoi(argv[1] + 1);
+				if (width <= 0)
+				{
+					usage();
+				}
+				argc--;
+				argv++;
+			}
+		}
 	}
 
 	/* for now, assume there are no errors */
@@ -255,6 +340,22 @@ int main(argc, argv)
 	{
 		for (i = 1; i < argc; i++)
 		{
+#if OSEXPANDARGS
+			for (name = dirfirst(argv[i], False); name; name = dirnext())
+			{
+				in = fopen(name, "r");
+				if (!in)
+				{
+					perror(name);
+					error = 3;
+				}
+				else
+				{
+					fmt(in);
+					fclose(in);
+				}
+			}
+#else
 			in = fopen(argv[i], "r");
 			if (!in)
 			{
@@ -266,6 +367,7 @@ int main(argc, argv)
 				fmt(in);
 				fclose(in);
 			}
+#endif
 		}
 	}
 

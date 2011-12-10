@@ -1,0 +1,289 @@
+# elvis.syn -- stores descriptions of languages for use with ":display syntax"
+
+# ANSI C.  Note that ".h" is not listed as a possible file name extension here
+# since it could also be C++ code.  The differences between the two are small,
+# but if we must guess, then C++ is the better choice because C++ declarations
+# use a lot of keywords which are absent from C.
+language c
+extension .c
+keyword auto break case char const continue default delete do double else
+keyword enum extern far float friend for goto if int long near register
+keyword return short signed sizeof static struct switch typedef union
+keyword unsigned void volatile while
+comment //
+comment /* */
+preprocessor #
+prepquote < >
+function (
+string "
+character '
+startword _
+inword _
+other allcaps final_t initialpunct
+
+# C++.  In addition to the extra keywords, it also causes mixed-case words
+# which begin with an uppercase letter to be displayed in the "otherfont".
+# This is because those names are typically class names.
+language c++
+extension .C .cxx .cc .cpp .h .H .hxx .hh .hpp
+keyword auto break case char class const continue default delete do
+keyword double else enum extern far float friend for goto if inline
+keyword int long near new operator private protected public register
+keyword return short signed sizeof static struct switch this typedef
+keyword union unsigned virtual void volatile while
+comment //
+comment /* */
+preprocessor #
+prepquote < >
+function (
+string "
+character '
+startword _
+inword _
+other allcaps initialcaps initialpunct final_t
+
+# Java.  Note that ".jav" is offered as a possible file name extension for
+# folks who're still using MS-DOS or Windows 3.1.  Hopefully nobody will
+# ever type in an uppercase .JAV filename.
+language java
+extension .java .jav
+keyword abstract boolean break byte byvalue case cast catch char class
+keyword const continue default do double else extends false final finally
+keyword float for future generic goto if implements import inner instanceof
+keyword int interface long native new null operator outer package private
+keyword protected public rest return short static super switch synchronized
+keyword this throw throws transient true try var void volatile while
+comment	//
+comment /* */
+function (
+string "
+character '
+startword _
+inword _
+other allcaps initialcaps
+
+# Awk.  This is actually for Thompson Automation's AWK compiler, which is
+# somewhat beefier than the standard AWK interpretter.
+language tawk awk
+extension .awk
+keyword BEGIN BEGINFILE END ENDFILE INIT break continue do else for function
+keyword global if in local next return while
+comment #
+function (
+string "
+regexp /
+useregexp (,~
+other allcaps
+
+# Imakefiles.  This one is interesting because '#' is both the preprocessor
+# character and the comment character.  A '#' in the first column is displayed
+# as a preprocessor directive, and anywhere else as the start of a comment.
+# The '/' character can't appear at the start of a word because that would
+# interfere with its use in /*...*/ comments.  Note that this language appears
+# before the "make" language, so "Imakefile" # files won't be misrecognized as
+# Makefiles.
+language xmkmf imakefile
+extension Imakefile
+preprocessor #
+comment #
+comment /* */
+startword .$
+inword /.$()
+
+# Makefiles.  Note that file names like "Makefile" & "makefile" are recognized.
+# The keywords listed here are actually just common names for pseudo-targets.
+# The word characters include anything that's commonly used in a filename.
+# Any word followed by a : will be displayed in the functionfont.
+language make
+extension akefile
+keyword all clean depend install uninstall
+comment #
+startword /.$
+inword /.$()
+function :
+
+# Microsoft NMAKE-style makefiles.  Microsoft's NMAKE uses ! to introduce
+# preprocessor directives.
+language nmake
+extension .mak
+comment #
+preprocessor !
+startword \.$
+inword \.$()
+function :
+
+# PostScript
+language postscript ps
+extension .ps .eps
+keyword add aload and arc arcn arcto array ashow awidthshow begin charpath
+keyword clear closepath copy copy copypage def definefont dict div dup end
+keyword eq exch exec exit false fill findfont for forall ge get grestore
+keyword gsave gt idiv if ifelse kshow le length lineto loop lt makefont
+keyword maxlength moveto mul ne neg newpath not or pop put repeat restore
+keyword rlineto rmoveto roll rotate round save scale search setgray
+keyword setlinewidth show showpage keyword string stroke sub translate true
+keyword widthshow xor
+string ( )
+comment %
+
+# Pascal.  Note that Pascal supports two styles of multi-line comments, while
+# elvis only permits one multi-line and one single-line style.  The style
+# supported here uses { } for the multi-line comments, and also pretends that
+# (* markes the start of a single-line comment -- elvis won't detect *)
+language pascal
+extension .p .pas
+keyword and array begin boolean case char const delete div do downto else end
+keyword false file for function get goto if in input insert integer interactive
+keyword keyboard label maxint mod new nil not of or output packed procedure
+keyword program put read readln real record repeat reset rewrite seek set
+keyword string text then to true type until var while with write writeln
+comment { }
+comment (*
+function (
+string '
+ignorecase true
+
+# Korn shell scripts.  It also tries to format other Bourne-like shell scripts.
+# Contributed by Gabriel Zachmann (zach@igd.fhg.de)
+# Modified by S.K. to take advantage of new features of elvis
+language ksh bash sh shV sh5
+extension .sh
+keyword $* $@ $# $? $- $$ $! & | ; [ ] < > ( )
+keyword for in do done select shift case esac eval set if then elif else fi
+keyword while until return echo test
+function (
+comment #
+startword /?-*!.
+inword /?*!.
+string `
+character '
+
+# Perl.
+# Original version contributed by Herb Kateley (herb@ke.com).  Another version
+# was contributed by Jeff Wang (jeffw@enterprise.advance.com).  What you see
+# here is the merger of those two, with other modifications.  The "font normal"
+# line exists to prevent $# from being interpretted as a plain dollar sign
+# followed by a comment.
+language perl  
+extension .pl .pm 
+keyword BEGIN END CORE __END__ __FILE__ __LINE__ AUTOLOAD DESTROY
+keyword abs accept alarm and atan2 bind binmode bless caller chdir chmod
+keyword chomp chop chown chr chroot close closedir cmp connect continue cos
+keyword crypt dbmclose dbmopen defined delete die do dump each else elsif
+keyword endgrent endhostent endnetent endprotoent endpwent endservent eof
+keyword eq eval exec exists exit exp fcntl fileno flock for foreach fork
+keyword format formline ge getc getgrent getgrgid getgrnam gethostbyaddr
+keyword gethostbyname gethostent getlogin getnetbyaddr getnetbyname
+keyword getnetent getpeername getpgrp getppid getpriority getprotobyname
+keyword getprotobynumber getprotoent getpwent getpwnam getpwuid
+keyword getservbyname getservbyport getservent getsockname getsockopt
+keyword glob gmtime goto grep gt hex if index int ioctl join keys kill
+keyword last lc lcfirst le length link listen local localtime log lstat
+keyword lt m map mkdir msgctl msgget msgrcv msgsnd my ne next no not oct
+keyword open opendir or ord pack package pipe pop pos print printf push q
+keyword qq quotemeta qw qx rand read readdir readline readlink readpipe
+keyword recv redo ref rename require reset return reverse rewinddir rindex
+keyword rmdir s scalar seek seekdir select semctl semget semop send setgrent
+keyword sethostent setnetent setpgrp setpriority setprotoent setpwent
+keyword setservent setsockopt shift shmctl shmget shmread shmwrite shutdown
+keyword sin sleep socket socketpair sort splice split sprintf sqrt srand
+keyword stat study sub substr symlink syscall sysread system syswrite tell
+keyword telldir tie time times tr truncate uc ucfirst umask undef unless
+keyword unlink unpack unshift untie until use utime values vec wait waitpid
+keyword wantarray warn while write x xor y
+font normal $# $'
+comment #
+function (
+startword &_@$%
+inword _'
+string "
+character '
+regexp /?#
+useregexp if while m (,~&|
+useregsub s tr
+other allcaps
+
+# TCL shell scripts.
+# Contributed by Jeff Wang (jeffw@advance.com)
+language tcl
+extension .tcl
+comment #
+keyword Balloon ButtonBox Control DirList ExFileSelectBox ExFileSelectDialog
+keyword FileEntry HList LabelEntry LabelFrame NoteBook OptionMenu PanedWindow
+keyword PopupMenu ScrolledHList ScrolledText ScrolledWindow Select StdButtonBox
+keyword after append array auto_execok auto_load auto_mkindex auto_reset bell
+keyword bind bindtags break button canvas case catch cd checkbutton clipboard
+keyword close common concat constructor continue default destroy destructor
+keyword else elseif entry eof error eval exec exit expr file fileevent flush
+keyword focus for for_array_keys for_file for_recursive_glob foreach format
+keyword frame gets glob global grab history if image in incr info inherit
+keyword itcl_class join label lappend lindex linsert list listbox llength loop
+keyword lower lrange lreplace lsearch lsort menu menubutton message method open
+keyword option pack pid place proc protected public puts pwd radiobutton raise
+keyword read regexp regsub rename return scale scan scrollbar seek selection
+keyword send set source split string subst switch tell text then time tix tk
+keyword tk_popup tkwait toplevel trace unknown unset update uplevel upvar while
+keyword winfo wm
+font emphasized proc
+function {
+startword &$_
+inword _
+string " "
+character [
+other allcaps
+
+# VRML markups.
+# Contributed by Jeff Wang (jeffw@advance.com)
+language vrml
+extension .wrl
+comment #
+keyword Anchor Appearance AsciiText AudioClip Background Billboard Box
+keyword Collision Color ColorInterpolator Cone Coordinate Coordinate3
+keyword CoordinateInterpolator Cube Cylinder CylinderSensor DirectionalLight
+keyword DiskSensor ElevationGrid Extrusion FALSE Fog FontStyle FontStyle Group
+keyword IS ImageTexture IndexedFaceSet IndexedLineSet Info Inline LOD Material
+keyword MaterialBinding MatrixTransform MovieTexture NULL NavigationInfo Normal
+keyword NormalBinding NormalInterpolator OrientationInterpolator
+keyword OrthographicCamera PerspectiveCamera PixelTexture PlaneSensor
+keyword PointLight PointSet PositionInterpolator ProximitySensor ROUTE Rotation
+keyword ScalarInterpolator Scale Script Separator Shape ShapeHints Sound Sphere
+keyword SphereSensor SpotLight Switch TO TRUE Text Texture2 Texture2Transform
+keyword TextureCoordinate TextureCoordinate2 TextureTransform TimeSensor
+keyword TouchSensor Transform TransformSeparator Translation USE Viewpoint
+keyword VisibilitySensor WWWAnchor WWWInline WorldInfo eventIn eventOut
+keyword exposedField field
+function {
+startword &$_
+inword _
+string [ ]
+other allcaps
+
+# Quick hack to make context diffs use different colors for different lines
+# This isn't perfect, but it is useful
+language diff cdiff
+extension .dif .cdi .patch
+comment <
+regexp >
+
+# Fortran 77
+# Contributed by Lois Amoreira (amoreira@ubistf.ubi.pt)
+# Comments in F77 are *'s or c's appearing in the 1st column.
+# I defined them as "*'"
+language fortran77 f77 fortran
+extension .f .f77
+comment *'
+keyword .and.  .eq.  .eqv.  .ge.  .gt.  .le.  .lt.  .ne.  .neqv.  .not.  .or.
+keyword accept access assign backspace blank block blockdata boolean buffer
+keyword call character close common complex continue data data decode define
+keyword dimension do double dump dvck else elseif encode end endif entry
+keyword equivalence err exit external file find fmt form format function
+keyword go goto id if implicit in include integer intrinsic iostat level
+keyword logical namelist open out overfl parameter pause pdump precision
+keyword print program punch read real rec recl return rewind
+keyword save status stop strace subroutine then to type unit unit unknown
+keyword write virtual wait
+startword .
+inword .
+string '
+function (
+ignorecase true

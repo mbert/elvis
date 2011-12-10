@@ -1,0 +1,135 @@
+.TH CTAGS 1
+.SH NAME
+ctags - Generates "tags" and (optionally) "refs" files
+.SH SYNOPSIS
+.B ctags
+.RB [ -D
+.IR word ]
+.RB [ -BNitvspxra ]
+.I files...
+.SH DESCRIPTION
+This page describes the
+.I elvis
+version of
+.IR ctags .
+.PP
+.I ctags
+generates the "tags" and "refs" files from a group of C source files.
+The "tags" file is used by Elvis' ":tag" command,
+\fB^]\fR command, and \fB-t\fR option.
+The "refs" file is sometimes used by the
+.BR ref (1)
+program.
+.PP
+Each C source file is scanned for #define statements and
+global function definitions.
+The name of the macro or function becomes the name of a tag.
+For each tag, a line is added to the "tags" file which contains:
+.RS
+.nf
+       - the name of the tag
+       - a tab character
+       - the name of the file containing the tag
+       - a tab character
+       - a way to find the particular line within the file.
+.RE
+.fi
+.PP
+The filenames list will typically be the names of all C source
+files in the current directory, like this:
+.RS
+.nf
+
+$ ctags -stv *.c *.h
+.RE
+.fi
+.SH OPTIONS
+.IP \fB-D\fIword\fR
+This causes elvis to ignore any instance of \fIword\fR in your source code.
+This is handy if you're using a macro for conditionally declaring the arguments
+to functions, in order to make your code be backward-compatible with older K&R
+C compilers.
+\fIctags\fR always ignores "P_" and "__P";
+the \fB-D\fIword\fR flag allows you to make it ignore a third word.
+.IP \fB-B\fR
+Normally,
+.I ctags
+encloses regular expressions in slashes (/regexp/) which causes
+.BR elvis (1)
+to search from the top of the file.
+The \fB-B\fR flag causes
+.I ctags
+to enclose the regular expressions in question marks (?regexp?) so
+.BR elvis (1)
+will search backward from the bottom of the file.
+This rarely matters.
+.IP \fB-N\fR
+This causes
+.I ctags
+to use line numbers for all tags.
+Without this flag, it would use numbers for #define'ed macros,
+and regular expressions for anything else.
+.IP \fB-i\fR
+Include inline definitions.
+A tag will be generated for each function which is declared as being
+inline, __inline, or __inline__.
+.IP \fB-t\fR
+Include typedefs.
+A tag will be generated for each user-defined type.
+Also tags will be generated for struct and enum names.
+Types are considered to be global if they are defined in a header file,
+and static if they are defined in a C source file.
+.IP \fB-v\fR
+Include variable declarations.
+A tag will be generated for each variable, except for those that are declared
+inside the body of a function.
+.IP \fB-s\fR
+Include static tags.
+.I ctags
+will normally put global tags in the "tags" file, and silently ignore
+the static tags.
+This flag causes both global and static tags to be added.
+.IP \fB-p\fR
+Write parsing information to stdout.
+This is intended mainly as an aid to debugging the \fIctags\fR command itself.
+If \fIctags\fR doesn't generate all of the tags that you expect it to,
+then try studying the \fB-p\fR output to determine what syntax feature is
+tripping it up.
+.IP \fB-x\fR
+Generate a human-readable tag list instead of a "tags" file.
+The list is written to stdout.
+Each line contains a tag name, the line number and file name where
+the tag is defined, and the text of that line.
+.IP \fB-r\fP
+This causes \fIctags\fP to generate both "tags" and "refs".
+Without \fB-r\fP, it would only generate "tags".
+.IP \fB-a\fR
+Append to "tags", and maybe "refs".
+Normally, \fIctags\fR overwrites these files each time it is invoked.
+This flag is useful when you have too many files in the current directory
+for you to list them on a single command-line;
+it allows you to split the arguments among several invocations.
+.SH FILES
+.IP tags
+A cross-reference that lists each tag name, the name of the source file that
+contains it, and a way to locate a particular line in the source file.
+.IP refs
+The "refs" file contains the definitions for each tag in the "tags" file,
+and very little else.
+This file can be useful, for example, when licensing restrictions prevent
+you from making the source code to the standard C library readable by everybody,
+but you still want everybody to know what arguments the library functions need.
+.SH BUGS
+.PP
+.I ctags
+is sensitive to indenting and line breaks.
+Consequently, it might not discover all of the tags in a file that
+is formatted in an unusual way.
+.SH "SEE ALSO"
+.BR elvis (1),
+.BR ref (1)
+.SH AUTHOR
+.nf
+Steve Kirkendall
+kirkenda@cs.pdx.edu
+.fi

@@ -1,0 +1,43 @@
+.TH FMT 1 "" "" "User commands"
+.SH NAME
+fmt \- adjust line-length for paragraphs of text
+.SH SYNOPSIS
+.ad l
+.B fmt
+.RB [ \-s ]
+.RB [ \-w
+.I width
+|
+.BR \-\fIwidth ]
+.RI [ file ]...
+.ad b
+.SH DESCRIPTION
+.B fmt
+is a simple text formatter.
+It inserts or deletes newlines, as necessary, to make all lines in a
+paragraph be approximately the same width.
+It preserves indentation and word spacing.
+.PP
+If you don't name any files on the command line,
+then \fBfmt\fR will read from stdin.
+.PP
+It is typically used from within
+.BR vi (1)
+to adjust the line breaks
+in a single paragraph.
+To do this, move the cursor to the top of the paragraph,
+type "!}fmt", and
+hit <Return>.
+.SH OPTIONS
+.IP "\fB\-w\fP \fIwidth\fP or \fB\-\fP\fIwidth\fP"
+Use a line width of \fIwidth\fP characters instead of the default
+of 72 characters.
+.IP \fB\-s\fP
+Don't join lines shorter than the line width to fill paragraphs.
+.SH "SEE ALSO"
+.BR vi (1)
+.SH AUTHOR
+.nf
+Steve Kirkendall
+kirkenda@cs.pdx.edu
+.fi

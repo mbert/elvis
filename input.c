@@ -1,882 +1,956 @@
 /* input.c */
+/* Copyright 1995 by Steve Kirkendall */
 
-/* Author:
- *	Steve Kirkendall
- *	1500 SW Park #326
- *	Portland OR, 97201
- *	kirkenda@cs.pdx.edu
+char id_input[] = "$Id: input.c,v 2.46 1996/09/21 05:26:35 steve Exp $";
+
+#include "elvis.h"
+
+/* These data types are used to store the parsing state for input mode
+ * commands.  This is very simple, since most commands are only one keystroke
+ * long. (The only exceptions are that INP_QUOTE is two keystrokes long, and
+ * INP_HEX1/INP_HEX2 is three keystrokes long.)
  */
+typedef enum {
+	INP_NORMAL,	/* a normal character to insert/replace */
+	INP_NEWLINE,	/* insert a newline */
+	INP_QUOTE,	/* we're in the middle of a ^V sequence */
+	INP_HEX1,	/* we're expecting the first of two hex digits */
+	INP_HEX2,	/* we're expecting the second of two hex digits */
+	INP_DIG1,	/* we're expecting the first of two digraph chars */
+	INP_DIG2,	/* we're expecting the second of two digraph chars */
+	INP_TAB,	/* ^I - insert a bunch of spaces to look like a tab */
+	INP_ONEVI,	/* ^O - execute one vi command */
+	INP_MULTIVI,	/* ESC - execute many vi commands */
+	INP_BACKSPACE,	/* ^H - backspace one character */
+	INP_BACKWORD,	/* ^W - backspace one word */
+	INP_BACKLINE,	/* ^U - backspace one line */
+	INP_SHIFTL,	/* ^D - reduce indentation */
+	INP_SHIFTR,	/* ^T - increase indentation */
+	INP_EXPOSE,	/* ^R/^L - redraw the screen */
+	INP_PREVIOUS,	/* ^@ - insert a copy of previous text, then exit */
+	INP_AGAIN,	/* ^A - insert a copy of previous text, continue */
+	INP_PUT		/* ^P - insert a copy of anonymous cut buffer */
+} INPCMD;
+typedef struct
+{
+	BOOLEAN	setbottom;	/* Set bottom = cursor before drawing cursor? */
+	BOOLEAN	replacing;	/* True if we're in "replace" mode */
+	INPCMD	cmd;		/* the command to perform */
+	CHAR	arg;		/* argument -- usually a key to insert */
+	CHAR	backsp;		/* char backspaced over, or '\0' */
+	CHAR	prev;		/* previously input char, or '\0' */
+} INPUTINFO;
 
 
-/* This file contains the input() function, which implements vi's INPUT mode.
- * It also contains the code that supports digraphs.
+#if USE_PROTOTYPES
+static void cleanup(WINDOW win, BOOLEAN del, BOOLEAN backsp, BOOLEAN yank);
+static void addchar(MARK cursor, MARK top, MARK bottom, INPUTINFO *info);
+static BOOLEAN tryabbr(WINDOW win, _CHAR_ nextc);
+static RESULT perform(WINDOW win);
+static RESULT parse(_CHAR_ key, void *info);
+static ELVCURSOR shape(WINDOW win);
+#endif
+
+
+/* This function deletes everything between "cursor" and "bottom" of the
+ * current state.  This is used, for example, when the user hits <Esc>
+ * after using "cw" to change a long word into a short one.  It should be
+ * called for the INP_ONEVI command with backsp=False, and before INP_MULTIVI
+ * backup=True.
  */
-
-#include "config.h"
-#include "ctype.h"
-#include "vi.h"
-
-
-#ifndef NO_DIGRAPH
-static struct _DIG
+static void cleanup(win, del, backsp, yank)
+	WINDOW	win;	/* window where input took place */
+	BOOLEAN	del;	/* if True, delete text after the cursor */
+	BOOLEAN	backsp;	/* if True, move to the left */
+	BOOLEAN	yank;	/* if True, yank input text into ". buffer */
 {
-	struct _DIG	*next;
-	char		key1;
-	char		key2;
-	char		dig;
-	char		save;
-} *digs;
-
-char digraph(key1, key2)
-	int	key1;	/* the underlying character */
-	int	key2;	/* the second character */
-{
-	int		newkey;
-	REG struct _DIG	*dp;
-
-	/* if digraphs are disabled, then just return the new char */
-	if (!*o_digraph)
+	/* delete the excess in the edited region */
+	if (del && markoffset(win->state->cursor) < markoffset(win->state->bottom))
 	{
-		return key2;
+		bufreplace(win->state->cursor, win->state->bottom, NULL, 0);
+	}
+	else
+	{
+		marksetoffset(win->state->bottom, markoffset(win->state->cursor));
+	}
+	assert(markoffset(win->state->cursor) == markoffset(win->state->bottom));
+
+	/* save the newly input text in the "previous input" buffer */
+	if (yank)
+	{
+		cutyank('.', win->state->top, win->state->bottom, 'c', False);
 	}
 
-	/* remember the new key, so we can return it if this isn't a digraph */
-	newkey = key2;
-
-	/* sort key1 and key2, so that their original order won't matter */
-	if (key1 > key2)
+	/* move the cursor back one character, unless it is already at the
+	 * start of a line.
+	 */
+	if (backsp && markoffset(win->state->cursor) > 0)
 	{
-		key2 = key1;
-		key1 = newkey;
+		markaddoffset(win->state->cursor, -1);
+		if (scanchar(win->state->cursor) == '\n')
+		{
+			markaddoffset(win->state->cursor, 1);
+		}
+		marksetoffset(win->state->top, markoffset(win->state->cursor));
+		marksetoffset(win->state->bottom, markoffset(win->state->cursor));
 	}
 
-	/* scan through the digraph chart */
-	for (dp = digs;
-	     dp && (dp->key1 != key1 || dp->key2 != key2);
-	     dp = dp->next)
-	{
-	}
-
-	/* if this combination isn't in there, just use the new key */
-	if (!dp)
-	{
-		return newkey;
-	}
-
-	/* else use the digraph key */
-	return dp->dig;
+	/* Force the screen to be regenerated */
+	if (win->di->logic == DRAW_NORMAL)
+		win->di->logic = DRAW_CHANGED;
 }
 
-/* this function lists or defines digraphs */
-void do_digraph(bang, extra)
-	int	bang;
-	char	extra[];
-{
-	int		dig;
-	REG struct _DIG	*dp;
-	struct _DIG	*prev;
-	static int	user_defined = FALSE; /* boolean: are all later digraphs user-defined? */
-	char		listbuf[8];
-
-	/* if "extra" is NULL, then we've reached the end of the built-ins */
-	if (!extra)
-	{
-		user_defined = TRUE;
-		return;
-	}
-
-	/* if no args, then display the existing digraphs */
-	if (*extra < ' ')
-	{
-		listbuf[0] = listbuf[1] = listbuf[2] = listbuf[5] = ' ';
-		listbuf[7] = '\0';
-		for (dig = 0, dp = digs; dp; dp = dp->next)
-		{
-			if (dp->save || bang)
-			{
-				dig += 7;
-				if (dig >= COLS)
-				{
-					addch('\n');
-					exrefresh();
-					dig = 7;
-				}
-				listbuf[3] = dp->key1;
-				listbuf[4] = dp->key2;
-				listbuf[6] = dp->dig;
-				qaddstr(listbuf);
-			}
-		}
-		addch('\n');
-		exrefresh();
-		return;
-	}
-
-	/* make sure we have at least two characters */
-	if (!extra[1])
-	{
-		msg("Digraphs must be composed of two characters");
-		return;
-	}
-
-	/* sort key1 and key2, so that their original order won't matter */
-	if (extra[0] > extra[1])
-	{
-		dig = extra[0];
-		extra[0] = extra[1];
-		extra[1] = dig;
-	}
-
-	/* locate the new digraph character */
-	for (dig = 2; extra[dig] == ' ' || extra[dig] == '\t'; dig++)
-	{
-	}
-	dig = extra[dig];
-	if (!bang && dig)
-	{
-		dig |= 0x80;
-	}
-
-	/* search for the digraph */
-	for (prev = (struct _DIG *)0, dp = digs;
-	     dp && (dp->key1 != extra[0] || dp->key2 != extra[1]);
-	     prev = dp, dp = dp->next)
-	{
-	}
-
-	/* deleting the digraph? */
-	if (!dig)
-	{
-		if (!dp)
-		{
-#ifndef CRUNCH
-			msg("%c%c not a digraph", extra[0], extra[1]);
-#endif
-			return;
-		}
-		if (prev)
-			prev->next = dp->next;
-		else
-			digs = dp->next;
-		_free_(dp);
-		return;
-	}
-
-	/* if necessary, create a new digraph struct for the new digraph */
-	if (dig && !dp)
-	{
-		dp = (struct _DIG *)malloc(sizeof *dp);
-		if (!dp)
-		{
-			msg("Out of space in the digraph table");
-			return;
-		}
-		if (prev)
-			prev->next = dp;
-		else
-			digs = dp;
-		dp->next = (struct _DIG *)0;
-	}
-
-	/* assign it the new digraph value */
-	dp->key1 = extra[0];
-	dp->key2 = extra[1];
-	dp->dig = dig;
-	dp->save = user_defined;
-}
-
-# ifndef NO_MKEXRC
-void savedigs(fd)
-	int		fd;
-{
-	static char	buf[] = "digraph! XX Y\n";
-	REG struct _DIG	*dp;
-
-	for (dp = digs; dp; dp = dp->next)
-	{
-		if (dp->save)
-		{
-			buf[9] = dp->key1;
-			buf[10] = dp->key2;
-			buf[12] = dp->dig;
-			write(fd, buf, (unsigned)14);
-		}
-	}
-}
-# endif
-#endif
-
-
-/* This function allows the user to replace an existing (possibly zero-length)
- * chunk of text with typed-in text.  It returns the MARK of the last character
- * that the user typed in.
+/* This function inserts/replaces a single character in a buffer, and
+ * advances the cursor and (if necessary) bottom mark.
  */
-MARK input(from, to, when, delta)
-	MARK	from;	/* where to start inserting text */
-	MARK	to;	/* extent of text to delete */
-	int	when;	/* either WHEN_VIINP or WHEN_VIREP */
-	int	delta;	/* 1 to take indent from lower line, -1 for upper, 0 for none */
+static void addchar(cursor, top, bottom, info)
+	MARK		cursor;	/* where to add a character */
+	MARK		top;	/* start of edit bounds */
+	MARK		bottom;	/* end of edit bounds */
+	INPUTINFO	*info;	/* other info, including char to be inserted */
 {
-	char	key[2];	/* key char followed by '\0' char */
-	char	*build;	/* used in building a newline+indent string */
-	char	*scan;	/* used while looking at the indent chars of a line */
-	MARK	m;	/* some place in the text */
-#ifndef NO_EXTENSIONS
-	int	quit = FALSE;	/* boolean: are we exiting after this? */
-	int	inchg;	/* boolean: have we done a "beforedo()" yet? */
-#endif
+	MARKBUF	replaced;
 
-#ifdef DEBUG
-	/* if "from" and "to" are reversed, complain */
-	if (from > to)
+	/* decide whether to insert or replace */
+	replaced = *cursor;
+	if (markoffset(cursor) < markoffset(bottom))
 	{
-		msg("ERROR: input(%ld:%d, %ld:%d)",
-			markline(from), markidx(from),
-			markline(to), markidx(to));
-		return MARK_UNSET;
+		replaced.offset++;
 	}
-#endif
-
-	key[1] = 0;
-
-	/* if we're replacing text with new text, save the old stuff */
-	/* (Alas, there is no easy way to save text for replace mode) */
-	if (from != to)
+	else if (info->replacing && markoffset(cursor) < o_bufchars(markbuffer(cursor)))
 	{
-		cut(from, to);
+		if (scanchar(cursor) != '\n')
+		{
+			replaced.offset++;
+		}
 	}
 
-	/* if doing a dot command, then reuse the previous text */
-	if (doingdot)
-	{
-		ChangeText
-		{
-			/* delete the text that's there now */
-			if (from != to)
-			{
-				delete(from, to);
-			}
+	/* do it */
+	bufreplace(cursor, &replaced, &info->arg, 1);
 
-			/* insert the previous text */
-			cutname('.');
-			cursor = paste(from, FALSE, TRUE) + 1L;
-		}
+	/* we need to advance the cursor, and maybe bottom */
+	markaddoffset(cursor, 1);
+	if (markoffset(cursor) > markoffset(bottom))
+	{
+		marksetoffset(bottom, markoffset(cursor));
 	}
-	else /* interactive version */
+}
+
+
+/* This function attempts to expand an abbreviation at the cursor location,
+ * if there is one.  If so, it deletes the short form, and pushes the long
+ * form an following character back onto the type-ahead buffer.  Else it
+ * returns False.
+ */
+static BOOLEAN tryabbr(win, nextc)
+	WINDOW	win;	/* window where abbreviation may need expanding */
+	_CHAR_	nextc;	/* character after the word */
+{
+	MARKBUF	from, to;
+	CHAR	*cp, *build;
+	long	slen, llen;
+	CHAR	cbuf[1];
+
+	/* Try to do an abbreviation.  To do this, we collect
+	 * characters backward to the preceding whitespace.  We
+	 * go to the preceding whitespace because abbreviations
+	 * can't contain whitespace; we know we'll never need
+	 * more characters to recognize an abbreviation.  We
+	 * collect the characters backwards just because it is
+	 * easier.
+	 */
+	for (scanalloc(&cp, win->state->cursor), build = NULL;
+	     cp && scanprev(&cp) && !isspace(*cp);
+	     )
 	{
-		/* assume that whoever called this already did a beforedo() */
-#ifndef NO_EXTENSIONS
-		inchg = TRUE;
-#endif
-
-		/* if doing a change within the line... */
-		if (from != to && markline(from) == markline(to))
+		buildCHAR(&build, *cp);
+	}
+	scanfree(&cp);
+	if (build)
+	{
+		cp = mapabbr(build, &slen, &llen, (BOOLEAN)(win->state->acton != NULL));
+		if (cp)
 		{
-			/* mark the end of the text with a "$" */
-			change(to - 1, to, "$");
-		}
-		else
-		{
-			/* delete the old text right off */
-			if (from != to)
-			{
-				delete(from, to);
-			}
-			to = from;
-		}
+			/* yes, we have an abbreviation! */
 
-		/* handle autoindent of the first line, maybe */
-		cursor = from;
-		m = cursor + MARK_AT_LINE(delta);
-		if (delta != 0 && *o_autoindent && markidx(m) == 0
-		 && markline(m) >= 1L && markline(m) <= nlines)
-		{
-			/* Only autoindent blank lines. */
-			pfetch(markline(cursor));
-			if (plen == 0)
-			{
-				/* Okay, we really want to autoindent */
-				pfetch(markline(m));
-				for (scan = ptext, build = tmpblk.c;
-				     *scan == ' ' || *scan == '\t';
-				     )
-				{
-					*build++ = *scan++;
-				}
-				if (build > tmpblk.c)
-				{
-					*build = '\0';
-					add(cursor, tmpblk.c);
-					cursor += (int)(build - tmpblk.c);
-					if (cursor > to)
-						to = cursor;
-				}
-			}
-		}
+			/* delete the short form */
+			cleanup(win, True, False, False);
+			(void)marktmp(from, markbuffer(win->state->cursor), markoffset(win->state->cursor) - slen);
+			(void)marktmp(to, markbuffer(win->state->cursor), markoffset(win->state->cursor));
+			bufreplace(&from, &to, NULL, 0);
 
-		/* repeatedly add characters from the user */
-		for (;;)
-		{
-			/* Get a character */
-			redraw(cursor, TRUE);
-#ifdef DEBUG2
-			msg("cursor=%ld.%d, to=%ld.%d",
-				markline(cursor), markidx(cursor),
-				markline(to), markidx(to));
-#endif
-#ifndef NO_ABBR
-			pfetch(markline(cursor));
-			build = ptext;
-			if (pline == markline(from))
-				build += markidx(from);
-			for (scan = ptext + markidx(cursor); --scan >= build && !isspace(*scan); )
-			{
-			}
-			scan++;
-			key[0] = getabkey(when, ptext, markidx(cursor));
-#else
-			key[0] = getkey(when);
-#endif
-#ifndef NO_VISIBLE
-			if (key[0] != ctrl('O') && V_from != MARK_UNSET)
-			{
-				msg("Can't modify text during a selection");
-				beep();
-				continue;
-			}
-#endif
-
-#ifndef NO_EXTENSIONS
-			if (key[0] == ctrl('O'))
-			{
-				if (inchg)
-				{
-					if (cursor < to)
-					{
-						delete(cursor, to);
-						redraw(cursor, TRUE);
-					}
-					afterdo();
-					inchg = FALSE;
-				}
-			}
-			else if (key[0] != ctrl('['))
-			{
-				if (!inchg)
-				{
-					beforedo(FALSE);
-					inchg = TRUE;
-				}
-			}
-#endif
-
-#ifndef CRUNCH
-			/* if wrapmargin is set & we're past the
-			 * warpmargin, then change the last whitespace
-			 * characters on line into a newline
+			/* stuff the long form, and the user's
+			 * non-alnum character, into the queue
 			 */
-			if (*o_wrapmargin)
+			if (nextc)
 			{
-				pfetch(markline(cursor));
-				if (!ptext[markidx(cursor)]
-				 && idx2col(cursor, ptext, TRUE) > COLS - (*o_wrapmargin & 0xff))
-				{
-					build = tmpblk.c;
-					*build++ = '\n';
-					if (*o_autoindent)
-					{
-						/* figure out indent for next line */
-						for (scan = ptext; *scan == ' ' || *scan == '\t'; )
-						{
-							*build++ = *scan++;
-						}
-					}
-					*build = '\0';
-
-					scan = ptext + plen;
-					m = cursor & ~(BLKSIZE - 1);
-					while (ptext < scan)
-					{
-						scan--;
-						if (*scan != ' ' && *scan != '\t')
-							continue;
-
-						/*break up line, and we do autoindent if needed*/
-						change(m + (int)(scan - ptext), m + (int)(scan - ptext) + 1, tmpblk.c);
-
-						/* NOTE: for some reason, MSC 5.10 doesn't
-						 * like for these lines to be combined!!!
-						 */
-						cursor = (cursor & ~(BLKSIZE - 1));
-						cursor += BLKSIZE;
-						cursor += strlen(tmpblk.c) - 1;
-						cursor += plen - (int)(scan - ptext) - 1;
-
-						/*remove trailing spaces on previous line*/
-						pfetch(markline(m));
-						scan = ptext + plen;
-						while (ptext < scan)
-						{
-							scan--;
-							if (*scan != ' ' && *scan != '\t')
-								break;
-						}
-						delete(m + (int)(scan - ptext) + 1, m + plen);
-
-						break;
-					}
-				}
+				cbuf[0] = nextc;
+				mapunget(cbuf, 1, False);
 			}
-#endif /* !CRUNCH */
+			mapunget(cp, (int)llen, False);
 
-			/* process it */
-			switch (*key)
-			{
-#ifndef NO_EXTENSIONS
-			  case ctrl('O'): /* special movement mapped keys */
-				*key = getkey(0);
-				switch (*key)
-				{
-				  case 'h':	m = m_left(cursor, 0L);		break;
-				  case 'j':
-				  case 'k':	m = m_updnto(cursor, 0L, *key);	break;
-				  case 'l':	m = cursor + 1;			break;
-				  case 'B':
-				  case 'b':	m = m_bword(cursor, 0L, *key);	break;
-				  case 'W':
-				  case 'w':	m = m_fword(cursor, 0L, *key, '\0');	break;
-				  case '^':	m = m_front(cursor, 0L);	break;
-				  case '$':	m = m_rear(cursor, 0L);		break;
-				  case ctrl('B'):
-				  case ctrl('F'):
-						m = m_scroll(cursor, 0L, *key); break;
-				  case 'x':
-#ifndef NO_VISIBLE
-						if (V_from)
-							beep();
-						else
-#endif
-						ChangeText
-						{
-							m = v_xchar(cursor, 0L, 'x');
-						}
-						break;
-				  case 'i':	m = to = from = cursor;
-						when = WHEN_VIINP + WHEN_VIREP - when;
-										break;
-				  case 'K':
-					pfetch(markline(cursor));
-					changes++; /* <- after this, we can alter ptext */
-					ptext[markidx(cursor)] = 0;
-					for (scan = ptext + markidx(cursor) - 1;
-					     scan >= ptext && isalnum(*scan);
-					     scan--)
-					{
-					}
-					scan++;
-					m = (*scan ? v_keyword(scan, cursor, 0L) : cursor);
-					break;
+			/* move cursor to where word goes */
+			marksetoffset(win->state->bottom, markoffset(&from));
+			marksetoffset(win->state->cursor, markoffset(&from));
+			safefree(build);
+			return True;
+		}
+		safefree(build);
+	}
+	return False;
+}
 
-# ifndef NO_VISIBLE
-				  case 'v':
-				  case 'V':
-					if (V_from)
-						V_from = MARK_UNSET;
-					else
-						V_from = cursor;
-					m = from = to = cursor;
-					V_linemd = (*key == 'V');
-					break;
 
-				  case 'd':
-				  case 'y':
-				  case '\\':
-					/* do nothing if unmarked */
-					if (!V_from)
-					{
-						msg("You must mark the text first");
-						beep();
-						break;
-					}
+/* This function performs an input-mode command.  Usually, this will be a
+ * character to insert/replace in the text.
+ */
+static RESULT perform(win)
+	WINDOW	win;	/* window where inputting should be done */
+{
+	STATE	  *state = win->state;
+	INPUTINFO *ii = (INPUTINFO *)state->info;
+	MARK	  cursor = state->cursor;
+	MARK	  tmp;
+	MARKBUF	  from, to;
+	CHAR	  *cp;
+	char	  *littlecp, ch;
+	EXINFO	  xinfb;
+	VIINFO	  vinfb;
+	union
+	{
+		char	  partial[256];
+		CHAR	  full[256];
+	}	  name;
+	long	  col, len;
 
-					/* "from" must come before "to" */
-					if (V_from < cursor)
-					{
-						from = V_from;
-						to = cursor;
-					}
-					else
-					{
-						from = cursor;
-						to = V_from;
-					}
+	safeinspect();
 
-					/* we don't need V_from anymore */
-					V_from = MARK_UNSET;
+	/* initially assume there is no matching parenthesis */
+	win->match = -4;
 
-					if (V_linemd)
-					{
-						/* adjust for line mode */
-						from &= ~(BLKSIZE - 1);
-						to |= (BLKSIZE - 1);
-					}
-					else
-					{
-						/* in character mode, we must
-						 * worry about deleting the newline
-						 * at the end of the last line
-						 */
-						pfetch(markline(to));
-						if (markidx(to) == plen)
-							to |= (BLKSIZE - 1);
-					}
-					to++;
+	/* if cursor has been moved outside the top & bottom, then reset
+	 * the top & bottom to match cursor
+	 */
+	if (markbuffer(state->top) != markbuffer(state->cursor))
+	{
+		marksetbuffer(state->top, markbuffer(state->cursor));
+		marksetoffset(state->top, markoffset(state->cursor));
+		marksetbuffer(state->bottom, markbuffer(state->cursor));
+		marksetoffset(state->bottom, markoffset(state->cursor));
+	}
+	else if (markoffset(state->top) > markoffset(state->cursor)
+	    || markoffset(state->cursor) > markoffset(state->bottom))
+	{
+		marksetoffset(state->top, markoffset(state->cursor));
+		marksetoffset(state->bottom, markoffset(state->cursor));
+	}
 
-					switch (*key)
-					{
-					  case 'y':
-						cut(from, to);
-						break;
-
-					  case 'd':
-						ChangeText
-						{
-							cut(from, to);
-							delete(from, to);
-						}
-						cursor = from;
-						break;
-
-#ifndef NO_POPUP
-					  case '\\':
-						ChangeText
-						{
-							cursor = v_popup(from, to);
-						}
-						break;
-#endif
-					}
-					m = from = to = cursor;
-					break;
-
-				  case 'p':
-				  case 'P':
-					V_from = MARK_UNSET;
-					ChangeText
-					{
-						m = paste(cursor, (*key == 'p'), FALSE);
-					}
-					break;
-# endif /* !NO_VISIBLE */
-				  default:	m = MARK_UNSET;
-				}
-
-				/* adjust the moved cursor */
-				if (m != cursor)
-				{
-					m = adjmove(cursor, m, (*key == 'j' || *key == 'k' ? NCOL|FINL|INPM : FINL|INPM));
-#if 0 /*!!!*/
-					if (plen && (*key == '$' || (*key == 'l' && m <= cursor)))
-					{
-						m++;
-					}
-#endif
-				}
-
-				/* if the cursor is reasonable, use it */
-				if (m == MARK_UNSET)
-				{
-					beep();
-				}
-				else
-				{
-					from = to = cursor = m;
-				}
-				break;
-
-			  case ctrl('Z'):
-				if (getkey(0) == ctrl('Z'))
-				{
-					quit = TRUE;
-					goto BreakBreak;
-				}
-				break;
-#endif
-
-			  case ctrl('['):
-				/* if last line contains only whitespace, then remove whitespace */
-				if (*o_autoindent)
-				{
-					pfetch(markline(cursor));
-					for (scan = ptext; isspace(*scan); scan++)
-					{
-					}
-					if (scan > ptext && !*scan)
-					{
-						cursor &= ~(BLKSIZE - 1L);
-						if (to < cursor + plen)
-						{
-							to = cursor + plen;
-						}
-					}
-				}
-				goto BreakBreak;
-
-			  case ctrl('U'):
-				if (markline(cursor) == markline(from))
-				{
-					cursor = from;
-				}
-				else
-				{
-					cursor &= ~(BLKSIZE - 1);
-				}
-				break;
-
-			  case ctrl('D'):
-			  case ctrl('T'):
-				if (to > cursor)
-				{
-					delete(cursor, to);
-				}
-				mark[27] = cursor;
-				cmd_shift(cursor, cursor, *key == ctrl('D') ? CMD_SHIFTL : CMD_SHIFTR, TRUE, "");
-				if (mark[27])
-				{
-					cursor = mark[27];
-				}
-				else
-				{
-					cursor = m_front(cursor, 0L);
-				}
-				to = cursor;
-				break;
-
-			  case '\b':
-				if (cursor <= from)
-				{
-					beep();
-				}
-				else if (markidx(cursor) == 0)
-				{
-					cursor -= BLKSIZE;
-					pfetch(markline(cursor));
-					cursor += plen;
-				}
-				else
-				{
-					cursor--;
-				}
-				break;
-
-			  case ctrl('W'):
-				m = m_bword(cursor, 1L, 'b');
-				if (markline(m) == markline(cursor) && m >= from)
-				{
-					cursor = m;
-					if (from > cursor)
-					{
-						from = cursor;
-					}
-				}
-				else
-				{
-					beep();
-				}
-				break;
-
-			  case '\n':
-#if OSK
-			  case '\l':
-#else				  
-			  case '\r':
-#endif
-				build = tmpblk.c;
-				*build++ = '\n';
-				if (*o_autoindent)
-				{
-					/* figure out indent for next line */
-					pfetch(markline(cursor));
-					for (scan = ptext; *scan == ' ' || *scan == '\t'; )
-					{
-						*build++ = *scan++;
-					}
-
-					/* remove indent from this line, if blank */
-					if ((int)(scan - ptext) == markidx(cursor) && plen > 0)
-					{
-						to = cursor &= ~(BLKSIZE - 1);
-#if 1
-						delete(cursor, cursor + (int)(scan - ptext));
-#else
-						delete(cursor, cursor + plen);
-#endif
-					}
-
-#if 0
-					/* Advance "to" past whitespace at the cursor.
-					 * This is done so that if we insert a newline
-					 * before whitespace, we can delete that whitespace
-					 * from the front of the new line when we add
-					 * the carefully calculated indent string to it.
-					 */
-					if (to == cursor)
-					{
-						for (scan = ptext + markidx(cursor); *scan == ' ' || *scan == '\t'; scan++, to++)
-						{
-						}
-					}
-#endif
-				}
-				*build = 0;
-				if (cursor >= to && when != WHEN_VIREP)
-				{
-					add(cursor, tmpblk.c);
-				}
-				else
-				{
-					change(cursor, to, tmpblk.c);
-				}
-				redraw(cursor, TRUE);
-				to = cursor = (cursor & ~(BLKSIZE - 1))
-						+ BLKSIZE
-						+ (int)(build - tmpblk.c) - 1;
-				break;
-
-			  case ctrl('A'):
-			  case ctrl('P'):
-				if (cursor < to)
-				{
-					delete(cursor, to);
-				}
-				if (*key == ctrl('A'))
-				{
-					cutname('.');
-				}
-				m = paste(cursor, FALSE, TRUE);
-				if (m != MARK_UNSET)
-				{
-					to = cursor = m + 1L;
-				}
-				break;
-
-			  case ctrl('V'):
-				if (cursor >= to && when != WHEN_VIREP)
-				{
-					add(cursor, "^");
-				}
-				else
-				{
-					change(cursor, to, "^");
-					to = cursor + 1;
-				}
-				redraw(cursor, TRUE);
-				*key = getkey(0);
-				if (*key == '\n')
-				{
-					/* '\n' too hard to handle */
-#if OSK
-					*key = '\l';
-#else
-					*key = '\r';
-#endif
-				}
-				change(cursor, cursor + 1, key);
-				cursor++;
-				if (cursor > to)
-				{
-					to = cursor;
-				}
-				break;
-
-			  case ctrl('L'):
-			  case ctrl('R'):
-				redraw(MARK_UNSET, FALSE);
-				break;
-
-			  default:
-				if (cursor >= to && when != WHEN_VIREP)
-				{
-					add(cursor, key);
-					cursor++;
-					to = cursor;
-				}
-				else
-				{
-					pfetch(markline(cursor));
-					if (markidx(cursor) == plen)
-					{
-						add(cursor, key);
-					}
-					else
-					{
-#ifndef NO_DIGRAPH
-						*key = digraph(ptext[markidx(cursor)], *key);
-#endif
-						change(cursor, cursor + 1, key);
-					}
-					cursor++;
-				}
-#ifndef NO_SHOWMATCH
-				/* show matching "({[" if necessary */
-				if (*o_showmatch && strchr(")}]", *key))
-				{
-					redraw(cursor, TRUE);
-					m = m_match(cursor - 1, 0L);
-					if (markline(m) >= topline
-					 && markline(m) <= botline)
-					{
-						redraw(m, TRUE);
-						refresh();
-						sleep(1);
-					}
-				}
-#endif
-			} /* end switch(*key) */
-		} /* end for(;;) */
-BreakBreak:;
-		/* delete any excess characters */
-		if (cursor < to)
+	/* process the keystroke */
+	switch (ii->cmd)
+	{
+	  case INP_NORMAL:
+		/* maybe try to do a digraph */
+		if (ii->backsp && o_digraph)
 		{
-#ifndef NO_EXTENSIONS
-			/* if we aren't in the middle of a change, start one! */
-			if (!inchg)
-			{
-				beforedo(FALSE);
-				inchg = TRUE;
-			}
-#endif
-			delete(cursor, to);
+			ii->arg = digraph(ii->backsp, ii->arg);
 		}
 
-	} /* end if doingdot else */
+		/* If next character is non-alphanumeric, check for abbrev.
+		 * (Note: Since we never expand abbreviations except in the
+		 * main buffer or the ex history buffer, we can skip it if
+		 * we're editing some other buffer such as regexp history.
+		 * Assume only the ex history buffer has inputtab=filename.)
+		 */
+		if (!isalnum(ii->arg)
+		 && ii->arg != '_'
+		 && (state->acton == NULL || o_inputtab(markbuffer(cursor)) == 'f'))
+		{
+			if (tryabbr(win, ii->arg))
+				break;
+		}
+		/* fall through... */
 
-	/* put the new text into a cut buffer for possible reuse */
-	if (!doingdot)
-	{
-		blksync();
-		cutname('.');
-		cut(from, cursor);
-	}
+	  case INP_HEX1:	/* can't happen */
+	  case INP_HEX2:
+	  case INP_DIG1:	/* can't happen */
+	  case INP_DIG2:
+	  case INP_QUOTE:
+		/* add the character */
+		addchar(cursor, state->top, state->bottom, ii);
 
-	/* move to last char that we inputted, unless it was newline */
-	if (markidx(cursor) != 0)
-	{
-		cursor--;
-	}
-	redraw(cursor, FALSE);
+		/* if it wasn't whitespace, then maybe do wordwrap */
+		if (!isspace(ii->arg)
+		 && cursor == win->cursor
+		 && win->md->wordwrap
+		 && o_textwidth(markbuffer(cursor)) > 0
+		 && dispmark2col(win) >= o_textwidth(markbuffer(cursor)))
+		{
+			/* Figure out where the current word started */
+			for (scanalloc(&cp, cursor);
+			     scanprev(&cp) && !isspace(*cp);
+			     )
+			{
+			}
+			if (cp)
+			{
+				to = *scanmark(&cp);
+				markaddoffset(&to, 1L);
+			}
 
-#ifndef NO_EXTENSIONS
-	if (quit)
-	{
-		/* if this is a nested "do", then cut it short */
-		abortdo();
+			/* Locate the front of this line.  We won't look past
+			 * back before this character.
+			 */
+			tmp = dispmove(win, 0L, 0L);
 
-		/* exit, unless we can't write out the file */
-		cursor = v_xit(cursor, 0L, 'Z');
-	}
+			/* scan backward over any whitespace */
+			for (len = markoffset(&to) - markoffset(tmp);
+			     len > 0 && scanprev(&cp) && isspace(*cp);
+			     len--)
+			{
+			}
+			if (cp)
+			{
+					from = *scanmark(&cp);
+					markaddoffset(&from, 1L);
+			}
+			assert(cp || len <= 0);
+			scanfree(&cp);
+
+			/* We can only do the word wrap stuff if the current
+			 * word isn't the line's first word.
+			 */
+			if (len > 0)
+			{
+				/* replace the whitespace with a newline */
+				bufreplace(&from, &to, toCHAR("\n"), 1L);
+				marksetoffset(&to, markoffset(&from) + 1);
+
+				/* handle autoindent */
+				dispindent(win, &to, -1L);
+			}
+		}
+
+		/* remember digraph hints */
+		ii->backsp = '\0';
+		ii->prev = ii->arg;
+		
+		/* If the character was a parenthesis, and the showmatch
+		 * option is set, then try to locate its match.
+		 */
+		if (o_showmatch(win) && CHARchr(toCHAR(")}]"), ii->arg))
+		{
+			from = *cursor;
+			assert(markoffset(cursor) > 0);
+			markaddoffset(cursor, -1);
+			memset((char *)&vinfb, 0, sizeof vinfb);
+			vinfb.command = '%';
+			if (m_absolute(win, &vinfb) == RESULT_COMPLETE)
+			{
+				win->match = markoffset(cursor);
+			}
+			assert(markbuffer(cursor) == markbuffer(&from));
+			*cursor = from;
+		}
+		break;
+
+	  case INP_NEWLINE:
+		cleanup(win, True, False, False);
+		if (!tryabbr(win, '\n'))
+		{
+			ii->arg = '\n';
+			ii->cmd = INP_NORMAL;
+			perform(win);
+			dispindent(win, cursor, -1);
+		}
+		ii->backsp = ii->prev = '\0';
+		break;
+
+	  case INP_TAB:
+		if (!tryabbr(win, '\n'))
+		{
+			switch (o_inputtab(markbuffer(cursor)))
+			{
+			  case 't':
+				/* insert a tab */
+				addchar(cursor, state->top, state->bottom, ii);
+				break;
+
+			  case 's':
+				/* insert enough spaces to look like a tab */
+				col = dispmark2col(win);
+				ii->arg = ' ';
+				do
+				{
+					addchar(cursor, state->top, state->bottom, ii);
+				} while ((++col) % o_tabstop(markbuffer(cursor)) != 0);
+				break;
+
+			  case 'f':
+				/* filename completion */
+
+				/* if at start of input, then fail */
+				if (markoffset(cursor) == markoffset(state->top))
+				{
+					guibeep(win);
+					break;
+				}
+
+				/* locate the previous character */
+				tmp = markdup(cursor);
+				markaddoffset(tmp, -1);
+
+				/* if previous is whitespace, then fail */
+				if (isspace(scanchar(tmp)) || scanchar(tmp) == '(')
+				{
+					markfree(tmp);
+					guibeep(win);
+					break;
+				}
+
+				/* collect the partial name into char array */
+				littlecp = &name.partial[QTY(name.partial)];
+				*--littlecp = '\0';
+				ch = scanchar(tmp);
+				do
+				{
+					*--littlecp = ch;
+					markaddoffset(tmp, -1);
+					ch = (markoffset(tmp) >= markoffset(state->top)) ? scanchar(tmp) : ' ';
+				} while (!isspace(ch) && ch != '(');
+				markaddoffset(tmp, 1);
+
+				/* try to expand the filename */
+				littlecp = iofilename(littlecp, (ch == '(') ? ')' : '\t');
+				if (!littlecp)
+				{
+					markfree(tmp);
+					guibeep(win);
+					break;
+				}
+
+				/* name found -- replace old word with expanded name */
+				for (cp = name.full, col = 0;
+				     (*cp++ = *littlecp++) != '\0'; /* yes, ASSIGNMENT! */
+				     col++)
+				{
+				}
+				bufreplace(tmp, win->state->bottom, name.full, col);
+				marksetoffset(cursor, markoffset(tmp) + col);
+				marksetoffset(win->state->bottom, markoffset(cursor));
+				markfree(tmp);
+			}
+		}
+		ii->backsp = ii->prev = '\0';
+		break;
+
+	  case INP_ONEVI:
+		cleanup(win, True, False, True);
+		vipush(win, ELVIS_ONCE, NULL);
+		ii->backsp = ii->prev = '\0';
+		ii->setbottom = True;
+		break;
+
+	  case INP_MULTIVI:
+		cleanup(win, True, True, True);
+		win->state->flags |= ELVIS_POP;
+		ii->backsp = ii->prev = '\0';
+
+#if 1
+		/* if blank line in autoindent mode, then delete any whitespace */
+		if (o_autoindent(markbuffer(cursor)))
+		{
+			for (from = *dispmove(win,0L,0L), scanalloc(&cp, &from);
+			     cp && (*cp == ' ' || *cp == '\t');
+			     scannext(&cp))
+			{
+			}
+			if (cp && *cp == '\n')
+			{
+				to = *scanmark(&cp);
+				scanfree(&cp);
+				if (markoffset(&to) > markoffset(&from) &&
+				    markoffset(&to) - 1 == markoffset(cursor))
+				{
+					bufreplace(&from, &to, NULL, 0L);
+				}
+			}
+			else
+			{
+				scanfree(&cp);
+			}
+		}
 #endif
+		break;
 
-	rptlines = 0L;
-	return cursor;
+	  case INP_BACKSPACE:
+		ii->backsp = '\0';
+		if (markoffset(win->state->top) < markoffset(cursor))
+		{
+			/* backspace within the newly typed text */
+			markaddoffset(cursor, -1);
+			ii->backsp = ii->prev;
+		}
+		else if (win->state->acton != NULL
+			&& (win->state->flags & ELVIS_1LINE) != 0)
+		{
+			/* backspace out of an ex command line or regexp line */
+			cleanup(win, True, True, True);
+			win->state->flags |= ELVIS_POP;
+			win->state->pop->flags &= ~(ELVIS_MORE | ELVIS_ONCE);
+			if (win->state->pop->perform == _viperform)
+			{
+				viinitcmd((VIINFO *)win->state->pop->info);
+			}
+			ii->backsp = '\0';
+		}
+		else
+		{
+			/* bump into left edge of new text */
+			guibeep(win);
+		}
+		ii->prev = '\0';
+		break;
+
+	  case INP_BACKWORD:
+		if (markoffset(win->state->top) < markoffset(cursor))
+		{
+			/* expect to back up at least one character */
+			markaddoffset(cursor, -1);
+			scanalloc(&cp, cursor);
+
+			/* if on whitespace, then back up to non-whitespace */
+			while (markoffset(win->state->top) < markoffset(win->state->cursor)
+			    && isspace(*cp))
+			{
+				markaddoffset(cursor, -1);
+				scanprev(&cp);
+			}
+
+			/* back up to whitespace */
+			while (markoffset(win->state->top) < markoffset(win->state->cursor)
+			    && !isspace(*cp))
+			{
+				markaddoffset(cursor, -1);
+				scanprev(&cp);
+			}
+
+			/* if we hit whitespace, then leave cursor after it */
+			if (isspace(*cp))
+			{
+				markaddoffset(cursor, 1);
+			}
+			scanfree(&cp);
+		}
+		else
+		{
+			guibeep(win);
+		}
+		ii->backsp = ii->prev = '\0';
+		break;
+
+	  case INP_BACKLINE:
+		/* find the start of this line, or if the cursor is already
+		 * there, then the start of the preceding line.
+		 */
+		tmp = (*win->md->move)(win, cursor, 0, 0, False);
+		if (markoffset(tmp) == markoffset(cursor))
+		{
+			tmp = (*win->md->move)(win, cursor, -1, 0, False);
+		}
+
+		/* move to either the start of the line or the top of the
+		 * edited region, whichever is closer.
+		 */
+		if (markoffset(tmp) > markoffset(win->state->top))
+		{
+			marksetoffset(cursor, markoffset(tmp));
+		}
+		else if (markoffset(state->top) < markoffset(cursor))
+		{
+			marksetoffset(cursor, markoffset(state->top));
+		}
+		else
+		{
+			guibeep(win);
+		}
+		ii->backsp = ii->prev = '\0';
+		break;
+
+	  case INP_SHIFTL:
+	  case INP_SHIFTR:
+		/* build a :< or :> ex command */
+		memset((char *)&xinfb, 0, sizeof xinfb);
+		xinfb.defaddr = *cursor;
+		xinfb.from = xinfb.to = markline(cursor);
+		xinfb.fromaddr = marktmp(from, markbuffer(cursor), lowline(bufbufinfo(markbuffer(cursor)), xinfb.from));
+		xinfb.toaddr = marktmp(to, markbuffer(cursor), lowline(bufbufinfo(markbuffer(cursor)), xinfb.to + 1));;
+		xinfb.command = (ii->cmd == INP_SHIFTL) ? EX_SHIFTL : EX_SHIFTR;
+		xinfb.multi = 1;
+		xinfb.bang = True;
+
+		/* execute the command */
+		len = o_bufchars(markbuffer(cursor)) - markoffset(cursor);
+		assert(len >= 0);
+		(void)ex_shift(&xinfb);
+		ii->backsp = ii->prev = '\0';
+		assert(o_bufchars(markbuffer(cursor)) >= len);
+		marksetoffset(cursor, o_bufchars(markbuffer(cursor)) - len);
+		break;
+
+	  case INP_EXPOSE:
+		drawexpose(win, 0, 0, (int)(o_lines(win) - 1), (int)(o_columns(win) - 1));
+		break;
+
+	  case INP_PREVIOUS:
+	  case INP_AGAIN:
+	  case INP_PUT:
+		cleanup(win, True, False, False);
+
+		/* Copy the text.  Be careful not to change the "top" mark. */
+		from = *state->top;
+		tmp = cutput((ii->cmd == INP_PUT ? '1' : '.'),
+					win, cursor, False, True, True);
+		marksetoffset(state->top, markoffset(&from));
+
+		/* if successful, tweak the "cursor" and "bottom" marks. */
+		if (tmp)
+		{
+			marksetoffset(cursor, markoffset(tmp) + 1);
+			marksetoffset(state->bottom, markoffset(cursor));
+			if (ii->cmd == INP_PREVIOUS)
+			{
+				cleanup(win, True, True, True);
+				state->flags |= ELVIS_POP;
+			}
+		}
+		ii->backsp = ii->prev = '\0';
+		break;
+
+	}
+
+	/* set wantcol to the cursor's current column */
+	win->wantcol = dispmark2col(win);
+
+	/* prepare for next command */
+	ii->cmd = INP_NORMAL;
+
+	return RESULT_COMPLETE;
+}
+
+/* This function parses a command.  This involves remembering whether we're
+ * in the middle of a ^V quoted character, and also recognizing some special
+ * characters.
+ */
+static RESULT parse(key, info)
+	_CHAR_	key;	/* next keystroke */
+	void	*info;	/* current parsing state */
+{
+	INPUTINFO *ii = (INPUTINFO *)info;
+
+	/* parse the input command */
+	if (ii->cmd == INP_HEX1 || ii->cmd == INP_HEX2)
+	{
+		/* convert hex digit from ASCII to binary */
+		if (key >= '0' && key <= '9')
+		{
+			key -= '0';
+		}
+		else if (key >= 'a' && key <= 'f')
+		{
+			key -= 'a' - 10;
+		}
+		else if (key >= 'A' && key <= 'F')
+		{
+			key -= 'A' - 10;
+		}
+		else
+		{
+			/* this command is invalid; prepare for next command */
+			ii->cmd = INP_NORMAL;
+			return RESULT_ERROR;
+		}
+
+		/* merge into arg */
+		if (ii->cmd == INP_HEX1)
+		{
+			ii->arg = (key << 4);
+			ii->cmd = INP_HEX2;
+			windefault->state->mapflags |= MAP_DISABLE;
+			return RESULT_MORE;
+		}
+		else
+		{
+			ii->arg |= key;
+			return RESULT_COMPLETE;
+		}
+	}
+	else if (ii->cmd == INP_DIG1 || ii->cmd == INP_DIG2)
+	{
+		if (ii->cmd == INP_DIG1)
+		{
+			ii->arg = key;
+			ii->cmd = INP_DIG2;
+			windefault->state->mapflags |= MAP_DISABLE;
+			return RESULT_MORE;
+		}
+		else
+		{
+			ii->arg = digraph(ii->arg, key);
+			return RESULT_COMPLETE;
+		}
+	}
+	else if (ii->cmd == INP_QUOTE)
+	{
+		ii->arg = key;
+	}
+	else
+	{
+		ii->arg = key;
+		switch (key)
+		{
+		  case ELVCTRL('@'):	ii->cmd = INP_PREVIOUS;		break;
+		  case ELVCTRL('A'):	ii->cmd = INP_AGAIN;		break;
+		  case ELVCTRL('D'):	ii->cmd = INP_SHIFTL;		break;
+		  case '\177': /* usually mapped to "visual x", else... */
+		  case ELVCTRL('H'):	ii->cmd = INP_BACKSPACE;	break;
+		  case ELVCTRL('I'):	ii->cmd = INP_TAB;		break;
+		  case ELVCTRL('J'):	ii->cmd = INP_NEWLINE;		break;
+		  case ELVCTRL('K'):	ii->cmd = INP_DIG1;		break;
+		  case ELVCTRL('L'):	ii->cmd = INP_EXPOSE;		break;
+		  case ELVCTRL('M'):	ii->cmd = INP_NEWLINE;		break;
+		  case ELVCTRL('O'):	ii->cmd = INP_ONEVI;		break;
+		  case ELVCTRL('P'):	ii->cmd = INP_PUT;		break;
+		  case ELVCTRL('R'):	ii->cmd = INP_EXPOSE;		break;
+		  case ELVCTRL('T'):	ii->cmd = INP_SHIFTR;		break;
+		  case ELVCTRL('U'):	ii->cmd = INP_BACKLINE;		break;
+		  case ELVCTRL('V'):	ii->cmd = INP_QUOTE;		break;
+		  case ELVCTRL('W'):	ii->cmd = INP_BACKWORD;		break;
+		  case ELVCTRL('X'):	ii->cmd = INP_HEX1;		break;
+		  case ELVCTRL('['):	ii->cmd = INP_MULTIVI;		break;
+		  default:		ii->cmd = INP_NORMAL;
+		}
+
+		/* ^V, ^X, and ^K require more keystrokes... */
+		if (ii->cmd == INP_QUOTE || ii->cmd == INP_HEX1 || ii->cmd == INP_DIG1)
+		{
+			windefault->state->mapflags |= MAP_DISABLE;
+			return RESULT_MORE;
+		}
+	}
+
+	/* the command is complete */
+	return RESULT_COMPLETE;
+}
+
+/* This function decides on a cursor shape */
+static ELVCURSOR shape(win)
+	WINDOW	win;	/* window whose shape should be returned */
+{
+	STATE	*state = win->state;
+	INPUTINFO *info = (INPUTINFO *)state->info;
+	MARK	cursor = state->cursor;
+
+	/* if in the middle of ^V, then always CURSOR_QUOTE */
+	if (info->cmd == INP_QUOTE)
+	{
+		state->mapflags &= ~(MAP_INPUT|MAP_COMMAND);
+		return CURSOR_QUOTE;
+	}
+	state->mapflags |= MAP_INPUT;
+
+	/* decide whether to insert or replace */
+	if (markoffset(state->top) <= markoffset(cursor)
+	 && markoffset(cursor) < markoffset(state->bottom))
+	{
+		if (info->setbottom)
+		{
+			marksetoffset(state->bottom, markoffset(cursor));
+			info->setbottom = False;
+			return CURSOR_INSERT;
+		}
+		return CURSOR_REPLACE;
+	}
+	else if (info->replacing && markoffset(cursor) < o_bufchars(markbuffer(cursor)))
+	{
+		if (scanchar(cursor) != '\n')
+		{
+			info->setbottom = False;
+			return CURSOR_REPLACE;
+		}
+	}
+	info->setbottom = False;
+	return CURSOR_INSERT;
+}
+
+
+/* This function pushes a state onto the state stack, and then initializes it
+ * to be either an input or replace state, with the cursor at a given location.
+ * The "mode" argument can be 'R' for replace, or anything else for input.
+ * The input cursor is "cursor", which should generally the result of a
+ * markalloc() or markdup() function call.  Ditto for the top and bottom of
+ * the edit region.
+ */
+void inputpush(win, flags, mode)
+	WINDOW		win;	/* window that should be switched to input mode */
+	ELVISSTATE	flags;	/* flags describing this state */
+	_char_		mode;	/* 'R' for replace, or anything else for insert */
+{
+	/* push the state */
+	flags |= ELVIS_REGION;
+	statepush(win, flags);
+
+	/* initialize the state */
+	win->state->parse = parse;
+	win->state->perform = perform;
+	win->state->shape = shape;
+	win->state->info = safealloc(1, sizeof (INPUTINFO));
+	win->state->mapflags |= MAP_INPUT;
+	if (mode == 'R')
+	{
+		((INPUTINFO *)win->state->info)->replacing = True;
+		win->state->modename = "Replace";
+	}
+	else
+	{
+		((INPUTINFO *)win->state->info)->replacing = False;
+		win->state->modename = " Input ";
+	}
+}
+
+/* This function tweaks the most recent "input" or "replace" state.
+ * The "mode" can be 't' to toggle "input" to "replace" or vice verse,
+ * 'R' to force the mode to be "replace", or anything else to force the
+ * mode to be "input".  This function is called by vi mode's perform()
+ * function.
+ */
+void inputtoggle(win, mode)
+	WINDOW	win;	/* window to be toggled */
+	_char_	mode;	/* 'R' for replace, 't' to toggle, else insert */
+{
+	STATE	*state;
+
+	/* find the most recent "input" or "replace" state */
+	for (state = win->state; state && state->perform != perform; state = state->pop)
+	{
+	}
+	assert(state != NULL);
+
+	/* change the mode */
+	switch (mode)
+	{
+	  case 't':
+		((INPUTINFO *)state->info)->replacing = (BOOLEAN)!((INPUTINFO *)state->info)->replacing;
+		break;
+
+	  case 'R':
+		((INPUTINFO *)state->info)->replacing = True;
+		break;
+
+	  default:
+		((INPUTINFO *)state->info)->replacing = False;
+	}
+
+	if (((INPUTINFO *)state->info)->replacing)
+	{
+		state->modename = "Replace";
+	}
+	else
+	{
+		state->modename = " Input";
+	}
+}
+
+/* This function sets the edit boundaries of an "input" state.  If there
+ * is no input state on the state stack, then this function will push one.
+ * This function is used to implement the <c> operator, among other things.
+ */
+void inputchange(win, from, to, linemd)
+	WINDOW	win;	/* window to be affected */
+	MARK	from;	/* new start of edit bounds */
+	MARK	to;	/* new end of edit bounds */
+	BOOLEAN	linemd;	/* replace old text with a new line? */
+{
+	MARKBUF	tmp;
+	CHAR	ch;
+
+	assert(markbuffer(from) == markbuffer(win->state->cursor));
+	assert(markbuffer(from) == markbuffer(to));
+	assert(markoffset(from) <= markoffset(to));
+
+	/* Was this command issued via <Control-O> from input mode?
+	 * If not, then we'll need to push one.
+	 */
+	if (!win->state->pop)
+	{
+		inputpush(win, 0, 'i');
+	}
+
+	/* replace the last char with '$', if there is a last char
+	 * and it is on the same line.  If it is on a different line,
+	 * then delete the old text.  If from==to, then do nothing.
+	 */
+	if (markoffset(from) == markoffset(to))
+	{
+		/* do nothing */
+	}
+	else if (markoffset(to) > markoffset(dispmove(win, 0, INFINITY)))
+	{
+		/* delete the old text */
+		if (linemd)
+		{
+			if (o_autoindent(markbuffer(from)))
+			{
+				for (ch = scanchar(from);
+				     markoffset(from) < markoffset(to) && (ch == ' ' || ch == '\t');
+				     markaddoffset(from, 1), ch = scanchar(from))
+				{
+				}
+			}
+			bufreplace(from, to, toCHAR("\n"), 1);
+		}
+		else
+		{
+			bufreplace(from, to, NULL, 0);
+		}
+		marksetoffset(to, markoffset(from));
+	}
+	else
+	{
+		/* replace the last character with a '$' */
+		tmp = *to;
+		tmp.offset--;
+		bufreplace(&tmp, to, toCHAR("$"), 1);
+	}
+
+	/* set the edit boundaries and the cursor */
+	marksetbuffer(win->state->top, markbuffer(from));
+	marksetbuffer(win->state->bottom, markbuffer(to));
+	marksetoffset(win->state->top, markoffset(from));
+	marksetoffset(win->state->bottom, markoffset(to));
+	marksetoffset(win->state->cursor, markoffset(from));
+}
+
+
+/* This function is called by statekey() when the user hits <Enter>, before
+ * calling the stratum's enter() function.  This function deletes extra
+ * characters after the cursor, and adjusts the endpoints of the edited
+ * region to make them be whole lines.
+ */
+void inputbeforeenter(win)
+	WINDOW	win;	/* window where <Enter> was just pressed */
+{
+	/* Make sure "win->state->bottom" includes the cursor position */
+	if (markoffset(win->state->bottom) < markoffset(win->state->cursor))
+	{
+		marksetoffset(win->state->bottom, markoffset(win->state->cursor));
+	}
+
+	/* Delete stuff from after the cursor */
+	cleanup(win, True, False, False);
+
+	/* adjust the endpoints of the edited area to be whole lines */
+	marksetoffset(win->state->top,
+		markoffset((*dmnormal.move)(win, win->state->top, 0, 0, False)));
+	marksetoffset(win->state->bottom,
+		markoffset((*dmnormal.move)(win, win->state->bottom, 0, INFINITY, False)));
 }

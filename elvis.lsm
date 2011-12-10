@@ -1,0 +1,20 @@
+Begin3
+Title:          elvis, a clone of the vi text editor
+Version:        2.0
+Entered-date:   29SEP96
+Description:    Major update of the old elvis editor, adding support for
+                multiple edit buffers, multiple windows, a variety of user
+                interfaces (including X-windows), several display modes
+                (including HTML-preview and generic syntax coloring), and
+                online help.
+Keywords:       vi editor HTML syntax-coloring X11
+Author:         kirkenda@cs.pdx.edu (Steve Kirkendall)
+Maintained-by:  
+Primary-site:   ftp.cs.pdx.edu /pub/elvis
+                543k elvis-2.0.tgz
+                781  elvis-2.0.lsm
+Alternate-site: sunsite.unc.edu /pub/Linux/apps/editors
+Original-site:  
+Platforms:      
+Copying-policy: freeware
+End

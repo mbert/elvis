@@ -1,0 +1,971 @@
+<html><head>
+<title>Elvis 2.0 Display Modes</title>
+</head><body>
+
+<h1>7. DISPLAY MODES</h1>
+
+A "display mode" consists primarily of an algorithm that elvis uses
+internally to convert the bytes in a buffer into an image in a window.
+The same algorithm is also used for printing via the "<a href="elvisex.html#lpr">:lpr</a>" command.
+
+<p>The display mode also affects tag lookup, and
+image-dependent operations such as
+determining the column number of the cursor's location, and
+moving the cursor vertically.
+
+<p>You can list the supported display modes by giving the
+"<a href="elvisex.html#display">:display</a>" command without any arguments.
+Typically, the supported modes will include the following:
+
+<pre graphic>
+.--------.----------------------------------------------.
+|  MODE  | DESCRIPTION                                  |
+|--------|----------------------------------------------|
+| <a href="#normal">normal</a> | Traditional vi, displays plain ASCII         |
+| <a href="#syntax">syntax</a> | Like "normal" but does syntax coloring       |
+| <a href="#hex">hex</a>    | Interactive hex dump, good for binary files  |
+| <a href="#html">html</a>   | Simple Web page formatter                    |
+| <a href="#man">man</a>    | Simple Man page formatter, like "nroff -man" |
+^--------^----------------------------------------------^
+</pre>
+
+<p>Elvis 2.0 allows each window to be in a different display mode.
+You can manually change a window's display mode via the
+"<a href="elvisex.html#display">:display <var>mode</var></a>" command, where
+<var>mode</var> is the name of a supported display mode.
+There is also a "<a href="elvisex.html#normal">:no</a>" command,
+which is short for ":display normal".
+
+<h2>7.1 Options</h2>
+
+There are two options which pertain to display modes:
+<a href="elvisopt.html#display">display</a> and
+<a href="elvisopt.html#bufdisplay">bufdisplay.</a>
+
+<p>The <em>display</em> option is associated with a window.
+It always contains the name of the window's current display mode.
+You aren't allowed to change the value of this option directly;
+you must use the ":display <var>mode</var>" command to change the display mode.
+This option exists solely so that you can write EX scripts which behave
+differently, depending on the display mode.
+
+<p>The <em>bufdisplay</em> option is associated with a buffer.
+It should be set to the name of the usual display mode for that buffer.
+Typically this option will be set from the
+<a href="elvisses.html#elvis.arf">elvis.arf</a> initialization file,
+based on the name of the file like this:
+
+<pre>
+	let e=tolower(dirext(filename))
+	if knownsyntax(filename)
+	then set! bufdisplay=syntax
+	else if os=="unix" && buflines >= 1
+	then 1s/^#! *[^ ]*\/\([^ ]\+\).*/set! bufdisplay="syntax \1"/x
+	if e&lt;&lt;4==".htm"
+	then set! bufdisplay=html
+	if e==".man" || e==".1"
+	then set! bufdisplay=man
+	if binary
+	then set! bufdisplay=hex
+</pre>
+When a new window is created for that buffer, or
+an existing window switches to that buffer,
+that window's display mode will automatically be switched to the
+<em>bufdisplay</em> mode.
+
+<p>The <var>bufdisplay</var> mode also affects the <a href="elvisvi.html#^W">^Wd</a>
+visual command.
+This command toggles the window between the normal mode and the
+<em>bufdisplay</em> mode.
+If <em>bufdisplay</em> is also set to "normal", then <kbd>^Wd</kbd> will toggle between
+the normal and hex display modes.
+
+
+<h2><a name="normal"></a>7.2 Normal mode</h2>
+
+The "normal" display mode looks like a traditional vi screen.
+All characters are displayed literally except for the following...
+
+<dl>
+
+<dt>Tab
+<dd>The tab character is displayed as a variable number of spaces --
+however many are needed to move to the next tabstop position.
+
+<dt>Newline
+<dd>The newline character (linefeed) marks the end of a line.
+
+<dt>Other control characters
+<dd>Control characters other than tab and newline are displayed as a caret
+and a printable ASCII character.
+For example Control-A is displayed as ^A, and NUL is displayed as ^@.
+The delete character is displayed as ^?.
+
+<dt>Non-ASCII characters
+<dd>The appearance of non-ASCII characters (i.e., characters 128-255) is
+controlled by the <a href="elvisopt.html#nonascii">nonascii</a> option.
+By default, most non-ASCII characters are assumed to be ordinary printable
+characters.
+
+</dl>
+
+<h2><a name="syntax"></a>7.3 Syntax mode</h2>
+
+The "syntax" display mode acts exactly like the normal mode, except that this
+mode automatically uses different fonts for various types of tokens in any
+supported programming language.
+
+<h3>7.3.1 Options</h3>
+The following options determine which font is used for each type of token:
+<pre graphic>
+.---------------------.------------------------------------------.
+| OPTION NAMES        | AFFECTED TOKEN TYPE                      |
+|---------------------|------------------------------------------|
+| <a href="elvisopt.html#commentfont">commentfont, cfont</a>  | <a href="#comment">comments</a>                                 |
+| <a href="elvisopt.html#stringfont">stringfont, sfont</a>   | <a href="#string">string</a>, <a href="#character">character</a>, and <a href="#regexp">regexp</a> literals   |
+| <a href="elvisopt.html#prepfont">prepfont, pfont</a>     | <a href="#preprocessor">preprocessor</a> directives                  |
+| <a href="elvisopt.html#keywordfont">keywordfont, kfont</a>  | <a href="#keyword">keywords</a>                                 |
+| <a href="elvisopt.html#functionfont">functionfont, ffont</a> | identifier followed by the <a href="#function">function</a> char |
+| <a href="elvisopt.html#otherfont">otherfont, ofont</a>    | <a href="#other">other</a> special words                      |
+| <a href="elvisopt.html#variablefont">variablefont, vfont</a> | variables, fields, etc.                  |
+^---------------------^------------------------------------------^
+</pre>
+
+Each of those options can be set to one of <strong>normal, bold, italic,
+underlined, emphasized,</strong> or <strong>fixed.</strong>
+When typing these values into a <a href="elvisex.html#set">:set</a>
+command line, you are only required to type the initial letter
+(<strong>n, b, i, u, e</strong> or <strong>f</strong>). 
+
+<p>Any text that doesn't fall into one of the above groups (punctuation, mostly)
+is displayed in the <strong>normal</strong> font.
+There is no option that controls this; it is hard coded.
+
+<p>You can use the <a href="elvisex.html#color">:color</a> command to choose a
+color for each font, if you wish.
+Not all user interfaces support color, but the "x11" and "termcap" interfaces
+do.
+
+<h3><a name="elvis.syn"></a>7.3.2 Language specification</h3>
+
+All supported languages are described in a file named "elvis.syn".
+Each time a window switches to the "syntax" display mode,
+elvis scans this file for a description of the language.
+If it can't find a description of the language, then nothing will be
+displayed in a different font;
+"syntax" mode will look exactly like "normal" mode.
+
+<p>The "elvis.syn" file is a text file.
+In it, blank lines and lines which start with a '#' are ignored.
+Other lines begin with the name of an attribute.
+Each language's description begins with an attribute named "language".
+The following lines (up to the next "language" line or the end of the file)
+describe that language.
+
+<p>The attributes names are:
+
+<dl>
+
+<dt>language
+<dd>This word is followed by a whitespace-delimited list of language names.
+The names are case-sensitive, so you should probably give all names in
+lowercase so they're easier for the user to type in.
+The user can indicate which language to use by appending its name to
+the name of the "syntax" display mode.
+For example, ":display syntax c++" causes elvis to highlight the text
+appropriately for C++.
+
+<dt>extension
+<dd>This word is followed by the filename extensions which are commonly used
+for this language.
+If the user doesn't specify which language to load, then elvis scans through
+"elvis.syn" for an extension line which matches the current file name.
+The extension lines must come immediately after the language line.
+
+<dt><a name="keyword"></a>keyword
+<dd>This word is followed by a list of words which should be shown in the
+<a href="elvisopt.html#keywordfont">keywordfont</a> font.
+If omitted, then no words are shown in the keywordfont.
+Long lists can be split into several keyword lines, if you wish.
+Elvis doesn't care about the order of the words, but the list will be
+easier to maintain if you keep it alphabetized.
+
+<p>Elvis supports two forms of keywords...
+<ul>
+<li>Most keywords begin with an alphanumeric character or a character in the
+<a href="#startword">startword</a> list, and continue with zero or more
+characters which are alphanumeric or in the <a href="#inword">inword</a>
+list.
+<li>Rarely, you may find it convenient to have keywords which consist of
+one or two punctuation characters, but which don't match the first form
+of keywords.
+This is mostly so that Perl's <tt>$#</tt> variable won't be displayed as a
+simple dollar sign followed by a comment.
+</ul>
+
+<dt><a name="comment"></a>comment
+<dd>This word is followed by a one- or two-character sequence which marks the
+beginning of a comment.
+The comment is assumed to end at the end of the line.
+Comments are shown in the <a href="elvisopt.htlm#commentfont">commentfont</a>
+font.
+
+<p>It can also be followed by a <strong>pair</strong> of one- or two-character
+sequences which mark the beginning and end of comments which can include
+newlines.
+Elvis allows you to specify one single-line comment style, plus one multi-line
+comment style, for each language.
+
+<dt><a name="preprocessor"></a>preprocessor
+<dd>This word is followed by a single character which, when used at the
+beginning of a line, marks the start of a preprocessor directive.
+For C, this is the # character.
+All preprocessor directives will then be shown in the
+<a href="elvisopt.htmp#prepfont">prepfont</a> font.
+If omitted, nothing is displayed in the prepfont.
+
+<dt><a name="prepquote"></a>prepquote
+<dd>This word is followed by a single character, or a pair of single characters,
+which are used as the quote characters surrounding a file name in a preprocessor
+directive.
+For C, this is the &lt; and &gt; characters.
+The name of the included file will then be displayed using the
+<a href="elvisopt.html#stringfont">stringfont</a> font.
+If omitted, then preprocessor file names will be highlighted as though they were
+arithmetic expressions.
+
+<dt><a name="function"></a>function
+<dd>This word is followed by a single character which, if it appears
+after a word, indicates that the word should be displayed in
+the <a href="elvisopt.html#functionfont">functionfont</a> font.
+For most languages, this will be a ( character.
+If omitted, nothing is displayed in the functionfont.
+
+<dt><a name="startword"></a>startword
+<br><a name="inword"></a>inword
+<dd>These can be followed by a list of punctuation characters which
+may appear at the start of a word, or in the remainder of the word,
+respectively.
+Letters and digits are always legal in words; you don't need to list them.
+
+<dt><a name="other"></a>other
+<dd>This word indicates which types of words should be displayed in the
+<a href="elvisopt.html#otherfont">otherfont</a> font.
+If omitted, nothing is displayed in the otherfont.
+It can be any combination of the following symbols:
+<pre graphic>
+.-------------.-------------------------------------------------.
+| SYMBOL      | HOW TO RECOGNIZE "OTHER" WORDS                  |
+|-------------|-------------------------------------------------|
+| allcaps     | length >= 2 chars, no lowercase characters      |
+| initialcaps | 1st character is uppercase, some are lowercase  |
+| initialpunct| 1st character is punctuation, from "startword"  |
+| mixedcaps   | 1st character is lowercase, some are uppercase  |
+| final_t     | length >= 3 chars, ends with "_t"               |
+^-------------^-------------------------------------------------^</pre>
+
+<dt><a name="string"></a>string
+<dd>This word is followed by a single character, or a pair of single characters, which are used as the quote
+characters surrounding string literals.
+For C, this is the &quot; character.
+String literals will then be displayed using the
+<a href="elvisopt.html#stringfont">stringfont</a> font.
+If omitted, then strings will not be recognized.
+
+<dt><a name="character"></a>character
+<dd>This word is followed by a single character, or a pair of single characters, which are used as the quote
+characters surrounding character literals.
+For C, this is the ' character.
+This is shown using the
+<a href="elvisopt.html#stringfont">stringfont</a> font, like strings.
+When parsing, the only difference between the two is that characters can't
+span lines, but strings can.
+
+<dt><a name="regexp"></a>regexp
+<dd>This word is followed by a list of characters which can be used
+for delimiting a regular expression,
+which some languages support as a means for specifying strings with
+metacharacters.
+(See <a href="elvisre.html">Section 5</a> of this manual for a description of
+elvis' own implementation of regular expressions, which is a typical example.)
+Regular expressions are displayed using the
+<a href="elvisopt.html#stringfont">stringfont</a> font.
+
+<p>Note that <tt>regexp</tt> accepts a list of characters, while
+<tt>string</tt> and <tt>character</tt> support only a single character.
+This is because many programming languages allow the programmer to choose
+from a variety of delimiting characters.
+
+<dt><a name="useregexp"></a>useregexp
+<dd>The most commonly used delimiter for regular expressions is '/',
+which many languages also use as the division operator.
+To avoid mistakenly displaying the division operator as the start of a
+regular expression, elvis must be sensitive to the context in which it
+is used.
+That's what this word is for.
+The <tt>useregexp</tt> word is followed by a list of
+<a href="#keyword">keywords</a> and/or punctuation characters which allow the
+next character to be recognized as a regular expression.
+Additionally, regular expressions are allowed at the start of a line.
+
+<dt><a name="useregsub"></a>useregsub
+<dd>This is used for listing <a href="#keyword">keywords</a> and punctuation
+characters which may be followed by a regular expression
+<em>and then substitution text.</em>
+
+<dt>ignorecase
+<dd>This word should be followed by <strong>true</strong> or <strong>false</strong>.
+If <strong>true</strong>, then elvis won't distinguish between uppercase and
+lowercase letters when testing whether a word is a keyword
+(except that in the elvis.syn file, the keywords should be listed in lowercase).
+If omitted, elvis assumes it should be <strong>false.</strong>
+
+<dt>font
+<dd>This word can be used to cause certain keywords to be displayed in
+some font other than the <a href="elvisopt.html#keywordfont">keywordfont</a>.
+The first word after <tt>font</tt> should be the name of the font
+(<strong>normal, fixed, bold, emphasized, italic,</strong> or <strong>underlined</strong>) or a one-letter
+abbreviation of a font name.
+The line's remaining words are keywords which will be displayed in that font.
+</dl>
+
+<h3>7.3.3 Example</h3>
+
+The <a href="elvis.syn">elvis.syn</a> file shipped with elvis contains some
+good examples of language descriptions.
+Here's an excerpt from it, describing the Java language.
+<pre>
+language java
+extension .java .jav
+keyword abstract boolean break byte byvalue case cast catch char
+keyword class const continue default do double else extends false
+keyword final finally float for future generic goto if implements
+keyword import inner instanceof int interface long native new null
+keyword operator outer package private protected public rest return
+keyword short static super switch synchronized this throw throws
+keyword transient true try var void volatile while
+comment	//
+comment /* */
+function (
+string "
+character '
+startword _
+inword _
+other allcaps initialcaps</pre>
+
+<p>There is no preprocessor line, because java doesn't use a preprocessor.
+The "allcaps" and "initialcaps" symbols are given so that constants and class
+names will be shown in the <a href="elvisopt.html#otherfont">otherfont.</a>
+
+<h2><a name="hex"></a>7.4 Hex mode</h2>
+
+The "hex" display mode is an interactive hex dump of the buffer.
+This is good for examining or editing binary files.
+
+<p>One handy feature is the ability to enter characters in hex
+(either in <a href="elvisinp.html">input mode</a> or as the argument to an
+<a href="elvisvi.html#r">r</a> visual command)
+by typing <kbd>^X</kbd> followed by two hex digits.
+This feature is always available regardless of the display mode...
+but this is where is it most useful.
+
+
+<h2><a name="html"></a>7.5 HTML mode</h2>
+
+HTML is the language used for constructing pages on the World Wide Web.
+Elvis' "html" display mode supports a subset of HTML, which it uses for
+displaying the online help documentation (including this very document).
+
+<p>HTML is a markup language.
+This means that documents contain a mixture of text and formatting instructions.
+In HTML there are two types of instructions, called <a href="#htmltags">tags</a>
+and <a href="#htmlentities">entities.</a>
+When the document is processed by a program such as Netscape or elvis (in
+html mode), the tags are are stripped out, the entities are converted to
+a kind of text, and the text is formatted and presented to the user.
+Ordinarily the user will never see the tags.
+
+<p>Since elvis is primarily an editor, not a viewer, it has two options which
+allow the tags to become visible:
+the <a href="elvisopt.html#showmarkups">showmarkups</a> option causes a tag to become
+visible if the cursor is moved onto it, and
+the <a href="elvisopt.html#list">list</a> option makes all tags visible
+regardless of the cursor position.
+
+<p>There are a lot of good "How To Use HTML" documents on the Net.
+<em>This is not one of them!</em>
+I don't intend to do much more than describe the quirks of elvis'
+implementation of HTML here.
+
+<p>I added HTML support to elvis mostly to support the online help.
+Consequently, if a feature is hard to implement and the online documentation
+doesn't use it, then I didn't implement that feature.
+
+<h3><a name="htmltags"></a>7.5.1 Formatting tags</h3>
+
+Elvis supports the following HTML tags.
+Unsupported tags are silently ignored.
+
+<dl>
+
+<dt>&lt;html&gt; ... &lt;/html&gt;
+<dd>The entire document should be enclosed in these tags.
+They don't actually do anything to help format the document,
+but they may help programs recognize that the document is in fact written in
+HTML.
+
+<dt>&lt;head&gt; ... &lt;/head&gt;
+<dd>These should be used to bracket the document's header, if it has one.
+
+<dt>&lt;title&gt; ... &lt;/title&gt;
+<dd>These tags are only legal in the document's header.
+Any text between the 
+&lt;title&gt; and &lt;/title&gt; tags will be stored internally as the
+title of the document.
+If you print the document, elvis will display the title at the top of each
+page.
+
+<dt>&lt;body&gt; ... &lt;/body&gt;
+<dd>These should be used to bracket the body of the document.
+They don't actually do anything in elvis, but real Web browsers such as
+Netscape allow you to specify backgrounds and patterns via BGCOLOR=... and BACKGROUND=...
+arguments, respectively.
+
+<dt>&lt;h1&gt; ... &lt;/h1&gt;
+<dd>These tags bracket the most visible type of section header.
+Elvis displays &lt;h1&gt; ... &lt;/h1&gt; headers in boldface,
+flush against the left edge of the page.
+When printing, these headers cause a page break.
+
+<dt>&lt;h2&gt; ... &lt;/h2&gt;
+<dd>These bracket the second most visible type of section header.
+Elvis displays &lt;h2&gt; ... &lt;/h2&gt; headers in boldface,
+indented slightly from the left edge.
+When printing, these may cause a page break if they would otherwise appear
+near the bottom of a page.
+
+<dt>&lt;h3&gt; ... &lt;/h3&gt;
+<dd>These bracket the third most visible type of section header.
+Elvis displays them in boldface, indented fully from the left edge so
+that it lines up with normal text.
+
+<dt>&lt;h4&gt;...&lt;/h4&gt;
+<br>&lt;h5&gt;...&lt;/h5&gt;
+<br>&lt;h6&gt;...&lt;/h6&gt;
+<dd>These are very minor section headers.
+Conventional wisdom says that if you're using this many section headers then
+you would probably do better to split your document into several smaller
+documents.
+Elvis displays these headers in an italic font.
+
+<dt>&lt;p&gt;
+<dd>This tag should be placed at the start of each normal paragraph,
+with the possible exception of the first paragraph after a section header.
+It causes a blank line to be generated, and any later text to appear starting
+on a new line.
+
+<dt>&lt;br&gt;
+<dd>This causes any later text to appear starting on a new line.
+It differs from &lt;p&gt; in that &lt;br&gt; doesn't output a blank line.
+
+<dt>&lt;hr&gt;
+<dd>This outputs a "horizontal rule" -- a line all the way across the page.
+
+<dt>&lt;img alt=...&gt;
+<dd>Elvis can't display graphics, but if it encounters an &lt;img&gt; tag
+which has an alternate text form (as denoted by an img="text" parameter)
+then it'll display the alternate text.
+Otherwise elvis will display the entire tag, even if all other tags are hidden.
+
+<dt>&lt;blockquote&gt; ... &lt;/blockquote&gt;
+<dd>This is used to mark a large chunk text which is quoted from another source.
+Elvis will indent the enclosed text.
+
+<dt>&lt;pre&gt; ... &lt;/pre&gt;
+<dd>This brackets text which has already been preformatted by the document's author.
+Elvis will treat tabs and newlines literally.
+(Outside of &lt;pre&gt; ... &lt;/pre&gt;, they would normally be treated like
+spaces.)
+This has been used for presenting tables, poetry, and source code examples.
+
+<p>In fact, elvis has an extension that is useful for tables:
+If you start with &lt;pre graphic&gt; then elvis will convert certain
+characters into graphic line-drawing characters.
+When adjacent to a hyphen character, the hyphen, period, caret are converted
+into appropriate graphic characters.
+Additionally, the vertical bar character is always converted to a graphic
+character.
+The following was done with a plain &lt;pre&gt;...
+<pre>
+.--.--.
+|--|--|
+|  |  |
+^--^--^
+</pre>... and this was done with &lt;pre graphic&gt;...
+<pre graphic>
+.--.--.
+|--|--|
+|  |  |
+^--^--^
+
+<dt>&lt;table&gt;...&lt;/table&gt;
+<br>&lt;tr&gt;...&lt;/tr&gt;
+<br>&lt;th&gt;...&lt;/th&gt;
+<br>&lt;td&gt;...&lt;/td&gt;
+<dd>These are used for implementing tables in HTML 3.0.
+Each table should be enclosed in a &lt;table&gt;...&lt;/table&gt; pair.
+Within the table, each row should be delimited with a &lt;tr&gt;...&lt;/tr&gt; pair.
+Within each row, the information for each column should be enclosed in
+either a &lt;th&gt;...&lt;/th&gt; pair for headers,
+or a &lt;td&gt;...&lt;/td&gt; pair for data.
+
+<p>Elvis doesn't really support these tags very well.
+Only the bare essentials of these commands have been implemented.
+They are intended to make tables recognizable as being tables,
+but not necessarily make them easy to read.
+
+<dt>&lt;dir&gt;...&lt;/dir&gt;
+<br>&lt;xmp&gt;...&lt;/xmp&gt;
+<dd>These are treated almost exactly like &lt;pre&gt; ... &lt;/pre&gt;.
+There are supposed to be some differences, but elvis doesn't support those differences.
+
+<dt>&lt;dl&gt; ... &lt;/dl&gt;
+<dd>These are used to bracket a list of definitions.
+The definitions themselves are marked with the &lt;dt&gt; and &lt;dd&gt;
+tags, described below.
+
+<dt>&lt;dt&gt;
+<dd>The text after this tag is used as a term to be defined.
+Elvis displays this text in bold face, indented by the same amount as
+normal text.
+This is only legal in a &lt;dl&gt;...&lt;/dl&gt; pair.
+
+<dt>&lt;dd&gt;
+<dd>The text after this tag is used as the definition of a term.
+Elvis displays it in the normal font, indented somewhat more than
+normal text or the &lt;dt&gt; text.
+This is only legal in a &lt;dl&gt;...&lt;/dl&gt; pair.
+
+<dt>&lt;ol&gt; ... &lt;/ol&gt;
+<dd>These are used to enclose an ordered list.
+The official specifications say that lists may be nested inside one another,
+but elvis doesn't allow ordered lists to appear inside any other type of list.
+If a document uses &lt;ol&gt; ... &lt;/ol&gt; inside another list,
+then elvis will act as though  &lt;ul&gt; ... &lt;/ul&gt; had been used instead.
+This means that the list items will be marked with bullets instead of numbers.
+Within the list, &lt;li&gt; tags are used to mark the items.
+
+<dt>&lt;ul&gt; ... &lt;/ul&gt;
+<dd>These enclose an unordered list.
+Each item in the list should be marked with a &lt;li&gt; tag.
+
+<dt>&lt;menu&gt; ... &lt;/menu&gt;
+<dd>These enclose an unordered list, like &lt;ul&gt; ... &lt;/ul&gt;,
+but other Web readers may display &lt;menu&gt; ... &lt;/menu&gt; lists
+in a more compact manner.
+
+<dt>&lt;li&gt;
+<dd>This is used to mark the start of a new item in a list.
+
+<dt>&lt;input type=... size=... value=...&gt;
+<br>&lt;textarea cols=...&gt;
+<dd>Elvis can display a mockup of a form, so you can have some idea of how
+the form would look on a real browser.
+<strong>The forms won't really work in elvis!</strong>
+Elvis displays forms for the sole purpose of helping you define the form layout.
+Buttons are displayed as reverse-video characters,
+and text input areas are displayed as underlined spaces.
+The &lt;textarea&gt; image is always 3 rows high, regardless of any rows=...
+value you supply.
+
+<dt>&lt;a&gt; ... &lt;/a&gt;
+<dd>There are two forms of this tag:
+&lt;a href=<var>URL</var>&gt;...&lt;/a&gt; to mark the source of a hypertext
+link, and
+&lt;a name=<var>name</var>&gt;&lt;/a&gt; to mark the destination of a hypertext
+link.
+
+<p>Elvis doesn't support non-local URLs.
+The URL can only contain a filename and/or the name (prefixed by a '#' character) of some &lt;a name=<var>name</var>&gt;&lt;/a&gt; tag.
+
+<dt>&lt;cite&gt; ... &lt;/cite&gt;
+<dd>These enclose a citation.  Elvis displays the citation in italics.
+
+<dt>&lt;dfn&gt; ... &lt;/dfn&gt;
+<dd>These enclose a term that is being defined.  Elvis displays the term
+in italics.
+Netscape doesn't support this tag, so you should probably avoid it.
+Use &lt;em&gt; ... &lt;/em&gt; instead.
+
+<dt>&lt;em&gt; ... &lt;/em&gt;
+<dd>These enclose text which should be emphasized some way.
+Elvis displays the text in (you guessed it) italics.
+
+<dt>&lt;kbd&gt; ... &lt;/kbd&gt;
+<dd>These enclose text which the user might want to type into the computer
+some day.
+Elvis displays this text in boldface.
+
+<dt>&lt;strong&gt; ... &lt;/strong&gt;
+<dd>These enclose text which should be emphasized a heck of a lot.
+Elvis displays this text in boldface.
+
+<dt>&lt;var&gt; ... &lt;/var&gt;
+<dd>These enclose text which indicates where some variable argument is to be
+placed.  Elvis displays this text in italics.
+
+<dt>&lt;address&gt; ... &lt;/address&gt;
+<dd>These enclose an address.  Elvis displays the address in italics.
+Note that this is typically used for e-mail addresses and Web URLs,
+not postal addresses.
+
+<dt>&lt;b&gt; ... &lt;/b&gt;
+<dd>The enclosed text is displayed in bold.
+The &lt;strong&gt; ... &lt;/strong&gt; tags are the preferred, if you really
+want to emphasize text.
+
+<dt>&lt;i&gt; ... &lt;/i&gt;
+<dd>The enclosed text is displayed in italics.
+The &lt;em&gt; ... &lt;/em&gt; tags are the preferred, if you really
+want to emphasize text.
+
+<dt>&lt;u&gt; ... &lt;/u&gt;
+<dd>The enclosed text is displayed underlined.
+You should avoid using this tag, because underlining is also used to
+indicate hypertext links.  The &lt;u&gt; ... &lt;/u&gt; text would look like
+a hypertext link but wouldn't work like one.
+
+<dt>&lt;tt&gt; ... &lt;/tt&gt;
+<dd>The enclosed text is displayed in normal font.
+Other HTML readers make the distinction of displaying the text in a
+<em>monospaced</em>
+normal font, but since elvis always uses monospaced fonts, the distinction is
+lost.
+These tags are typically used for marking computer commands when they're
+mentioned in the body of a paragraph.
+
+</dl>
+
+<p>Note that most of these tags come in pairs, and the ending tag's name
+includes a '/' character.
+Elvis doesn't verify that the pairs match up correctly.
+Because of this, I strongly suggest that you preview your document using
+a more powerful HTML viewer such as Netscape before sharing it with the
+world.
+
+
+<h3><a name="htmlentities"></a>7.5.2 Character entities</h3>
+
+Most text characters can be given literally in an HTML file,
+but some need special treatment.
+The most notable are &lt;, &gt;, &amp;, and non-ASCII characters.
+HTML uses character entities to support them.
+
+<p>Many of the entities are automatically derived from the digraph table.
+If you don't know about digraphs, you should look up the
+<a href="elvisex.html#digraph">:digraph</a> command, and the discussion
+on how to use them in <a href="elvisinp.html">input mode.</a>
+
+<p>Elvis supports the following character entities:
+
+<dl>
+
+<dt>&amp;lt; or &amp;LT;
+<dd>The &lt; character.
+
+<dt>&amp;gt; or &amp;GT;
+<dd>The &gt; character.
+
+<dt>&amp;amp; or &amp;AMP;
+<dd>The &amp; character.
+
+<dt>&amp;quot; or &amp;QUOT;
+<br>&amp;ldquo; or &amp;LDQUO;
+<br>&amp;rdquo; or &amp;RDQUO;
+<dd>The &quot; character.
+
+<dt>&amp;lsquo; or &amp;LSQUO;
+<dd>The &lsquo; character.
+
+<dt>&amp;rsquo; or &amp;RSQUO;
+<dd>The &rsquo; character.
+
+<dt>&amp;nbsp; or &amp;NBSP;
+<dd>A non-breaking space.
+This is displayed as a space character.
+It differs from plain old whitespace in that &amp;nbsp; can't be converted
+into a line break.
+
+<dt>&amp;copy; or &amp;COPY;
+<dd>The copyright symbol (&copy;).
+Elvis looks for a digraph which combines the letters c and O.
+If there is no such digraph, then elvis uses c.
+
+<dt>&amp;reg; or &amp;REG;
+<dd>The registered trademark symbol (&reg;).
+Elvis looks for a digraph which combines the letters r and O.
+If there is no such digraph, then elvis uses r.
+
+<dt>&amp;AELIG;
+<dd>A digraph combining the letters A and E.
+If no such digraph has been defined, then elvis will display E.
+
+<dt>&amp;aelig;
+<dd>A digraph combining the letters a and e.
+If no such digraph has been defined, then elvis will display e.
+
+<dt>&amp;ETH;
+<dd>A digraph combining a hyphen and the letter D.
+
+<dt>&amp;eth;
+<dd>A digraph combining a hyphen and the letter d.
+
+<dt>&amp;THORN;
+<dd>A digraph combining the letters T and P, or just plain P if there
+is no such digraph.
+
+<dt>&amp;thorn;
+<dd>A digraph combining the letters t and p, or just plain p if there
+is no such digraph.
+
+<dt>&amp;szlig;
+<dd>A digraph combining the letters s and z, or just plain z if there
+is no such digraph.
+
+<dt>&amp;<var>letter</var>grave;
+<dd>A digraph combining the ` and <var>letter.</var>
+
+<dt>&amp;<var>letter</var>acute;
+<dd>A digraph combining the ' and <var>letter.</var>
+
+<dt>&amp;<var>letter</var>circ;
+<dd>A digraph combining the ^ and <var>letter.</var>
+
+<dt>&amp;<var>letter</var>tilde;
+<dd>A digraph combining the ~ and <var>letter.</var>
+
+<dt>&amp;<var>letter</var>uml;
+<dd>A digraph combining the " and <var>letter.</var>
+
+<dt>&amp;<var>letter</var>ring;
+<dd>A digraph combining the * and <var>letter.</var>
+
+<dt>&amp;<var>letter</var>cedil;
+<dd>A digraph combining the , and <var>letter.</var>
+
+<dt>&amp;<var>letter</var>slash;
+<dd>A digraph combining the / and <var>letter.</var>
+
+<dt>&amp;#<var>number</var>;
+<dd>The character whose ordinal value is <var>number.</var>
+This should be avoided, because you can't be sure which symbol set will be used
+when somebody else views the document.
+Some documents use &amp;#160; which is a "hard" space in the ISO Latin-1
+character set, but they should really use &amp;nbsp;.
+
+</dl>
+
+<p>If your document uses a character entity which elvis doesn't support,
+then elvis will not convert that entity into a single character;
+instead, it will be displayed literally.
+
+<p>If elvis looks for a digraph containing a punctuation character and
+a letter, and no such digraph has been defined, then elvis will use the
+plain ASCII letter.
+
+<h3>7.5.3 Using hypertext</h3>
+
+<p>The HTML hypertext has been implemented as a variation on the standard
+vi :tag command.
+Consequently, all of the wonderful commands that elvis offers for browsing
+C source code can also be used for browsing HTML documents.
+
+<p>In EX mode, you can use <a href="elvisex.html#tag">:tag <var>URL</var></a>
+to pursue a hypertext reference, and <a href="elvisex.html#pop">:pop</a> to come back afterward.
+
+<p>In VI mode, you can move the cursor onto the underlined text which
+denotes a hypertext reference, and hit <a href="elvisvi.html#^]">^]</a> to
+pursue the reference, and <a href="elvisvi.html#^T">^T</a> to come back
+afterward.
+Also, when in html mode the <kbd>Tab</kbd> key searches forward for
+the next hypertext reference, and the <kbd>Enter</kbd> key performs tag
+lookup just like the <kbd>^]</kbd> key.
+
+<p>If you're using the "x11" user interface, then you can double-click
+button 1 to follow a hypertext reference, and double-click button 3 to
+come back afterward.  This also works under Win32, because the Win32
+version of the "termcap" interface supports the mouse.
+
+<h2><a name="man"></a>7.6 Man mode</h2>
+
+The man display mode uses a markup language,
+as does the <a href="#html">html</a> display mode.
+The difference is that the man display mode's markup language resembles
+that of "troff -man".
+It is used for formatting entries in the UNIX user manuals.
+
+<p>Elvis supports only a tiny subset of the troff commands and -man macros.
+It is adequate for a surprising number of man pages, though.
+The most notable failing is the lack of number/string registers.
+
+<p>Commands which start with a "." are only recognized at the start of a line.
+The remainder of the line is used as arguments to the command.
+Commands which start with a "\" are recognized anywhere.
+
+<dl>
+
+<dt>.\" <var>comment</var>
+<dd>Elvis ignores any text on a .\" command line.
+
+<dt>.TH <var>name section</var>
+<dd>This command should appear at the top of the man page.
+It declares the name of the program to be described,
+and the section of the manual where it should appear.
+User programs are usually documented in section 1.
+
+<dt>.SH <var>name</var>
+<dd>The <var>name</var> is displayed as a section header.
+If <var>name</var> contains whitespace, then it should be enclosed in quotes.
+Man pages usually have sections named NAME, SYNOPSIS, DESCRIPTION,
+OPTIONS, FILES, ENVIRONMENT, "SEE ALSO", BUGS, and AUTHOR,
+in that order.
+The "elvis.man" file is a typical example.
+
+<dt>.SS <var>name</var>
+<dd>The <var>name</var> is displayed as a subsection header.
+If <var>name</var> contains whitespace, then it should be enclosed in quotes.
+Man pages rarely use subsections.
+
+<dt>.B <var>text</var>
+<dd>The text is displayed in boldface.
+
+<dt>.I <var>text</var>
+<dd>The text is displayed in italics.
+
+<dt>.SM <var>text</var>
+<dd>Troff would display the text in a slightly smaller font.
+Elvis doesn't support multiple font sizes, though, so it simply outputs the
+text.
+
+<dt>.RB <var>text1 text2 ...</var>
+<br>.BR <var>text1 text2 ...</var>
+<br>.RI <var>text1 text2 ...</var>
+<br>.IR <var>text1 text2 ...</var>
+<br>.BS <var>text1 text2 ...</var>
+<br>.SB <var>text1 text2 ...</var>
+<dd>These output the argument text, alternating between two fonts.
+For example, .BR outputs the first argument word in boldface,
+the second in normal (a.k.a. Roman), the third in boldface again, and so on.
+The "S" font is supposed to be small, but elvis uses the normal font for that.
+All whitespace is removed from between the argument words.
+
+<dt>.IP <var>label</var>
+<dd>This starts an indented paragraph.  The <var>label</var>, if given,
+is output before the paragraph, and without indentation.
+This is typically used for presenting a term (the label) and its definition
+(the paragraph).
+
+<dt>.TP</var>
+<dd>This starts a hanging paragraph.
+That's like a .IP indented paragraph, except the label is declared on the
+line following the command, instead of on the command line itself.
+The body of the paragraph starts on the second line after the command line.
+
+<dt>.P
+<br>.LP
+<dd>Either of these will start a regular paragraph.
+
+<dt>.RS
+<br>.RE
+<dd>These start and end a relative indentation, respectively.
+In other words, .RS increases the indentation of any subsequent text,
+and .RE reduces indentation.
+
+<dt>.br
+<dd>This causes a line break.
+
+<dt>.sp
+<dd>This causes a line break, and then leaves a blank line.
+
+<dt>.nf
+<br>.fi
+<dd>These turn "fill mode" off and on, respectively.
+When fill mode is turned off, elvis will perform much less formatting.
+It is similar to the &lt;pre&gt;...&lt;/pre&gt; tags in HTML.
+
+<dt>.DS
+<br>.DE
+<dd>These mark the beginning and end of a "display."
+Inside the display, "fill mode" is turned off, just as it is for the .fi
+and .nf markups.
+The real troff tries to avoid page-breaks inside a display, but elvis isn't
+that smart.
+
+<dt>\e
+<dd>This is replaced by the backslash character.
+
+<dt>\|
+<br>\&
+<dd>These are deleted.
+If you ever feel a need to put a period at the start of a line, and don't
+want it to be treated like a command line, then put \&. in your file.
+The \& will prevent the period from being interpreted as the start of a
+command line, but will not show in the output.
+
+<dt>\fB
+<br>\f1
+<dd>Switch to boldface.
+
+<dt>\fI
+<br>\f2
+<dd>Switch to italics.
+
+<dt>\fR
+<br>\f0
+<dd>Switch to the normal font.
+
+<dt>\fP
+<dd>Switch to the default font for this context.
+That's boldface in headings, and normal the rest of the time.
+Actually, \fP is supposed to switch to the "previous" font, whatever that
+was, but elvis doesn't do it that way.
+
+<dt>\*
+<br>\n
+<dd>In the real troff, these are used for accessing the value of a string
+or numeric register, respectively.
+Elvis doesn't support registers; it'll just display the \* or \n expression
+literally.
+
+<dt>\<var>character</var>
+<dd>When <var>character</var> is something other than one of the above,
+output the <var>character</var>.
+In particular, \\ outputs a single backslash.
+
+</dl>
+
+<p>
+Troff source was never designed to be interactively edited, and although
+I did the best I could, attempting to edit in "man" mode is still a
+disorienting experience.
+I suggest you get in the habit of using "normal" mode
+when making changes, and "man" mode to preview the effect of those changes.
+The <a href="elvisvi.html#^Wd">^Wd</a> command makes switching between modes 
+a pretty easy thing to do.
+
+<p>Unrecognized commands which start with "." are silently ignored.
+
+<p>Unrecognized commands which start with "\" will be output without the
+initial "\" character.
+This falls far short of the ideal, but there are just too many weird
+escapes to bother implementing in something that isn't being advertised
+as a troff clone.
+(NOTE: Elvis is not a troff clone.)
+
+<p>A tip: If your document contains sequences which look like \*X or \*(XY
+(for any characters X and Y), then it is trying to use defined strings.
+Look for a ".ds X foo" command near the top of the document to find out what
+that string is supposed to look like.
+The string \*(bu is a bullet character.
+
+</body></html>
