@@ -28,7 +28,7 @@ Output tag info, instead of the function header.
 The tag info consists of the three standard fields from each tag.
 The fields will be separated by tab characters, just like records from the
 traditional tags file format.
-Consequently, you can use "ref -t -a >oldtags" to convert a new-style tags file
+Consequently, you can use "ref \-t \-a >oldtags" to convert a new-style tags file
 back to an old-style tags file.
 .IP \fB-v\fR
 Output verbose tag info, instead of the function header.
@@ -160,10 +160,10 @@ I needed to generate extern declarations for all the functions.
 To find the global function headers, I used the command...
 .nf
 
-		ref -a kind:f file:dummy
+		ref \-a kind:f file:dummy
 .fi
 .PP
-The "-a" causes
+The "\-a" causes
 .B ref
 to output all headers, instead of just the first one that it finds.
 "kind:f" causes it to exclude any non-functions.
@@ -184,7 +184,7 @@ For each source file, I also needed to find the static functions defined
 there, so for each "file.c" I used the command...
 .nf
 
-		ref -a kind:f file:=file.c
+		ref \-a kind:f file:=file.c
 .fi
 .PP
 This is very similar to the earlier command.

@@ -10,6 +10,8 @@ then {
  if os=="unix" && buflines >= 1
  then {
   try 1s/\V^#! *[^ ]*\/\([^ ]\+\).*/set! bufdisplay="syntax \1"/x
+  if bufdisplay=="syntax env"
+  then try 1s/\V^#! *[^ ]*\/[^ ]\+ \([^ ]\+\).*/set! bufdisplay="syntax \1"/x
   if bufdisplay<<11=="syntax perl"
   then set! bufdisplay="syntax perl"
   if bufdisplay<<12=="syntax tclsh"

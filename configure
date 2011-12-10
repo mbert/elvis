@@ -644,7 +644,7 @@ case "$SYS" in
 	TLIBS="-lcurses"
 	;;
 
-  *linux*)
+  *linux* | *kfreebsd*)
 	if [ ! -f /usr/lib/libtermcap.a -a ! -f /lib/libtermcap.a ]
 	then
 		if [ -f /usr/lib/libncurses.a -o -f /usr/lib/ncurses.a ]

@@ -184,7 +184,7 @@ ex mode instead of vi mode, and "view" causes the files to be treated
 as readonly.
 <p>
 Also, if the <a href="elvisopt.html#home">home</a> option is unset,
-then this tries to set it to the directory containing elvis.
+then this tries to set it to the directory containing Elvis.
 Generally, some OS-specific code will set <code>home</code> appropriately
 before we get here, so this code isn't normally needed.
 
@@ -194,7 +194,7 @@ before we get here, so this code isn't normally needed.
 	then source! (elvispath("elvis.spe"))
 </pre>
 This initializes the <a href="elvistip.html#spell">spell checker</a>,
-if that feature is supported in this version of elvis.
+if that feature is supported in this version of Elvis.
 
 <pre>
 	" IF ALIASES ARE SUPPORTED, THEN LOAD THE DEFAULT ALIASES
@@ -202,7 +202,7 @@ if that feature is supported in this version of elvis.
 	then source! (elvispath("elvis.ali"))
 </pre>
 This loads some standard aliases, if the alias feature is supported by
-this version of elvis, and elvis isn't being used as a "restricted" editor.
+this version of Elvis, and Elvis isn't being used as a "restricted" editor.
 
 <pre>
 	" SYSTEM TWEAKS GO HERE
@@ -526,7 +526,7 @@ contents automatically for MS-DOS, OS/2 and text-mode Win32.
 <a href="elvistip.html#EXAMPLES">described in the Tips chapter</a>.
 If your copy of Elvis is configured to support aliases (and all versions are,
 except for MS-DOS) then this file will be automatically loaded via the
-<a href="elvis.ini">elvis.ini</a> script, each time you run Elvis.
+<a href="#elvis.ini">elvis.ini</a> script, each time you run Elvis.
 
 <dt><a name="elvis.msg">elvis.msg</a>
 <dd>This file stores a translation table, which allows you to customize

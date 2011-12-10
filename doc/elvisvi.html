@@ -904,10 +904,12 @@ or the start of a section as described below.
 <dt>[[
 <br>]]
 <dd><a name="obra"></a><a name="cbra"></a>
-These commands move backward or forward to the start of a section.
-The start of a section is defined to be '{' character in column 1 of a line;
-or a troff section command listed in the value of the
-<a href="elvisopt.html#sections">sections</a> option.
+These commands move backward or forward to the start of a section. The
+start of a section is defined to be a troff section command listed in
+the value of the <a href="elvisopt.html#sections">sections</a> option,
+or a '{' character that is preceded by unindented text unless the <a
+href="elvisopt.html#tweaksection">tweaksection</a> option is turned
+off, in which case the '{' character must appear in column 1.
 
 <p>Note: There are also <a href="#recbegin">[key</a> and
 <a href="#recend">]key</a>
@@ -1316,10 +1318,8 @@ If the cursor isn't on a word that looks like a number, then the command fails.
 If no <var>count</var> is given, then 1 is assumed.
 If the <var>key</var> is "-" then <var>count</var> is subtracted from the
 number.
-If the <var>key</var> is "+" or "#" then <var>count</var> is added to the
-number.
 If the <var>key</var> is "=" then the word is changed to <var>count</var>.
-Any other <var>key</var> causes the command to fail.
+Any other <var>key</var> will add <var>count</var> to the number.
 
 <dt><var>count</var> &amp;
 <dd><a name="amp"></a>

@@ -84,7 +84,7 @@ and regular expressions for anything else.
 .IP \fB-g\fR
 For static tags, generate entries that look like global tags.
 (I.e., never generate an extra "file:" attribute.)
-This implies -s and -h.
+This implies \-s and \-h.
 .IP \fB-i\fR
 Include inline definitions.
 A tag will be generated for each function which is declared as being
