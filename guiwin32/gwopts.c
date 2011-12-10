@@ -297,4 +297,4 @@ int optiswinsize (OPTDESC *opt, OPTVAL *val, Char *newval)
 }
 
 #endif
-
+/* ex:se ts=4 sw=4: */

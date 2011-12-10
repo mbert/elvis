@@ -1,8 +1,14 @@
 @echo off
 
 echo Checking environment...
-if exist \msdev\bin\vcvars32 if "%INCLUDE%"=="" call \msdev\bin\vcvars32
+if "%INCLUDE%"=="" goto EnvNeeded
+echo Environment variables already set
+goto EnvDone
+:EnvNeeded
+if exist \msdev\bin\vcvars32.bat call \msdev\bin\vcvars32
+if exist "C:\Program Files\Microsoft Visual Studio\VC98\Bin\vcvars32.bat" call "C:\Program Files\Microsoft Visual Studio\VC98\Bin\vcvars32"
 if "%INCLUDE%"=="" call vcvars32
+:EnvDone
 
 echo Configuring...
 if not exist make.bat copy makwin32.bat make.bat

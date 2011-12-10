@@ -1,7 +1,7 @@
 /* guicurs.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_guicurs[] = "$Id: guicurs.c,v 2.18 1997/11/23 19:54:15 steve Exp $";
+char id_guicurs[] = "$Id: guicurs.c,v 2.19 1999/02/06 22:26:40 steve Exp $";
 
 #define WINDOW elviswin
 #include "elvis.h"
@@ -227,7 +227,7 @@ static BOOLEAN creategw(name, firstcmd)
 	if (firstcmd)
 	{
 		winoptions(winofgw((GUIWIN *)newp));
-		exstring(windefault, toCHAR(firstcmd));
+		exstring(windefault, toCHAR(firstcmd), "+cmd");
 	}
 
 	return True;

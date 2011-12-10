@@ -1,6 +1,6 @@
 /* xdialog.c */
 
-char id_xdialog[] = "$Id: xdialog.c,v 2.17 1998/07/31 04:56:36 steve Exp $";
+char id_xdialog[] = "$Id: xdialog.c,v 2.18 1999/02/26 21:33:52 steve Exp $";
 
 #include "elvis.h"
 #ifdef GUI_X11
@@ -1059,7 +1059,9 @@ static void keystroke(dia, key)
 			if (key == '\t')
 			{
 				/* try filename completion */
-				newvalue = CHARdup(toCHAR(iofilename(tochar8(newvalue), '\0')));
+				excmd = iofilename(tochar8(newvalue), '\0');
+				if (excmd)
+					newvalue = CHARdup(toCHAR(excmd));
 				dia->cursor = CHARlen(newvalue);
 
 				/* that may have caused some output on the

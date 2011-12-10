@@ -11,7 +11,7 @@ ctags - Generates "tags" and (optionally) "refs" files
 This page describes the
 .I elvis
 version of
-.IR ctags .
+.IR c\&tags .
 .PP
 .I ctags
 generates the "tags" and "refs" files from a group of C source files.
@@ -145,7 +145,7 @@ or a regular expression using ex/vi's "nomagic" syntax, delimited by either
 slashes or question marks.
 Regular expressions are allowed to contain tab characters.
 .PP
-The authors of elvis, vim, and "exuberant" ctags are working toward a
+The authors of elvis, vim, and "exuberant" ctags have agreed on a
 standard format for adding additional attributes to tags.
 In this format, the first three fields of all tags are identical to the
 traditional format, except that a semicolon-doublequote character pair
@@ -171,7 +171,7 @@ Each attribute will use the following format:
 Note that each additional attribute has an explicit name.
 Different tags files may use totally different names for additional attributes,
 and even within a single file, most tags will use only a subset of the
-additional attributes.
+possible attributes.
 This version of ctags uses the following names:
 .IP file
 This attribute is used to mark static tags -- i.e., tags for C/C++ functions
@@ -191,9 +191,11 @@ This attribute's value is a single letter, indicating the lexical type
 of the tagged identifier:
 \fBf\fR for a function,
 \fBt\fR for a typedef,
-\fBs\fR for a struct/union tag,
-\fBv\fR for a variable, or
-\fBm\fR for a macro.
+\fBs\fR for a struct tag,
+\fBu\fR for a union tag,
+\fBv\fR for a variable,
+\fBd\fR for a macro definition, or
+\fBx\fR for an extern declaration.
 .IP
 Note that in the tags file, the "kind:" label is omitted, for the sake of compactness.
 .IP ln

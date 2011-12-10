@@ -1,7 +1,7 @@
 /* more.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_more[] = "$Id: more.c,v 2.15 1998/10/01 16:42:31 steve Exp $";
+char id_more[] = "$Id: more.c,v 2.16 1999/02/17 22:54:22 steve Exp $";
 
 
 /* This file contains code which implements the "Hit <Enter> to continue"
@@ -27,6 +27,7 @@ static RESULT parse(_CHAR_ key, void *info);
 static ELVCURSOR shape(WINDOW win);
 #endif
 
+BOOLEAN morehit;
 
 typedef struct
 {
@@ -48,6 +49,9 @@ static RESULT perform(win)
 	win->di->drawstate = DRAW_VISUAL;
 	msg(MSG_STATUS, "");
 	win->di->drawstate = DRAW_OPENEDIT;
+
+	/* reset the morehit flag */
+	morehit = True;
 
 	return RESULT_COMPLETE;
 }

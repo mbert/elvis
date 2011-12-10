@@ -1,7 +1,7 @@
 /* exedit.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_exedit[] = "$Id: exedit.c,v 2.48 1998/10/04 00:45:29 steve Exp $";
+char id_exedit[] = "$Id: exedit.c,v 2.50 1999/02/26 21:28:39 steve Exp $";
 
 #include "elvis.h"
 
@@ -69,6 +69,7 @@ RESULT	ex_global(xinf)
 	MARK	cursor;
 	MARK	orig;
 	MARKBUF	thisln;
+	long	origlines;
 
 	assert(xinf->command == EX_GLOBAL || xinf->command == EX_VGLOBAL);
 
@@ -82,12 +83,14 @@ RESULT	ex_global(xinf)
 		return RESULT_ERROR;
 	}
 
+#if 0
 	/* only works when applied to window's main buffer */
 	if (!xinf->window->state->acton || xinf->window->state->acton->acton)
 	{
 		msg(MSG_ERROR, "[s]$1 only works on main buffer", xinf->cmdname);
 		return RESULT_ERROR;
 	}
+#endif
 
 	/* ":g!" is like ":v" */
 	if (xinf->bang)
@@ -109,6 +112,9 @@ RESULT	ex_global(xinf)
 		marksetoffset(cursor, markoffset(xinf->fromaddr));
 	}
 	orig = markdup(cursor);
+
+	/* remember the number of lines before any changes... */
+	origlines = o_buflines(markbuffer(xinf->fromaddr));
 
 	/* for each line... */
 	(void)scanalloc(&cp, xinf->fromaddr);
@@ -143,7 +149,7 @@ RESULT	ex_global(xinf)
 			scanfree(&cp);
 
 			/* execute the command */
-			ret = exstring(xinf->window, xinf->rhs);
+			ret = exstring(xinf->window, xinf->rhs, NULL);
 
 			/* reallocate the scan pointer */
 			(void)scanalloc(&cp, xinf->fromaddr);
@@ -158,6 +164,16 @@ RESULT	ex_global(xinf)
 			break;
 	}
 	scanfree(&cp);
+
+	/* report any change in the number of lines */
+	if (o_report != 0)
+	{
+		origlines -= o_buflines(markbuffer(cursor));
+		if (origlines >= o_report)
+			msg(MSG_INFO, "[d]$1 fewer lines", origlines);
+		else if (-origlines >= o_report)
+			msg(MSG_INFO, "[d]$1 more lines", -origlines);
+	}
 
 	/* move the cursor back to its original position, and then return
 	 * the final position so the cursor will be moved there in a graceful

@@ -267,4 +267,4 @@ LONG APIENTRY ClientWndProc (HWND hwnd, UINT msg, UINT wParam, LONG lParam)
 }
 
 #endif
-
+/* ex:se ts=4 sw=4: */

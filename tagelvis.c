@@ -145,7 +145,7 @@ TAG *tetag(select)
 	tagdelete(True);
 
 	/* using internal tag search, or external? */
-	if (o_tagprgonce || o_tagprg)
+	if (o_tagprg)
 	{
 		/* external tag search */
 
@@ -158,15 +158,7 @@ TAG *tetag(select)
 		/* evaluate the tagprg string with $1 set to the args */
 		args[0] = select;
 		args[1] = NULL;
-		if (o_tagprgonce)
-		{
-			scan = calculate(o_tagprgonce, args, True);
-			if (optflags(o_tagprgonce) & OPT_FREE)
-				safefree(o_tagprgonce);
-			o_tagprgonce = NULL;
-		}
-		else
-			scan = calculate(o_tagprg, args, True);
+		scan = calculate(o_tagprg, args, True);
 		if (!scan)
 			goto Finish;
 
@@ -256,7 +248,7 @@ BUFFER tebrowse(all, select)
 	if (!select)
 		select = toCHAR("");
 
-	if (o_tagprg || o_tagprgonce)
+	if (o_tagprg)
 	{
 		/* external tag search */
 
@@ -269,15 +261,7 @@ BUFFER tebrowse(all, select)
 		args[0] = select;
 		args[1] = NULL;
 		select = cp;
-		if (o_tagprgonce)
-		{
-			cp = calculate(o_tagprgonce, args, True);
-			if (optflags(o_tagprgonce) & OPT_FREE)
-				safefree(o_tagprgonce);
-			o_tagprgonce = NULL;
-		}
-		else
-			cp = calculate(o_tagprg, args, True);
+		cp = calculate(o_tagprg, args, True);
 		if (!cp)
 			return NULL;
 
@@ -749,6 +733,18 @@ CHAR *tagcomplete(win, m)
 	BOOLEAN	oldexrefresh;
 	CHAR	*oldprevioustag;
 	DRAWSTATE olddrawstate;
+
+	/* Ignore the inputtab=identifier setting unless there is a "tags"
+	 * file in the current directory.
+	 */
+	if (o_inputtab(markbuffer(win->cursor)) == 'i'
+	 && dirperm("tags") < DIR_READONLY)
+	{
+		/* return an ordinary tab character */
+		retbuf[0] = '\t';
+		retbuf[1] = '\0';
+		return retbuf;
+	}
 
 	/* collect the characters of the partial name */
 	rest[0] = '\0';

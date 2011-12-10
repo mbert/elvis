@@ -841,6 +841,7 @@ BOOL CALLBACK DlgOptSyntax (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
         case WM_INITDIALOG:
             gwp = gw_find_frame (GetParent (hwnd));
             center_window (gwp->clientHWnd, hwnd);
+			eventfocus(gwp);
             for (i = 0; elems[i] != NULL; i++) {
                 SendDlgItemMessage (hwnd, IDC_SO_ELEMENT, LB_ADDSTRING, 0,
 				                    (LPARAM)elems[i]);
@@ -1209,4 +1210,4 @@ BOOL CALLBACK DlgAbout (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 }
 
 #endif
-
+/* ex:se ts=4 sw=4: */

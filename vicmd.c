@@ -1,7 +1,7 @@
 /* vicmd.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_vicmd[] = "$Id: vicmd.c,v 2.57 1998/08/29 16:40:08 steve Exp $";
+char id_vicmd[] = "$Id: vicmd.c,v 2.59 1999/06/15 04:16:54 steve Exp $";
 
 #include "elvis.h"
 
@@ -43,11 +43,11 @@ RESULT v_quit(win, vinf)
 	switch (vinf->key2)
 	{
 	  case 'Z':
-		result = exstring(win, toCHAR("x"));
+		result = exstring(win, toCHAR("x"), NULL);
 		break;
 
 	  case 'Q':
-		result = exstring(win, toCHAR("q!"));
+		result = exstring(win, toCHAR("q!"), NULL);
 		break;
 	}
 
@@ -105,6 +105,7 @@ RESULT v_input(win, vinf)
 	if (win->state->flags & ELVIS_MORE)
 	{
 		vinf->tweak |= TWEAK_DOTTING;
+		vinf->count--;
 		if (cmd == 'i')
 		{
 			cmd = 'a';
@@ -230,7 +231,7 @@ RESULT v_input(win, vinf)
 		inputpush(win, 0, cmd);
 
 		/* if we have more copies to input, remember that */
-		result = (--vinf->count > 0) ? RESULT_MORE : RESULT_COMPLETE;
+		result = (vinf->count > 1) ? RESULT_MORE : RESULT_COMPLETE;
 	}
 
 	return result;
@@ -410,10 +411,12 @@ RESULT v_delchar(win, vinf)
 	}
 
 	/* if the "travel" amount would leave the cursor on the newline,
-	 * then adjust it.
+	 * then adjust it.  EXCEPTION: If invoked via ^O in input mode, then
+	 * it is okay to leave the cursor on a newline.
 	 */
 	if (curs + travel >= end - vinf->count + replen
-	 && curs + travel != front)
+	 && curs + travel != front
+	 && (win->state->flags & ELVIS_ONCE) == 0)
 		travel--;
 
 	/* move the cursor & replace/delete the characters */
@@ -490,19 +493,19 @@ RESULT v_window(win, vinf)
 		break;
 
 	  case 's':
-		return exstring(win, toCHAR("split"));
+		return exstring(win, toCHAR("split"), NULL);
 
 	  case 'n':
-		return exstring(win, toCHAR("snew"));
+		return exstring(win, toCHAR("snew"), NULL);
 
 	  case 'q':
-		return exstring(win, toCHAR("xit"));
+		return exstring(win, toCHAR("xit"), NULL);
 
 	  case 'c':
-		return exstring(win, toCHAR("close"));
+		return exstring(win, toCHAR("close"), NULL);
 
 	  case 'o':
-	  	return exstring(win, toCHAR("only"));
+	  	return exstring(win, toCHAR("only"), NULL);
 
 	  case ']':
 	  case ELVCTRL(']'):
@@ -590,7 +593,7 @@ RESULT v_tag(win, vinf)
 
 	/* the ^T command is easy... */
 	if (vinf->command == ELVCTRL('T'))
-		return exstring(win, toCHAR("pop"));
+		return exstring(win, toCHAR("pop"), NULL);
 
 	/* get the tag name */
 	tagname = (*win->md->tagatcursor)(win, win->cursor);
@@ -610,7 +613,7 @@ RESULT v_tag(win, vinf)
 	}
 
 	/* run the command */
-	result = exstring(win, cmd);
+	result = exstring(win, cmd, NULL);
 
 	/* clean up & exit */
 	safefree(tagname);
@@ -903,19 +906,19 @@ RESULT v_notex(win, vinf)
 	switch (vinf->command)
 	{
 	  case ELVCTRL('Z'):
-		result = exstring(win, toCHAR("stop"));
+		result = exstring(win, toCHAR("stop"), NULL);
 		break;
 
 	  case ELVCTRL('^'):
-		result = exstring(win, toCHAR("e #"));
+		result = exstring(win, toCHAR("e #"), NULL);
 		break;
 
 	  case '&':
-		result = exstring(win, toCHAR("&"));
+		result = exstring(win, toCHAR("&"), NULL);
 		break;
 
 	  case '*':
-		result = exstring(win, toCHAR("errlist"));
+		result = exstring(win, toCHAR("errlist"), NULL);
 		break;
 
 	  case 'J':

@@ -1,7 +1,7 @@
 /* ex.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_ex[] = "$Id: ex.c,v 2.147 1998/11/21 01:36:11 steve Exp $";
+char id_ex[] = "$Id: ex.c,v 2.151 1999/03/11 17:53:08 steve Exp $";
 
 #include "elvis.h"
 
@@ -224,6 +224,7 @@ static struct
 
 /* This variable is used for detecting nested global statements */
 static int 	globaldepth;
+
 
 
 /* This function discards info from an EXINFO struct.  The struct itself
@@ -934,11 +935,27 @@ static void parseplus(refp, xinf, flags)
 	/* skip the '+' */
 	scannext(refp);
 
-	/* collect following characters up to next whitespace or '|' */
-	while (*refp && !isspace(**refp) && **refp != '|')
+	/* collect the chars of the command string */
+	if (*refp && **refp == '"')
 	{
-		buildCHAR(&xinf->lhs, **refp);
+		/* collect all characters within quotes */
 		scannext(refp);
+		while (*refp && **refp != '\n' && **refp != '"')
+		{
+			buildCHAR(&xinf->lhs, **refp);
+			scannext(refp);
+		}
+		if (*refp && **refp == '"')
+			scannext(refp);
+	}
+	else
+	{
+		/* collect following characters up to next whitespace or '|' */
+		while (*refp && !isspace(**refp) && **refp != '|')
+		{
+			buildCHAR(&xinf->lhs, **refp);
+			scannext(refp);
+		}
 	}
 }
 
@@ -1541,6 +1558,8 @@ static BOOLEAN parsefileargs(refp, xinf, flags)
 {
 	CHAR	*filename;
 	CHAR	*scan;
+	CHAR	*expr, *val;
+	int	i;
 
 	/* if no filenames expected, or hit end of cmd, then do nothing */
 	if ((flags & (a_File|a_Files|a_Filter|a_Append)) == 0 || !*refp)
@@ -1589,7 +1608,9 @@ static BOOLEAN parsefileargs(refp, xinf, flags)
 	}
 
 	/* collect each whitespace-delimited filename argument */
-	for (filename = NULL; *refp && **refp != '|' && **refp != '\n'; scannext(refp))
+	for (filename = val = NULL;
+	     *refp && **refp != '|' && **refp != '\n';
+	     scannext(refp))
 	{
 		/* if whitespace, then process filename (if any) and then skip */
 		switch (**refp)
@@ -1622,7 +1643,7 @@ static BOOLEAN parsefileargs(refp, xinf, flags)
 				 */
 				scanprev(refp);
 			}
-			else if (!CHARchr(toCHAR(" \t\\#!*"), **refp))
+			else if (!CHARchr(toCHAR(" \t\\#!*`"), **refp))
 			{
 				/* backslash isn't followed by a char that might
 				 * require backslash quoting, so the backslash
@@ -1673,6 +1694,74 @@ static BOOLEAN parsefileargs(refp, xinf, flags)
 		  case '\0':
 			msg(MSG_ERROR, "NUL not allowed in file name");
 			goto Error;
+
+#ifdef FEATURE_BACKTICK
+		  case '`':
+			/* build an expression which reads from a program */
+			expr = NULL; 
+			buildstr(&expr, "shell(\"");
+			scannext(refp);
+			for (; *refp && **refp && **refp != '|' && **refp != '\n' && **refp != '`'; scannext(refp))
+			{
+				if (**refp == '\\')
+				{
+					if (!scannext(refp) || !**refp || **refp == '\n')
+					{
+						msg(MSG_ERROR, "unterminated `prog` expression");
+						goto Error;
+					}
+					if (**refp != '`' || **refp != '\\')
+						buildCHAR(&expr, '\\');
+				}
+				else if (**refp == '"')
+					buildCHAR(&expr, '\\');
+				buildCHAR(&expr, **refp);
+			}
+			buildstr(&expr, "\")");
+
+			/* evaluate the expression */
+			val = calculate(expr, NULL, False);
+			safefree(expr);
+			if (!val)
+				/* error message already given */
+				goto Error;
+
+			/* resume previous filename, if any */
+			if (filename)
+			{
+				expr = filename;
+				filename = NULL;
+				for (i = 0; i < CHARlen(expr); i++)
+					buildCHAR(&filename, expr[i]);
+				safefree(expr);
+			}
+
+			/* Find whitespace-delimited names.  Treat any special
+			 * chars as normal chars.
+			 */
+			for (; *val; val++)
+			{
+				if (isspace(*val))
+				{
+					if (filename)
+					{
+						/* store the name */
+						if (!exaddfilearg(&xinf->file, &xinf->nfiles, tochar8(filename), True))
+							goto Error;
+
+						/* free the buildCHAR copy of the name */
+						safefree(filename);
+						filename = NULL;
+					}
+				}
+				else
+					buildCHAR(&filename, *val);
+			}
+			/* NOTE: val (returned by calculate()) is static so
+			 * we don't need to worry about freeing it.
+			 */
+			break;
+#endif /* FEATURE_BACKTICK */
 
 		  default:
 			/* Append the character to the name.  If this results
@@ -2463,6 +2552,9 @@ RESULT experform(win, top, bottom)
 	/* for each command... */
 	while (p && markoffset(top) < markoffset(bottom))
 	{
+		/* remember the location, for error reporting */
+		msgscriptline(top, NULL);
+
 		/* parse an ex command */
 		switch (parse(win, &p, &xinfb))
 		{
@@ -2510,9 +2602,10 @@ More:
 /* This function resembles experform(), except that this function parses
  * from a string instead of from a buffer.
  */
-RESULT exstring(win, str)
+RESULT exstring(win, str, name)
 	WINDOW	win;	/* default window (implies default buffer) */
 	CHAR	*str;	/* the string containing ex commands */
+	char	*name;	/* name for error reporting, or NULL if not known */
 {
 	EXINFO	xinfb;	/* buffer, holds info about command being parsed */
 	CHAR	*p;	/* pointer used for scanning command line */
@@ -2533,6 +2626,9 @@ RESULT exstring(win, str)
 	/* for each command... */
 	while (p && *p)
 	{
+		/* remember its location, for error reporting */
+		msgscriptline(scanmark(&p), name);
+
 		/* parse and execute one ex command */
 		if (parse(win, &p, &xinfb) != RESULT_COMPLETE
 		 || execute(&xinfb) != RESULT_COMPLETE)
@@ -2741,6 +2837,13 @@ long exprintlines(win, mark, qty, pflag)
 
 
 #ifdef FEATURE_COMPLETE
+/* Return the remainder of a command name, buffer name, or tag name.  If file
+ * name completion is appropriate, then return NULL.  If nothing can be
+ * completed then just return a string containing a single tab character.
+ *
+ * This function may turn on the completebinary option.  It does this when
+ * it returns NULL (to denote file name completion) in a shell command line.
+ */
 CHAR *excomplete(win, from, to)
 	WINDOW	win;	/* window where multiple matches are listed */
 	MARK	from;	/* start of the line where completion is needed */
@@ -2754,6 +2857,7 @@ CHAR *excomplete(win, from, to)
 	CHAR	*cmdname;
 	int	len, mlen;
 	int	i, j, match;
+	BOOLEAN	filter;
 
 	(void)scanalloc(&s, from);
 	offset = markoffset(from);
@@ -2790,7 +2894,10 @@ CHAR *excomplete(win, from, to)
 	if (!s || offset >= markoffset(to) || !isalpha(*s))
 	{
 		if (s && offset < markoffset(to) && *s == '!')
+		{
+			o_completebinary = True;
 			cmdname = NULL;
+		}
 		else
 			cmdname = tab;
 		scanfree(&s);
@@ -2804,6 +2911,17 @@ CHAR *excomplete(win, from, to)
 		len = buildCHAR(&cmdname, *s);
 		offset++;
 	} while (scannext(&s) && offset < markoffset(to) && isalpha(*s));
+
+	/* if followed by whitespace and then a !, then remember that */
+	filter = False;
+	if (s && isspace(*s))
+	{
+		while (scannext(&s) && isspace(*s))
+		{
+		}
+		if (s && *s == '!')
+			filter = True;
+	}
 	scanfree(&s);
 
 	/* if cursor is at end of command name, then try to expand the name.
@@ -2912,12 +3030,15 @@ CHAR *excomplete(win, from, to)
 	if (cmdnames[i].code == EX_SET)
 		return optcomplete(win, to);
 
-	/* The :tag and :stag commands complete tag tags.  I'm tempted to
-	 * add :browse and :sbrowse here, but I suspect that filename
-	 * completion might be more useful for them.
+	/* The :tag and :stag commands complete tag names.  I'm tempted to
+	 * add :browse and :sbrowse here, but that might be confusing.
 	 */
 	if (cmdnames[i].code == EX_TAG || cmdnames[i].code == EX_STAG)
 		return tagcomplete(win, to);
+
+	/* The :cc and :make commands take filename arguments. */
+	if (cmdnames[i].code == EX_CC || cmdnames[i].code == EX_MAKE)
+		return NULL; /* do filename expansion */
 
 	/* Many commands take ex commands as their arguments.  The a_Cmds
 	 * flag is set for these commands, but it is also set for a few
@@ -2929,7 +3050,11 @@ CHAR *excomplete(win, from, to)
 
 	/* does the command take filename arguments or a target address? */
 	if ((cmdnames[i].flags & (a_Target | a_Filter | a_File | a_Files)) != 0)
+	{
+		if (filter)
+			o_completebinary = True;
 		return NULL;/* do filename expansion */
+	}
 
 	/* if all else fails, just treat it literally */
 	return tab;

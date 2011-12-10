@@ -1,4 +1,8 @@
-alias lf !!ls -CF
+if os=="unix"
+then alias lf !!ls -CF
+else alias lf !!dir/w
+
+alias pwd calc getcwd("!*")
 
 alias save {
  "Write this file, but only if it has been modified
@@ -30,25 +34,58 @@ alias mantweak {
  dis man
 }
 
+alias kwic {
+ "Build a table showing instances of a word from the manual
+ local d
+ if "!^" == ""
+ then error :kwic missing lhs
+ let d=dirdir(elvispath("elvis.html"))
+ eval split +"kwictweak !^" !!grep -i -n -w !\^ (d/"*.html")
+}
+
+alias kwictweak {
+ "Convert grep's output to a nice HTML table
+ local ic report=0
+ try %s/	/ /g
+ try %s/ \{2,}/ /g
+ try %s/<[^>]*>//g
+ try %s/&[[:alnum:]]*;//g
+ try v/\<!\^\>/d
+ %s/^\([^:]*\):\([^:]*\):\(.*\)\<\(!\^\)\>\(.*\)$/\3<a href="\1?\2">\4<\/a\>\5/
+ %s/^/                              /
+ %s/^[^<]*\([^<]\{30}<.*>.\{0,30}\).*$/\1/
+ 1 i <h1>Instances of "!^" in elvis' manual</h1><pre>
+ $ a </pre>
+ se bd=html nomod
+ dis html
+ 1;/>\=!\^
+}
+
 alias text {
  "Like :tag but for any text in *.c or *.h
- set tagprgonce="grep -nsw '(quote(\"'\",$1))' *.[ch] /dev/null \| sed 's/^\\\\\\(.*\\\\\\):\\\\\\(.*\\\\\\):.*/!^	\\1	\\2/'"
+ local tagprg="grep -nsw '(quote(\"'\",$1))' *.[ch] /dev/null \| sed 's/^\\\\\\(.*\\\\\\):\\\\\\(.*\\\\\\):.*/!^	\\1	\\2/'"
  tag!? !*
 }
 
 alias btext {
  "Like :browse but for any text in *.c or *.h
- set tagprgonce="grep -nsw '(quote(\"'\",$1))' *.[ch] /dev/null \| sed 's/^\\\\\\(.*\\\\\\):\\\\\\(.*\\\\\\):.*/!^	\\1	\\2/'"
+ local tagprg="grep -nsw '(quote(\"'\",$1))' *.[ch] /dev/null \| sed 's/^\\\\\\(.*\\\\\\):\\\\\\(.*\\\\\\):.*/!^	\\1	\\2/'"
  browse!! !*
 }
 
 if gui=="x11"
 then {
  alias courier {
-  "Use courier fonts of a given size
-  set normalfont=*-courier-medium-r-*-!(18)^-*
-  set italicfont=*-courier-medium-o-*-!(18)^-*
-  set boldfont=*-courier-bold-r-*-!(18)^-*
+  "Use courier fonts of a given size (X11 only)
+  local s=!(18)^
+  let normalfont="*-courier-medium-r-*-"s"-*"
+  let italicfont="*-courier-medium-o-*-"s"-*"
+  let boldfont="*-courier-bold-r-*-"s"-*"
+ }
+
+ alias fork {
+  "Run a program in the background (X11 only)
+  !! >/dev/null 2>&1 !* &
  }
 }
 
@@ -95,6 +132,29 @@ alias cbsave {
  eval buffer (b)
 }
 
+alias cbshow {
+ "Show contents of cut-buffers
+ local a b c i=1 l="!*" q u s
+ if l == ""
+ then let l = "abcdefghijklmnopqrstuvwxyz123456789"
+ echo Buf Size & Type   Contents
+ echo ---+-------------+----------------------------------------------------
+ while i <= strlen(l)
+ do {
+  let c = " "(l" " << i) >> 1
+  let b = "Elvis cut buffer " c
+  let a = "(" b ")"
+  if buffer(b)
+  then {
+   eval (a) let u = putstyle << 4;
+   eval (a) let q = u=="char" ? bufchars - 1 : buflines
+   let s = q; " "; u; (q == 1 ? " " : "s")
+   eval (a) calc " "; c; " |"; s >> 12; " |"line\(b,1\) << 52
+  }
+  let i = i + 1
+ }
+}
+
 alias config {
  "Describe the configuration of this elvis
  local m n o
@@ -114,6 +174,28 @@ alias config {
  calc "Display modes:     " m
  calc "Network protocols: " n
  calc "Other features:   " o
+}
+
+alias customize {
+ "Edit a personal copy of one of elvis' configuration files
+ local d o n f="!^"
+ if f == ""
+ then error :customize requires the name of a configuation file
+ let o = elvispath(f)
+ if o == ""
+ then error "!^" is not a known configuration file
+ if os=="msdos" || os=="os2" || os == "win32"
+ then let d=$HOME/"elvislib"
+ else let d=$HOME/".elvislib"
+ if dirperm(d) == "new"
+ then eval !mkdir (d)
+ let n = d / f
+ if exists(n)
+ then eval e (n)
+ else {
+	eval e (o)
+	eval ("("o")") file (n)
+ }
 }
 
 alias left {
@@ -180,6 +262,13 @@ alias cfmt {
  /^STOP!!$/d
 }
 
+alias wascii {
+ "Write formatted text as plain ASCII
+ local lptype=dumb nolpheader
+ if "!*" == ""
+ then error You must specify a file name
+ !% lp!? !*
+}
 
 """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 " The following were contributed by Ian Utley (iu@apertus.uk.com)

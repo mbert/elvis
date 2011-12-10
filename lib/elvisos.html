@@ -294,29 +294,37 @@ After that, Martin "Herbert" Dietze took over the job, and brought it up to
 date for elvis 2.1.  OS/2-specific bug reports or comments should be sent
 to <a href="mailto:herbert@paulina.shnet.org">herbert@paulina.shnet.org</a>.
 
-<p>The basic OS/2 version uses the <a href="elvisgui.html#vio">vio</a>
-user interface, and doesn't require any special libraries.
+<p>There are four separate versions of elvis for OS/2, each one compiled
+with slightly different features.
+The version that most people will want to use is named <code>elvis.exe</code>.
+It uses the <a href="elvisgui.html#vio">vio</a> user interface,
+and includes network support so elvis can read via HTTP,
+and read or write via FTP.
 
-<p>There is also a version which supports the
+<p>But a few OS/2 systems might not have the TCP/IP libraries installed,
+so the normal <code>elvis.exe</code> version won't work there.
+A stripped-down version named <code>elvis-no-tcp.exe</code> is provided
+for use on those systems.
+It also uses the <a href="elvisgui.html#vio">vio</a> user interface,
+but it omits the network support so it doesn't require any special libraries.
+
+<p>There is also a version named <code>elvisemx.exe</code> which supports the
 <a href="elvisgui.html#termcap">termcap</a> user interface
-in addition to the standard VIO interface.
+in addition to the standard <a href="elvisgui.html#vio">vio</a> interface.
 This should allow you to run elvis over a telnet connection.
-However, it requires the EMX.DLL library.
+However, it requires the EMX.DLL library,
+in addition to OS/2's TCP/IP libraries.
+(See the <a href="elvistip.html#emx">Tips</a> chapter for EMX links.)
 
-<p>Another supports the <a href="elvisgui.html#x11">x11</a> graphical
-interface in addition to VIO and the termcap interface.
-It requires the X11.DLL library from XFree86, and the EMX.DLL library.
-The X11 version can run under PMX provided you have XFree86's X11.DLL file,
-but if you want to recompile elvis from scratch you'll need the whole
+<p>The last version is named <code>elvisx11.exe</code>.
+It supports the <a href="elvisgui.html#x11">x11</a> graphical
+interface in addition to VIO and termcap interfaces.
+For instructions on how to run elvis with X11 under OS/2,
+see <a href="#os2x11">section 9.3.1</a> below.
+It requires the TCP/IP and EMX libraries, and at least some parts of the
 XFree86 package.
 
-<p>There are two separate VIO versions: a full-featured version named
-<code>elvis.exe</code>, and version which lacks Internet support, named
-<code>elvis-no-tcp.exe</code>.  The latter version is required if
-your OS/2 system doesn't have TCP/IP software installed; otherwise you
-should use the full-featured version.
-The termcap and x11 versions both require TCP/IP.
-
+<p>The following lists the OS/2-specific quirks that are common to all versions:
 <dl>
 <dt>The "os" option
 <dd>Under OS/2, the <a href="elvisopt.html#os">os</a> option's
@@ -344,13 +352,13 @@ is "<code>make $1</code>".
 <dt>The "elvispath" option
 <dd>The default value of <a href="elvisopt.html#elvispath">elvispath</a>
 is "<code>~\elvislib;BIN;BIN\lib</code>", where BIN is the name of the
-directory where <code>elvis.exe</code> resides.
+directory where <code>elvis*.exe</code> resides.
 Note that elements of the path are separated with semicolons.
 The ~ character is replaced by the value of the
 <a href="elvisopt.html#home">home</a> option.
 
 <dt>The "TERM" environment variable
-<dd>Although the OS/2 version of elvis does support the "termcap" interface,
+<dd>Although the OS/2 version of elvis may support the "termcap" interface,
 it usually uses its own "vio" interface for text console I/O.  The "vio"
 interface ignores TERM completely.
 
@@ -359,9 +367,53 @@ and linked against emx.dll both the usual "vio" and a termcap based
 interface are available.
 
 <dt>The mouse
-<dd>Elvis ignores the mouse, under OS/2.
+<dd>The vio and termcap interfaces ignore the mouse.
+The X11 interface does use the mouse, as described in the
+<a href="elvisgui.html#x11.mouse">GUI chapter</a>.
 
 </dl>
+
+<h3><a name="os2x11">9.3.1 X11 under OS/2</a></h3>
+
+To compile the X11 version of elvis for OS/2, you need the full XFree86 package.
+The <a href="elvistip.html#os2x11">Tips</a> chapter contains a link to the
+Web page for the OS/2 version of XFree86.
+
+<p>You should be able to run <code>elvisx11.exe</code> with XFree86
+without any trouble.
+You can also run <code>elvisx11.exe</code> under PMX provided you install
+a few critical files from XFree86, as described in the following steps.
+(Note that these steps are only necessary to run elvisx11 under PMX.
+If you're using XFree86 then you can skip this.)
+<br>
+<ol>
+<li>Unzip the XFree86 archive (normally XF32BIN.ZIP).
+<pre>
+    unzip xf32bin</pre>
+
+<li>Copy the file x11.dll from XFree86\lib to a place in your LIBPATH.
+<pre>
+    copy XFree86\libx11.dll e:\emx\dll</pre>
+
+<li>Copy the complete directory hierarchy XFree86\lib\X11\locale to a
+    location of your choice (don't change it, e.g. by moving 'locale'
+    to XFree86 etc.).  The following installs it under e:\emx.
+<pre>
+    md e:\emx\XFree86
+    md e:\emx\XFree86\lib
+    md e:\emx\XFree86\lib\X11
+    xcopy XFree68\lib\X11\locale e:\emx\XFree86\lib\X11\locale\ /s</pre>
+
+<li>Set the X11ROOT environment variable to the drive and directory that
+    contains XFree86 using forward instead of backslashes to specify
+    paths.
+<pre>
+    set X11ROOT=e:/emx</pre>
+
+<li>Remove the XFree86 files, now that you've copied the ones you need.
+    Since OS/2 doesn't have a shell command for removing a whole directory 
+    tree in one step, the easiest way to do this is via the WPS (OS/2's GUI).
+</ol>
 
 <h2><a name="unix"></a>9.4 UNIX</h2>
 
@@ -490,7 +542,7 @@ I added those declarations to the end of the "osunix/osdef.h" file.
 
 <dt>Linux
 <dd>Newer versions of Linux seem to have moved the definition of the speed_t
-data type from its tradional location, &lt;sys/types.h&gt;.
+data type from its traditional location, &lt;sys/types.h&gt;.
 The new location is &lt;termios.h&gt;, which makes sense since that's where the
 legal values of speed_t are defined...
 but because it is non-standard, I had to add a little extra code to the

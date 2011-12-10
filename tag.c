@@ -219,6 +219,7 @@ TAG *tagparse(line)
 	char	*name, *value;	/* an attribute of the tag */
 	char	*build;
 	char	c;
+	int	quoted;		/* 0=not quoted, 1=quoted, 2=backslash */
  static TAG	tag;		/* the tag to be returned */
 
 	/* clobber any old data in "tag" */
@@ -257,14 +258,18 @@ TAG *tagparse(line)
 	{
 		/* regexp -- use chars up to EOL or next unquoted delimiter */
 		c = *line;
+		quoted = 0;
 		do
 		{
 			if (*line == '\0' || *line == '\n')
 				return NULL;
 			line++;
-			if (*line == '\\' && (line[1] == '\\' || line[1] == c))
-				line += 2;
+			if (quoted > 0)
+				quoted--;
+			if (quoted == 0 && *line == '\\')
+				quoted = 2;
 		} while (*line != c
+		     || quoted != 0
 		     || (line[1] == ';' && (line[2] == '/' || line[2] == '?')));
 		line++;
 	}

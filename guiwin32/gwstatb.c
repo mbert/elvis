@@ -263,4 +263,4 @@ void gw_status_bar_text (GUI_WINDOW *gwp, char *str)
 }
 
 #endif
-
+/* ex:se ts=4 sw=4: */

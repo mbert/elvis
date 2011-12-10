@@ -1,7 +1,7 @@
 /* window.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_window[] = "$Id: window.c,v 2.48 1998/11/29 18:53:51 steve Exp $";
+char id_window[] = "$Id: window.c,v 2.49 1999/02/26 21:29:29 steve Exp $";
 
 #include "elvis.h"
 
@@ -74,10 +74,18 @@ static CHAR *getwm(desc, val)
 {
 	static CHAR str[12];
 	WINDOW	win = (WINDOW)val->value.pointer;
-	BUFFER	buf = markbuffer(win->cursor);
+	BUFFER	buf;
+
+	/* special case: during initialization, always return "0" because
+	 * that's always the default value for wrapmargin.  Any other value
+	 * would be dependent on the screen width.
+	 */
+	if (!win || !win->cursor)
+		return toCHAR("0");
 
 	assert(win == windefault);
 
+	buf = markbuffer(win->cursor);
 	if (o_textwidth(buf) >= o_columns(win))
 	{
 		CHARcpy(str, toCHAR("wide"));
@@ -141,7 +149,6 @@ void wininit()
 	optflags(o_number(&windefopts)) = OPT_REDRAW;
 	optpreset(o_wrap(&windefopts), True, OPT_REDRAW);
 	o_sidescroll(&windefopts) = 8;
-	windefopts.wrapmargin.flags = OPT_NODFLT;
 
 	/* make the options accessible to :set */
 	optinsert("defwin", QTY(wdesc), wdesc, &windefopts.windowid);

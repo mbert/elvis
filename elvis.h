@@ -15,6 +15,11 @@
 # define PROTOCOL_HTTP
 #endif
 
+/* If any markup display mode is used, then define DISPLAY_ANYMARKUP */
+#if defined(DISPLAY_HTML) || defined(DISPLAY_MAN) || defined(DISPLAY_TEX)
+# define DISPLAY_ANYMARKUP
+#endif
+
 /* Some handy macros */
 #define QTY(array)	(sizeof(array) / sizeof((array)[0]))
 #define ELVCTRL(ch)	((ch) ^ 0x40)
@@ -95,8 +100,10 @@ typedef int		_char_;
 #define CHARcpy(d,s)	((void)strcpy((char *)(d), (char *)(s)))
 #define CHARcat(d,s)	((void)strcat((char *)(d), (char *)(s)))
 #define CHARncpy(d,s,n)	((void)strncpy((char *)(d), (char *)(s), (n)))
+#define CHARncat(d,s,n)	((void)strncat((char *)(d), (char *)(s), (n)))
 #define CHARlen(s)	strlen((char *)(s))
 #define CHARchr(s,c)	((CHAR *)strchr((char *)(s), (char)(c)))
+#define CHARrchr(s,c)	((CHAR *)strrchr((char *)(s), (char)(c)))
 #define CHARcmp(s,t)	(strcmp((char *)(s), (char *)(t)))
 #define CHARncmp(s,t,n) (strncmp((char *)(s), (char *)(t), (n)))
 #define CHARdup(s)	((CHAR *)safedup(tochar8(s)))
@@ -168,6 +175,7 @@ typedef int		_char_;
 #include "tagelvis.h"
 #include "need.h"
 #include "misc.h"
+#include "message2.h"
 
 /* The following are defined in main.c */
 extern GUI *chosengui;

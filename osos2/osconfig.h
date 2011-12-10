@@ -17,10 +17,11 @@
  * thing.  If you disable "html" then the help files won't look right.
  * #define to enable the mode, #undef to exclude it.
  */
-#undef	DISPLAY_C	/* c		C/C++ syntax coloring */
-#define	DISPLAY_HEX	/* hex		interactive hex dump */
-#define	DISPLAY_MARKUP	/* html, man	formatted text */
-#define	DISPLAY_SYNTAX	/* syntax	generic syntax coloring */
+#define	DISPLAY_HEX	/* hex    interactive hex dump */
+#define	DISPLAY_HTML	/* html   formatted text */
+#define	DISPLAY_MAN	/* man    formatted text */
+#define	DISPLAY_TEX	/* tex    formatted text */
+#define	DISPLAY_SYNTAX	/* syntax generic syntax coloring */
 
 /* The following provide custom implementation of some common functions which
  * are either missing or poorly implemented on some systems.

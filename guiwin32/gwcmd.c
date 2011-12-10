@@ -422,7 +422,7 @@ static void gwcmd_options_font (GUI_WINDOW *gwp)
     memset (&font, 0, sizeof (CHOOSEFONT));
     font.lStructSize = sizeof (CHOOSEFONT);
     font.lpLogFont = &lf;
-    font.Flags = CF_INITTOLOGFONTSTRUCT | CF_SCREENFONTS;
+    font.Flags = CF_INITTOLOGFONTSTRUCT | CF_SCREENFONTS | CF_FIXEDPITCHONLY;
 
     memset (&lf, 0, sizeof (LOGFONT));
     opt_parse_font (o_font (gwp), &lf);
@@ -681,4 +681,4 @@ LONG gwcmd (GUI_WINDOW *gwp, UINT wParam)
 }
 
 #endif
-
+/* ex:se ts=4 sw=4: */

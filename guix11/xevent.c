@@ -297,7 +297,7 @@ void x_ev_process(event)
 
 		/* convert the keypress to a KeySym and string */
 #ifndef NO_XLOCALE
-		if (XFilterEvent (event->xkey, *(&event->xkey.window)))
+		if (XFilterEvent(event, None))
 			break;
 		if (xw->ic != NULL)
 		{
@@ -309,7 +309,7 @@ void x_ev_process(event)
 		else
 		{
 			i = XLookupString(&event->xkey,
-					kbuf, sizeof kbuf, &mykey,
+					text, sizeof text, &mykey,
 					&compose);
 		}
 #else	/* NO_XLOCALE */

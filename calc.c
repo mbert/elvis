@@ -1,7 +1,7 @@
 /* calc.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_calc[] = "$Id: calc.c,v 2.61 1998/12/04 23:12:25 steve Exp $";
+char id_calc[] = "$Id: calc.c,v 2.65 1999/04/08 22:09:25 steve Exp $";
 
 #include "elvis.h"
 #include <setjmp.h>
@@ -61,6 +61,9 @@ static CHAR *feature[] =
 #endif
 # ifdef FEATURE_RAM
 	toCHAR("ram"),
+# endif
+# ifdef FEATURE_BACKTICK
+	toCHAR("backtick"),
 # endif
 	NULL
 };
@@ -175,7 +178,8 @@ BOOLEAN calcbase10(str)
 			  case '0':	num = 0;	break;
 			  case 'a':	num = '\007';	break;
 			  case 'b':	num = '\b';	break;
-			  case 'E':	num = '\033';	break;
+			  case 'E':
+			  case 'e':	num = '\033';	break;
 			  case 'f':	num = '\f';	break;
 			  case 'n':	num = '\n';	break;
 			  case 'r':	num = '\r';	break;
@@ -186,7 +190,7 @@ BOOLEAN calcbase10(str)
 		}
 		else
 		{
-			if (str[1] == '\'' || !str[1] || str[2] != '\'')
+			if (str[1] == '\\' || !str[1] || str[2] != '\'')
 				return False;
 			num = str[1];
 			i = 3;
@@ -722,7 +726,81 @@ static BOOLEAN func(name, arg)
 		}
 		return True;
 	}
-#endif
+	else if (!CHARcmp(name, toCHAR("line")))
+	{
+		if (!*arg)
+		{
+			/* no arguments, use current line of current file */
+			if (!windefault)
+				goto NeedWindefault;
+			begin = markdup(windefault->cursor);
+			(void)marksetline(begin, markline(begin));
+		}
+		else if (calcnumber(arg))
+		{
+			/* just a number, use given line of current file */
+			if (!windefault)
+				goto NeedWindefault;
+			begin = markdup(windefault->cursor);
+			if (marksetline(begin, atol(tochar8(arg))) == NULL)
+				goto BadArgs;
+		}
+		else
+		{
+			/* given name & number, I hope! */
+			tmp = CHARrchr(arg, ',');
+			if (!tmp)
+				goto BadArgs;
+			*tmp++ = '\0';
+			end.buffer = buffind(arg);
+			if (!end.buffer
+			 || !calcnumber(tmp)
+			 || marksetline(&end, atol(tochar8(tmp))) == NULL)
+			
+				goto BadArgs;
+			begin = markdup(&end);
+		}
+
+		/* one way or another, "begin" is now set to the start of the
+		 * line.  Copy it into the buffer (or as much of it as will fit)
+		 */
+		for (scanalloc(&tmp, begin);
+		     tmp && *tmp != '\n' && RESULT_AVAIL(name) > 10;
+		     scannext(&tmp))
+		{
+			*name++ = *tmp;
+		}
+		scanfree(&tmp);
+		*name = '\0';
+		return True;
+	}
+	else if (!CHARcmp(name, toCHAR("shell")))
+	{
+		/* Insert a '!' at the front of arg.  (This is safe
+		 * since we know that "shell\0" appears before it.)
+		 */
+		*--arg = '!';
+
+		/* Run the command and read its output */
+		if (ioopen(tochar8(arg), 'r', False, False, 't'))
+		{
+			arg = name;
+			while ((i = ioread(arg,RESULT_AVAIL(name))) > 0)
+			{
+				if (RESULT_OVERFLOW(arg, i + 1))
+					goto Overflow;
+				arg += i;
+			}
+			ioclose();
+		}
+
+		/* Remove the last newline */
+		if (arg != name && arg[-1] == '\n')
+			arg--;
+		*arg = '\0';
+		return True;
+	}
+#endif /* not TRY */
 
 #ifdef TRY
 	msg(MSG_ERROR, "unknown function %s", name);
@@ -748,6 +826,16 @@ Need2Args:
 Overflow:
 	msg(MSG_ERROR, "result too long");
 	return False;
+
+#ifndef TRY
+NeedWindefault:
+	msg(MSG_ERROR, "[S]$1 requires both a buffer name and a line number when there is no window", name);
+	return False;
+
+BadArgs:
+	msg(MSG_ERROR, "[S]$1 called with bad arguments", name);
+	return False;
+#endif
 }
 
 /* This function applies a single operator.  Returns False on error.  Its
@@ -1298,23 +1386,28 @@ CHAR *calculate(expr, arg, asmsg)
 				/* may be a character constant, as in '\t' */
 				if (expr[0] == '\'')
 				{
-					build[0] = expr[0];
-					build[1] = expr[1];
-					build[2] = expr[2];
-					if (expr[1] == '\\')
+					/* copy it into build[] */
+					build[0] = *expr++;
+					for (i = 1; *expr && *expr != '\''; )
 					{
-						build[3] = expr[3];
-						build[4] = '\0';
+						build[i] = *expr++;
+						if (build[i++] == '\\' && *expr)
+							build[i++] = *expr++;
 					}
-					else
-					{
-						build[3] = '\0';
-					}
+					if (*expr == '\'')
+						build[i++] = *expr++;
+					build[i] = '\0';
+							
+					/* convert to number */
 					if (calcbase10(build))
 					{
 						build += CHARlen(build);
-						expr += (expr[1] == '\\' ? 4 : 3);
 						break;
+					}
+					else
+					{
+						msg(MSG_ERROR, "bad character literal");
+						return (CHAR *)0;
 					}
 				}
 

@@ -11,14 +11,165 @@ NOTE: Not all of these are truly bugs.  This file also serves as my "to do"
 list, so some items are just unimplemented features that sounded like a good
 idea at one time or another.
 
-* The [[ and ]] commands shouldn't be line-mode moves.  I.e., from the middle
+* There appears to be a bug in scanning -- a scanned block is not necessarily
+  being locked for the whole time that it should be, which means that it may
+  be removed from the block cache, in which case NULL may be returned by some
+  of the blkXXXX() functions.  Also, on at least one occasion elvis appeared
+  to be trying to free a block which wasn't allocated.
+
+	This may have something to do with the FEATURE_LITRE feature, or my
+	recent attempts to make searches run faster by keeping at least one
+	scan context for the current location at all times.
+
+/ One user reported crashes in WinElvis when the "Options->syntax" menu item
+  is activated while in "syntax" display mode.
+
+* One user reported that elvis was sensitive to keystrokes during quitting.
+  I suspect that gui->poll was being called while the file was being written
+  (possibly just when written via FTP).  That write should not be quittable.
+
+* Under MS-DOS with TERM=nansi (and NANSI.SYS installed, of course) the screen
+  is shifted up one line.  TERM=ansi works, but doesn't use nansi efficiently.
+
+/ Can't identify tags whose whose contains a new-style comment.  Apparently
+  the tag-selector can't parse \/\/ in an regular expression.
+
+/ Make elvis assume "-Gopen" if termcap can't be used.
+
+? The :make command is still slightly weird.  "elvis +make" waits until after
+  a keystroke to display the first error message.
+
+/ Document the ftp://host/~user/resource URL notation.
+
+/ The :mark command should save the column number as well as the line number.
+  (I.e., if no explicit address was given, then use the cursor position instead
+  of the start of the cursor's line.)
+
+/ Add a :cbshow alias which displays cut buffers.  To do this right, elvis
+  will need a text() function for fetching text lines...
+	text()		return the current line of the current buffer
+	text(n)		return line #n of the current buffer
+	text(b,n)	return line #n of buffer (b)
+
+/ ":map ^H visual X" doesn't work when the cursor is at the end of the line.
+  It deletes the last character, but then moves the cursor back two characters
+  instead of just one.
+
+/ Assertion fails at buffer.c:1206 when attempting to write an empty buffer.
+
+? dmmarkup.c:1066: htmlinit: Assertion `first == True && col == 0' failed.
+
+/ "Dead keys" don't work in "x11" gui.
+
+/ If the .elvisrc file contains "set wrapmargin=0" then that option is
+  displayed by a later ":set" command.  It shouldn't be.
+
+	This is a complication arising from the fact that wrapmargin is
+	actually implemented via the textwidth option.  Wrapmargin doesn't
+	exist until a buffer is shown in a window, but defaults are normally
+	recorded before that.
+
+/ If there is no tags file in the current directory and inputtab=tagname
+  then there is a long delay each time <Tab> is hit.
+
+/ Is this a good time to fix the bug where :make outputs the first error
+  message *before* prompting the user to hit <Enter>, when it should be after?
+
+/ Add a "howto" describing Perl's error messages.
+
+/ The "noanyerror" option shouldn't prevent the cursor from moving into locked
+  files in the current directory -- only unwritables in some other directory.
+
+/ It's back: Sometimes in "man" mode the cursor can't move up.  This appears
+  to happen only for .IP or .TP commands with long labels.  I should probably
+  change that code anyway, so the labels are considered to be separate lines
+  in that situation.
+
+/ It would be nice if FTP URLs supported user names as in ftp:host/~user/...
+  in addition to just ftp:host/~/...  When a user name is specified, the
+  ~/.netrc file is searched for an account at that host which has that login
+  name; the password is then taken from that entry.
+
+? More importantly, it has been reported that the Windows versions don't
+  read "elvis.ftp" correctly.  (It works under Unix; I've tested it.)
+
+	This appears to work under Win32, as far as I can tell.  Perhaps
+	the user who reported it didn't have "elvis.ftp" in a directory
+	where elvis could find it?  Or maybe the other changes I made to
+	that file (to support ~user) had the side-effect of fixing this?
+	
+/ Add support for backticks in filenames -- the text between backticks is
+  interpreted as a shell command, and the command's first line of output
+  is substituted into the line.
+
+	The main reason for supporting backticks is to do things like
+	":n `grep -l sometext *.c`".  The backtick expression would return
+	multiple file names.  Because of this, it must be done at a fairly
+	high level in the ex command-line parser.
+
+	It would also be handy to have a "shell" function which runs a
+	command string and returns its output.  That function would be
+	handy when implementing backtick support, and could also be used
+	for things like...
+
+		:let d=shell("date")
+
+/ Under Win32, can't always redirect an external program's stdin.  For example,
+  ":%!\windows\command\sort" fails, but ":%!\usr\bin\sort" works.
+
+	This is ridiculously difficult.  I/O redirection depends on whether
+	the program being run is 16-bit or 32-bit, whether you're running
+	it from WinElvis or elvis, whether you're running Win95/98 or
+	WinNT, and... something else that I haven't figured out yet.
+	I give up.  Instead of trying to do it the efficient way (with
+	pipes when possible, and always using Win32 stdio redirection
+	facilities), I decided to rewrite it from scratch to do it the
+	brain-dead way: By constructing a shell script, and invoking
+	COMMAND.COM to run that script.  This sucks, but it appears to
+	work reliably.
+
+? On some systems, elvis sometimes reports "# is illegal during initialization"
+  and then it skips some initialization steps for the first file.  Later files
+  will be initialized correctly; it only affects the first file.  This has been
+  reported under SCO and (I think) Irix.  Unfortunately, it seems to interfere
+  with the "-VVV" vebose feedback.
+
+	I've improved error messages -- they now include the filename and
+	line number where the problem was detected.  Hopefully that'll allow
+	me to get a little more feedback.
+
+	I just tried the newest code under SCO, and this didn't happen.
+	It worked fine.  This is definitely a change in its behavior, and
+	that's good... but I wish I knew why it started, and why it may
+	have stopped.
+
+/ Add a "digraph" topic to the howto file, and improve the documentation of
+  digraphs in the main manual.
+
+/ Lose the "tagprgonce" option; the :local command offers a cleaner solution.
+  You can just say "local tagprg=..." in the alias, and be done with it.
+
+/ The [[ and ]] commands shouldn't be line-mode moves.  I.e., from the middle
   of a line, d]] should not delete the entire current line.
 
-* It would be handy if, in a :tag command line, the % character was expanded
-  to the current file name.
+/ When a character-mode deletion ends at a newline, that newline should not
+  be deleted.  The same goes for yanking.
 
-* The tagprg option (or something similar) should be used when reading tags
+? The tagprg option (or something similar) should be used when reading tags
   for tag name completion.  Apparently it isn't.
+
+	Actually I think it is, but maybe not quite correctly.  The code
+	assumes the typed part of the tag name is always going to match the
+	initial part of each match.  If the tagprg program doesn't do that,
+	then name completion gets confused.  Changing this behavior will be
+	hard.
+
+/ In a shell command, file name completion should match binary files.
+
+/ After a repeated insert such as 25i*<Esc>, typing <.> will only repeat 24
+  insertions, not 25.
+------------------------------------------------------------------------------
+ELvis 2.1, official released version
 
 / Some HTTP sites require a "Host:" line in the GET request.  The argument
   to "Host:" is the site name and port of the URL elvis is trying to download.

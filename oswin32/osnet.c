@@ -250,6 +250,8 @@ BOOLEAN netread(sockbuf_t *sb)
 	/* Read as much data as is available */
 	i = read(sb->fd, &sb->buf[sb->right], sizeof sb->buf - sb->right);
 	if (i < 0)
+		i = read(sb->fd, &sb->buf[sb->right], sizeof sb->buf - sb->right);
+	if (i < 0)
 	{
 		msg(MSG_ERROR, "error reading from socket");
 		return False;
@@ -343,7 +345,7 @@ BOOLEAN netputline(sb, command, arg1, arg2)
 	len--; /* <-- so the NUL terminator isn't sent */
 
 	/* send the command to the server */
-	if (write(sb->fd, buf, len) != len)
+	if (write(sb->fd, buf, len) != len && *command)
 	{
 		msg(MSG_ERROR, "could not send request to server");
 		safefree(buf);

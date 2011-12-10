@@ -1,7 +1,7 @@
 /* vi.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_vi[] = "$Id: vi.c,v 2.58 1998/10/06 16:10:51 steve Exp $";
+char id_vi[] = "$Id: vi.c,v 2.59 1999/02/06 22:33:01 steve Exp $";
 
 #include "elvis.h"
 
@@ -143,9 +143,9 @@ vikeys[] =
 /*  X  delete to left	 */	{ v_delchar,	WHEN_ONCE_OPEN_HIST,		TWEAK_DOT_UNDO			},
 /*  Y  yank text	 */	{ v_notop,	WHEN_OPEN,			TWEAK_NONE			},
 /*  Z  save file & exit	 */	{ v_quit,	WHEN_ONCE_OPEN|WHEN_EMPTY,	TWEAK_NONE			},
-/*  [  move back section */	{ m_bsection,	WHEN_ANY,			TWEAK_LINE_MARK,	"obra"	},
+/*  [  move back section */	{ m_bsection,	WHEN_ANY,			TWEAK_MARK,		"obra"	},
 /*  \  not defined	 */	{ NULL,		WHEN_NEVER,			TWEAK_NONE,		"bksl"	},
-/*  ]  move fwd section  */	{ m_fsection,	WHEN_ANY,			TWEAK_LINE_MARK,	"cbra"	},
+/*  ]  move fwd section  */	{ m_fsection,	WHEN_ANY,			TWEAK_MARK,		"cbra"	},
 /*  ^  move to front	 */	{ m_front,	WHEN_ANY,			TWEAK_NONE			},
 /*  _  current line	 */	{ m_updown,	WHEN_ANY,			TWEAK_FRONT_INCL_LINE		},
 /*  `  move to mark	 */	{ m_mark,	WHEN_SEL_ONCE_OPEN_MOVE,	TWEAK_MARK,		"grave"	},
@@ -219,6 +219,11 @@ RESULT	viperform(win, vinf)
 
 	/* Remember the cursor position */
 	bufwilldo(win->cursor, False);
+
+	/* If a vi command runs an ex command, and that ex command generates
+	 * an error message, then we don't want it to look like a script.
+	 */
+	msgscriptline(NULL, EX_BUF);
 
 	/* If command is ^M and this display mode has a tagnext() function,
 	 * then pretend this is a ^] command (which calls tagatcursor() ).
@@ -452,6 +457,12 @@ RESULT	viperform(win, vinf)
 		else
 		{
 			if ((vinf->tweak & TWEAK_INCL) != 0 && scanchar(&to) != '\n')
+			{
+				to.offset++;
+			}
+			else if (--to.offset < from.offset
+				|| from.offset == markoffset((*win->md->move)(win, &from, 0, 0, True))
+				|| scanchar(&to) != '\n')
 			{
 				to.offset++;
 			}

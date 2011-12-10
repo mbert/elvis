@@ -38,7 +38,7 @@
 
 
 #if USE_PROTOTYPES
-static int handlenamedclass(CHAR **textp, REG CHAR *bmap);
+static BOOLEAN handlenamedclass(CHAR **textp, REG CHAR *bmap);
 static CHAR *makeclass(REG CHAR *text, REG CHAR *bmap);
 static int gettoken(CHAR **sptr, regexp *re);
 static unsigned calcsize(CHAR *text, MARK cursor);
@@ -204,7 +204,7 @@ CHAR *regbuild(delim, refp)
  * was becoming unwieldy. Returns True if a named class; False otherwise.
  * Should possibly detect errors in such constructs as [...[:fred:]...]
  */
-static int handlenamedclass(textp, bmap)
+static BOOLEAN handlenamedclass(textp, bmap)
 	  CHAR        **textp;        /* character list (updates *textp) */
       REG CHAR        *bmap;          /* bitmap of selected characters */
 {
@@ -289,6 +289,7 @@ static int handlenamedclass(textp, bmap)
 
 	/* if we get here, then it was an unknown named class */
 	FAIL("unknown named character class");
+	/*NOTREACHED*/
 }
 
 /* This function builds a bitmap for a particular class.  "text" points

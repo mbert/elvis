@@ -28,7 +28,7 @@
 
 
 #if USE_PROTOTYPES
-static void	getaccountinfo(char *site_port, BOOLEAN anonymous);
+static void	getaccountinfo(char *site_port, BOOLEAN anonymous, char *wantuser);
 static char	*ftpcommand(char *cmd, char *arg, BOOLEAN simple);
 static BOOLEAN	passive P_((void));
 static DIRPERM	resourcetype(char *resource, BOOLEAN reading);
@@ -52,9 +52,10 @@ static char	*password;
 static char	*account;
 
 /* Scan through the ~/.netrc file for the user's account information */
-static void getaccountinfo(site_port, anonymous)
+static void getaccountinfo(site_port, anonymous, wantuser)
 	char	*site_port;	/* site name, possibly with a port number */
 	BOOLEAN	anonymous;	/* ignore machine-specific account info? */
+	char	*wantuser;	/* specific login to look for, or NULL */
 {
 	char	*filename;	/* name of the ~/.netrc file */
 	int	c;		/* character from file */
@@ -73,7 +74,8 @@ static void getaccountinfo(site_port, anonymous)
 		*filename = '\0';
 	
 	/* if same site as last time, use same info as last time */
-	if (was_anon == anonymous && site && !strcmp(localsite, site))
+	if (was_anon == anonymous && site && !strcmp(localsite, site)
+	 && (!wantuser || !strcmp(wantuser, user)))
 	{
 		safefree(localsite);
 		return;
@@ -103,6 +105,13 @@ static void getaccountinfo(site_port, anonymous)
 	 * exists and is readable.
 	 */
 	fp = fopen(filename, "r");
+
+	/* debugging info.  Note that this must be output *AFTER* the file
+	 * has been opened, because this message clobbers the buffer used
+	 * for storing the filename.  (They both use calculate().)
+	 */
+	if (o_verbose >= 6)
+		msg(MSG_INFO, "[S]ftp account info file is: $1", filename);
 
 	/* Scan words from the file.  Use mult-character buffer for speed. */
 	word = NULL;
@@ -136,15 +145,43 @@ static void getaccountinfo(site_port, anonymous)
 		{
 			expect = '\0';
 		}
-		else if (expect == 'm' && !anonymous && !strcmp(tochar8(word), site))
+		else if (expect == 'm')
 		{
-			foundmachine = True;
-			expect = '\0';
+			if (anonymous)
+			{
+				if (o_verbose >= 7)
+					msg(MSG_INFO, "[S]ftp ignoring 'machine $1' because we want the default entry", word);
+			}
+			else if (strcmp(tochar8(word), site))
+			{
+				if (o_verbose >= 7)
+					msg(MSG_INFO, "[Ss]ftp ignoring 'machine $1' because we want $2", word, site);
+			}
+			else
+			{
+				foundmachine = True;
+				expect = '\0';
+			}
 		}
 		else if (expect == 'l' && foundmachine)
 		{
-			user = tochar8(word);
-			word = NULL;
+			/* are we looking for a specific login? */
+			if (wantuser && CHARcmp(toCHAR(wantuser), word))
+			{
+				/* not the one we want */
+				foundmachine = False;
+				if (password) safefree(password);
+				if (account) safefree(account);
+				password = account = NULL;
+				if (o_verbose >= 7)
+					msg(MSG_INFO, "[Ss]ftp ignoring 'account $1' because we want $2", word, wantuser);
+			}
+			else /* any login is okay, or we got the right one */
+			{
+				/* use this login */
+				user = tochar8(word);
+				word = NULL;
+			}
 		}
 		else if (expect == 'p' && foundmachine)
 		{
@@ -153,7 +190,7 @@ static void getaccountinfo(site_port, anonymous)
 		}
 		else if (expect == 'a' && foundmachine)
 		{
-			password = tochar8(word);
+			account = tochar8(word);
 			word = NULL;
 		}
 
@@ -483,15 +520,31 @@ static BOOLEAN ftpdir(site_port, anonymous, resource)
 		/* ignore it if it starts with "total " or contains no spaces */
 		if (!strncmp(line, "total ", 6)
 		 || (response = strrchr(line, ' ')) == NULL
-		 || response[1] == ' ')
+		 || response[1] <= ' ')
 			continue;
 
 		/* Assume the last word is file name, others are other info */
+#if 0
+		/* unless the four chars before the last word are " -> ",
+		 * in which case we want to look back a couple more words.
+		 */
+		if (response > line + 5 && !strncmp(response - 3, " ->", 3))
+		{
+			response[-3] = '\0';
+			response = strrchr(line, ' ');
+			if (!response || response[1] <= ' ')
+				continue;
+		}
+#endif
 		*response++ = '\0';
-		if (!strcmp(resource, "/"))
-			sprintf(urlbuf, "ftp://%s/%s%s", site_port, anonymous ? "" : "~/", response);
-		else
-			sprintf(urlbuf, "ftp://%s/%s%s/%s", site_port, anonymous ? "" : "~/", resource, response);
+
+		/* construct the args for a simpler-syntax expression */
+		sprintf(urlbuf, "ftp://%s/", site_port);
+		if (!anonymous)
+			sprintf(urlbuf + strlen(urlbuf), "~%s/", user);
+		if (strcmp(resource, "/") && strcmp(resource, "."))
+			sprintf(urlbuf + strlen(urlbuf), "%s/", resource);
+		strcat(urlbuf, response);
 		args[0] = toCHAR(urlbuf);
 		args[1] = toCHAR(response);
 		args[2] = toCHAR(line);
@@ -531,6 +584,8 @@ BOOLEAN ftpopen(site_port, resource, force, rwap)
 {
 	BOOLEAN anonymous = True;
 	char	*response, *build;
+	char	*wantuser;
+	int	i;
 
 	/* If the resource has a leading slash, then strip it off.  URLs are
 	 * always relative to root anyway, and it gets in the way of later
@@ -539,15 +594,28 @@ BOOLEAN ftpopen(site_port, resource, force, rwap)
 	if (resource[0] == '/' && resource[1])
 		resource++;
 
-	/* If the resource now starts with "~/" then this will *NOT* be
+	/* If the resource now starts with "~" then this will *NOT* be
 	 * an anonymous login.
 	 */
-	if (resource[0] == '~' && (resource[1] == '/' || !resource[1]))
+	wantuser = NULL;
+	if (resource[0] == '~')
 	{
 		anonymous = False;
 		resource++;
-		if (resource)
+		if (*resource == '/')
 			resource++;
+		else if (*resource)
+		{
+			for (i = 1; resource[i] != 0 && resource[i] != '/'; i++)
+			{
+			}
+			wantuser = (char *)safealloc(i + 1, sizeof(char));
+			strncpy(wantuser, resource, i);
+			wantuser[i] = '\0';
+			resource += i;
+			if (*resource == '/')
+				resource++;
+		}
 	}
 
 	/* If we just deleted *ALL* chars of the resource name, then use "." */
@@ -555,7 +623,8 @@ BOOLEAN ftpopen(site_port, resource, force, rwap)
 		resource = ".";
 
 	/* search for authorization info in ~/.netrc */
-	getaccountinfo(site_port, anonymous);
+	getaccountinfo(site_port, anonymous, wantuser);
+	if (wantuser) safefree(wantuser);
 
 	/* Open a connection to the server */
 	command_sb = netconnect(site_port, FTP_PORT);
@@ -619,7 +688,7 @@ BOOLEAN ftpopen(site_port, resource, force, rwap)
 		break;
 
 	  case DIR_NOTFILE:
-	  	/* can't write to a file */
+	  	/* can't write to a non-file */
 	  	if (rwap != 'r')
 	  	{
 	  		msg(MSG_ERROR, "can only READ ftp directories");

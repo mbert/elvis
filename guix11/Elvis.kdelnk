@@ -1,0 +1,12 @@
+# KDE Config File
+[KDE Desktop Entry]
+BinaryPattern=elvis;ex;vi;view;
+Protocols=file;ftp;http;
+MimeType=text/english;text/plain;text/x-makefile;text/x-c++hdr;text/x-c++src;text/x-chdr;text/x-csrc;text/x-java;text/x-moc;text/x-pascal;text/x-tcl;text/x-tex;application/x-shellscript;
+Comment=A clone of the VI Text Editor
+Exec=elvis -Gx11 -client %u
+Icon=elvis.xpm
+Path=
+Type=Application
+Terminal=0
+Name=Elvis

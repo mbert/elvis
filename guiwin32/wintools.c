@@ -122,4 +122,4 @@ void center_window (HWND parent_window, HWND this_window)
 }
 
 #endif
-
+/* ex:se ts=4 sw=4: */

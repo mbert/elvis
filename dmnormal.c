@@ -1,7 +1,7 @@
 /* dmnormal.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_dmnormal[] = "$Id: dmnormal.c,v 2.37 1998/11/25 01:26:42 steve Exp $";
+char id_dmnormal[] = "$Id: dmnormal.c,v 2.38 1999/02/06 22:29:20 steve Exp $";
 
 #include "elvis.h"
 #include <time.h>
@@ -712,13 +712,13 @@ static void header(w, pagenum, info, draw)
 	CHAR	space = ' ';
 	CHAR	newline = '\n';
 
-	/* if the "number" option isn't set, then don't bother. */
+	/* if the "lpheader" option isn't set, then don't bother. */
 	if (!o_lpheader)
 	{
 		return;
 	}
 
-	/* covert page number to text */
+	/* convert page number to text */
 	long2CHAR(pg, (long)pagenum);
 
 	/* find the title of the document */

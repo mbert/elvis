@@ -26,7 +26,7 @@
 # endif
 #endif
 
-char id_osblock[] = "$Id: osblock.c,v 2.22 1998/11/28 05:14:22 steve Exp $";
+char id_osblock[] = "$Id: osblock.c,v 2.23 1999/06/15 04:19:50 steve Exp $";
 
 static int fd = -1; /* file descriptor of the session file */
 #ifdef FEATURE_RAM
@@ -265,7 +265,7 @@ void blkread(buf, blkno)
 	lseek(fd, (off_t)blkno * o_blksize, 0);
 	if (read(fd, (char *)buf, (size_t)o_blksize) != o_blksize)
 	{
-		msg(MSG_FATAL, "blkread failed");
+		msg(MSG_FATAL, "[d]blkread($1) failed", (int)blkno);
 	}
 }
 

@@ -34,7 +34,7 @@ correct tag.
 <li><a href="#HINTS">14.5 Restrictions and hints</a>
 <li><a href="#HISTORY">14.6 History</a>
 <li><a href="#BROWSE">14.7 Browsing</a>
-<li><a href="#TAGPRG">14.8 The tagprg and tagprgonce options</a>
+<li><a href="#TAGPRG">14.8 The tagprg option</a>
 </menu>
 
 <h2><a href="#FILE"></a>14.1 The tags file</h2>
@@ -629,7 +629,7 @@ It always interprets its arguments as restrictions, and the format of
 the HTML document can't be reconfigured.
 Those are the only differences.
 
-<h2><a name="TAGPRG"></a>14.8 The tagprg and tagprgonce options</h2>
+<h2><a name="TAGPRG"></a>14.8 The tagprg option</h2>
 
 As an alternative to elvis' "restrictions" method for finding tags,
 you can set the <a href="elvisopt.html#tagprg">tagprg</a> option to a
@@ -663,9 +663,10 @@ If you want to use a function searching program that uses a different format,
 you'll need to pipe its output through a custom-made filter that converts
 its output to the standard tags format.
 
-<p>There is also a <a href="elvisopt.html#tagprgonce">tagprgonce</a> option.
-It is exactly like <code>tagprg</code> except that <code>tagprgonce</code> is
-automatically reset to "" after it is used.  This is handy when you're writing
-<a href="elvistip.html#ALIAS">aliases</a> that use perform specialized searches.
+<p>One common technique is to use the <a href="elvisex.html#local">:local</a>
+command in an <a href="elvistip.html#ALIAS">alias</a>, to set
+<code>tagprg</code> temporarily for a single search.
+The <a href="elvis.ali?/alias+text+{">:text</a> alias in
+<code>lib/elvis.ali</code> is an example of this.
 
 </body></html>

@@ -203,7 +203,7 @@ static void gwbefore (int minor, void (*draw) (_CHAR_ ch))
     }
 
     GetTextMetrics (printerDC, &tm);
-    pxCSize = tm.tmMaxCharWidth;
+    pxCSize = tm.tmAveCharWidth;
     pyCSize = tm.tmHeight + tm.tmExternalLeading;
     
     opt_parse_attr (o_lpcolor ? o_fixedstyle (pgwp) : "", &lf);
@@ -401,5 +401,4 @@ LPTYPE  lpwindows = {
 };
 
 #endif
-
 /* ex:set ts=4 sw=4: */

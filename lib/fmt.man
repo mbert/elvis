@@ -12,7 +12,12 @@ fmt \- adjust line-length for paragraphs of text
 .RI [ file ]...
 .ad b
 .SH DESCRIPTION
-.B fmt
+This page describes the version of
+.I fmt
+distributed with
+.IR elvis (1).
+.P
+.I fmt
 is a simple text formatter.
 It inserts or deletes newlines, as necessary, to make all lines in a
 paragraph be approximately the same width.
@@ -22,7 +27,7 @@ If you don't name any files on the command line,
 then \fBfmt\fR will read from stdin.
 .PP
 It is typically used from within
-.BR vi (1)
+.IR vi (1)
 to adjust the line breaks
 in a single paragraph.
 To do this, move the cursor to the top of the paragraph,
@@ -35,7 +40,7 @@ of 72 characters.
 .IP \fB\-s\fP
 Don't join lines shorter than the line width to fill paragraphs.
 .SH "SEE ALSO"
-.BR vi (1)
+.IR vi (1)
 .SH AUTHOR
 .nf
 Steve Kirkendall

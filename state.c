@@ -1,7 +1,7 @@
 /* state.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_state[] = "$Id: state.c,v 2.30 1998/10/04 00:45:29 steve Exp $";
+char id_state[] = "$Id: state.c,v 2.31 1999/02/06 22:32:28 steve Exp $";
 
 #include "elvis.h"
 
@@ -341,7 +341,7 @@ void statekey(key)
 		if (o_errorbells)
 			guibeep(focus);
 	}
-	else if (result == RESULT_COMPLETE && key != -1 && state == focus->state)
+	else if (result == RESULT_COMPLETE && key != (_CHAR_)-1 && state == focus->state)
 	{
 		/* clobber the "cmdchars" list - all chars entered */
 		focus->cmdchars[0] = '\0';

@@ -132,4 +132,4 @@ static LRESULT CALLBACK TagsDlgProc (HWND hDlg, UINT message,
 }
 
 #endif
-
+/* ex:se ts=4 sw=4: */

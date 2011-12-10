@@ -9,8 +9,8 @@ extension .c .ic .ec
 keyword auto break case char const continue default delete defined do
 keyword double else enum extern far float friend for goto if int long
 keyword near register return short signed sizeof static struct switch
-keyword typedef union unless unsigned void volatile while
-comment //
+keyword typedef union unsigned void volatile while
+#comment //
 comment /* */
 preprocessor #
 prepquote < >
@@ -232,7 +232,7 @@ string "
 strnewline empty
 character '
 regexp /?#:
-useregexp if unless while until m (,~&|
+useregexp if unless while until m qr (,~&|
 useregsub s tr
 other allcaps
 font e ( ) { }
@@ -697,6 +697,7 @@ other allcaps initialpunct
 strnewline empty
 
 # ACCELL.
+# Contributed by H.Merijn Brand <merijn@hempseed.com>
 language accell
 extension .fs .fz .as .az .h
 keyword ACCELL ACCELL_TYPE ACTION ADD ADD_ALLOWED ADD_UPDATE AFTER ALL ALTER
@@ -955,6 +956,7 @@ comment !
 comment =
 
 # RPT
+# Contributed by H.Merijn Brand <merijn@hempseed.com>
 language RPT
 extension .rpt
 keyword after amount and avg before begin binary bootm centered col column comb
@@ -1073,3 +1075,33 @@ function (
 string "
 character '
 inword _ .
+
+# IPF (OS/2's help file source language) source files
+# Contributed by Herbert Martin Dietze (herbert@paulina.shnet.org)
+# Still fairly incomplete but useful for working on the IPF version of
+# Elvis' manual.
+language ipf
+extension .ipf
+
+keyword :acviewport :artlink :eartlink :artwork
+keyword :caution :ecaution :cgraphic :ecgraphic
+keyword :color :ctrl :ctrldef :ectrldef :ddf :docprof
+keyword :fig :efig :figcap :font :fn :efn
+keyword :h1 :h2 :h3 :h4 :h5 :h6
+keyword :hp1 :ehp1 :hp2 :ehp2 :hp3 :ehp3 :hp4 :ehp4
+keyword :hp5 :ehp5 :hp6 :ehp6 :hp7 :ehp7 :hp8 :ehp8
+keyword :hp9 :ehp9
+keyword :i1 :i2
+keyword :hide :ehide :icmd :isyn :lines :elines
+keyword :link :elink :lm :note :nt :ent :p :pbutton
+keyword :rm :title :userdoc :euserdoc :warning :ewarning
+keyword :xmp :exmp
+keyword :dl :edl :dthd :ddhd :dt :dd :li :lp :ol
+keyword :eol :parml :eparlm :pt :pd :sl :esl :table
+keyword :etable :row :c :ul :eul .br
+comment .*
+function =
+character &.
+startword :.
+inword 
+string '

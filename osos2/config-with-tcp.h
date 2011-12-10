@@ -33,9 +33,11 @@
  * the :help command is disabled because it depends on the "html" markup display
  * mode.  #define to enable the mode, #undef to exclude it.
  */
-#define	DISPLAY_HEX	/* hex		interactive hex dump */
-#define	DISPLAY_MARKUP	/* html/man/tex	formatted text */
-#define	DISPLAY_SYNTAX	/* syntax	generic syntax coloring */
+#define	DISPLAY_HEX	/* hex     interactive hex dump */
+#define	DISPLAY_HTML	/* html    formatted text */
+#define	DISPLAY_MAN	/* man     formatted text */
+#define	DISPLAY_TEX	/* tex     formatted text */
+#define	DISPLAY_SYNTAX	/* syntax  generic syntax coloring */
 #define	PROTOCOL_HTTP	/* define to enable HTTP; undef to disable */
 #define	PROTOCOL_FTP	/* define to enable FTP; undef to disable */
 #define	FEATURE_SHOWTAG	/* the showtag option */
@@ -45,6 +47,7 @@
 #define FEATURE_COMPLETE /* filename completion */
 #define FEATURE_RAM     /* using ram instead of disk for session files */
 #define FEATURE_LITRE	/* faster searches for literal strings */
+#define FEATURE_BACKTICK /* the `program` notation in file names */
 
 
 /* The following provide custom implementation of some common functions which

@@ -388,7 +388,7 @@ of the <kbd>Tab</kbd> key.  It can be set to one of the following values:
 <li><strong>filename</strong> - attempt filename completion on the preceding
     word.
 <li><strong>identifier</strong> - attempt tag name completion on the
-    preceeding word.  If the word is already comlete, or if cursor isn't
+    preceeding word.  If the word is already complete, or if cursor isn't
     at the end of a word, then it inserts a plain tab character.
     This can be handy when you're editing source code.
 <li><strong>ex</strong> - a smarter version of filename completion,
@@ -750,6 +750,7 @@ This is handy when elvis isn't initializing itself the way you expected it to;
 elvis' initialization code frequently tests the value of <code>verbose</code>
 and automatically writes status messages when <code>verbose</code> is set to
 a high enough level.
+Values normally range from 0 (no extra output) to 9 (maximum output).
 
 <p><a name="errorbells"></a><a name="warningbells"></a>
 The <em>errorbells</em> and <em>warningbells</em> options cause the
@@ -957,7 +958,7 @@ When you press a toolbar button, the button's one-line description is shown
 on the statusbar.
 
 <p><a name="scrollbarleft"></a>
-The <em>scrollbarleft</em> option deterimines which side of the window the
+The <em>scrollbarleft</em> option determines which side of the window the
 scrollbar will be drawn on.
 This option is false by default, so the scrollbar appears on the right side
 of the window.
@@ -1205,7 +1206,6 @@ interfere with <code>n</code> and <code>N</code>.
 | <a href="#tags">tags, tagpath</a>       | String  | global | list of possible tag files  |
 | <a href="#tagstack">tagstack, tsk</a>       | Boolean | global | remember origin of tag srch |
 | <a href="#tagprg">tagprg, tp</a>          | String  | global | external tag search program |
-| <a href="#tagprgonce">tagprgonce, tpo</a>     | String  | global | like tagprg, but auto-resets|
 ^---------------------^---------^--------^-----------------------------^
 </pre>
 
@@ -1262,24 +1262,6 @@ the <a href="elvisexp.html#SIMPLER">simpler expression syntax</a> with
 <strong>$1</strong> indicating where the arguments should go.
 The default value of <code>tagprg</code> is "" which causes elvis to use
 the internal tag search algorithm.
-
-<p><a name="tagprgonce"></a>The <em>tagprgonce</em> options acts just like
-the <code>tagprg</code> option, except that <code>tagprgonce</code>
-automatically reverts to "" the first time it is used.  If <code>tagprg</code>
-and <code>tagprgonce</code> are both set, then <code>tagprgonce</code> is used.
-It exists mostly so you can easily write
-<a href="elvistip.html#ALIAS">aliases</a> which perform specialized searches,
-without interfering with normal tag searches.  The following example creates
-a new <code>:text</code> command which finds instances of a given text string
-in any *.c or *.h files.
-(Note that the "set tagprgonce..." command should be entered on one line;
-it is shown here on three lines simply as a typographical convenience.)
-<pre>
-:alias text {
-set tagprgonce="grep -nsw '(quote(\"'\",$1))' *.[ch] /dev/null \|
-    sed 's/^\\\\\\(.*\\\\\\):\\\\\\(.*\\\\\\):.*/!^    \\1     \\2/'"
-tag!? !*
-}</pre>
 
 <p><strong>NOTE:</strong> You might also consider using the
 <a href="#ccprg">ccprg</a> option for this sort of thing, since the
@@ -1866,7 +1848,7 @@ If lpwrap is false, then it will clip long lines.
 The <em>lplines</em> option tells elvis how long the usable portion of each
 page is; i.e., how many lines it should print on each page.
 The default is 60.
-Some display modes ("html" and "man") print headers at the top of each page;
+Some display modes print headers at the top of each page;
 those lines are included in the lplines count.
 Setting lplines=0 causes elvis to assume that pages are infinitely long,
 which sounds about right for fan-fold printer paper.
@@ -1877,18 +1859,14 @@ then the page will be compressed vertically to make it fit.
 The <em>lpnumber</em> option does to printouts what the
 <a href="#number">number</a> option does for a window -- it causes the line
 number to be output in the left margin.
-If the buffer's <a href="#bufdisplay">bufdisplay</a> option is "normal" or
-"syntax", then it also causes a header to be printed at the top of each page,
-showing the file name, page number, and date/time when the printout was
-created.
+This is <strong>false</strong> by default.
 
 <p><a name="lpheader"></a>
 The <em>lpheader</em> option controls whether printouts will have a line at
-the top of each page showing the file name, date, and page number.
-It only affects the <a href="elvisdm.html#normal">normal</a>,
-<a href="elvisdm.html#syntax">syntax</a>, and
-<a href="elvisdm.html#hex">hex</a> display modes;
-the others always have a header.
+the top of each page showing the file name, date, and page number, or other
+information.
+Different display modes have different header formats.
+This is <strong>true</strong> by default.
 
 <p><a name="lpformfeed"></a>
 The <em>lpformfeed</em> option controls whether elvis will send a form-feed
@@ -2232,7 +2210,6 @@ For example, the command...
 | <a href="#tabstop">tabstop, ts</a>         | Number  | buf    | width of tabstop columns    |
 | <a href="#taglength">taglength, tl</a>       | Number  | global | significant length of tags  |
 | <a href="#tagprg">tagprg, tp</a>          | String  | global | external tag search program |
-| <a href="#tagprgonce">tagprgonce, tpo</a>     | String  | global | like tagprg, but auto-resets|
 | <a href="#tags">tags, tagpath</a>       | String  | global | list of possible tag files  |
 | <a href="#tagstack">tagstack, tsk</a>       | Boolean | global | remember origin of tag srch |
 | <a href="#tempsession">tempsession, temp</a>   | Boolean | global | delete session file on exit |

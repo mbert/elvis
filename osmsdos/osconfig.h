@@ -13,7 +13,9 @@
 /* The following control which display modes & other features are available */
 #define	DISPLAY_SYNTAX	/* the new generic "syntax" colorizer */
 #define	DISPLAY_HEX	/* the "hex" display mode */
-#define	DISPLAY_MARKUP	/* the "html" and "man" modes */
+#define	DISPLAY_HTML	/* the "html" display mode */
+#define	DISPLAY_MAN	/* the "man" display mode */
+#undef	DISPLAY_TEX	/* the "tex" display mode */
 #undef	PROTOCOL_HTTP	/* the "http" protocol -- no MSDOS code is provided */
 #undef	PROTOCOL_FTP	/* the "ftp" protocol -- no MSDOS code is provided */
 #undef	FEATURE_SHOWTAG	/* the "showtag" option */
@@ -24,6 +26,7 @@
 #define	FEATURE_MOUSE	/* allow the mouse to be used for selections & tags */
 #undef	FEATURE_RAM	/* if invoked with "-f ram" then use XMS/EMS */
 #undef	FEATURE_LITRE	/* faster searches for literal strings */
+#undef	FEATURE_BACKTICK /* the `program` notation in file names */
 
 /* The following provide custom implementation of some common functions which
  * are either missing or poorly implemented on some systems.

@@ -324,36 +324,50 @@ if [ -f /usr/include/sys/ptem.h ]
 then
 	why "This system has a <sys/ptem.h> file so I assume elvis needs it" 
 	NEED_WINSIZE=define
+else
+	why "This system has no <sys/ptem.h> file so I assume elvis doesn't need it"
 fi
 if [ -f /usr/include/termcap.h ]
 then
 	why "This system has a <termcap.h> file so I assume elvis needs it" 
 	NEED_SPEED_T=define
+else
+	why "This system has no <termcap.h> file so I assume elvis doesn't need it"
 fi
 if [ -f /usr/include/sys/wait.h ]
 then
 	why "This system has a <sys/wait.h> file so I assume elvis needs it" 
 	NEED_WAIT_H=define
+else
+	why "This system has no <sys/wait.h> file so I assume elvis doesn't need it"
 fi
 if [ -f /usr/include/sys/select.h ]
 then
 	why "This system has a <sys/select.h> file so I assume elvis needs it" 
 	NEED_SELECT_H=define
+else
+	why "This system has no <sys/select.h> file so I assume elvis doesn't need it"
 fi
 if [ -f /usr/include/sys/ioctl.h ]
 then
 	why "This system has a <sys/ioctl.h> file so I assume elvis needs it" 
 	NEED_IOCTL_H=define
+else
+	why "This system has no <sys/ioctl.h> file so I assume elvis doesn't need it"
 fi
 if [ -f /usr/include/netinet/in.h ]
 then
 	why "This system has a <netinet/in.h> file so I assume elvis needs it" 
 	NEED_IN_H=define
+else
+	why "This system has no <netinet/in.h> file so I assume elvis doesn't need it"
 fi
 if [ -f /usr/include/sys/socket.h ]
 then
 	why "This system has a <sys/socket.h> file so I assume elvis needs it" 
 	NEED_SOCKET_H=define
+else
+	why "This system has no <sys/socket.h> file so I assume elvis doesn't need it"
 fi
 if [ X"$xinc" != X ]
 then
@@ -361,6 +375,8 @@ then
 	then
 		why "This system has a <X11/Xos.h> file so I assume elvis needs it" 
 		NEED_XOS_H=define
+	else
+		why "This system has no <X11/Xos.h> file so I assume elvis doesn't need it"
 	fi
 fi
 why "Does this system support setpgid()?"
@@ -449,6 +465,11 @@ case "$SYS" in
 	else
 		why "For Linux, we're using termcap because I prefer it over curses/terminfo"
 	fi
+	if [ "$NEED_SELECT_H" = "define" ]
+	then
+		why "For Linux, elvis never needs <sys/select.h> so I'm ignoring it on your system"
+		NEED_SELECT_H=undef
+	fi
 	;;
   *osf*)
 	why "OSF is configured to use the bogus 'tinytcap.c' file instead of a real termcap"
@@ -498,6 +519,12 @@ case "$SYS" in
 		xlibdir=`dirname "$xlib"`
 		XLIBS=" -R$xlibdir$XLIBS"
 	fi
+	if [ -f /usr/ccs/lib/libtermcap.a ]
+	then
+		why "For Solaris2, -ltermcap is usually not necessary but since you have and and"
+		why "   it is harmless, I'll add it."
+		TLIBS="$TLIBS -ltermcap"
+	fi
 	;;
   *solaris*)
 	why "For Solaris 1, no really wacky tricks are needed.  A -Dconst= flag is added"
@@ -531,7 +558,7 @@ case "$SYS" in
 	elif [ X"$inet" != X ]
 	then
 		why "For SCO, any network access needs -lsocket"
-		LIBS="$LIBS -lsocket"
+		TLIBS="$TLIBS -lsocket"
 	fi
 	;;
   *xenix*)
@@ -543,7 +570,8 @@ case "$SYS" in
 	fi
 	;;
   *freebsd*)
-	why "For FreeBSD, no tweaks are required"
+	why "For FreeBSD, we ignore the <sys/select.h> file"
+	NEED_SELECT_H="undef"
 	;;
   *bsd*)
 	why "For BSD we like to use shlicc2 because it supports shared libraries"
@@ -676,7 +704,9 @@ cat >config.h <<eof-config
  * mode.  #define to enable the mode, #undef to exclude it.
  */
 #define	DISPLAY_HEX	/* hex		interactive hex dump */
-#define	DISPLAY_MARKUP	/* html/man/tex	formatted text */
+#define	DISPLAY_HTML	/* html		formatted text */
+#define	DISPLAY_MAN	/* man		formatted text */
+#define	DISPLAY_TEX	/* tex		formatted text */
 #define	DISPLAY_SYNTAX	/* syntax	generic syntax coloring */
 #${PROTOCOL_HTTP}	PROTOCOL_HTTP	/* define to enable HTTP; undef to disable */
 #${PROTOCOL_FTP}	PROTOCOL_FTP	/* define to enable FTP; undef to disable */
@@ -687,6 +717,7 @@ cat >config.h <<eof-config
 #define	FEATURE_COMPLETE /* filename completion */
 #define	FEATURE_LITRE	/* accelerate searches for literal strings */
 #undef	FEATURE_RAM	/* store edit buffer in RAM if "-f ram" */
+#define	FEATURE_BACKTICK /* the \`program\` notation in file names */
 
 
 /* The following provide custom implementation of some common functions which
@@ -779,7 +810,6 @@ eof-hp-ux
 cat >$tmp <<eof-linux
 s!^# Makefile.in\$!# Makefile - configured for $SYS!
 s!^CC=.*!CC=$CC!
-s!^ALL=.*!ALL=elvis\$(EXE) ref\$(EXE) ctags\$(EXE) fmt\$(EXE)!
 eof-linux
 ;;
 

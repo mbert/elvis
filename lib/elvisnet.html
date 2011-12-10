@@ -137,9 +137,11 @@ For example, "ftp://localhost/pub/myfile" refers to "pub/myfile" in the
 anonymous directory hierarchy,
 but "ftp://localhost/~/myfile" refers to "myfile" in your home directory
 using your own account's privileges.
+You can also put a user name after the tilde to access some other user's
+account, as in  "ftp://localhost/~bob/bobsfile".
 
 <p>Elvis doesn't prompt for your password when you access an FTP site using
-your own account, though.
+a non-anonymous account, though.
 Instead, it searches for account information in the ".netrc" file in your
 home directory, or if that doesn't exist then it searches for "elvis.ftp"
 anywhere in your <a href="elvisopt.html#elvispath">elvispath</a>.
@@ -151,8 +153,10 @@ keywords.
 Line breaks are no more significant than any other whitespace, but for the
 sake of readability it is a good idea to keep all data for a particular FTP
 site on a single line.
+To describe multiple accounts on a single FTP site, I suggest you put each
+account on a separate line.
 
-<p>A typical line, then, will have a format like this...
+<p>A typical line will have a format like this...
 <pre>
     machine <var>server.domain.name</var> login <var>yourlogin</var> password <var>yourpass</var>
 </pre>
@@ -169,6 +173,12 @@ the <strong>ftp</strong>(1) and <strong>netrc</strong>(5) man-pages.
 Elvis' use of the ~/.netrc file is intended to be compatible with ftp's use
 of the that file.
 
+<p>The first entry for a given FTP site is assumed to be your own account;
+it is used for accessing URLs which begin with a tilde but have no user name.
+For other accounts (with the user name after the tilde), elvis looks for the
+first entry in which the machine and user fields both match the values from
+the URL.
+This is a slight extension of ~/.netrc's traditional meaning.
 <h1><a name="HTTP"></a>15.3 HTTP</h1>
 
 The name "HTTP" stands for "HyperText Transfer Protocol".

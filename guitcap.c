@@ -257,6 +257,9 @@ static char *startfont="";	/* string for starting current font */
 static char *endfont="";	/* string for ending current font */
 long        ttycaught;		/* bitmap of recently-received signals */
 
+/* This indicates whether we've found the termcap entry yet */
+static int gotentry = 0;
+
 /* This function writes the contents of ttybuf() to the screen */
 static void ttyflush()
 {
@@ -491,10 +494,13 @@ static void starttcap()
 	capbuf = cbmem;
 
 	/* get the termcap entry */
-	switch (tgetent(ttybuf, tochar8(o_term)))
+	if (!gotentry)
 	{
-	  case -1:	msg(MSG_FATAL, "termcap database unreadable");
-	  case 0:	msg(MSG_FATAL, "[S]TERM=$1 unknown", o_term);
+		switch (tgetent(ttybuf, tochar8(o_term)))
+		{
+		  case -1:	msg(MSG_FATAL, "termcap database unreadable");
+		  case 0:	msg(MSG_FATAL, "[S]TERM=$1 unknown", o_term);
+		}
 	}
 
 	/* get strings */
@@ -1387,7 +1393,29 @@ static void draw(gw, font, text, len)
 /* return True if termcap is available. */
 static int test P_((void))
 {
-	return ttytermtype() ? 1 : 0;
+	char	*term;
+	char	dummy[40], *dummyptr;
+
+	/* get terminal type.  If no type, then return 0 */
+	term = ttytermtype();
+	if (!term)
+		return 0;
+
+	/* find termcap entry.  If none, then return 0 */
+	if (tgetent(ttybuf, term) != 1)
+		return 0;
+	gotentry = 1;
+
+	/* check for some required strings and numbers */
+	if (tgetnum("co") < 40
+	 || tgetnum("li") < 3
+	 || tgetstr("up", (dummyptr = dummy, &dummyptr)) == NULL
+	 || tgetstr("cm", (dummyptr = dummy, &dummyptr)) == NULL
+	 || tgetstr("ce", (dummyptr = dummy, &dummyptr)) == NULL)
+		return 0;
+
+	/* no obvious problems, so termcap should work */
+	return 1;
 }
 
 
@@ -1846,7 +1874,7 @@ static BOOLEAN creategw(name, firstcmd)
 	if (firstcmd)
 	{
 		winoptions(winofgw((GUIWIN *)newp));
-		exstring(windefault, toCHAR(firstcmd));
+		exstring(windefault, toCHAR(firstcmd), "+cmd");
 	}
 
 	return True;

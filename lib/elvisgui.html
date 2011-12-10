@@ -17,6 +17,7 @@ interfaces which <em>may</em> be available in your copy of elvis:
 <li><a href="#vio">vio</a> - OS/2-specific version of the termcap interface.
 <li><a href="#open">open</a> - a simpler text-based interface.
 <li><a href="#quit">quit</a> - a pseudo-interface for non-interactive editing.
+<li><a href="#script">script</a> - a pseudo-interface for running scripts.
 </ul>
 
 
@@ -42,7 +43,7 @@ you can specify which interface to use via the
 <h2>8.1 X11 Interface</h2><a name="x11"></a>
 
 The x11 interface is used under X-Windows on UNIX or OS/2 systems.
-(See the <a href="elvisos.html#os2">OS/2</a> section of the OS chapter
+(See the <a href="elvisos.html#os2x11">OS/2</a> section of the OS chapter
 for a description of what you need to run X11 under OS/2.)
 Subsections here are
 <a href="#x11.flags">command line flags</a>, the
@@ -54,8 +55,8 @@ Subsections here are
 
 <p>The x11 interface provides a scrollbar and mouse support, and allows you to
 select which fonts to use.
-Fonts are specified via command-line flags;
-there is no way to change fonts after elvis has created the first window.
+There is also a configurable toolbar.
+Buttons on that toolbar can even be configured to use pop-up dialog windows.
 
 <p>The x11 interface reads app-defaults (as listed below) but those are
 only used to provided default values for options and colors.  You can
@@ -73,7 +74,7 @@ If you don't specify a normal font, then elvis will use a font named "fixed"
 by default.
 
 <p>To specify a bold font, use <strong>-fb</strong> <var>fontname.</var>
-The specified font should have the same size character cell as the normal
+The specified font should have the same character cell size as the normal
 font, but elvis does not verify this.
 If you don't specify a bold font, then elvis will fake it by smearing the
 normal font rightward one pixel.
@@ -85,10 +86,10 @@ If you don't specify an italic font, then elvis will fake it by sliding the
 top half of the normal font rightward one pixel.
 
 <p>The <strong>-fc</strong> <var>fontname</var> flag can be used to specify
-the font to be used for controls -- currently just the toolbar, but eventually
-elvis will offer a scrollbar and maybe a statusbar.
-If you don't specify a control font, then elvis will use the "variable" font
-by default.
+the font to be used for controls -- currently just the toolbar and statusbar, but eventually
+elvis will offer a scrollbar too.
+If you don't specify a control font, then elvis will use a font named
+"variable" by default.
 
 <p>If you want to use Courier fonts, there is a shortcut:
 <strong>-courier</strong> <var>size</var> will use the normal, bold,
@@ -106,6 +107,8 @@ disables the built-in icon.
 
 <p>Elvis also supports the <strong>-geometry</strong> <var>WxH+X+Y</var> flag
 for specifying the size and/or position of the first window.
+The size is specified in characters, and the default size is 80x34.
+There is no default position.
 
 <p>The <strong>-fork</strong> option causes elvis to fork a new process,
 so you get a new shell prompt immediately.
@@ -244,7 +247,7 @@ no such overhead.
 
 <dt>:gui <var>label</var> " <var>description</var>
 <dd>Add a one-line description to the button.
-The description is shown on the status line when the button is pressed.
+The description is shown on the statusbar when the button is pressed.
 It is also displayed on pop-up dialogs, as described below.
 <pre>
 :gui Quit"Close this window, and maybe exit elvis</pre>
@@ -296,7 +299,7 @@ unless/until you hit the [Submit] button.
 
 <p><strong>NOTE:</strong>
 The <a href="elvisopt.html#USER">user options "a" through "z"</a> are useful
-for inputting (via the dialog) and storing temporary values.
+for inputing (via the dialog) and storing temporary values.
 You'll almost certainly want to override the prompt and type of those options.
 
 <p><strong>NOTE:</strong>
@@ -365,6 +368,11 @@ The "Timeout" type gives a time value, in tenths of a second.
 This value would therefore be used if the
 <a href="elvisopt.html#normalfont">normalfont</a> option was unset.
 
+<p>The method for changing a resource may vary from one X server to another.
+Typically, you would edit a file named ~/.Xdefaults, and then run
+"<code>xrdb&nbsp;-merge&nbsp;~/.Xdefaults</code>".
+(xrdb is part of the standard X distribution.)
+
 <h3><a name="x11.keys"></a>8.1.5 X11 Keys</h3>
 If there is a standard way to map a Keysym value into a text string, then
 elvis will use it.
@@ -375,7 +383,7 @@ expressed as four hex digits.
 
 <p>You can use the "^Kxxxx" character sequences as the first argument to a
 <a href="elvisex.html#map">:map</a> command.
-In the interest of readability and portability, though, elvis also allows
+In the interest of readability and portability, elvis also allows
 you to use the symbolic name of a key in that context, instead of the
 raw characters.
 These are the same key names that are used by (among other things)
@@ -900,6 +908,46 @@ elvis -G quit -c lp <var>somefile</var>
 
 Because the usual initialization guesses a file's display mode
 automatically, this one command can be used to format and print HTML documents,
-man pages, C code, and possibly hex dumps of binary files.
+man pages, C code, and even hex dumps of binary files.
 
+<h2>8.7 Script Interface</h2><a name="script"></a>
+
+The <em>script</em> interface is similar to the <a href="#quit">quit</a>
+interface, except that this interface reads ex commands from stdin and
+executes them; when it detects end-of-file on stdin, it exits.
+Status messages are disabled while running a script, but error messages
+are still output.
+
+<p>Rather than selecting this interface via <code>-Gscript</code>, you will
+usually select it via the <code>-s</code> flag
+(or the obsolete <code>-</code> flag),
+which has the additional side-effect of disabling all initialization scripts.
+This is desirable since it causes the script to behave exactly the same way
+for different users, regardless of any customization they have done.
+
+<p>Here's an example shell script that uses this feature to swap instances of
+the words "left" and "right" in a group of files.
+
+<pre>
+	#!/bin/sh
+	for file
+	do
+		elvis -s $file &lt;&lt;EOF
+try %s/\&lt;left\&gt;/:TEMP:/g
+try %s/\&lt;right\&gt;/left/g
+try %s/:TEMP:/right/g
+if modified
+then write
+EOF
+	done
+</pre>
+Note that the five lines between "<code>&lt;&lt;EOF</code>" and
+"<code>EOF</code>" are a series of elvis commands, and
+everything else is handled by the /bin/sh shell.
+The <a href="elvisex.html#try">:try</a> commands are used to silence error
+messages from any <a href="elvisex.html#substitute">:s</a> commands which
+fail to find any matching text.
+The <a href="elvisex.html#if">:if/:then</a> commands are used to test the
+buffer's <a href="elvisopt.html#modified">modified</a> option, so a file which
+contains no instances of "left" or "right" won't be rewritten needlessly.
 </body></html>

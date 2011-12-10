@@ -6,6 +6,11 @@ ref - Display a C function header
 .RI [ options ]...
 .RI [ restrictions ]...
 .SH DESCRIPTION
+This page describes the
+.I ref
+program that is distributed with
+.IR elvis (1).
+.P
 .I ref
 quickly locates and displays the header of a function.
 To do this,
@@ -15,88 +20,6 @@ scans the source file for the function.
 When it locates the function, it displays an introductory comment
 (if there is one), the function's declaration, and the declarations of all
 arguments.
-.SH TAGS
-A tag is a collection of attributes.
-Each attribute has a name and a value.
-Every tag has attributes with the following names:
-.TP
-.B tagname
-The name of the tag; usually the same as the function (or whatever) that the
-tag refers to.
-.TP
-.B tagfile
-The name of your source code file, in which the tag's definition occurred.
-.TP
-.B tagaddress
-Either a line number, or a "nomagic" regular expression, which allows
-.I elvis
-or
-.I ref
-to locate the tag's definition within your source file.
-.PP
-In addition, any tag can have additional, optional attributes.
-These extra tags are meant to serve as hints, describing the contexts in which
-the tagname is permitted to occur in your source code.
-The list of additional attribute names is not preset; any tags file can
-use whatever seem appropriate.
-The following are typical:
-.TP
-.B kind
-This value is a single letter indicating the lexical type of the tag.
-It can be "f" for functions, "v" for variables, and so on.
-.TP
-.B file
-If the tag can only be used within a single source file, then this should be
-the name of that file.
-E.g., in C, a "static" function can only be used in the function in which it
-is defined, so if a function is static then its tag will usually have a
-.B file
-attribute, and its value will be the same as that of its
-.B tagfile
-attribute.
-.TP
-.B function
-For local variables.
-The value is name of function in which they're defined.
-.TP
-.B struct
-For fields of a struct or union.
-The value is the name of the struct or union.
-If it has no name (not even a typedef) then "struct=struct"
-is better than nothing.
-.TP
-.B enum
-For values in an enum data type.
-The value is the name of the enum type.
-If it has no name (not even a typedef) then "enum=enum"
-is better than nothing.
-.TP
-.B class
-Member functions of a class in C++ could use this to identify which class
-they're in.
-The class name itself, however, is global so it doesn't have a
-.B class
-attribute.
-.TP
-.B scope
-Intended mostly for class member functions.
-It will usually be "public" or "private",
-so users can restrict tag searches to only public members.
-.TP
-.B arity
-For functions.
-Its value is the number of arguments.
-.PP
-Currently, the hacked-up version of
-.IR ctags (1)
-included with elvis will only generate
-.BR kind ,
-.BR file ,
-and
-.B class
-hints, and it doesn't do a very good job on
-.B class
-hints.
 .SH OPTIONS
 .IP \fB-t\fR
 Output tag info, instead of the function header.
@@ -236,6 +159,7 @@ To find the global function headers, I used the command...
 .nf
 
 		ref -a kind:f file:dummy
+.fi
 .PP
 The "-a" causes
 .I ref
@@ -277,6 +201,90 @@ then
 will invoke
 .I ref
 with the command "ref splat file:foo.c".
+.SH TAGS
+A tag is a collection of attributes.
+Each attribute has a name and a value.
+Every tag has attributes with the following names:
+.TP
+.B tagname
+The name of the tag; usually the same as the function (or whatever) that the
+tag refers to.
+.TP
+.B tagfile
+The name of your source code file, in which the tag's definition occurred.
+.TP
+.B tagaddress
+Either a line number, or a "nomagic" regular expression, which allows
+.I elvis
+or
+.I ref
+to locate the tag's definition within your source file.
+.PP
+In addition, any tag can have additional, optional attributes.
+These extra tags are meant to serve as hints, describing the contexts in which
+the tagname is permitted to occur in your source code.
+The list of additional attribute names is not preset; any tags file can
+use whatever seem appropriate.
+The following are typical:
+.TP
+.B kind
+This value is a single letter indicating the lexical type of the tag.
+It can be "f" for functions, "v" for variables, and so on.
+.TP
+.B file
+If the tag can only be used within a single source file, then this should be
+the name of that file.
+E.g., in C, a "static" function can only be used in the function in which it
+is defined, so if a function is static then its tag will usually have a
+.B file
+attribute, and its value will be the same as that of its
+.B tagfile
+attribute.
+.TP
+.B function
+For local variables.
+The value is name of function in which they're defined.
+.TP
+.B struct
+For fields of a struct or union.
+The value is the name of the struct or union.
+If it has no name (not even a typedef) then "struct=struct"
+is better than nothing.
+.TP
+.B enum
+For values in an enum data type.
+The value is the name of the enum type.
+If it has no name (not even a typedef) then "enum=enum"
+is better than nothing.
+.TP
+.B class
+Member functions of a class in C++ could use this to identify which class
+they're in.
+The class name itself, however, is global so it doesn't have a
+.B class
+attribute.
+.TP
+.B scope
+Intended mostly for class member functions.
+It will usually be "public" or "private",
+so users can restrict tag searches to only public members.
+.TP
+.B arity
+For functions.
+Its value is the number of arguments.
+.PP
+Currently, the hacked-up version of
+.IR ctags (1)
+(sometimes installed as
+.IR elvtags (1))
+included with elvis will only generate
+.BR kind ,
+.BR file ,
+and
+.B class
+hints, and it doesn't do a very good job on
+.B class
+hints.
 .SH "THE TAGS FILE"
 The tags file is a text file, in which each line describes a single tag.
 Each line is divided into fields, delimited by tab characters.
@@ -298,7 +306,9 @@ The extra fields are required to have the format "<tab>name:value".
 I.e., a ':' is required, and
 everything before the ':' is used as an attribute name, and
 everything after it is used as this tag's value for that attribute.
-One exception: if an extra field lacks a colon, then the field is
+There are two exceptions:
+.IP *
+If an extra field lacks a colon, then the field is
 assumed to be the value of an attribute named "kind".  (Some versions
 of ctags generate a single-letter "kind" value to indicate whether a
 tag is a
@@ -306,6 +316,14 @@ tag is a
 .BR v ariable,
 .BR t ypedef,
 etc.)
+Since nearly all tags have this field, omitting "kind:" significantly
+reduces the size of the tags file, and the time needed to search it.
+.IP *
+Static tags are usually marked with "file:", with no file name after the ":".
+In this case the file name is understood to be identical to the "tagfile" field.
+This does more than just reduce the size of the tags file --
+"tagfile" values are relative to the directory containing the tags file,
+and this rule offers a way to make "file" values be relative, too.
 .PP
 Different tags may have differently named  hints.
 Since each hint includes an explicit name with each value,
@@ -330,7 +348,7 @@ named "refs".
 The "refs" file should contain a copy of all source code, with the
 bodies of functions replaced by "{}".
 Elvis' version of
-.BR ctags (1)
+.IR ctags (1)
 can generate a "refs" file.
 .SH FILES
 The following files can be found in any directory named in the tagpath.
@@ -364,10 +382,18 @@ by everybody, then you can have elvis' version of
 generate a "refs" file, and make "refs" readable by everybody.
 If your system doesn't come with the library source code, then perhaps you
 can produce something workable from the
-.BR lint (1)
+.IR lint (1)
 libraries.
 .SH "SEE ALSO"
-elvis(1), ctags(1), lint(1)
+.IR elvis (1),
+.IR ctags (1),
+.IR lint (1)
+.P
+Note that on some systems,
+.IR ctags (1)
+is installed as
+.IR elvtags (1).
+
 .SH AUTHOR
 .nf
 Steve Kirkendall

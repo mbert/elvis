@@ -1,7 +1,7 @@
 /* exmake.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_make[] = "$Id: exmake.c,v 2.26 1998/07/31 03:30:01 steve Exp $";
+char id_make[] = "$Id: exmake.c,v 2.29 1999/03/11 18:37:39 steve Exp $";
 
 #include "elvis.h"
 
@@ -10,6 +10,8 @@ static BOOLEAN parse_errmsg(void);
 static RESULT gotoerr(EXINFO *xinf);
 static void errprep(void);
 #endif
+
+BOOLEAN makeflag;
 
 static char	*maybedir;	/* directory name extracted from errlist */
 static CHAR	*errfile;	/* name of file where error was detected */
@@ -121,7 +123,8 @@ static BOOLEAN parse_errmsg()
 		 * name of an existing, writable text file?
 		 */
 		if (!errfile
-		 && ((perms = dirperm(tochar8(word))) == DIR_READWRITE
+		 && (isalnum(*word)
+			|| (perms = dirperm(tochar8(word))) == DIR_READWRITE
 			|| (o_anyerror && perms == DIR_READONLY))
 		 && *ioeol(tochar8(word)) != 'b')
 		{
@@ -533,6 +536,13 @@ RESULT	ex_make(xinf)
 	for (errwin = NULL; (errwin = winofbuf(errwin, buf)) != NULL; )
 	{
 		marksetoffset(errwin->cursor, 0L);
+	}
+
+	/* delay the first error message until after <Enter> */
+	if (eventcounter > 5)
+	{
+		makeflag = True;
+		morehit = False;
 	}
 
 	/* move the cursor to the first error */

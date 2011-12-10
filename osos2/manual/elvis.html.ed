@@ -1,0 +1,6 @@
+%s/<a  *href="*elvistrs.msg"*>\(.*\)<\/a>/\1 (not in here, see elvistrs.msg)/
+%s/<a  *href="*elvis.man"*>\(.*\)<\/a>/\1 (not in here, see elvis.man)/
+%s/<a  *href="*ctags.man"*>\(.*\)<\/a>/\1 (not in here, see ctags.man)/
+%s/<a  *href="*ref.man"*>\(.*\)<\/a>/\1 (not in here, see ref.man)/
+%s/<a  *href="*fmt.man"*>\(.*\)<\/a>/\1 (not in here, see fmt.man)/
+wq

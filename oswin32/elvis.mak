@@ -3220,7 +3220,7 @@ DEP_CPP_EXEDI=\
 ################################################################################
 # Begin Source File
 
-SOURCE=.\exsusbt.c
+SOURCE=.\exsubst.c
 DEP_CPP_EXEDI=\
 	".\elvis.h"\
 	".\config.h"\
@@ -3270,7 +3270,7 @@ DEP_CPP_EXEDI=\
 	".\misc.h"\
 	
 
-"$(INTDIR)\exsusbt.obj" : $(SOURCE) $(DEP_CPP_EXEDI) "$(INTDIR)"
+"$(INTDIR)\exsubst.obj" : $(SOURCE) $(DEP_CPP_EXEDI) "$(INTDIR)"
 
 
 # End Source File

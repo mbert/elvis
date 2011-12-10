@@ -151,4 +151,4 @@ void gw_toolbar_tooltip (GUI_WINDOW *gwp, LPARAM lParam)
 #endif
 
 #endif
-
+/* ex:se ts=4 sw=4: */

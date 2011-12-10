@@ -1,7 +1,7 @@
 /* exsubst.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_exsubst[] = "$Id: exsubst.c,v 2.6 1998/11/25 03:28:26 steve Exp $";
+char id_exsubst[] = "$Id: exsubst.c,v 2.7 1999/02/06 22:26:40 steve Exp $";
 
 /* This file contains code which implements the :s command.  The most
  * challenging variation of that command is the interactive form -- specified
@@ -252,7 +252,7 @@ static BOOLEAN dosubst(win, subst)
 #endif
 
 		/* execute the command */
-		exstring(win, newtext);
+		exstring(win, newtext, NULL);
 
 		/* restore the saveregexp option */
 		o_saveregexp = oldsaveregexp;

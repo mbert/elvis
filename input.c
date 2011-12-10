@@ -1,7 +1,7 @@
 /* input.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_input[] = "$Id: input.c,v 2.62 1998/11/25 19:20:58 steve Exp $";
+char id_input[] = "$Id: input.c,v 2.63 1999/02/06 22:30:00 steve Exp $";
 
 #include "elvis.h"
 
@@ -254,6 +254,7 @@ static RESULT perform(win)
 	EXINFO	  xinfb;
 	VIINFO	  vinfb;
 	long	  col, len;
+	BOOLEAN	  oldcb;
 #ifdef FEATURE_COMPLETE
 	CHAR	  *end;
 	union
@@ -411,6 +412,7 @@ static RESULT perform(win)
 		break;
 
 	  case INP_TAB:
+		oldcb = o_completebinary;
 		if (!tryabbr(win, '\t'))
 		{
 			switch (o_inputtab(markbuffer(cursor)))
@@ -557,6 +559,7 @@ static RESULT perform(win)
 #endif /* FEATURE_COMPLETE */
 			}
 		}
+		o_completebinary = oldcb;
 		ii->backsp = ii->prev = '\0';
 		break;
 

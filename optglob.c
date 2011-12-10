@@ -1,7 +1,7 @@
 /* optglob.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_optglob[] = "$Id: optglob.c,v 2.65 1998/12/05 19:31:33 steve Exp $";
+char id_optglob[] = "$Id: optglob.c,v 2.66 1999/02/06 22:31:24 steve Exp $";
 
 /* This file contains gobal options for the portable parts of elvis. */
 
@@ -40,7 +40,6 @@ static OPTDESC ogdesc[] =
 	{"tags", "tagpath",	optsstring,	optisstring	},
 	{"tagstack", "tsk",	NULL,		NULL		},
 	{"tagprg", "tp",	optsstring,	optisstring	},
-	{"tagprgonce", "tpo",	optsstring,	optisstring	},
 	{"autoprint", "ap",	NULL,		NULL		},
 	{"autowrite", "aw",	NULL,		NULL		},
 	{"autoselect", "as",	NULL,		NULL,		},
@@ -230,7 +229,6 @@ void optglobinit()
 	optflags(o_previouscommand) = OPT_HIDE|OPT_LOCK;
 	optflags(o_previoustag) = OPT_HIDE|OPT_LOCK;
 	optflags(o_tagprg) = OPT_HIDE|OPT_UNSAFE;
-	optflags(o_tagprgonce) = OPT_HIDE|OPT_UNSAFE;
 	o_optimize = True;
 	optpreset(o_pollfrequency, 20, OPT_HIDE);
 	optflags(o_sentenceend) = OPT_HIDE;
@@ -351,7 +349,7 @@ void optglobinit()
 	optpreset(o_lpformfeed, False, OPT_HIDE);
 	optpreset(o_lppaper, toCHAR("letter"), OPT_HIDE);
 	optpreset(o_lpnumber, False, OPT_HIDE);
-	optpreset(o_lpheader, False, OPT_HIDE);
+	optpreset(o_lpheader, True, OPT_HIDE);
 	optpreset(o_lpcolor, False, OPT_HIDE);
 #endif /* FEATURE_LPR */
 

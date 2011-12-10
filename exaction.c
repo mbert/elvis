@@ -1,7 +1,7 @@
 /* exaction.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_exaction[] = "$Id: exaction.c,v 2.84 1998/10/06 16:11:02 steve Exp $";
+char id_exaction[] = "$Id: exaction.c,v 2.86 1999/02/26 21:27:08 steve Exp $";
 
 #include "elvis.h"
 
@@ -214,7 +214,7 @@ RESULT ex_all(xinf)
 			xinf->window->cursor = marktmp(bufline1, buf, 0);
 
 		/* execute the command */
-		result = exstring(xinf->window, xinf->rhs);
+		result = exstring(xinf->window, xinf->rhs, NULL);
 	}
 
 	/* Restore the original cursor */
@@ -634,7 +634,9 @@ RESULT	ex_mark(xinf)
 	}
 
 	/* set the mark */
-	namedmark[*xinf->lhs - 'a'] = markdup(xinf->fromaddr);
+	namedmark[*xinf->lhs - 'a'] = markdup(xinf->anyaddr || !xinf->window
+						? xinf->fromaddr
+						: xinf->window->cursor);
 	return RESULT_COMPLETE;
 }
 
@@ -999,6 +1001,8 @@ RESULT	ex_source(xinf)
 	/* create a temp buffer */
 	buf = bufalloc(NULL, 0, True);
 	assert(buf != NULL);
+	o_filename(buf) = CHARdup(toCHAR(xinf->file[0])); 
+	optflags(o_filename(buf)) |= OPT_FREE;
 
 	/* fill the temp buffer with text read from the file */
 	io = (CHAR *)safealloc(1024, sizeof(CHAR));
@@ -1162,7 +1166,7 @@ RESULT	ex_browse(xinf)
 	assert(xinf->command == EX_BROWSE || xinf->command == EX_SBROWSE);
 
 	/* build the tags document */
-	if (o_tagprg || o_tagprgonce)
+	if (o_tagprg)
 	{
 		/* using an external search program */
 		buf = tebrowse(xinf->bang, xinf->rhs);

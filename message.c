@@ -1,7 +1,7 @@
 /* message.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_message[] = "$Id: message.c,v 2.35 1998/12/09 22:20:45 steve Exp $";
+char id_message[] = "$Id: message.c,v 2.39 1999/04/08 22:11:43 steve Exp $";
 
 #include "elvis.h"
 #if USE_PROTOTYPES
@@ -32,6 +32,62 @@ void msglog(filename)
 	fperr = fpinfo = filename ? fopen(filename, "w") : NULL;
 }
 
+/* These are used for generating an error message which includes a file name
+ * and line number, whenever possible.
+ */
+static char	*scriptnamedup;
+static long	scriptline;
+static BOOLEAN	scriptknown;
+
+/* This is called by other code to inform the message module of the location
+ * of the current command.  This allows the message module to report the file
+ * name (or some other name, if not from a file) and line number (usually)
+ * as part of an error message.  When executing commands from a buffer or
+ * scanned string, "mark" is the value returned by scanmark() for the scanning
+ * pointer; otherwise, "mark" should be NULL.  For strings, the "name" value
+ * should describe the origin of the string: an alias name, or something else
+ * for other strings.
+ */
+void msgscriptline(MARK mark, char *name)
+{
+	char	newname[300];
+
+	if (!mark || !markbuffer(mark))
+	{
+		if (name)
+		{
+			if (!scriptnamedup || strcmp(scriptnamedup, name))
+			{
+				free(scriptnamedup);
+				sprintf(newname, "\"%s\"", name);
+				scriptnamedup = strdup(newname);
+				if (!mark || mark->offset == 0)
+					scriptline = 1;
+				else
+					scriptline++;
+			}
+			scriptknown = True;
+			return;
+		}
+		else if (!scriptnamedup)
+			scriptnamedup = strdup("unknown script");
+		scriptline++;
+		scriptknown = False;
+		return;
+	}
+	if (o_filename(markbuffer(mark)))
+		strcpy(newname, tochar8(o_filename(markbuffer(mark))));
+	else
+		sprintf(newname, "(%s)", tochar8(o_bufname(markbuffer(mark))));
+	if (!scriptnamedup || strcmp(newname, scriptnamedup))
+	{
+		free(scriptnamedup);
+		scriptnamedup = strdup(newname);
+	}
+	scriptline = markline(mark);
+	scriptknown = True;
+}
+
 /* Copy a message into static verbose[] buffer, declared at the top of this
  * file.  If a buffer named "Elvis messages" exists, translate the message via
  * that buffer along the way.
@@ -47,7 +103,9 @@ static void translate(terse)
 	int	match;	/* used for counting characters that match */
 
 	/* Copy the terse string into the verbose buffer, as a default */
-	for (build = verbose, match = 0; terse[match]; )
+	for (build = verbose, match = 0;
+	     build < &verbose[QTY(verbose) - 1] && terse[match];
+	     )
 	{
 		*build++ = terse[match++];
 	}
@@ -342,8 +400,23 @@ void msg(imp, terse, va_alist)
 		ding = True;
 	}
 
+	/* if warning or error from a script, then put a line number a the
+	 * start of the message.
+	 */
+	if (scan != verbose
+	 && (o_verbose >= 1 && scriptnamedup)
+	 && (o_verbose >= 8
+	    || ((imp == MSG_WARNING || imp == MSG_ERROR || imp == MSG_FATAL)
+		&& (strlen(scriptnamedup) != strlen(EX_BUF) + 2 || strncmp(scriptnamedup + 1, EX_BUF, strlen(EX_BUF))))))
+	{
+		sprintf(tochar8(verbose), "%s, line %ld%s: ",
+			scriptnamedup, scriptline, scriptknown ? "" : "?");
+	}
+	else
+		*verbose = '\0';
+
 	/* copy the string into verbose[] */
-	CHARncpy(verbose, scan, QTY(verbose) - 1);
+	CHARncat(verbose, scan, QTY(verbose) - 1 - CHARlen(verbose));
 	verbose[QTY(verbose) - 1] = '\0';
 
 	/* free the arg[] strings */
@@ -360,9 +433,11 @@ void msg(imp, terse, va_alist)
 	{
 		/* ignore it.  No output */
 	}
-	else  if ((o_verbose >= 1 && !windefault) || !gui
-		|| (eventcounter <= 1 && imp == MSG_ERROR)
-		|| imp == MSG_STATUS || imp == MSG_FATAL)
+	else  if ((o_verbose >= 1 && !windefault)
+		|| !gui
+		/* || (eventcounter <= 1 && imp == MSG_ERROR)*/
+		|| imp == MSG_STATUS
+		|| imp == MSG_FATAL)
 	{
 		/* show the message */
 		if (gui && windefault)

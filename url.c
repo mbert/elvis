@@ -51,7 +51,7 @@ static BOOLEAN parseurl(url)
 	url_resource = *url ? url : "/";
 
 	/* some debugging code */
-	if (o_verbose > 3)
+	if (o_verbose >= 4)
 		msg(MSG_INFO, "[sss]protocol=$1, site_port=$2, resource=$3",
 			url_protocol, url_site_port, url_resource);
 

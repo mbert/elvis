@@ -74,15 +74,17 @@ typedef struct
 } EXINFO;
 
 
-/* defined in exconfig.h */
+/* defined in exconfig.c */
 extern BOOLEAN	exthenflag;
 extern CHAR	*exdotest;
 
+/* defined in exmake.c */
+extern BOOLEAN	makeflag;
 
 BEGIN_EXTERNC
 extern BOOLEAN	exparseaddress P_((CHAR **refp, EXINFO *xinf));
 extern RESULT	experform P_((WINDOW win, MARK from, MARK to));
-extern RESULT	exstring P_((WINDOW win, CHAR *str));
+extern RESULT	exstring P_((WINDOW win, CHAR *str, char *name));
 extern CHAR	*exname P_((CHAR *name));
 extern RESULT	exenter P_((WINDOW win));
 extern long	exprintlines P_((WINDOW win, MARK line, long qty, PFLAG pflag));

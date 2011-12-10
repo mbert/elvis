@@ -16,7 +16,9 @@
  * features are available.  #define to enable, #undef to disable.
  */
 #define	DISPLAY_SYNTAX	/* the generic "syntax" colorizer */
-#define	DISPLAY_MARKUP	/* the "html", "man", and "tex" modes */
+#define	DISPLAY_HTML	/* the "html" modes */
+#define	DISPLAY_MAN	/* the "man" modes */
+#define	DISPLAY_TEX	/* the "tex" modes */
 #define	DISPLAY_HEX	/* the "hex" display mode */
 #define	PROTOCOL_HTTP	/* the "http" network protocol */
 #define	PROTOCOL_FTP	/* the "ftp" network protocol */
@@ -27,6 +29,7 @@
 #define FEATURE_COMPLETE /* filename completion */
 #undef	FEATURE_RAM	/* store edit buffers in RAM if "-f ram" */
 #define	FEATURE_LITRE	/* faster searches for literal strings */
+#define FEATURE_BACKTICK /* the `program` notation in file names */
 
 /* The following provide custom implementation of some common functions which
  * are either missing or poorly implemented on some systems.

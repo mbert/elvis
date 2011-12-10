@@ -64,7 +64,9 @@ gui Display Options"Configure the display options
 gui gap
 gui XV:w !xv -
 gui XV"Send this buffer to the XV image viewer
-gui Man:sp !man \@| col -b
+if alias("man")
+then gui Man:man \@
+else gui Man:sp !man \@| col -b
 gui Man"Create a new window, showing the man-page for this word
 gui Help:help
 gui Help"Create a new window, showing elvis' manual

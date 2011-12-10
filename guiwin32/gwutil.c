@@ -95,7 +95,7 @@ void gw_get_win_size (GUI_WINDOW *gwp)
     SelectObject (dc, gwp->fonts.nfont);
     GetTextMetrics (dc, &tm);
     ReleaseDC (gwp->clientHWnd, dc);
-    gwp->xcsize = tm.tmMaxCharWidth;
+    gwp->xcsize = tm.tmAveCharWidth;
     gwp->ycsize = tm.tmHeight;
 
     for (i = 0; i < 256; i++)
@@ -313,4 +313,4 @@ void gw_redraw_win (GUI_WINDOW *gwp)
 }
 
 #endif
-
+/* ex:se ts=4 sw=4: */

@@ -1,7 +1,7 @@
 /* main.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_main[] = "$Id: main.c,v 2.43 1998/11/14 01:36:51 steve Exp $";
+char id_main[] = "$Id: main.c,v 2.44 1999/02/06 22:26:40 steve Exp $";
 
 #include "elvis.h"
 
@@ -639,7 +639,7 @@ void mainfirstcmd(win)
 	if (initialcommand)
 	{
 		/* Execute the command */
-		exstring(win, toCHAR(initialcommand));
+		exstring(win, toCHAR(initialcommand), "-c");
 	}
 
 	/* If "-t tag" was given */
@@ -650,7 +650,7 @@ void mainfirstcmd(win)
 		CHARcat(tagcmd, toCHAR(initialtag));
 
 		/* Execute the command */
-		exstring(win, tagcmd);
+		exstring(win, tagcmd, "-t");
 	}
 }
 

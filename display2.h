@@ -33,9 +33,13 @@ extern DISPMODE	dmnormal;
 #ifdef DISPLAY_HEX
 extern DISPMODE	dmhex;
 #endif
-#ifdef DISPLAY_MARKUP
+#ifdef DISPLAY_HTML
 extern DISPMODE	dmhtml;
+#endif
+#ifdef DISPLAY_MAN
 extern DISPMODE	dmman;
+#endif
+#ifdef DISPLAY_TEX
 extern DISPMODE	dmtex;
 #endif
 #ifdef DISPLAY_SYNTAX
@@ -52,7 +56,7 @@ extern MARK	dispmove P_((WINDOW win, long linedelta, long wantcol));
 extern long	dispmark2col P_((WINDOW win));
 extern void	dispindent P_((WINDOW w, MARK line, long linedelta));
 
-#ifdef DISPLAY_MARKUP
+#ifdef DISPLAY_ANYMARKUP
 extern void	dmmuadjust P_((MARK from, MARK to, long delta));
 #endif
 #ifdef DISPLAY_SYNTAX

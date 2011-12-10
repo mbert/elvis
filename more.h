@@ -3,5 +3,6 @@
 
 
 BEGIN_EXTERNC
+extern BOOLEAN morehit;
 extern void morepush P_((WINDOW win, _CHAR_ special));
 END_EXTERNC

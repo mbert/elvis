@@ -536,7 +536,7 @@ int main(argc, argv)
 
 	/* -h implies -a; nobody would want to browse a single tag */
 	if (output_html_browser)
-		output_all_matches = True;
+		output_all_matches = 1;
 	if (output_html_browser + output_tag_info + output_verbose_info > 1)
 	{
 		fprintf(stderr, "%s: can't mix -t, -v, and -h\n", argv[0]);

@@ -186,9 +186,13 @@ otherwise they will be compared as strings.
 <dt>&amp;&amp;
 <dd>Returns <strong>false</strong> if either argument is one of the
 four false string values, and <strong>true</strong> otherwise.
+Both arguments are always evaluated; this is different from C, where the
+right argument is only evaluated if the left argument is <strong>true</strong>.
 <dt>||
 <dd>Returns <strong>false</strong> if both arguments are one of the
 four false string values, and <strong>true</strong> otherwise.
+Both arguments are always evaluated; this is different from C, where the
+right argument is only evaluated if the left argument is <strong>false</strong>.
 <dt>?:
 <dd>This one is tricky because internally elvis always uses binary (two operand)
 operators.
@@ -197,10 +201,11 @@ operators which cooperate in a subtle way so they seem like a single ternary
 operator.
 You probably don't need to know the details, but the upshot of it all is
 that 1) It associates left-to-right (instead of right-to-left as in C), and
-2) The : and third argument are optional; if omitted, then elvis mentally
-sticks :"" on the end of the expression.
+2) The <code>:</code> and third argument are optional; if omitted,
+then elvis mentally sticks <code>:""</code> on the end of the expression.
 <dt>,
-<dd>Concatenates two strings, with a comma inserted between them.
+<dd>(That's a comma, not an apostrophe.)
+Concatenates two strings, with a comma inserted between them.
 This can be handy when you're passing arguments to the <code>quote()</code>
 and <code>unquote()</code> functions.
 <dt>;
@@ -267,10 +272,12 @@ The built-in functions are:
 | absolute(file)   | return a full path-name for a given file   |
 | getcwd()         | return the current working directory name  |
 | elvispath(file)  | locate a file in elvis' configuration path |
+| shell(program)   | run program, and return its output         |
 | knownsyntax(file)| language of a file if in elvis.syn, else ""|
 | buffer(bufname)  | "true" iff buffer exists                   |
 | alias(name)      | "true" iff an alias exists with that name  |
 | current(item)    | value indicating an aspect of elvis' state |
+| line(bufname,num)| return the contents of a given line        |
 | feature(name)    | "true" iff a given feature is supported    |
 ^------------------^--------------------------------------------^
          (Note: "iff" is short for "if and only if")
@@ -361,6 +368,7 @@ for newlines.
 newlines.
 <dt>"binary"
 <dd>It appears to be a binary file.
+Note that all HTTP and FTP URLs are assumed to be binary.
 <dt>"text"
 <dd>Anything else; e.g., a non-existent file or empty file.
 </dl>
@@ -396,6 +404,8 @@ The argument determines which variable is examined, as follows:
 <dt>current("word")
 <dd>The word at the cursor location.
 If the cursor isn't on a word, then this returns an empty string.
+(Note: To get the contents of the current line,
+use the <strong>line()</strong> function.)
 <dt>current("tag")
 <dd>If the <a href="elvisopt.html#showtag">showtag</a> option is true, then
 this returns the name of the tag that is defined at the cursor location, or
@@ -430,6 +440,16 @@ an empty string if you're at the start of the args list.
 Otherwise it returns the name of the buffer to which
 <a href="elvisex.html#pop">:pop</a> would move the cursor.
 </dl>
+
+<p>The <strong>line()</strong> function returns the contents of a single line
+from an edit buffer.
+If two arguments are given, then the first argument is taken to be the name
+of the edit buffer, and the second argument is used as the line number.
+If only one argument is given, then it is assumed to be a line number within
+the current buffer.
+If no arguments are given, then it assumes it should use the current line of
+the current buffer.
+If the line is too long to fit in the result variable, then it is truncated.
 
 <p>The <strong>feature()</strong> function is intended to allow you to write
 EX scripts which work with different configurations of elvis.

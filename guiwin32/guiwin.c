@@ -40,6 +40,9 @@ static struct {
         { "lightgray",  RGB (192,192,192) },
         { "yellow",     RGB (255,255,  0) },
         { "white",      RGB (255,255,255) },
+        { "lightmagenta",RGB (255,  0,  255) },
+        { 0,            RGB (  0,  0,  0) },
+        /*  ADB - Add as temp store for bgc */
         { 0,            RGB (  0,  0,  0) }
 };
 
@@ -419,7 +422,7 @@ static Boolean gwcreategw (char *name, char *firstcmd)
 	if (firstcmd)
 	{
 		winoptions(winofgw((GUIWIN *)gwp));
-		exstring(windefault, toCHAR(firstcmd));
+		exstring(windefault, toCHAR(firstcmd), "+cmd");
 	}
 
     return True;
@@ -988,6 +991,25 @@ static Boolean gwcolor (GUIWIN *gw, _char_ font, Char *fg, Char *bg)
             fgc = i;
             break;
         }
+#if 1
+    /*  ADB 22/12/98 - No name specified.  Check RGB setting.  If valid then
+        store in penultimate array slot.  RGB settings in array are not
+        relevant if name=NULL so we can use it to save settings.  It is
+        assigned to correct font colour lower down */
+    /*  SK 25/1/99 - Tweaked to use X11-style color specifiers: #RRGGBB in hex*/
+    if (fgc == -1)
+    {
+        unsigned int    R, G, B;
+        int             Colours;
+
+        Colours = sscanf(fg, "#%2x%2x%2x", &R, &G, &B);
+        if (Colours == 3 && R <=255 && G <= 255 & B <= 255)
+        {
+            fgc = i;
+            color_table[fgc].color = RGB(R, G, B);
+        }
+    }
+#endif
     if (fgc == -1)
         return False;
 
@@ -998,6 +1020,25 @@ static Boolean gwcolor (GUIWIN *gw, _char_ font, Char *fg, Char *bg)
                 bgc = i;
                 break;
             }
+#if 1
+        /*  ADB 22/12/98 - No name specified.  Check RGB setting.  If valid then
+            store in penultimate array slot.  RGB settings in array are not
+            relevant if name=NULL so we can use it to save settings.  It is
+            assigned to correct font colour lower down */
+	/*  SK 25/1/99 - Tweaked to use X11-style color specifiers: #RRGGBB */
+        if (bgc == -1)
+        {
+            unsigned int    R, G, B;
+            int             Colours;
+
+            Colours = sscanf(bg, "#%2x%2x%2x", &R, &G, &B);
+            if (Colours == 3 && R <=255 && G <= 255 & B <= 255)
+            {
+                bgc = i + 1;
+                color_table[bgc].color = RGB(R, G, B);
+            }
+        }
+#endif
         if (bgc == -1)
             return False;
     }

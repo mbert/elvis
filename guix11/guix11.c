@@ -2,7 +2,7 @@
 
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_guix11[] = "$Id: guix11.c,v 2.34 1998/11/21 01:42:04 steve Exp $";
+char id_guix11[] = "$Id: guix11.c,v 2.37 1999/03/11 17:54:44 steve Exp $";
 
 #include "elvis.h"
 #ifdef GUI_X11
@@ -99,6 +99,9 @@ static void flush P_((void));
 static BOOLEAN guicmd P_((GUIWIN *gw, char *extra));
 static int xoptisfont P_((OPTDESC *desc, OPTVAL *val, CHAR *newval));
 static int xoptisnumber P_((OPTDESC *desc, OPTVAL *val, CHAR *newval));
+#ifndef NO_XLOCALE
+static XIC createic P_((Window window));
+#endif
 
 Display		*x_display;		/* X11 display */
 int		x_screen;		/* screen number */
@@ -1399,7 +1402,7 @@ static void term()
 }
 
 #ifndef NO_XLOCALE
-/* create an input context for a given window.  The first time this function is
+/* Create an input context for a given window.  The first time this function is
  * called, it will also initialize a few static variables.
  */
 static XIC createic(window)
@@ -1408,21 +1411,24 @@ static XIC createic(window)
 	char	*p;
 	XIMStyles *xim_styles = NULL;
 	int	found;
-	XIM	xim = NULL;
+ static XIM	xim = NULL;
  static XIMStyle input_style = 0;
  static int	firsttime = True;
+	int	i;
 
 	if (firsttime)
 	{
-		if (((p = XSetLocaleModifiers ("@im=none")) != NULL && *p)
-		 || ((p = XSetLocaleModifiers ("")) != NULL && *p))
-			xim = XOpenIM (Xdisplay, NULL, NULL, NULL);
+		/* Open the input method. */
+		if (((p = XSetLocaleModifiers("@im=none")) != NULL && *p)
+		 || ((p = XSetLocaleModifiers("")) != NULL && *p))
+			xim = XOpenIM(x_display, NULL, NULL, NULL);
 		if (xim == NULL)
 		{
 			/* Failed to open input method */
 			return NULL;
 		}
 
+		/* Check for input styles */
 		if (XGetIMValues(xim, XNQueryInputStyle, &xim_styles, NULL)
 		 || !xim_styles)
 		{
@@ -1435,13 +1441,13 @@ static XIC createic(window)
 		input_style = (XIMPreeditNothing | XIMStatusNothing);
 		for (i = 0; i < xim_styles->count_styles; i++)
 		{
-			if (input_style == xim_styles->supported_styles [i])
+			if (input_style == xim_styles->supported_styles[i])
 			{
 				found = 1;
 				break;
 			}
 		}
-		XFree (xim_styles);
+		XFree(xim_styles);
 		if (found == 0)
 		{
 			/* input method doesn't support my preedit type */
@@ -1454,7 +1460,7 @@ static XIC createic(window)
 	}
 
 	/* create the context */
-	return XCreateIC (xim, XNInputStyle, input_style,
+	return XCreateIC(xim, XNInputStyle, input_style,
 			      XNClientWindow, window,
 			      XNFocusWindow, window,
 			      NULL);
@@ -1629,7 +1635,7 @@ static BOOLEAN creategw(name, firstcmd)
 
 #ifndef NO_XLOCALE
 	/* give it an input context */
-	xw->ic = createic(xw);
+	xw->ic = createic(xw->win);
 #endif
 
 	/* input event selection */
@@ -1649,7 +1655,7 @@ static BOOLEAN creategw(name, firstcmd)
 	if (firstcmd)
 	{
 		winoptions(winofgw((GUIWIN *)xw));
-		exstring(windefault, toCHAR(firstcmd));
+		exstring(windefault, toCHAR(firstcmd), "+cmd");
 	}
 
 	return True;

@@ -1,4 +1,4 @@
-/* msg.h */
+/* message.h */
 /* Copyright 1995 by Steve Kirkendall */
 
 /* This data type is used to denote the importance and class of a message. */

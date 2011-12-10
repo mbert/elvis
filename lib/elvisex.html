@@ -37,7 +37,7 @@ syntax of an ex command line, and the specific commands which elvis supports.
 
 <h2>4.1 Entering lines</h2>
 In elvis, when you're typing in an ex command line
-you're really inputting text into a buffer named "Elvis ex history".
+you're really inputing text into a buffer named "Elvis ex history".
 All of the usual <a href="elvisinp.html">input mode</a> commands are available,
 including <kbd>Backspace</kbd> to erase the previous character,
 <kbd>Control-W</kbd> to erase the previous word, and so on.
@@ -98,7 +98,7 @@ The steps are:
 
 <h3>4.1.2 The TAB key</h3>
 <a name="Tab"></a>
-<p>The <kbd>Tab</kbd> key has a special function when you're inputting
+<p>The <kbd>Tab</kbd> key has a special function when you're inputing
 text into the "Elvis ex history" buffer.
 It is used for name completion.
 (Exception: Under MS-DOS, this feature is disabled in order to reduce the
@@ -135,7 +135,11 @@ You can also disable name completion altogether by setting the
 "Elvis ex history" buffer's <a href="elvisopt.html#inputtab">inputtab</a>
 option to "tab", via the following command:
 <pre>
-	:(Elvis ex history)set inputtab=tab</pre>
+	:(Elvis ex history)set inputtab=tab
+</pre>
+or the abbreviated form:
+<pre>
+	:("Eeh)se it=t</pre>
 
 <p>By default, elvis ignores binary files when performing filename
 completion.
@@ -307,6 +311,28 @@ quoted by embedding a <kbd>^V</kbd> character before them.
 <dt>line
 <dd>This is a line address, as described earlier.
 
+<dt>+line
+<dd>Some commands which cause a file to be loaded also allow you to specify
+some other command to be executed after the loading is complete.
+To use this feature, you mist give a "+" followed by the command, in between
+the command name and the file name.
+Here's an example that loads foo and then moves the cursor to line 40.
+<pre>
+	:e +40 foo</pre>
+
+<p>Usually the command is just a line number, so this is denoted as "+line"
+in this documentation.
+Other commands are allowed though, such as "+/text" to search for text,
+or "+normal" to force it to use the <a href="elvisdm.html#normal">normal</a>
+display mode.
+
+<p>Traditionally, commands supplied in this manner weren't allowed to contain
+whitespace, because that makes parsing the command line harder.
+This is too limiting, though, so elvis allows you to embed spaces in the
+command by wrapping the entire deferred command in double-quotes, like this:
+<pre>
+	:e +"set bufdisplay=man" filedb.8</pre>
+
 <dt>mark
 <dd>This is the name of a mark - a single lowercase letter.
 Elvis allows (but does not require) an apostrophe before the letter.
@@ -346,18 +372,19 @@ the names of zero or more files.  File names are subjected to three levels
 of processing.  First, leading ~ characters and certain other characters
 are replaced with text, as follows:
 <pre graphic>
-	.---------.------------------------------------------------.
-	| SYMBOL  | REPLACED BY                                    |
-	|---------|------------------------------------------------|
-        | ~<var>user</var>   | (Unix only) Replaced by home directory of <var>user</var> |
-        | ~+      | Replaced by current working directory          |
-        | ~-      | Replaced by previous directory (<a href="elvisopt.html#previousdir">previousdir</a>)   |
-        | ~       | Replaced by home directory (<a href="elvisopt.html#home">home</a>)              |
-        | %       | Replaced by the name of the current file       |
-        | #       | Replaced by the name of the alternate file     |
-        | #<var>n</var>      | Replaced by the filename of buffer with <a href="elvisopt.html#bufid">bufid</a>=<var>n</var>|
-        | (space) | Delimits one file name from another            |
-	^---------^------------------------------------------------^
+    .-----------.------------------------------------------------.
+    | SYMBOL    | REPLACED BY                                    |
+    |-----------|------------------------------------------------|
+    | ~<var>user</var>     | (Unix only) Replaced by home directory of <var>user</var> |
+    | ~+        | Replaced by current working directory          |
+    | ~-        | Replaced by previous directory (<a href="elvisopt.html#previousdir">previousdir</a>)   |
+    | ~         | Replaced by home directory (<a href="elvisopt.html#home">home</a>)              |
+    | %         | Replaced by the name of the current file       |
+    | #         | Replaced by the name of the alternate file     |
+    | #<var>n</var>        | Replaced by the filename of buffer with <a href="elvisopt.html#bufid">bufid</a>=<var>n</var>|
+    | (space)   | Delimits one file name from another            |
+    | `program` | Run program, interpret its output as filenames |
+    ^-----------^------------------------------------------------^
 </pre>
 The second stage of processing evaluates each name using the
 <a href="elvisexp.html#simpler">simpler expression syntax</a>.
@@ -500,6 +527,14 @@ Some of the highlights of this are:
 command.  This assumes you have set the <a href="elvisopt.html#LPR">printing
 options</a> correctly.
 
+<p><strong>NOTE:</strong> In addition to the <a href="#help">:help</a> command,
+most versions of elvis also support two <a href="elvistip.html#EXAMPLES">aliases</a> which you may find handy.
+The "<code>:howto</code> <var>words...</var>" alias searches for given words
+in the title lines of a short "howto.html" document.
+The "<code>:kwic</code> <var>word</var>" alias finds every instance of a
+given word in any section of elvis' documentation, and builds a table showing
+each instance along with some of the surrounding text; you can then follow
+hypertext links to the actual location in the manual.
 <h3><a name="EDIT"></a>4.3.2 Editing commands</h3>
 <pre graphic>.-------.-------------------.-----------------------------------.
 |ADDRESS| COMMAND           | ARGUMENTS                         |
@@ -670,7 +705,7 @@ matching text in each line.
 This causes each affected line to be printed (like <a href="#print">:p</a>),
 after all substitutions have been made to that line.
 Similarly, <kbd>l</kbd> lists it (like <a href="#list">:l</a>), and
-<kbd>#</kbd>prints it with a line number (like <a href="#number">:nu or :#</a>).
+<kbd>#</kbd> prints it with a line number (like <a href="#number">:nu or :#</a>).
 
 <p>You can also make elvis ask for confirmation before each substitution by
 appending a <kbd>c</kbd> flag.
@@ -680,6 +715,14 @@ but it will leave the window in an unusual input state in which
 <kbd>n</kbd> does not perform the substitution but still moves to the next match, and
 <kbd>Esc</kbd> cancels the operation.
 Most other keys act like <kbd>y</kbd> in this mode.
+
+<p><strong>NOTE:</strong>
+Elvis doesn't allow the <kbd>c</kbd> flag to be combined with the
+<a href="#global">:g</a> command.
+Instead of using "<code>:g/regexp/s//newtext/gc</code>", I suggest you get
+in the habit of using "<code>:%s/regexp/newtext/gc</code>".
+However, there is no way to do the more complex
+"<code>:g/regexp1/s/regexp2/newtext/gc</code>" in elvis at this time.
 
 <p>Elvis supports a special <kbd>x</kbd> flag.
 Instead of performing each substitution,
@@ -1441,7 +1484,7 @@ to be displayed as yellow characters on a blue background.
 
 <p>The <a href="elvisgui.html#x11">x11</a> user interface allows you to specify
 both the foreground and background color for the cursor.  The cursor is drawn
-in the foreground color normally, but the background color if elvis own the
+in the foreground color normally, but the background color if elvis owns the
 current X selection.
 
 <p><a name="gui"></a>
@@ -1514,7 +1557,7 @@ line which contains the "total:", and stores the total in the "total:" line.
 	:alias total {
 		local nowrapscan ignorecase t=0
 		.,/total:/-1 s/\d\+/let t=t+&amp;/x
-		eval /total/ s/:.*/: (t)/
+		eval /tota:l/ s/total:.*/total: (t)/
 	}</pre>
 
 <p><a name="let"></a>

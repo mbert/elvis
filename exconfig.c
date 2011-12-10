@@ -1,7 +1,7 @@
 /* exconfig.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_exconfig[] = "$Id: exconfig.c,v 2.82 1998/11/30 02:39:14 steve Exp $";
+char id_exconfig[] = "$Id: exconfig.c,v 2.84 1999/03/11 17:55:46 steve Exp $";
 
 #include "elvis.h"
 
@@ -457,7 +457,7 @@ RESULT	ex_doalias(xinf)
 		 * while it is running, to prevent recursion.
 		 */
 		alias->inuse = True;
-		result = exstring(xinf->window, cmd);
+		result = exstring(xinf->window, cmd, alias->name);
 		alias->inuse = False;
 	}
 
@@ -811,7 +811,7 @@ RESULT	ex_gui(xinf)
 RESULT	ex_help(xinf)
 	EXINFO	*xinf;
 {
-#ifndef DISPLAY_MARKUP
+#ifndef DISPLAY_HTML
 	msg(MSG_ERROR, "help unavailable; html mode is disabled");
 	return RESULT_ERROR;
 #else
@@ -1003,7 +1003,7 @@ RESULT	ex_if(xinf)
 	else /* command == EX_EVAL */
 	{
 		/* execute the result as an ex command */
-		return exstring(xinf->window, result);
+		return exstring(xinf->window, result, NULL);
 	}
 }
 
@@ -1028,12 +1028,12 @@ RESULT	ex_then(xinf)
 	if (xinf->command == EX_TRY)
 	{
 		washiding = msghide(True);
-		exthenflag = (BOOLEAN)(exstring(xinf->window, xinf->rhs) == RESULT_COMPLETE);
+		exthenflag = (BOOLEAN)(exstring(xinf->window, xinf->rhs, NULL) == RESULT_COMPLETE);
 		(void)msghide(washiding);
 	}
 	else if (xinf->command == EX_THEN ? exthenflag : !exthenflag)
 	{
-		result = exstring(xinf->window, xinf->rhs);
+		result = exstring(xinf->window, xinf->rhs, NULL);
 	}
 
 	return result;
@@ -1085,7 +1085,7 @@ RESULT ex_do(xinf)
 	{
 		/* Run the command.  If no command, then display result */
 		if (xinf->rhs)
-			result = exstring(xinf->window, xinf->rhs);
+			result = exstring(xinf->window, xinf->rhs, NULL);
 		else
 		{
 			drawextext(xinf->window, value, CHARlen(value));

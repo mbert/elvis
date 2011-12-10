@@ -19,6 +19,7 @@
 # include <X11/Xos.h>
 #endif
 #ifndef NO_XLOCALE
+# include <X11/Intrinsic.h>
 # if (XtSpecificationRelease < 6)
 #  define NO_XLOCALE
 # else

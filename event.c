@@ -1,7 +1,7 @@
 /* event.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_event[] = "$Id: event.c,v 2.50 1998/01/02 20:05:18 steve Exp $";
+char id_event[] = "$Id: event.c,v 2.53 1999/02/17 22:54:22 steve Exp $";
 
 #include "elvis.h"
 
@@ -256,7 +256,8 @@ WATCH(fprintf(stderr, "eventdraw(...)\n"));
 	eventcounter++;
 
 	/* flush any messages */
-	msgflush();
+	if (!makeflag)
+		msgflush();
 
 	/* permit the bell to ring */
 	guibeep(NULL);
@@ -280,6 +281,14 @@ WATCH(fprintf(stderr, "eventdraw(...)\n"));
 		/* draw the screen */
 		drawimage(win);
 	}
+
+	/* After user hits <Enter>, reset the makeflag */
+	if (makeflag && morehit)
+	{
+		makeflag = morehit = False;
+		msgflush();
+	}
+
 	USUAL_SUSPECTS
 	return (win->state ? (*win->state->shape)(win) : CURSOR_NONE);
 }
@@ -736,7 +745,7 @@ void eventex(gw, cmd, safer)
 	setcursor(windefault, markoffset(windefault->state->cursor), True);
 
 	/* execute the command */
-	exstring(windefault, toCHAR(cmd));
+	exstring(windefault, toCHAR(cmd), "gui");
 
 	/* update the state as though a key had just been pressed */
 	statekey((_CHAR_)-1);

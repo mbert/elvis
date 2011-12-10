@@ -1,7 +1,7 @@
 /* buffer.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_buffer[] = "$Id: buffer.c,v 2.92 1998/11/29 18:53:51 steve Exp $";
+char id_buffer[] = "$Id: buffer.c,v 2.94 1999/06/15 04:21:43 steve Exp $";
 
 #include "elvis.h"
 
@@ -1202,36 +1202,39 @@ BOOLEAN bufwrite(from, to, wfile, force)
 			msg(MSG_STATUS, "[s]writing $1", wfile);
 		}
 		next = *from;
-		scanalloc(&cp, &next);
-		assert(cp);
-		bytes = 1;
-		do
+		if (o_bufchars(markbuffer(from)) > 0L)
 		{
-			/* check for ^C */
-			if (guipoll(False))
+			scanalloc(&cp, &next);
+			assert(cp);
+			bytes = 1;
+			do
 			{
-				ioclose();
-				scanfree(&cp);
-				return False;
-			}
+				/* check for ^C */
+				if (guipoll(False))
+				{
+					ioclose();
+					scanfree(&cp);
+					return False;
+				}
 
-			bytes = scanright(&cp);
-			if (markoffset(&next) + bytes > markoffset(to))
-			{
-				bytes = (int)(markoffset(to) - markoffset(&next));
-			}
-			if (iowrite(cp, bytes) < bytes)
-			{
-				msg(MSG_ERROR, (wfile[0] == '!') ? "broken pipe" : "disk full");
-				ioclose();
-				scanfree(&cp);
-				return False;
-			}
-			markaddoffset(&next, bytes);
-			scanseek(&cp, &next);
-		} while (cp != NULL && markoffset(&next) < markoffset(to));
+				bytes = scanright(&cp);
+				if (markoffset(&next) + bytes > markoffset(to))
+				{
+					bytes = (int)(markoffset(to) - markoffset(&next));
+				}
+				if (iowrite(cp, bytes) < bytes)
+				{
+					msg(MSG_ERROR, (wfile[0] == '!') ? "broken pipe" : "disk full");
+					ioclose();
+					scanfree(&cp);
+					return False;
+				}
+				markaddoffset(&next, bytes);
+				scanseek(&cp, &next);
+			} while (cp != NULL && markoffset(&next) < markoffset(to));
+			scanfree(&cp);
+		}
 		ioclose();
-		scanfree(&cp);
 
 		if (!filter)
 		{
@@ -1647,7 +1650,7 @@ long bufundo(cursor, back)
 			namedmark[i] = markalloc(buffer, undo->offset[i]);
 		}
 	}
-#ifdef DISPLAY_MARKUP
+#ifdef DISPLAY_ANYMARKUP
 	dmmuadjust(marktmp(from, buffer, 0), marktmp(to, buffer, o_bufchars(buffer)), 0);
 #endif
 
@@ -1732,7 +1735,7 @@ void bufreplace(from, to, newp, newlen)
 	markbuffer(from)->changes++;
 
 	/* adjust the marks */
-#ifdef DISPLAY_MARKUP
+#ifdef DISPLAY_ANYMARKUP
 	dmmuadjust(from, to, chgchars);
 #endif
 	markadjust(from, to, chgchars);

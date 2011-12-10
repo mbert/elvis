@@ -1,7 +1,7 @@
 /* guiopen.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_guiopen[] = "$Id: guiopen.c,v 2.21 1997/11/23 19:54:15 steve Exp $";
+char id_guiopen[] = "$Id: guiopen.c,v 2.22 1999/02/06 22:26:40 steve Exp $";
 
 #include "elvis.h"
 #ifdef GUI_OPEN
@@ -212,7 +212,7 @@ static BOOLEAN creategw(name, firstcmd)
 	if (firstcmd)
 	{
 		winoptions(winofgw(current));
-		exstring(windefault, toCHAR(firstcmd));
+		exstring(windefault, toCHAR(firstcmd), "+cmd");
 	}
 
 	return True;

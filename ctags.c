@@ -1,6 +1,6 @@
 /* ctags.c */
 
-char id_ctags[] = "$Id: ctags.c,v 2.22 1998/11/14 01:36:51 steve Exp $";
+char id_ctags[] = "$Id: ctags.c,v 2.23 1999/02/26 21:31:41 steve Exp $";
 
 /* This is a reimplementation of the ctags(1) program.  It supports ANSI C,
  * and has heaps o' flags.  It is meant to be distributed with elvis.
@@ -228,7 +228,7 @@ void file_copyline(seek, fp, buf)
 	fseek(file_fp, seek, 0);
 
 	/* write everything up to, but not including, the newline */
-	for (ch = getc(file_fp); ch != '\n'; ch = next)
+	for (ch = getc(file_fp); ch != '\n' && ch != EOF; ch = next)
 	{
 		/* preread the next character from this file */
 		next = getc(file_fp);

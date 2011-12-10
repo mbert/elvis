@@ -1,5 +1,5 @@
 # Makefile.in
-# $Id: Makefile.in,v 2.58 1998/12/10 01:02:47 steve Exp $
+# $Id: Makefile.in,v 2.62 1999/06/19 01:06:23 steve Exp $
 #
 # Makefile.in should not be modified!  The "configure" script reads Makefile.in
 # and writes a customized Makefile by editing the values of the following
@@ -67,10 +67,11 @@ FLAGI=-I
 
 ################################################################################
 # This is a list of programs to be created by "make all".  The possible list
-# includes elvis$(EXE), ref$(EXE), ctags$(EXE), and fmt$(EXE).  The $(EXE) on
+# includes elvis$(EXE), ref$(EXE), ctags$(EXE), elvtags$(EXE), and fmt$(EXE).
+# ctags and elvtags are the same program under different names.  The $(EXE) on
 # the end is just in case this Makefile is reconfigured for an operating
 # system which requires the EXE macro to be something like ".exe".
-ALL=elvis$(EXE) ref$(EXE)
+ALL=elvis$(EXE) ref$(EXE) elvtags$(EXE)
 
 ################################################################################
 # This is the directory where "make install" will place the executable programs
@@ -121,10 +122,10 @@ LPSRCS=	lpescape.c lpovrtyp.c lpps.c
 LPOBJS=	lpescape$(OBJ) lpovrtyp$(OBJ) lpps$(OBJ)
 HDRS=	$(OSHDRS) buffer.h buffer2.h calc.h cut.h digraph.h display.h\
 	display2.h draw.h draw2.h elvis.h elvisio.h event.h ex.h gui.h gui2.h\
-	input.h lowbuf.h lp.h map.h mark.h message.h misc.h more.h move.h\
-	need.h operator.h opsys.h optglob.h options.h regexp.h safe.h scan.h\
-	session.h state.h state2.h tag.h tagsrch.h tagelvis.h version.h vi.h\
-	vicmd.h window.h config.h
+	input.h lowbuf.h lp.h map.h mark.h message.h message2.h misc.h more.h\
+	move.h need.h operator.h opsys.h optglob.h options.h regexp.h safe.h\
+	scan.h session.h state.h state2.h tag.h tagsrch.h tagelvis.h version.h\
+	vi.h vicmd.h window.h config.h
 SRCS=	$(OSSRCS) $(GUISRCS) $(LPSRCS) buffer.c calc.c cut.c digraph.c\
 	display.c dmhex.c dmmarkup.c dmnormal.c dmsyntax.c draw.c\
 	event.c ex.c exaction.c exconfig.c exedit.c exmake.c exsubst.c ftp.c\
@@ -149,7 +150,7 @@ CFLAGS=	$(FLAGI)os$(OS)
 EVERY=	$(ALL) verify$(EXE) elvdump$(EXE) calc$(EXE)
 SHELL=	/bin/sh
 
-DISTRIB=elvis-2.1
+DISTRIB=elvis-2.1_3
 DOSEXE=exedos
 WIN32EXE=exewin32
 OS2EXE=exeos2
@@ -164,6 +165,10 @@ elvis$(EXE): $(HDRS) main$(OBJ) $(OBJS) $(GUIOBJS) $(LPOBJS)
 ctags$(EXE): $(CTOBJS)
 	$(CC) $(CFLAGS) $(CTOBJS) -o ctags$(EXE)
 
+elvtags$(EXE): ctags$(EXE)
+	$(CP) ctags$(EXE) elvtags$(EXE)
+	sed 's/\<CTAGS\>/ELVTAGS/g; s/\<ctags\>/elvtags/g' lib/ctags.man >lib/elvtags.man
+	
 ref$(EXE): $(REFOBJS)
 	$(CC) $(CFLAGS) $(REFOBJS) -o ref$(EXE)
 
@@ -243,6 +248,7 @@ clean.unix:
 	$(RM) errlist
 	$(RM) verify.elv
 	$(RM) $(DISTRIB).tar.gz
+	$(RM) lib/elvtags.man
 
 clean.msdos:
 	$(RM) *$(OBJ)
@@ -291,6 +297,7 @@ $(DISTRIB).tar.gz:
 	rm -f $(DISTRIB)/osunix/osconfig.h
 	rm -f $(DISTRIB)/config.h
 	rm -f $(DISTRIB)/Makefile
+	rm -f $(DISTRIB)/lib/elvtags.man
 	tar czf $(DISTRIB).tar.gz $(DISTRIB)
 	rm -rf $(DISTRIB)
 

@@ -1,27 +1,29 @@
 /* dmmarkup.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_dmmarkup[] = "$Id: dmmarkup.c,v 2.79 1998/11/28 05:12:02 steve Exp $";
+char id_dmmarkup[] = "$Id: dmmarkup.c,v 2.85 1999/06/15 04:18:16 steve Exp $";
 
 /* This file contains some fairly generic text formatting code -- generic
  * in the sense that it can be easily tweaked to format a variety of types
- * marked-up text.  Currently, it supports useful subsets of NROFF and HTML
- * instructions.
+ * marked-up text.  Currently, it supports useful subsets of NROFF, HTML,
+ * and TeX instructions.
  */
 
 #include "elvis.h"
-#ifdef DISPLAY_MARKUP
+#ifdef DISPLAY_ANYMARKUP
 
 
+#undef SGML_HACK
 
 #define GRANULARITY 64	/* number of LINEINFOs to allocate at a time */
 
 
+typedef enum { TWRAP_NO, TWRAP_AFTER, TWRAP_BEFORE } twrap_t;
 
 typedef struct
 {
-	CHAR	text[200];	/* raw text of token */
-	long	offset[200];	/* offsets of characters */
+	CHAR	text[256];	/* raw text of token */
+	long	offset[256];	/* offsets of characters */
 	int	nchars;		/* number of characters in text[] */
 	int	width;		/* normal displayed width of text[] */
 	struct markup_s	*markup;/* info about markup token */
@@ -31,13 +33,13 @@ typedef struct markup_s
 {
 	char	*name;		/* name of the markup */
 	char	attr[8];	/* attributes of markup */
-	BOOLEAN	(*fn)P_((TOKEN *));/* ptr to special function */	
+	twrap_t	(*fn)P_((TOKEN *));/* ptr to special function */	
 } MARKUP;
 #define TITLE	attr[0]		/* in title: -, N, Y */
 #define BREAKLN	attr[1]		/* line break: -, 0, 1, 2, c, or p */
 #define INDENT	attr[2]		/* -, <, >, or a number */
 #define LIST	attr[3]		/* in list: -, N, Y, # */
-#define FONT	attr[4]		/* font: -, =, n, b, u, i, f, e, N, B, U, I, F, E */
+#define FONT	attr[4]		/* font: -,=,n,b,u,i,f,e,N,B,U,I,F,E */
 #define FILL	attr[5]		/* Y=fill, N=preformatted, -=no chg. */
 #define DEST	attr[6]		/* S=section, P=paragraph, T=<tab> key */
 
@@ -67,6 +69,9 @@ typedef struct
 	long	endtitle;		/* offset of the end of the title */
 	CHAR	*title;			/* title of document, or NULL */
 	CHAR	**defs;			/* macros within the text */
+#ifdef SGML_HACK
+	int	flavor;			/* which macro package to emulate */
+#endif
 } MUINFO;
 
 static BOOLEAN	first;	/* is this the first token on this line? */
@@ -100,52 +105,76 @@ static CHAR	mantext[80];	/* buffer, holds args from .XX macro */
 static long	manoffset[80];	/* holds offsets of mantext[] chars */
 static char	manfont[80];	/* holds fonts of mantext[] chars */
 
+#ifdef SGML_HACK
+/* This stores the text of an expected terminator tag.  SGML allows the use of
+ * "<tt/some text/" as a shorthand for "<tt>some text</tt>", so if this var
+ * is set to a non-empty string then the next "/" character is interpreted
+ * as this string.
+ */
+static CHAR	sgmltag[20];
+#endif /* SGML_HACK */
+
 /* Forward declarations of some functions which are static to this file */
+#ifdef DISPLAY_HTML
 static void	htmlescape P_((TOKEN *tok));
-static BOOLEAN	htmlhr P_((TOKEN *token));
-static BOOLEAN	htmlimg P_((TOKEN *token));
-static BOOLEAN	htmlpre P_((TOKEN *token));
-static BOOLEAN	htmlli P_((TOKEN *token));
-static BOOLEAN	htmlinput P_((TOKEN *token));
-static BOOLEAN	htmla P_((TOKEN *token));
-static void	htmlmarkup P_((TOKEN *token));
+static twrap_t	htmlimg P_((TOKEN *token));
+static twrap_t	htmlpre P_((TOKEN *token));
+static twrap_t	htmlli P_((TOKEN *token));
+static twrap_t	htmlinput P_((TOKEN *token));
+static twrap_t	htmla P_((TOKEN *token));
+static int	htmlmarkup P_((TOKEN *token));
 static TOKEN	*htmlget P_((CHAR **refp));
 static DMINFO	*htmlinit P_((WINDOW win));
 static CHAR	*htmltagatcursor P_((WINDOW win, MARK cursor));
 static MARK	htmltagload P_((CHAR *tagname, MARK from));
 static MARK	htmltagnext P_((MARK cursor));
+#endif /* defined(DISPLAY_HTML) */
+
+#if defined(DISPLAY_HTML) || defined(DISPLAY_TEX)
+static twrap_t	htmlhr P_((TOKEN *token));
+#endif
+
+#if defined(DISPLAY_HTML) || defined(DISPLAY_MAN)
+static twrap_t	manput P_((void));
+#endif
+
+#ifdef DISPLAY_MAN
 static void	manescape P_((TOKEN *tok));
 static int	manarg P_((TOKEN *token, int start, _char_ font, BOOLEAN spc));
-static BOOLEAN	manput P_((void));
-static BOOLEAN	manTH P_((TOKEN *token));
-static BOOLEAN	manSH P_((TOKEN *token));
-static BOOLEAN	manBI P_((TOKEN *token));
-static BOOLEAN	manIP P_((TOKEN *token));
+static twrap_t	manTH P_((TOKEN *token));
+static twrap_t	manSH P_((TOKEN *token));
+static twrap_t	manBI P_((TOKEN *token));
+static twrap_t	manIP P_((TOKEN *token));
 static void	manmarkup P_((TOKEN *token));
 static TOKEN	*manget P_((CHAR **refp));
 static DMINFO	*maninit P_((WINDOW win));
+#endif /* defined(DISPLAY_MAN) */
+
+#ifdef DISPLAY_TEX
 static void	texescape P_((TOKEN *tok));
-static BOOLEAN	texscope P_((TOKEN *token));
-static BOOLEAN	texoutput P_((TOKEN *token));
-static BOOLEAN	texitem P_((TOKEN *token));
-static BOOLEAN	textitle P_((TOKEN *token));
-static BOOLEAN	texdigraph P_((TOKEN *token));
+static twrap_t	texscope P_((TOKEN *token));
+static twrap_t	texoutput P_((TOKEN *token));
+static twrap_t	texitem P_((TOKEN *token));
+static twrap_t	textitle P_((TOKEN *token));
+static twrap_t	texdigraph P_((TOKEN *token));
 static long	texpair P_((CHAR **refp, TOKEN *token));
 static TOKEN	*texget P_((CHAR **refp));
 static DMINFO	*texinit P_((WINDOW win));
+#endif /* defined(DISPLAY_TEX) */
+
 static void	countchar P_((CHAR *p, long qty, _char_ font, long offset));
-static BOOLEAN	put P_((TOKEN *token));
+static twrap_t	put P_((TOKEN *token));
 static void	term P_((DMINFO *info));
 static long	mark2col P_((WINDOW w, MARK mark, BOOLEAN cmd));
 static MARK	move P_((WINDOW w, MARK from, long linedelta, long column, BOOLEAN cmd));
 static MARK	setup P_((WINDOW win, MARK top, long cursor, MARK bottom, DMINFO *info));
 static MARK	image P_((WINDOW w, MARK line, DMINFO *info, void (*draw)(CHAR *p, long qty, _char_ font, long offset)));
-#ifdef FEATURE_LPR
-static void	header P_((WINDOW w, int pagenum, DMINFO *info, void (*draw)(CHAR *p, long qty, _char_ font, long offset)));
-#endif
 static int	start P_((WINDOW win, MARK from, void (*draw)(CHAR *p, long qty, _char_ font, long offset)));
 static void	storestate P_((long offset, LINEINFO *dest));
 static void	findtitle P_((BUFFER buf));
+#ifdef FEATURE_LPR
+static void	header P_((WINDOW w, int pagenum, DMINFO *info, void (*draw)(CHAR *p, long qty, _char_ font, long offset)));
+#endif
 
 /* Only a single TOKEN is ever really needed at one time */
 static TOKEN	rettok;
@@ -174,6 +203,7 @@ static CHAR	space = ' ';
 static CHAR	bullet = '*';
 
 
+#ifdef DISPLAY_HTML
 /*----------------------------------------------------------------------------*/
 /* HTML-specific functions and variables                                      */
 
@@ -340,31 +370,15 @@ NoEscape:
 	token->width = width;
 }
 
-/* output a horizontal rule */
-static BOOLEAN htmlhr(token)
-	TOKEN	*token;
-{
-	int	len;
-
-	assert(col == 0 && textwidth > 0);
-
-	len = textwidth - indent * 3 / 2;
-	if (len < 3)
-		len = 3;
-
-	/* draw the hrule */
-	(*drawchar)(&space, -indent, 'g', (anyspc ? spcoffset : 1));
-	(*drawchar)(&hyphen, -len, 'g', token->offset[0]);
-	col = indent + len;
-	anyspc = False;
-	return False;
-}
-
 /* Output the "alt" text from an <img> tag */
-static BOOLEAN htmlimg(token)
+static twrap_t htmlimg(token)
 	TOKEN	*token;
 {
 	int	i, j;
+	BOOLEAN	htmlurl;
+
+	/* detect whether this is an SGML <htmlurl> or <ulink> tag */
+	htmlurl = (token->text[1] == 'h' || token->text[1] == 'u');
 
 	/* look for an "alt=..." argument */
 	for (i = 5; i < token->nchars && CHARncmp(&token->text[i - 5], toCHAR(" alt="), 5); i++)
@@ -379,10 +393,14 @@ static BOOLEAN htmlimg(token)
 		}
 	}
 
-	/* if we still have no "alt=" then try "src=" */
+	/* if we still have no "alt=" then try "src=" or "url=" */
 	if (i >= token->nchars)
 	{
-		for (i = 5; i < token->nchars && CHARncmp(&token->text[i - 5], toCHAR(" src="), 5); i++)
+		for (i = 5;
+		     i < token->nchars
+			&& CHARncmp(&token->text[i - 5], toCHAR(" src="), 5)
+			&& CHARncmp(&token->text[i - 5], toCHAR(" url="), 5);
+		     i++)
 		{
 		}
 
@@ -425,7 +443,7 @@ static BOOLEAN htmlimg(token)
 	}
 
 	/* limit length to 14 characters -- tables look better that way */
-	if (j > i + 14)
+	if (!htmlurl && j > i + 14)
 		j = i + 14;
 
 	/* Insert a little arrow in front of the label, pointing to the label.
@@ -435,23 +453,28 @@ static BOOLEAN htmlimg(token)
 	 * And it gives the user an obvious place to double-click, to download
 	 * the image.
 	 */
-	mantext[0] = '>';
-	manoffset[0] = token->offset[0];
-	manfont[0] = 'u';
+	manlen = 0;
+	if (!htmlurl)
+	{
+		mantext[0] = '>';
+		manoffset[0] = token->offset[0];
+		manfont[0] = 'u';
+		manlen++;
+	}
 
 	/* copy it into the manput() arguments, and then put it. */
-	for (manlen = 1; i < j && manlen < QTY(mantext); i++, manlen++)
+	for ( ; i < j && manlen < QTY(mantext); i++, manlen++)
 	{
 		mantext[manlen] = token->text[i];
 		manoffset[manlen] = token->offset[i];
-		manfont[manlen] = 'N';
+		manfont[manlen] = htmlurl ? 'u' : 'N';
 	}
 	return manput();
 }
 
 
 /* Set the modeinfo's "graphic" flag if <pre graphic> */
-static BOOLEAN htmlpre(token)
+static twrap_t htmlpre(token)
 	TOKEN	*token;
 {
 	int	i;
@@ -464,11 +487,11 @@ static BOOLEAN htmlpre(token)
 			break;
 		}
 	}
-	return False;
+	return TWRAP_NO;
 }
 
 /* List items are preceded by a less-indented number or bullet */
-static BOOLEAN htmlli(token)
+static twrap_t htmlli(token)
 	TOKEN	*token;
 {
 	CHAR	buf[10];
@@ -513,11 +536,11 @@ static BOOLEAN htmlli(token)
 	 * here, but if the number/bullet doesn't fit within the indentation
 	 * space then our indentation might be off.  So we won't.
 	 */
-	return False;
+	return TWRAP_NO;
 }
 
 /* Form elements are shown as reverse-video areas */
-static BOOLEAN htmlinput(token)
+static twrap_t htmlinput(token)
 	TOKEN	*token;
 {
 	int	height;	/* 1 for input, 2 for textarea */
@@ -551,7 +574,7 @@ static BOOLEAN htmlinput(token)
 			else
 			{
 				validx = i;
-				for (vallen = i; i < token->nchars && !isspace(token->text[i]); i++)
+				for (vallen = i; i < token->nchars && isalnum(token->text[i]); i++)
 				{
 				}
 			}
@@ -579,7 +602,7 @@ static BOOLEAN htmlinput(token)
 			      || !CHARncmp(&token->text[i], toCHAR("HIDDEN"), 6))
 			{
 				/* HIDDEN field -- do nothing with it */
-				return False;
+				return TWRAP_NO;
 			}
 			else if (!CHARncmp(&token->text[i], toCHAR("radio"), 5)
 			      || !CHARncmp(&token->text[i], toCHAR("RADIO"), 5))
@@ -630,7 +653,7 @@ static BOOLEAN htmlinput(token)
 		/* no it won't */
 		(*drawchar)(&newline, 1, 'n', -1);
 		col = 0;
-		return True;
+		return TWRAP_BEFORE;
 	}
 
 	/* output the image */
@@ -647,19 +670,22 @@ static BOOLEAN htmlinput(token)
 			col = mycol;
 		}
 		if (vallen > 0)
-			(*drawchar)(&token->text[validx], vallen, font, token->offset[validx]);
-		(*drawchar)(&space, vallen - width, font, token->offset[token->nchars - 1]);
+			(*drawchar)(&token->text[validx], vallen,
+				font, token->offset[validx]);
+		if (width > vallen)
+			(*drawchar)(&space, vallen - width, /* <- negative! */
+				font, token->offset[token->nchars - 1]);
 		col += width;
 	}
 	anyspc = False;
 
-	return False;
+	return TWRAP_NO;
 }
 
 /* switch to underline if this is an href anchor (else leave the font unchanged
  * for name anchor).
  */
-static BOOLEAN htmla(token)
+static twrap_t htmla(token)
 	TOKEN	*token;
 {
 	/* whether we set the font or not, </a> will reset it so we always
@@ -672,11 +698,11 @@ static BOOLEAN htmla(token)
 		curfont = 'u';
 
 	/* zero width, always fits on line */
-	return False;
+	return TWRAP_NO;
 }
 
 /* Look up an html markup token in a table */
-static void htmlmarkup(token)
+static int htmlmarkup(token)
 	TOKEN	*token;	/* the token to lookup */
 {
 	static MARKUP	tbl[] =
@@ -684,6 +710,64 @@ static void htmlmarkup(token)
 
 		/* Tag		 Effects	Function	*/
 		/*               TBILFFD                        */
+
+#ifdef SGML_HACK
+		/* These are SGML tags.  We only consider using these when
+		 * the display mode is "html sgml".
+		 */
+		{ "title",	"N---b--"			},
+		{ "/title",	"N-|-=--"			},
+		{ "/",		"N---=--"			},
+		{ "author",	"N0--I--"			},
+		{ "date",	"N0--N--"			},
+		{ "sect",	"Np0-BYS"			}, /* <h1> */
+		{ "sect1",	"Nc1-BYS"			}, /* <h2> */
+		{ "sect2",	"N12-BYS"			}, /* <h3> */
+		{ "para",	"N1|-NYP"			}, /* <p> */
+		{ "simpara",	"N1--NYP"			}, /* <p> */
+		{ "orderedlist","N->#-YP"			}, /* <ol> */
+		{ "/orderedlist","N0<N-Y-"			}, /* </ol> */
+		{ "itemizedlist","N->Y-YP"			}, /* <ul> */
+		{ "/itemizedlist","N0<N-Y-"			}, /* </ul> */
+		{ "listitem",	"N0-----",	htmlli		}, /* <li> */
+		{ "enum",	"N->#-YP"			}, /* <ol> */
+		{ "/enum",	"N0<N-Y-"			}, /* </ol> */
+		{ "itemize",	"N->Y-YP"			}, /* <ul> */
+		{ "/itemize",	"N0<N-Y-"			}, /* </ul> */
+		{ "item",	"N0-----",	htmlli		}, /* <li> */
+		{ "abstract",	"N14-NYP"			}, /* </blockquote> */
+		{ "/abstract",	"N12-NY-"			}, /* </blockquote> */
+		{ "verb",	"N0---NP"			},
+		{ "/verb",	"N0---Y-"			},
+		{ "tscreen",	"N0>-F--",	htmlpre		},
+		{ "/tscreen",	"N0<-N--"			},
+		{ "descrip",	"N-2-NYS"			}, /* <dl> */
+		{ "/descrip",	"N02-NY-"			}, /* </dl> */
+		{ "tag",	"N12-BYP"			}, /* <dt> */
+		{ "/tag",	"N03-NY-"			}, /* <dd> */
+		{ "variablelist","N-2-NYS"			}, /* <dl> */
+		{ "/variablelist","N02-NY-"			}, /* </dl> */
+		{ "term",	"N12-BYP"			}, /* <dt> */
+		{ "/term",	"N03-NY-"			}, /* <dd> */
+		{ "htmlurl",	"N-----T",	htmlimg		}, /* <img> */
+		{ "url",	"N-----T",	htmlimg		}, /* <img> */
+		{ "ulink",	"N---u-T"			}, /* <a> */
+		{ "/ulink",	"N---=--"			}, /* </a> */
+		{ "replaceable","N---i--"			}, /* <var> */
+		{ "/replaceable","N---=--"			}, /* </var> */
+		{ "bf",		"N---b--"			}, /* <b> */
+		{ "/bf",	"N---=--"			}, /* </b> */
+		{ "sf",		"N---b--"			}, /* <strong> */
+		{ "/sf",	"N---=--"			}, /* </strong> */
+		{ "it",		"N---i--"			}, /* <i> */
+		{ "/it",	"N---=--"			}, /* </i> */
+		{ "sl",		"N---i--"			}, /* <i> */
+		{ "/sl",	"N---=--"			}, /* </i> */
+		{ "row",	"N02--Y-"			}, /* <tr> */
+		{ "entry",	"N-=-NY-"			}, /* <td> */
+#endif /* SGML_HACK */
+
+		/* These are HTML tags */
 		{ "html",	"Y-2-NY-"			},
 		{ "/html",	"N-2-NY-"			},
 		{ "head",	"Y-2-NY-"			},
@@ -704,7 +788,7 @@ static void htmlmarkup(token)
 		{ "/h5",	"N02-NY-"			},
 		{ "h6",		"N12-IY-"			},
 		{ "/h6",	"N02-NY-"			},
-		{ "p",		"N1--NYP"			},
+		{ "p",		"N1|-NYP"			},
 		{ "hr",		"N0-----",	htmlhr		},
 		{ "img",	"N------",	htmlimg		},
 		{ "frame",	"N-----T",	htmlimg		},
@@ -761,6 +845,7 @@ static void htmlmarkup(token)
 		{ "/u",		"N---=--"			},
 		{ "tt",		"N---f--"			},
 		{ "/tt",	"N---=--"			},
+
 		{ (char *)0,	"N------"			}
 	};
 	MARKUP	*scan;	/* used for scanning the tbl[] array */
@@ -777,7 +862,11 @@ static void htmlmarkup(token)
 	len--; /* since we started at 1 */
 
 	/* look it up in the table */
+#ifdef SGML_HACK
+	for (scan = &tbl[mui->flavor];
+#else
 	for (scan = tbl;
+#endif
 	     scan->name &&
 		(strlen(scan->name) != (unsigned)len ||
 		    strncmp(scan->name, (char *)token->text + 1, (size_t)len));
@@ -787,6 +876,9 @@ static void htmlmarkup(token)
 
 	/* remember it */
 	token->markup = scan;
+
+	/* return the index of the markup in tbl[] */
+	return (int)(scan - tbl);
 }
 
 /* Read the next token. */
@@ -794,7 +886,7 @@ static TOKEN *htmlget(refp)
 	CHAR	**refp;	/* address of a (CHAR *) used for scanning */
 {
 	long	offset;
-	BOOLEAN lower;
+	BOOLEAN lower, nameonly;
 
 	/* if the CHAR pointer is NULL, then return NULL */
 	if (!*refp)
@@ -808,15 +900,50 @@ static TOKEN *htmlget(refp)
 	rettok.markup = NULL;
 	scannext(refp);
 
+#ifdef SGML_HACK
+	/* If '/' and we were expecting '/' to be interpreted as an SGML-style
+	 * terminator, then do that.
+	 */
+	if (rettok.text[0] == '/' && *sgmltag)
+	{
+		/* replace the '/' with the SGML terminator tag name */
+		CHARcpy(rettok.text, sgmltag);
+		for ( ; rettok.text[rettok.nchars]; rettok.nchars++)
+			rettok.offset[rettok.nchars] = rettok.offset[0];
+
+		/* lookup the markup */
+		(void)htmlmarkup(&rettok);
+
+		/* when computing line breaks, assume this markup is hidden */
+		rettok.width = 0;
+
+		/* clear the sgmltag variable... unless this tag forces a
+		 * newline before it is processed, in which case we need to
+		 * return the same tag twice so we can't clobber it the first
+		 * time.
+		 */
+		if (rettok.markup->BREAKLN == '-' || first)
+			*sgmltag = '\0';
+
+		return &rettok;
+	}
+#endif /* SGML_HACK */
+
 	/* If '<' then token is a markup */
 	if (rettok.text[0] == '<')
 	{
 		/* This is a markup.  Collect characters up to next '>' */
-		for (lower = True; *refp && **refp != '>'; offset++, scannext(refp))
+		for (lower = nameonly = True;
+		     *refp && **refp != '>' && !(**refp == '/' && nameonly && rettok.nchars > 1);
+		     offset++, scannext(refp))
 		{
 			/* if token text is full, then skip this char */
 			if (rettok.nchars >= QTY(rettok.text) - 2)
 				continue;
+
+			/* if not alphanumeric, then clear nameonly */
+			if (nameonly && !isalnum(**refp))
+				nameonly = False;
 
 			/* Store the character.  This is a little complex
 			 * because we want to convert uppercase tags and
@@ -838,6 +965,19 @@ static TOKEN *htmlget(refp)
 			rettok.offset[rettok.nchars++] = offset;
 		}
 
+#ifdef SGML_HACK
+		/* if terminated with / then remember that the next / should be
+		 * the ternminator.  So "<tt/some text/" is interpreted as
+		 * "<tt>some text</tt>".  (This is an SGML thing.)
+		 */
+		if (*refp && **refp == '/')
+		{
+			CHARncpy(sgmltag, toCHAR("</"), sizeof sgmltag);
+			CHARncpy(sgmltag + 2, rettok.text + 1, rettok.nchars - 1);
+			CHARcat(sgmltag, toCHAR(">"));
+		}
+#endif /* SGML_HACK */
+
 		/* store the terminating '>' */
 		rettok.text[rettok.nchars] = '>';
 		rettok.offset[rettok.nchars] = offset;
@@ -847,7 +987,7 @@ static TOKEN *htmlget(refp)
 			scannext(refp);
 
 		/* lookup the markup */
-		htmlmarkup(&rettok);
+		(void)htmlmarkup(&rettok);
 
 		/* when computing line breaks, assume this markup is hidden */
 		rettok.width = 0;
@@ -873,6 +1013,9 @@ static TOKEN *htmlget(refp)
 		     *refp 
 			&& rettok.nchars < QTY(rettok.text) - 1
 			&& **refp > ' ' /* !isspace(**refp) */
+#ifdef SGML_HACK
+			&& !(**refp == '/' && *sgmltag)
+#endif
 			&& **refp != '<';
 		     offset++, scannext(refp))
 		{
@@ -902,6 +1045,7 @@ static DMINFO *htmlinit(win)
 	TOKEN	*token;
 	MARKBUF	top;
 	CHAR	*p;
+	twrap_t	result;
 
 	/* inherit some functions from dmnormal */
 	dmhtml.wordmove = dmnormal.wordmove;
@@ -913,6 +1057,17 @@ static DMINFO *htmlinit(win)
 	mui->line = (LINEINFO *)safealloc(GRANULARITY, sizeof(LINEINFO));
 	mui->nlines = 1; /* every buffer has at least one line */
 
+	/* decide which tags we should use -- HTML or SGML */
+#ifdef SGML_HACK
+	mui->flavor = 0;
+	if (CHARcmp(o_display(win), toCHAR("html sgml")))
+	{
+		/* we want plain HTML -- find the first HTML tag */
+		CHARcpy(rettok.text, toCHAR("<html>"));
+		mui->flavor = htmlmarkup(&rettok);
+	}
+#endif /* SGML_HACK */
+
 	/* temporarily move the cursor someplace harmless */
 	cursoffset = markoffset(win->cursor);
 	marksetoffset(win->cursor, o_bufchars(markbuffer(win->cursor)));
@@ -921,10 +1076,20 @@ static DMINFO *htmlinit(win)
 	win->mi = (DMINFO *)mui;
 	(void)start(win, marktmp(top, markbuffer(win->cursor), 0), NULL);
 	p = scanalloc(&p, &top);
+	result = TWRAP_NO;
 	for (token = (*mui->get)(&p);
 	     token;
 	     token = (*mui->get)(&p))
 	{
+		/* if previous token forced a newline after it, then this token
+		 * is the start of the next line.
+		 */
+		if (result == TWRAP_AFTER)
+		{
+			/* assert(first == True && col == 0); */
+			storestate(token->offset[0], NULL);
+		}
+
 		/* if cursor is at position 0, and this is a text token,
 		 * then move the cursor here.  This is done because otherwise
 		 * the cursor would always start on an ugly formatting code.
@@ -940,7 +1105,8 @@ static DMINFO *htmlinit(win)
 		/* output the token.  If it forces a new line, remember where
 		 * that new line started.
 		 */
-		if (put(token))
+		result = put(token);
+		if (result == TWRAP_BEFORE)
 		{
 			assert(first == True && col == 0);
 			storestate(token->offset[0], NULL);
@@ -1015,6 +1181,8 @@ static CHAR *htmltagatcursor(win, cursor)
 			if (!CHARncmp(token->text, toCHAR("<a "), 3)
 			 || !CHARcmp(token->text, toCHAR("</a>"))
 			 || !CHARncmp(token->text, toCHAR("<frame "), 7)
+			 || !CHARncmp(token->text, toCHAR("<htmlurl "), 9)
+			 || !CHARncmp(token->text, toCHAR("<ulink "), 7)
 			 || (anchor.text[1] == '/' && !CHARncmp(token->text, toCHAR("<img "), 5)))
 			{
 				anchor = *token;
@@ -1033,9 +1201,11 @@ static CHAR *htmltagatcursor(win, cursor)
 	ret = NULL;
 	if (anchor.text[1] != '/')
 	{
-		/* search for an HREF=... or SRC=... parameter */
+		/* search for an HREF=, SRC=, or URL= parameter */
 		for (p = &anchor.text[3];
-		     CHARncmp(p, toCHAR("href="), 5) && CHARncmp(p, toCHAR("src="), 4);
+		     CHARncmp(p, toCHAR("href="), 5)
+			&& CHARncmp(p, toCHAR("src="), 4)
+			&& CHARncmp(p, toCHAR("url="), 4);
 		     p++)
 		{
 			if (*p == '>' || !*p)
@@ -1353,7 +1523,83 @@ static MARK htmltagnext(cursor)
 	/* else construct a mark for the start of the last token */
 	return marktmp(ret, markbuffer(cursor), token->offset[0]);
 }
+#endif /* defined(DISPLAY_HTML) */
 
+#if defined(DISPLAY_HTML) || defined(DISPLAY_TEX)
+/* output a horizontal rule */
+static twrap_t htmlhr(token)
+	TOKEN	*token;
+{
+	int	len;
+
+	assert(col == 0 && textwidth > 0);
+
+	len = textwidth - indent * 3 / 2;
+	if (len < 3)
+		len = 3;
+
+	/* draw the hrule */
+	(*drawchar)(&space, -indent, 'g', (anyspc ? spcoffset : 1));
+	(*drawchar)(&hyphen, -len, 'g', token->offset[0]);
+	col = indent + len;
+	anyspc = False;
+	return TWRAP_NO;
+}
+#endif /* defined(DISPLAY_HTML) || defined(DISPLAY_TEX) */
+
+#if defined(DISPLAY_HTML) || defined(DISPLAY_MAN)
+/* This function either outputs mantext[] and returns False, or (if mantext[]
+ * is too wide to fit on this line) it outputs a newline and returns True.
+ */
+static twrap_t manput()
+{
+	int	i, start;
+
+	/* if it won't fit, then output a newline instead */
+	if (!first && col > indent && col + manlen > textwidth - listind)
+	{
+		/* output a newline */
+		(*drawchar)(&newline, 1, 'n', anyspc ? spcoffset : -1);
+		col = 0;
+		first = True;
+		return TWRAP_BEFORE;
+	}
+
+	/* It will fit.  If we need to adjust our indent, do it now */
+	if (col < indent)
+	{
+		(*drawchar)(&space, col - indent, 'n', anyspc ? spcoffset : -1);
+		col = indent;
+		anyspc = False;
+	}
+
+	/* Output a space between tokens, usually. */
+	if (anyspc)
+	{
+		(*drawchar)(&space, 1, 'n', spcoffset);
+		col++;
+		anyspc = False;
+	}
+
+	/* Output mantext[] in as few chunks as possible */
+	for (start = 0; start < manlen; start = i)
+	{
+		for (i = start + 1;
+		     i < manlen
+			&& manfont[i] == manfont[start]
+			&& manoffset[i] == manoffset[i - 1] + 1;
+		     i++)
+		{
+		}
+		(*drawchar)(&mantext[start], (long)(i - start), manfont[start], manoffset[start]);
+	}
+	col += manlen;
+
+	return TWRAP_NO;
+}
+#endif /* defined(DISPLAY_HTML) || defined(DISPLAY_MAN) */
+
+#ifdef DISPLAY_MAN
 /*----------------------------------------------------------------------------*/
 /* "man" mode functions                                                       */
 
@@ -1557,58 +1803,8 @@ static int manarg(token, start, font, spc)
 }
 
 
-/* This function either outputs mantext[] and returns False, or (if mantext[]
- * is too wide to fit on this line) it outputs a newline and returns True.
- */
-static BOOLEAN manput()
-{
-	int	i, start;
-
-	/* if it won't fit, then output a newline instead */
-	if (!first && col > indent && col + manlen > textwidth - listind)
-	{
-		/* output a newline */
-		(*drawchar)(&newline, 1, 'n', anyspc ? spcoffset : -1);
-		col = 0;
-		first = True;
-		return True;
-	}
-
-	/* It will fit.  If we need to adjust our indent, do it now */
-	if (col < indent)
-	{
-		(*drawchar)(&space, col - indent, 'n', anyspc ? spcoffset : -1);
-		col = indent;
-		anyspc = False;
-	}
-
-	/* Output a space between tokens, usually. */
-	if (anyspc)
-	{
-		(*drawchar)(&space, 1, 'n', spcoffset);
-		col++;
-		anyspc = False;
-	}
-
-	/* Output mantext[] in as few chunks as possible */
-	for (start = 0; start < manlen; start = i)
-	{
-		for (i = start + 1;
-		     i < manlen
-			&& manfont[i] == manfont[start]
-			&& manoffset[i] == manoffset[i - 1] + 1;
-		     i++)
-		{
-		}
-		(*drawchar)(&mantext[start], (long)(i - start), manfont[start], manoffset[start]);
-	}
-	col += manlen;
-
-	return False;
-}
-
 /* This function implements the .TH macro, which declares the page's title */
-static BOOLEAN manTH(token)
+static twrap_t manTH(token)
 	TOKEN	*token;
 {
 	int	i;
@@ -1629,11 +1825,11 @@ static BOOLEAN manTH(token)
 		mui->title = CHARdup(mantext);
 	}
 
-	return False;
+	return TWRAP_NO;
 }
 
 /* This function implements the .SH and .SS macros */
-static BOOLEAN manSH(token)
+static twrap_t manSH(token)
 	TOKEN	*token;
 {
 	long	nloff;	/* offset of newline */
@@ -1671,18 +1867,18 @@ static BOOLEAN manSH(token)
 	/* force the indentation to be the default */
 	indent = listind * 2;
 
-	/* Return False even though we did output a newline.  The newline
-	 * (and the text before it) is considered to be part of the same
-	 * "line" as far as movement is concerned.
+	/* Force the line to end after this title; this affects movement,
+	 * not the appearance of the title since we already output a newline
+	 * here.
 	 */
-	return False;
+	return TWRAP_AFTER;
 }
 
 /* This function implements the font-changing macros such as .BI, .RB, and
  * so on.  The resulting text is treated as a single word; if it can't fit
  * on the current line, then this function merely outputs a newline.
  */
-static BOOLEAN manBI(token)
+static twrap_t manBI(token)
 	TOKEN	*token;
 {
 	char	font1, font2;
@@ -1719,17 +1915,17 @@ static BOOLEAN manBI(token)
 	if (list || (o_showmarkups && token->offset[0] <= cursoff && cursoff <= token->offset[token->nchars - 1]))
 	{
 		token->width = manlen + 1; /* "+ 1" to allow for whitespace */
-		return False;
+		return TWRAP_NO;
 	}
-	else if (manput())
+	else if (manput() != TWRAP_NO)
 	{
-		return True;
+		return TWRAP_BEFORE;
 	}
 
 	/* assume there should be some whitespace after this */
 	anyspc = True;
 	spcoffset = token->offset[token->nchars - 1];
-	return False;
+	return TWRAP_NO;
 }
 
 /* This function implements the .IP macro.  It outputs its first argument,
@@ -1738,7 +1934,7 @@ static BOOLEAN manBI(token)
  * the end of "line" as far as moving the cursor is concerned; it is just
  * a funny type of wrapping.
  */
-static BOOLEAN manIP(token)
+static twrap_t manIP(token)
 	TOKEN	*token;
 {
 	int	i, start;
@@ -1748,7 +1944,7 @@ static BOOLEAN manIP(token)
 	 * performing its output.
 	 */
 	if (list || (o_showmarkups && token->offset[0] <= cursoff && cursoff <= token->offset[token->nchars - 1]))
-		return False;
+		return TWRAP_NO;
 
 	/* get the first arg, as the paragraph tag */
 	manlen = 0;
@@ -1802,10 +1998,9 @@ static BOOLEAN manIP(token)
 	{
 		(*drawchar)(&newline, 1, 'n', token->offset[token->nchars - 1]);
 		col = 0;
+		return TWRAP_AFTER;
 	}
-
-	/* return False, even if we output a newline */
-	return False;
+	return TWRAP_NO;
 }
 
 /* Look up a man markup token in a table */
@@ -1880,7 +2075,12 @@ static TOKEN *manget(refp)
 
 	/* if the CHAR pointer is NULL, then return NULL */
 	if (!*refp)
+	{
+#ifdef DEBUG_MARKUP
+		fprintf(stderr, "manget() returning NULL\n");
+#endif
 		return NULL;
+	}
 
 	/* Get first character of token */
 	offset = markoffset(scanmark(refp));
@@ -1912,7 +2112,12 @@ static TOKEN *manget(refp)
 			back = scanmark(refp);
 			next = manget(refp);
 			if (next && next->markup && next->markup->BREAKLN != '-')
+			{
+#ifdef DEBUG_MARKUP
+				fprintf(stderr, "manget() returning \"%s\", offset=%ld, BREAKLN\n", next->text[0] == '\n' ? "\\n" : (char *)next->text, next->offset[0]);
+#endif
 				return next;
+			}
 			scanseek(refp, back);
 			rettok = tmp;
 		}
@@ -1932,6 +2137,9 @@ static TOKEN *manget(refp)
 		rettok.nchars = 5;
 		manmarkup(&rettok);
 		midline = False;
+#ifdef DEBUG_MARKUP
+		fprintf(stderr, "manget() returning constructed \"%s\", offset=%ld\n", rettok.text[0] == '\n' ? "\\n" : (char *)rettok.text, rettok.offset[0]);
+#endif
 		return &rettok;
 	}
 
@@ -2074,6 +2282,9 @@ static TOKEN *manget(refp)
 
 	/* Mark the end of the text, and return the token */
 	rettok.text[rettok.nchars] = '\0';
+#ifdef DEBUG_MARKUP
+		fprintf(stderr, "manget() returning \"%s\", offset=%ld\n", rettok.text[0] == '\n' ? "\\n" : (char *)rettok.text, rettok.offset[0]);
+#endif
 	return &rettok;
 }
 
@@ -2084,6 +2295,7 @@ static DMINFO *maninit(win)
 	MARKBUF	top;
 	CHAR	*p;
 	long	cursoffset;
+	twrap_t	result;
 
 	/* inherit some functions from dmnormal */
 	dmman.wordmove = dmnormal.wordmove;
@@ -2103,13 +2315,29 @@ static DMINFO *maninit(win)
 	marksetoffset(win->cursor, o_bufchars(markbuffer(win->cursor)));
 
 	/* format the buffer */
+#ifdef DEBUG_MARKUP
+	fprintf(stderr, "maninit() starting\n");
+#endif
 	win->mi = (DMINFO *)mui;
 	(void)start(win, marktmp(top, markbuffer(win->cursor), 0), NULL);
 	p = scanalloc(&p, &top);
+	result = TWRAP_NO;
 	for (token = (*mui->get)(&p);
 	     token;
 	     token = (*mui->get)(&p))
 	{
+		/* if previous token forced a newline after it, then this token
+		 * is the start of the next line.
+		 */
+		if (result == TWRAP_AFTER)
+		{
+#ifdef DEBUG_MARKUP
+			fprintf(stderr, "maninit() storing line %ld, offset=%ld, result=TWRAP_AFTER\n", mui->nlines + 1, token->offset[0]);
+#endif
+			assert(first == True && col == 0);
+			storestate(token->offset[0], NULL);
+		}
+
 		/* if cursor is at position 0, and this is a text token,
 		 * then move the cursor here.  This is done because otherwise
 		 * the cursor would always start on an ugly formatting code.
@@ -2125,14 +2353,24 @@ static DMINFO *maninit(win)
 		/* output the token.  If it forces a new line, remember where
 		 * that new line started.
 		 */
-		if (put(token))
+		result = put(token);
+		if (result == TWRAP_BEFORE)
 		{
+#ifdef DEBUG_MARKUP
+			fprintf(stderr, "maninit() storing line %ld, offset=%ld, result=TWRAP_BEFORE\n", mui->nlines + 1, token->offset[0]);
+#endif
 			assert(first == True && col == 0);
 			storestate(token->offset[0], NULL);
-			(void)put(token);
+			result = put(token);
+#ifdef DEBUG_MARKUP
+			fprintf(stderr, "maninit() after 2nd put(), result=TWRAP_%s\n", result==TWRAP_BEFORE ? "BEFORE" : "AFTER");
+#endif
 		}
 	}
 	scanfree(&p);
+#ifdef DEBUG_MARKUP
+	fprintf(stderr, "maninit() finished\n");
+#endif
 
 	/* restore the cursor position */
 	marksetoffset(win->cursor, cursoffset);
@@ -2140,7 +2378,9 @@ static DMINFO *maninit(win)
 	/* Done! */
 	return (DMINFO *)mui;
 }
+#endif /* defined(DISPLAY_MAN) */
 
+#ifdef DISPLAY_TEX
 /*----------------------------------------------------------------------------*/
 /* TeX functions */
 
@@ -2153,15 +2393,15 @@ static void texescape(tok)
 /* This implements a '{' -- it starts a scope by saving the current font as
  * the new default font, so '}' can switch back.
  */
-static BOOLEAN texscope(token)
+static twrap_t texscope(token)
 	TOKEN	*token;
 {
 	deffont = curfont;
-	return False;
+	return TWRAP_NO;
 }
 
 /* This outputs characters embedded in its name */
-static BOOLEAN texoutput(token)
+static twrap_t texoutput(token)
 	TOKEN	*token;
 {
 	int	i;
@@ -2173,7 +2413,7 @@ static BOOLEAN texoutput(token)
 		(*drawchar)(&newline, 1, 'n', anyspc ? spcoffset : -1);
 		col = 0;
 		first = True;
-		return True;
+		return TWRAP_BEFORE;
 	}
 
 	/* find the text */
@@ -2205,11 +2445,11 @@ static BOOLEAN texoutput(token)
 	/* output the text in the current font, or bold font */
 	(*drawchar)(&token->text[i], token->width, font, token->offset[i]);
 	col += token->width;
-	return False;
+	return TWRAP_NO;
 }
 
 /* Output the label for a list item */
-static BOOLEAN texitem(token)
+static twrap_t texitem(token)
 	TOKEN	*token;
 {
 	CHAR	buf[10];
@@ -2276,92 +2516,117 @@ static BOOLEAN texitem(token)
 		col = indent - 1;
 	}
 
-	return False;
+	return TWRAP_NO;
 }
 
 
 /* This outputs a title, author, section, or subsection string */
-static BOOLEAN textitle(token)
+static twrap_t textitle(token)
 	TOKEN	*token;
 {
 	char	font;
 	long	offset;
 	long	indent;
+	BOOLEAN	center;
 	int	i, j;
+
+	/* the font and indentation depend on the keyword */
+	switch (token->text[4]) /* <- Tricky! */
+	{
+	  case 'l':	/* \titLe{} */
+		center = True;
+		font = 'b';
+		break;
+
+	  case 'h':	/* \autHor{} */
+		center = True;
+		font = 'i';
+		break;
+
+	  case 'p':	/* \chaPter{} */
+		center = True;
+		font = 'b';
+		break;
+
+	  case 't':	/* \secTion{} */
+		center = False;
+		indent = 0;
+		font = 'b';
+		break;
+
+	  case 's':	/* \subSection{} */
+		center = False;
+		indent = 4;
+		font = 'b';
+		break;
+	}
 
 	/* locate the label text (and its len) */
 	for (i = 1; token->text[i - 1] != '{' && i < token->nchars; i++)
 	{
 	}
 	if (i >= token->nchars)
-		return False;
+		return TWRAP_NO;
 	offset = token->offset[i];
-	for (j = 0; i < token->nchars - 1; i++)
+	for (j = 0; i < token->nchars; i++)
 	{
 		if (token->text[i] == '\\' && i + 1 < token->nchars - 1)
 			i++;
-		if (token->text[i] == '\n')
+		if (j > 0 && token->text[i] == '\n')
 			mantext[j++] = ' ';
-		else if (token->text[i] != '{' && token->text[i] != '}' && token->text[i] != '$')
+		else if (token->text[i] != '{'
+		      && token->text[i] != '}'
+		      && token->text[i] != '$'
+		      && token->text[i] != '\\'
+		      && (j > 0 || !isspace(token->text[i])))
 			mantext[j++] = token->text[i];
-	}
 
-	/* the font and indentation depend on the keyword */
-	switch (token->text[4]) /* <- Tricky! */
-	{
-	  case 'l':	/* \titLe{} */
-		indent = (textwidth - j) / 2;
-		font = 'b';
-
-		/* If the title is different, then store it now */
-		if (!mui->title || CHARcmp(mui->title, mantext))
+		/* if forced line break, then do it now */
+		if (j > 72
+		 || (j > 65 && token->text[i] == ' ')
+		 || token->text[i] == '}'
+		 || (token->text[i] == '\\' && token->text[i - 1] == '\\')
+		 || i == token->nchars - 1)
 		{
-			if (mui->title)
-				safefree(mui->title);
-			mui->title = (CHAR *)safealloc(j + 1, sizeof(CHAR));
-			CHARncpy(mui->title, mantext, (int)j);
+			/* output the indentation and label */
+			if (center)
+				indent = (textwidth - j) / 2;
+			(*drawchar)(&space, -indent, 'n', -1L);
+			(*drawchar)(mantext, (long)j, font, offset);
+
+			/* output a newline */
+			anyspc = False;
+			(*drawchar)(&newline, 1, 'n', -1L);
+			col = 0;
+
+			/* prepare for next line of title */
+			j = 0; 
+			offset = token->offset[i];
 		}
-		break;
-
-	  case 'h':	/* \autHor{} */
-		indent = (textwidth - j) / 2;
-		font = 'i';
-		break;
-
-	  case 'p':	/* \chaPter{} */
-		indent = (textwidth - j) / 2;
-		font = 'b';
-		break;
-
-	  case 't':	/* \secTion{} */
-		indent = 0;
-		font = 'b';
-		break;
-
-	  case 's':	/* \subSection{} */
-		indent = 4;
-		font = 'b';
-		break;
 	}
 
-	/* output the indentation and label */
-	(*drawchar)(&space, -indent, 'n', -1L);
-	(*drawchar)(mantext, (long)j, font, offset);
+	/* If the title is different, then store it now.  (This assumes the
+	 * title fits on a single line */
+	if (token->text[4] == 'l' && (!mui->title || CHARcmp(mui->title, mantext)))
+	{
+		if (mui->title)
+			safefree(mui->title);
+		mui->title = (CHAR *)safealloc(j + 1, sizeof(CHAR));
+		CHARncpy(mui->title, mantext, (int)j);
+	}
 
-	/* output a newline */
-	anyspc = False;
-	(*drawchar)(&newline, 1, 'n', -1L);
+	/* remember that the last the we output was a newline */
 	col = 0;
 	first = True;
 	anyspc = False;
 	reduce = True;
 
-	return False;
+	return TWRAP_AFTER;
 }
 
 
 /* output a single digraph character */
-static BOOLEAN texdigraph(token)
+static twrap_t texdigraph(token)
 	TOKEN	*token;
 {
 	CHAR	dig[1];
@@ -2369,7 +2634,7 @@ static BOOLEAN texdigraph(token)
 	/* convert 2nd & 4th chars into a digraph char, and output it */
 	*dig = digraph(token->text[1], token->text[3]);
 	(*drawchar)(dig, 1, curfont, token->offset[0]);
-	return False;
+	return TWRAP_NO;
 }
 
 
@@ -2897,6 +3162,7 @@ static DMINFO *texinit(win)
 	MARKBUF	top;
 	CHAR	*p;
 	long	cursoffset;
+	twrap_t	result;
 
 	/* inherit some functions from dmnormal */
 	dmtex.wordmove = dmnormal.wordmove;
@@ -2919,19 +3185,20 @@ static DMINFO *texinit(win)
 	win->mi = (DMINFO *)mui;
 	(void)start(win, marktmp(top, markbuffer(win->cursor), 0), NULL);
 	p = scanalloc(&p, &top);
+	result = TWRAP_NO;
 	for (token = (*mui->get)(&p);
 	     token;
 	     token = (*mui->get)(&p))
 	{
-#ifdef DEBUG_MARKUP
-		fprintf(stderr, "col=%-2d indent=%-2d curfont='%c' ", (int)col, (int)indent, curfont);
-		if (token->markup)
-			fprintf(stderr, "MARKUP=\"%s\"\n", token->markup->name);
-		else if (isspace(token->text[0]))
-			fprintf(stderr, "WHITESPACE='%s'\n", token->text[0]=='\n'?"\\n" : token->text[0]=='\b'?"\\b" : " ");
-		else
-			fprintf(stderr, "WORD=\"%.*s\"\n", token->nchars, token->text);
-#endif
+		/* if previous token forced a newline after it, then this token
+		 * is the start of the next line.
+		 */
+		if (result == TWRAP_AFTER)
+		{
+			assert(first == True && col == 0);
+			storestate(token->offset[0], NULL);
+		}
+
 		/* if cursor is at position 0, and this is a text token,
 		 * then move the cursor here.  This is done because otherwise
 		 * the cursor would always start on an ugly formatting code.
@@ -2947,7 +3214,8 @@ static DMINFO *texinit(win)
 		/* output the token.  If it forces a new line, remember where
 		 * that new line started.
 		 */
-		if (put(token))
+		result = put(token);
+		if (result == TWRAP_BEFORE)
 		{
 			assert(first == True && col == 0);
 			storestate(token->offset[0], NULL);
@@ -2962,6 +3230,8 @@ static DMINFO *texinit(win)
 	/* Done! */
 	return (DMINFO *)mui;
 }
+#endif /* DISPLAY_TEX */
+
 /*----------------------------------------------------------------------------*/
 /* Generic markup functions                                                   */
 
@@ -2969,24 +3239,28 @@ static DMINFO *texinit(win)
  * side effects are performed and the function (if any) is called.  If text,
  * or if the cursor is in the token, then the text of the token is output.
  * It is assumed that drawchar and cursoff are set before this function is
- * called.  Returns False if the token fits on this line.  If it didn't fit,
- * or was a markup that caused a line break, then it returns True in which
- * case put() should be called again for the same token to start generating
- * the next line.
+ * called.  Returns an indicator of whether the text fits:
+ *	TWRAP_NO	Text fits, continue line with next token
+ *	TWRAP_BEFORE	Text doesn't fit, start new line with same token
+ *	TWRAP_AFTER	Text fits, start new line with next token
  */
-static BOOLEAN put(token)
+static twrap_t put(token)
 	TOKEN	*token;
 {
 	char	tmpfont;
 	CHAR	tmpch, lch, rch;
 	int	i, origcol;
 	BOOLEAN hascursor;	/* indicates whether this token contains cursor */
+	twrap_t	result;
 
 	/* determine whether the cursor is in this token.  If the "list"
 	 * option is set, then pretend that all tokens contain the cursor.
 	 */
 	hascursor = (BOOLEAN)(list || (o_showmarkups && token->offset[0] <= cursoff && cursoff <= token->offset[token->nchars - 1]));
 
+#ifdef DEBUG_MARKUP
+	fprintf(stderr, "put(\"%s\") width=%d, hascursor=%s\n", token->text[0] == '\n' ? "\\n" : (char *)token->text, token->width, hascursor?"True":"False");
+#endif
 	/* is it a markup? */
 	if (token->markup)
 	{
@@ -3001,7 +3275,7 @@ static BOOLEAN put(token)
 			reduce = (BOOLEAN)(col == 0);
 			col = 0;
 			first = True;
-			return True;
+			return TWRAP_BEFORE;
 		}
 
 		/* do all the standard effects */
@@ -3040,18 +3314,30 @@ static BOOLEAN put(token)
 		switch (token->markup->INDENT)
 		{
 		  case '<':
+			/* decrease indentation */
 			indent = (indent < listind ? 0 : indent - listind);
 			break;
 
 		  case '>':
+			/* increase indentation */
 			indent += listind;
 			break;
 
 		  case '=':
+			/* set indentation to start of a table column */
 			if (col < tabstop)
 				indent = tabstop;
 			else
 				indent = col + 1 + 2 * tabstop - ((col + 1 + tabstop) % (2 * tabstop));
+			break;
+
+		  case '|':
+			/* if in heading, then end heading; else no change */
+			if (indent < tabstop)
+			{
+				indent = tabstop;
+				curfont = deffont = 'n';
+			}
 			break;
 
 		  case '0':
@@ -3061,6 +3347,7 @@ static BOOLEAN put(token)
 		  case '4':
 		  case '5':
 		  case '6':
+			/* set it to a specific indentation; '2' is normal */
 			indent = (token->markup->INDENT - '0') * listind;
 			break;
 		}
@@ -3114,15 +3401,16 @@ static BOOLEAN put(token)
 		 */
 		if (token->markup->fn)
 		{
-			if ((*token->markup->fn)(token))
-				return True;
+			result = (*token->markup->fn)(token);
+			if (result != TWRAP_NO)
+				return result;
 		}
 
 		/* if the cursor isn't on this token, don't show it */
 		if (!hascursor)
 		{
 			first = False;
-			return False;
+			return TWRAP_NO;
 		}
 	}
 	else
@@ -3136,7 +3424,7 @@ static BOOLEAN put(token)
 	if (title && !hascursor)
 	{
 		first = False;
-		return False;
+		return TWRAP_NO;
 	}
 
 	/* Newlines are handled differently that other whitespace, when in
@@ -3149,9 +3437,9 @@ static BOOLEAN put(token)
 	if (prefmt && token->text[0] == '\n' && first)
 	{
 		first = False;
-		anyspc = True;
+		anyspc = True;/*!!! Should this be False to avoid initial spc? */
 		spcoffset = token->offset[0];
-		return False;
+		return TWRAP_NO;
 	}
 
 	/* Expand any escape sequences in the token's text */
@@ -3169,7 +3457,7 @@ static BOOLEAN put(token)
 			spcoffset = token->offset[0];
 		anyspc = True;
 		first = False;
-		return False;
+		return TWRAP_NO;
 	}
 
 	/* If not a markup, and it won't fit on the current line, then output
@@ -3187,7 +3475,7 @@ static BOOLEAN put(token)
 		col = 0;
 		anyspc = False;
 		first = True;
-		return True;
+		return TWRAP_BEFORE;
 	}
 
 	/* if we need to adjust our indent, do it now */
@@ -3232,7 +3520,7 @@ static BOOLEAN put(token)
 			col = 0;
 			anyspc = True;
 			first = True;
-			return True;
+			return TWRAP_BEFORE;
 
 		  case '|':
 		  case '.':
@@ -3292,7 +3580,7 @@ static BOOLEAN put(token)
 
 	/* Done! */
 	first = False;
-	return False;
+	return TWRAP_NO;
 }
 
 
@@ -3396,7 +3684,7 @@ static long mark2col(w, mark, cmd)
 	 */
 	i = start(w, mark, NULL);
 	p = scanalloc(&p, marktmp(tmp, markbuffer(mark), mui->line[i].offset));
-	while ((token = (*mui->get)(&p)) != NULL && !put(token) && outcol < 0)
+	while ((token = (*mui->get)(&p)) != NULL && put(token) == TWRAP_NO && outcol < 0)
 	{
 	}
 	scanfree(&p);
@@ -3447,7 +3735,7 @@ static MARK move(w, from, linedelta, column, cmd)
 		assert(j == i);
 		wantcol = column;
 		scanalloc(&p, marktmp(tmp, markbuffer(from), mui->line[j].offset));
-		while ((token = (*mui->get)(&p)) != NULL && !put(token) && outoffset < 0)
+		while ((token = (*mui->get)(&p)) != NULL && put(token) == TWRAP_NO && outoffset < 0)
 		{
 		}
 		scanfree(&p);
@@ -3474,7 +3762,16 @@ static MARK setup(win, top, cursor, bottom, info)
 	int	i;
 
 	/* we can optimize if "nolist noshowmarkup" */
-	dmhtml.canopt = dmman.canopt = (BOOLEAN)(!o_list(win) && !o_showmarkups);
+#ifdef DISPLAY_HTML
+	dmhtml.canopt =
+#endif
+#ifdef DISPLAY_MAN
+	dmman.canopt =
+#endif
+#ifdef DISPLAY_TEX
+	dmtex.canopt =
+#endif
+		(BOOLEAN)(!o_list(win) && !o_showmarkups);
 	
 	/* find the line indicies of the top & bottom marks, and the cursor */
 	/* NOTE: This could have been implemented more efficiently! */
@@ -3527,13 +3824,18 @@ static MARK image(w, line, info, draw)
 	CHAR	*p;
 	TOKEN	*token;
  static MARKBUF	tmp;
+	twrap_t	result;
 
 	/* generate the line image, using the given "draw" function */
 	(void)start(w, line, draw);
 	scanalloc(&p, line);
-	for (token = (*mui->get)(&p); token && !put(token); token = (*mui->get)(&p))
+	for (token = (*mui->get)(&p);
+	     token && (result = put(token)) == TWRAP_NO;
+	     token = (*mui->get)(&p))
 	{
 	}
+	if (p)
+		tmp = *scanmark(&p);
 	scanfree(&p);
 
 	/* if we hit the end of the buffer, and didn't output a newline,
@@ -3545,10 +3847,12 @@ static MARK image(w, line, info, draw)
 	}
 
 	/* return the offset of the first token of the next line */
-	if (token)
+	if (!token)
+		return marktmp(tmp, markbuffer(line), o_bufchars(markbuffer(line)));
+	else if (result == TWRAP_BEFORE)
 		return marktmp(tmp, markbuffer(line), token->offset[0]);
 	else
-		return marktmp(tmp, markbuffer(line), o_bufchars(markbuffer(line)));
+		return &tmp; /* already set via scanmark(), above */
 }
 
 
@@ -3570,6 +3874,10 @@ static void header(w, pagenum, info, draw)
 
 	assert(info == (DMINFO *)mui);
 
+	/* if lpheader isn't set, then don't bother */
+	if (!o_lpheader)
+		return;
+
 	/* covert page number to text */
 	long2CHAR(pg, (long)pagenum);
 
@@ -3580,12 +3888,14 @@ static void header(w, pagenum, info, draw)
 	/* Find the widths of things */
 
 	/* figure out what goes where */
+#ifdef DISPLAY_MAN
 	if (mui->escape == manescape)
 	{
 		sides = title;
 		middle = pg;
 	}
 	else
+#endif
 	{
 		sides = pg;
 		middle = title;
@@ -3824,8 +4134,9 @@ void dmmuadjust(from, to, delta)
 #endif
 	MARKBUF	tmp;
 	int	i;
+	twrap_t	result;
 
-#ifdef DEBUG_MARKUP
+#if 0
 	fprintf(stderr, "dmmuadjust({%s,%ld}, {%s,%ld}, %ld)\n",
 		o_bufname(markbuffer(from)), markoffset(from),
 		o_bufname(markbuffer(to)), markoffset(to),
@@ -3866,7 +4177,7 @@ void dmmuadjust(from, to, delta)
 		do
 		{
 			token = (*mui->get)(&p);
-		} while (token && !put(token));
+		} while (token && (result = put(token)) == TWRAP_NO);
 
 		/* regenerate the line where the change took place */
 		if (token && token->offset[token->nchars - 1] != o_bufchars(markbuffer(from)) - 1)
@@ -3876,8 +4187,13 @@ void dmmuadjust(from, to, delta)
 			storestate(token->offset[0], &mui->line[i]);
 
 			/* okay, now scan the changed line.  We already have
-			 * the first token
+			 * the first token, unless the previous put() returned
+			 * TWRAP_AFTER.
 			 */
+			if (result == TWRAP_AFTER)
+			{
+				token = (*mui->get)(&p);
+			}
 			while (token && !put(token))
 			{
 				token = (*mui->get)(&p);
@@ -3892,7 +4208,7 @@ void dmmuadjust(from, to, delta)
 		{
 			mui->nlines = i + 1;
 			scanfree(&p);
-#ifdef DEBUG_MARKUP
+#if 0
 			fprintf(stderr, "\tNo adjustment needed; hit end of buffer\n");
 #endif
 			continue;
@@ -3910,7 +4226,7 @@ void dmmuadjust(from, to, delta)
 		{
 			if (delta == 0)
 			{
-#ifdef DEBUG_MARKUP
+#if 0
 				fprintf(stderr, "\tNo adjustment needed; same state and delta=0\n");
 #endif
 				scanfree(&p);
@@ -3922,7 +4238,7 @@ void dmmuadjust(from, to, delta)
 				mui->line[i].offset += delta;
 			}
 			scanfree(&p);
-#ifdef DEBUG_MARKUP
+#if 0
 			fprintf(stderr, "\tAdjusted the offsets only!\n");
 #endif
 			continue;
@@ -3949,11 +4265,11 @@ void dmmuadjust(from, to, delta)
 		do
 		{
 			/* Regenerate a line */
-			put(token);
+			put(token); /* does twrap_t affect this? */
 			do
 			{
 				token = (*mui->get)(&p);
-			} while (token && !put(token));
+			} while (token && (result = put(token)) == TWRAP_NO);
 			if (!token)
 			{
 				break;
@@ -3970,7 +4286,7 @@ void dmmuadjust(from, to, delta)
 		} while (token);
 		scanfree(&p);
 		safefree(old);
-#ifdef DEBUG_MARKUP
+#if 0
 		fprintf(stderr, "\tRegenerated info for every following line\n");
 #endif
 	}
@@ -3978,6 +4294,7 @@ void dmmuadjust(from, to, delta)
 
 
 /*----------------------------------------------------------------------------*/
+#ifdef DISPLAY_HTML
 DISPMODE dmhtml =
 {
 	"html",
@@ -4006,7 +4323,9 @@ DISPMODE dmhtml =
 	htmltagload,
 	htmltagnext
 };
+#endif /* defined(DISPLAY_HTML) */
 
+#ifdef DISPLAY_MAN
 DISPMODE dmman =
 {
 	"man",
@@ -4035,7 +4354,9 @@ DISPMODE dmman =
 	NULL,	/* tagload will be set to dmnormal.tagload in init() */
 	NULL,	/* tagnext will be set to dmnormal.tagnext in init() */
 };
+#endif /* defined(DISPLAY_MAN) */
 
+#ifdef DISPLAY_TEX
 DISPMODE dmtex =
 {
 	"tex",
@@ -4064,4 +4385,6 @@ DISPMODE dmtex =
 	NULL,	/* tagload will be set to dmnormal.tagload in init() */
 	NULL,	/* tagnext will be set to dmnormal.tagnext in init() */
 };
-#endif /* DISPLAY_MARKUP */
+#endif /* defined(DISPLAY_TEX) */
+
+#endif /* DISPLAY_ANYMARKUP */

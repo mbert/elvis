@@ -74,11 +74,14 @@ It has some screen shots, macros, and syntax-coloring definitions.
 It also has the
 <a href="http://www.phys.columbia.edu/~flame/elvislib/elvis.html">online manual</a>.
 
-<dt><a href="http://www.cs.vu.nl/~tmgil/vi.html">
-http://www.cs.vu.nl/~tmgil/vi.html</a>
+<dt><a href="http://www.thomer.com/thomer/vi/vi.html">
+http://www.thomer.com/thomer/vi/vi.html</a>
 <dd>"The VI lover's home page."
 This contains links to a wide variety of vi documentation, and practically all vi clones.
 <em>A very good resource!</em>
+This is a new location; previously it was located at
+<a href="http://www.cs.vu.nl/~tmgil/vi.html">
+http://www.cs.vu.nl/~tmgil/vi.html</a>.
 
 <dt><a href="http://www.math.fu-berlin.de/~guckes/vi/features.html">
 http://www.math.fu-berlin.de/~guckes/vi/features.html</a>
@@ -86,7 +89,7 @@ http://www.math.fu-berlin.de/~guckes/vi/features.html</a>
 other editors.
 Originally it just listed which options are supported by which clones,
 but it has matured a bit since then.
-The maintainer is fond of VIM, so there is a bias towards that.
+The maintainer is most familiar with VIM, so there is a bias towards that.
 
 <dt><a href="http://www.bsyse.wsu.edu/~rnelson/editors/editors.htm">
 http://www.bsyse.wsu.edu/~rnelson/editors/editors.htm</a>
@@ -97,8 +100,8 @@ It lists the features and supported platforms for each editor.
 <dt><a href="http://darren.hiebert.com/ctags/">
 http://darren.hiebert.com/ctags/</a>
 <dd>Home page for Darren Hiebert's <strong>exuberant ctags</strong> program.
-It supports all features of elvis' ctags, except for the "-r" flag for
-generating a "refs" file.
+It supports all features of elvis' ctags, except for the "ln" attribute,
+and the "-r" flag for generating a "refs" file.
 Exuberant ctags has a smarter parsing algorithm, which causes it to generate
 fewer bogus tags (i.e., tags for things that really shouldn't have tags).
 It also adds the ability to generate tags for "enum" values and a few
@@ -127,6 +130,12 @@ It even does a very good job of reformatting comments!
 Sadly, it is one of those rare programs that doesn't handle tab characters
 correctly.
 
+<dt><a href="http://www.cygnus.com/">
+http://www.cygnus.com/</a>
+<dd>This is the home page for Cygnus, which makes the <a name=cygwin>CygWin</a>
+tools -- ports of GNU utilities to Microsoft Windows.
+If you're looking for more Unix utilities to go with elvis, this is the place.
+
 <dt><a href="ftp://alf.uib.no/pub/vi">
 ftp://alf.uib.no/pub/vi</a>
 <dd>An archive site containing many macro packages and other information about
@@ -142,8 +151,11 @@ http://www.sleepycat.com/vi/</a>
 http://www.snafu.de/~ramo/WinViEn.htm</a>
 <br><a href="http://ourworld.compuserve.com/homepages/fwiarda/software.htm">
 http://ourworld.compuserve.com/homepages/fwiarda/software.htm</a>
+<br><a href="http://www.emi.net/~jjensen/java/javi.html">
+http://www.emi.net/~jjensen/java/javi.html</a>
 <dd>These are the home pages for some other vi clones:
-vim, vile, nvi, WinVi, and pvic respectively.
+vim, vile, nvi, WinVi, pvic, and javi respectively.
+The last one is interesting because it is written in Java!
 
 <dt><a href="ftp://ftp.funet.fi/pub/doc/posix/p1003.2a/d8/5.10">
 ftp://ftp.funet.fi/pub/doc/posix/p1003.2a/d8/5.10</a>
@@ -162,8 +174,26 @@ http://alumni.caltech.edu/~dank/nansi/</a>
 <dd>This is a home page for the NANSI.SYS and NNANSI.SYS drivers, which
 accelerate the screen updates under MS-DOS.
 
-</dl>
+<dt><a href="ftp.leo.org:/pub/comp/os/os2/leo/gnu/emx+gcc/">
+ftp.leo.org:/pub/comp/os/os2/leo/gnu/emx+gcc/</a>
+<br><a href="ftp-os2.cdrom.com:/pub/os2/emx09d/">
+ftp-os2.cdrom.com:/pub/os2/emx09d/</a>
+<br><a href="ftp-os2.nmsu.edu:/pub/os2/dev/emx/v0.9d/">
+ftp-os2.nmsu.edu:/pub/os2/dev/emx/v0.9d/</a>
+<dd><a name="emx"></a>
+These are all places where you can find the EMX.DLL library for OS/2.
+The first one is the "home" site, and the others are popular OS/2 archives.
+You need EMX only if you want to run the "termcap" (<code>elvisemx.exe</code>)
+or "x11" (<code>elvisx11.exe</code>) versions of elvis under OS/2.
 
+<dt><a href="http://set.gmd.de/~veit/os2/xf86os2.html">
+http://set.gmd.de/~veit/os2/xf86os2.html</a>
+<dd><a name="os2x11"></a>
+This is the home page for the OS/2 version of XFree86.
+You need this (in addition to EMX)
+if you want to run the graphical X11 version of elvis.
+
+</dl>
 
 <h2><a name="WEB"></a>16.2 Using elvis as a Web browser</h2>
 
@@ -193,8 +223,10 @@ by the <a href="elvisnet.html#elvis.net">elvis.net</a> configuration file.
 
 <p>By default, FTP access is anonymous.
 However, if you give a file name which starts with "/~/" then elvis will
-attept to login to the FTP server using you own account, as described in the
+attempt to login to the FTP server using you own account, as described in the
 <a href="elvisnet.html#elvis.ftp">elvis.ftp or ~/.netrc</a> configuration file.
+You can also use "/~username/" to use some other user account listed in
+<code>.netrc</code>.
 For example, "ftp://localhost/directory/file" uses anonymous FTP, but
 "ftp://localhost/~/directory/file" uses your own account.
 
@@ -271,6 +303,11 @@ can store a series of commands in a cut buffer and execute them via the
 visual <a href="elvisvi.html#at">@x</a> command.
 You will often use a combination of techniques, in which :map macro
 constructs a customized @x macro and runs it.
+
+<p>(<a href="elvistip.html#ALIAS">Aliases</a> are a separate issue,
+discussed later in this chapter.
+The information in this section does not apply to aliases.
+Elvis does not yet offer any special tools for debugging aliases.)
 
 <p>Elvis has several features that make debugging macros much easier.
 For example, you can create a window which continuously displays the
@@ -415,12 +452,20 @@ Later, when you insert or delete lines to correct an error, elvis can
 compare the current number of lines to original number of lines, and adjust
 the reported line numbers accordingly.
 
+<a name="perlerr"></a>
 <p>Here's something that may be useful for PERL programmers.
-PERL's error messages follow two distinct formats, neither of which looks
-like any compiler error message format; consequently, elvis can't parse 
-PERL's error messages directly.  The following PERL program is a filter
-that reformats PERL's error messages to look more like normal compiler
-error messages.
+PERL's error messages follow two distinct formats:
+
+<blockquote>
+<var>description</var> <strong>in file</strong> <var>file</var> <strong>at line</strong> <var>line</var>
+<br><var>description</var> <strong>at</strong> <var>file</var> <strong>line</strong> <var>line</var>
+</blockquote>
+
+Neither of these looks like any recognizable compiler error message format;
+consequently, elvis can't parse PERL's error messages directly.
+But here's a way around that.
+The following PERL program is a filter that reformats PERL's error messages
+to look like normal compiler error messages.
 <pre>
 	#!/usr/bin/perl
 	$\ = "\n";
@@ -431,7 +476,7 @@ error messages.
 	    print;
 	}</pre>
 
-<p>To use this script, store it in a file named "perlerr" and turn on the file's "execute" flag, and then set
+<p>To use this script, store it in a file named "perlerr" and turn on the file's "execute" permissions, and then set
 elvis' <a href="elvisopt.html#ccprg">ccprg</a> option as follows:
 <table>
 <tr><td><strong>For CSH:</strong></td>
@@ -439,6 +484,15 @@ elvis' <a href="elvisopt.html#ccprg">ccprg</a> option as follows:
 <tr><td><strong>Other shells:</strong></td>
 <td><code>:set ccprg="perl -c ($1?$1:$2) 2&gt;&amp;1 | perlerr"</code></td></tr>
 </table>
+
+<p><strong>NOTE:</strong> You can't simply cut&amp;paste the above perl script into a
+file, because it contains some HTML code which PERL wouldn't understand.
+(The diamond is written as "&amp;lt;&amp;gt;".)  A better way
+is to use the visually select those lines via the
+<a href="elvisvi.html#V">shift-V</a> command, and then use the
+<a href="elvis.ali?/alias+wascii+{">:wascii</a> alias to save the formatted
+text to a file as plain ASCII text.
+You'll still need to edit the text file to remove leading whitespace and possibly some blank lines, but that's pretty easy.
 
 <h2><a name="INTER"></a>16.5 Internationalization</h2>
 
@@ -455,14 +509,23 @@ However, if there is an environment variable named LC_ALL, LC_MESSAGES,
 or LANG (listed in order or precedence) which is set to a non-null value,
 then elvis will look for <code>elvis.msg</code> first in a subdirectory whose
 name matches the environment variable's value.
-For example, if ELVISPATH=~/.elvis:/usr/local/lib/elvis, LC_ALL is unset,
-and LC_MESSAGES=german, then elvis would try to load its messages from...
+For example, if LC_ALL is unset, LC_MESSAGES=german, and
+ELVISPATH=~/.elvis:/usr/local/lib/elvis, then elvis would try to load
+its messages from...
 <ol>
 <li>~/.elvis/german/elvis.msg
 <li>~/.elvis/elvis.msg
 <li>/usr/local/lib/elvis/german/elvis.msg
 <li>/usr/local/lib/elvis/elvis.msg
 </ol>
+
+<p>The digraph table tells elvis which pairs of ASCII characters can be
+combined to form a single non-ASCII character.  This table is configured
+via the <a href="elvisex.html#digraph">:digraph</a> command.
+To enter a digraph, type <kbd>&lt;Ctrl-K&gt;</kbd> and then the two ASCII
+characters.  Elvis will store the corresponding non-ASCII character instead
+of the two ASCII characters.
+See the <a href="elvisinp.html#DIG">Input Mode</a> chapter for more information.
 
 <p>The digraph table affects more than just keyboard input.
 It also affects "html" mode, and character type classifications.
@@ -491,7 +554,7 @@ This means, in particular, that the
 <a href="elvisre.html">regular expression</a>
 <code>/[a-z]/</code> will only match the ASCII lowercase letters,
 not the non-ASCII ones. However,  the regular expression
-<code>/[:lower:]/</code> <em>will</em> match all lowercase letters
+<code>/[[:lower:]]/</code> <em>will</em> match all lowercase letters
 including the non-ASCII ones.
 
 <p>The default <a href="elvisses.html#elvis.ini">elvis.ini</a> file tries
@@ -587,7 +650,7 @@ of the "save" alias:
 
 <p>Note that the first line of the alias's body is a comment.
 (Comments start with a <a href="elvisex.html#QUOTE">"</a> character.)
-This is a good idea because with the <a href="elvisex.html#alias">:alias</a>
+This is a good idea because when the <a href="elvisex.html#alias">:alias</a>
 command is invoked with no arguments, it lists the names and first lines of
 all aliases.
 Putting a descriptive comment in the first line allows you to see what each
@@ -644,11 +707,11 @@ by placing the value in parentheses between the '!' and the second character.
 Here's an example which acts like echo, except that if you don't tell it what
 to echo then it will echo "Howdy!":
 <pre>
-:alias greet !(Howdy!)*
+:alias greet echo !(Howdy!)*
 </pre>
 
 If necessary, you can insert both a backslash and a parenthesized default value.
-The backslash quoting will be applied to the given argument value, but bot the
+The backslash quoting will be applied to the given argument value, but not the
 parenthesized default value.
 Here's a variation of the "find" alias which searches for literal text, or
 if you don't specify any text to find then it searches for a { character at
@@ -659,7 +722,7 @@ the front of a line.
 
 Some vi commands are implemented via ex commands.  If you create an alias
 with the same name as a built-in ex command, then the corresponding visual
-command will be affected.  For example, the <a href="elvisvi.html#ZZ">ZZ</a>
+command will be affected.  For example, the <a href="elvisvi.html#Z">ZZ</a>
 visual command runs <a href="elvisex.html#xit">:x</a>,
 so the following alias would break the <code>ZZ</code> command...
 <pre>
@@ -668,33 +731,28 @@ so the following alias would break the <code>ZZ</code> command...
 
 <h3><a name="EXAMPLES"></a>16.6.1 Some example aliases</h3>
 The distribution comes with some handy aliases in a file named
-<code>lib/exalias.eg</code>.
+<code>lib/elvis.ali</code>.
 I suggest you look at them.
 The simple ones should give you some ideas of how to structure your own aliases,
 and the complex examples will give you a feel of what can be accomplished.
 
+<p>Remember that the names of aliases must be spelled out in full;
+you can't abbreviate alias names the way can for built-ins.
+Also, you can display the definition of any alias by running
+"<code>:alias</code> <var>aliasname</var>".
+
 <p>These examples are intended to be useful as well as instructive.
+They are loaded automatically when elvis starts.
 The aliases in that file include:
 <dl>
 
-<dt>:save <code>[</code><var>filename</var><code>]</code>
-<dd>Write this file, but only if it has been modified.
+<dt>:lf <code>[</code><var>directory</var><code>]</code>
+<dd>List the contents of the current directory, or of a named directory.
+On Unix systems this works by invoking "ls -CF" on the arguments;
+on other systems it invokes "dir/w".
 
-<dt>:<code>[</code><var>range</var><code>]</code>w<code>[</code>!<code>]</code> <code>[</code><var>filename</var><code>]</code>
-<dd>Like the normal <a href="elvisex.html#write">:w</a> command, except that
-if you try to write a whole file back over itself, and that file is readonly,
-then the <code>:w</code> alias will attempt to perform an RCS "checkout"
-operation on that file.
-
-<dt>:man <code>[</code><var>section</var><code>]</code> <var>topic</var>
-<dd>Unix only.  Read a man-page and display it in a new window.
-
-<dt>:courier <code>[</code><var>size</var><code>]</code>
-<dd>X11 only.  Select the courier fonts of the given size.
-If no size is specified, then it uses the default size, which is 18-point.
-
-<dt>:copying
-<dd>Display the license
+<dt>:pwd
+<dd>Display the name of the current directory.
 
 <dt>:howto<code>[</code>!<code>]</code> <var>word</var> <code>[</code><var>word2</var><code>]</code>
 <dd>Load the "How To" appendix in a separate window, and search for a topic
@@ -703,14 +761,52 @@ The words should be typed in lowercase.
 If you want to search all lines (not just topic lines) then run
 <code>:howto!</code> (with a ! suffix).
 
+<dt>:kwic <var>word</var>
+<dd>Build a table showing all occurences of <var>word</var> in the online manual.
+This macro depends on the "grep" program to do the actual searching; if your
+system lacks "grep" then this won't work correctly.
+(Windows users should consider using the <a href="#cygwin">CygWin</a> tools.)
+
+<dt>:man <code>[</code><var>section</var><code>]</code> <var>topic</var>
+<dd>Unix only.  Read a man-page and display it in a new window.
+
+<dt>:save <code>[</code><var>filename</var><code>]</code>
+<dd>Write this file, but only if it has been modified.
+
+<dt>:<code>[</code><var>range</var><code>]</code>w<code>[</code>!<code>]</code> <code>[</code><var>filename</var><code>]</code>
+<dd>Like the normal <a href="elvisex.html#write">:w</a> command, except that
+if you try to write a whole file back over itself, and that file is readonly,
+then the <code>:w</code> alias will attempt to perform an RCS "checkout"
+operation on that file by running "<code>!co -l</code> <var>filename</var>".
+
+<dt>:courier <code>[</code><var>size</var><code>]</code>
+<dd>X11 only.  Select the courier fonts of the given size.
+If no size is specified, then it uses the default size, which is 18-point.
+
+<dt>:copying
+<dd>Display the license.
+
 <dt>:cbsave <var>filename</var>
 <br>:cbload <var>filename</var>
 <dd>Save the cut buffers ("a through "z) to a file, or load them from that file.
 
+<dt>:cbshow <var>cutbufs</var>
+<dd>Display the contents of one or more cutbuffers.
+The <var>cutbufs</var> string is interpreted as a list of one-character
+cutbuffer names.
+If you invoke <code>:cbshow</code> without any arguments then it will
+show all cutbuffers.
 
 <dt>:config
 <dd>Report the configuration of your copy of elvis.
-I.e., list the features which were enabled at when elvis was compiled.
+I.e., list the features which were enabled when elvis was compiled.
+
+<dt>:customize <var>filename</var>
+<dd>Create a personal copy of one of elvis' configuration files
+(unless you already have a personal copy of it),
+and start editing it.
+A typical example would be "<code>:customize&nbsp;elvis.syn</code>"
+to edit the syntax coloring rules.
 
 <dt>:<code>[</code><var>range</var><code>]</code>left
 <br>:<code>[</code><var>range</var><code>]</code>right
@@ -720,7 +816,7 @@ addresses are given), adjust the indentation so that its text is
 moved to the left, right, or center of the line.
 
 <dt>:<code>[</code><var>range</var><code>]</code>rot13
-<dd>Peform ROT13 encryption/decryption on the given range of lines,
+<dd>Perform ROT13 encryption/decryption on the given range of lines,
 or only the current line if no addresses are given.
 ROT13 is a simple character-substitution code in which characters from the
 front half of the alphabet are exchanged with the corresponding characters from
@@ -730,18 +826,30 @@ the <a href="news:rec.humor">rec.humor</a> newsgroup, along with an
 unencrypted warning such as "The following may be offensive to
 <var>whomever</var>.  Decode using ROT13 at your own risk."
 
+<dt>:<code>[</code><var>range</var><code>]</code>wascii <var>file</var>
+<dd>Write WYSIWYG formatted text out to a file as plain ASCII text.
+This is intended to make it easy to save ex scripts (or other source code)
+that are embedded within HTML pages such as this manual.
+It works by temporarily setting <a href="elvisopt.html#lptype">lptype</a>
+to "dumb", and then writing the text via <a href="elvisex.html#lpr">:lp</a>.
+
 <dt>:<code>[</code><var>range</var><code>]</code>cfmt
 <dd>Adjust the line breaks in a C or C++ comment block.
 
-<dt>:<code>[</code><var>range</var><code>]</code>align
-<dd>Align any = signs (or other given text) in range of lines.
+<dt>:<code>[</code><var>range</var><code>]</code>align <code>[</code><var>symbol</var><code>]</code>
+<dd>Align any = signs (or other given symbol) in a range of lines.
 This is useful for making macro definitions in a Makefile look pretty.
 This is the most complex example.
 
 <dt>:match
-<dd>If the cursor (in visual mode) is on an "if", "while", or "for" keyword
-then this moves the cursor to the matching "endif", "endwhile", or "endfor"
-keyword, respectively.  It can also do the reverse.
+<dd>If the cursor (in visual mode) is on an "if", "then", "case", or "do"
+keyword then this moves the cursor to the matching "fi", "else", "esac", or
+"done" keyword, respectively.  It can also do the reverse.
+
+<p>This macro is very easy to modify to support different words.
+Near the top of the macro, two variables named <strong>x</strong> and
+<strong>y</strong> are set to slash-delimited lists of the beginning and
+ending words.  All you need to do is change those lists.
 
 </dl>
 

@@ -114,7 +114,7 @@ CP=copy
 	$(OSCC) $<
 
 MISC=	BUGS README.html COPYING INSTALL Makefile.in configure instman.sh\
-	insticon.sh elvis.lsm makwin32.bat makmsdos.bat e2
+	insticon.sh elvis.lsm makwin32.bat makmsdos.bat makos2.cmd e2
 OSSRCS=	os$(OS)$(SLASH)osblock.c os$(OS)$(SLASH)osdir.c\
 	os$(OS)$(SLASH)osprg.c os$(OS)$(SLASH)ostext.c\
 	os$(OS)$(SLASH)osnet.c os$(OS)$(SLASH)tcaphelp.c
@@ -133,10 +133,10 @@ LPSRCS=	lpescape.c lpovrtyp.c lpps.c
 LPOBJS=	lpescape$(OBJ) lpovrtyp$(OBJ) lpps$(OBJ)
 HDRS=	$(OSHDRS) buffer.h buffer2.h calc.h cut.h digraph.h display.h\
 	display2.h draw.h draw2.h elvis.h elvisio.h event.h ex.h gui.h gui2.h\
-	input.h lowbuf.h lp.h map.h mark.h message.h misc.h more.h move.h\
-	need.h operator.h opsys.h optglob.h options.h regexp.h safe.h scan.h\
-	session.h state.h state2.h tag.h tagsrch.h tagelvis.h version.h vi.h\
-	vicmd.h window.h config.h
+	input.h lowbuf.h lp.h map.h mark.h message.h message2.h misc.h more.h\
+	move.h need.h operator.h opsys.h optglob.h options.h regexp.h safe.h\
+	scan.h session.h state.h state2.h tag.h tagsrch.h tagelvis.h version.h\
+	vi.h vicmd.h window.h config.h
 SRCS=	$(OSSRCS) $(GUISRCS) $(LPSRCS) buffer.c calc.c cut.c digraph.c\
 	display.c dmhex.c dmmarkup.c dmnormal.c dmsyntax.c draw.c\
 	event.c ex.c exaction.c exconfig.c exedit.c exmake.c exsubst.c ftp.c\
@@ -163,7 +163,10 @@ CFLAGS=	$(FLAGI)os$(OS)
 EVERY=	$(ALL) elvdump$(EXE) calc$(EXE) verify$(EXE) 
 # Herbert 1998: SHELL needs to be blanked out under OS/2 if using GNU make.
 #SHELL=	/bin/sh
-DISTRIB=elvis-2.1g
+DISTRIB=elvis-2.1_3
+DOSEXE=exedos
+WIN32EXE=exewin32
+OS2EXE=exeos2
 
 all: $(ALL)
 
@@ -180,22 +183,19 @@ emx: ; $(MAKE) elvisemx.exe -f osos2\\Makefile.os2 "OBJ=.o" "EXE=emx.exe" \
 debug: ; $(MAKE) -f osos2\\Makefile.os2 "OBJ=.o" "EXE=x11.exe" \
                     "CC=gcc -g -Wall -DOS2 -D__WITH_TERMCAP -O3 \
                     -Zmtd -D__D_ST_MT_ERRNO__ -D__WITH_X11   \
-                    -I/XFree86/include -I/emx/include        \
-                    -I/software/ibmcpp/include \
-                    -I/software/ibmcpp/include/os2" "FLAGO=-o " \
-                    "LIBFILES=-L/XFree86/lib -lsocket -ltermcap -lx11"
+                    "FLAGO=-o " \
+                    "LIBFILES=-L/usr/lib/x11 -lsocket -ltermcap -lx11"
 
 # Elvis compiled for a.out format and linked against emx.dll with x11...
 x11: ; $(MAKE) elvisx11.exe -f osos2\\Makefile.os2 "OBJ=.o" "EXE=x11.exe" \
                     "CC=gcc -Wall -DOS2 -D__WITH_TERMCAP -O3 \
                     -Zmtd -D__D_ST_MT_ERRNO__ -D__WITH_X11   \
-                    -I/XFree86/include -I/emx/include        \
-                    -I/software/ibmcpp/include \
-                    -I/software/ibmcpp/include/os2" "FLAGO=-o " \
-                    "LIBFILES=-L/XFree86/lib -lsocket -ltermcap -lx11"
+                    -I/usr/include -I/emx/include" "FLAGO=-o " \
+                    "LIBFILES=-L/usr/lib/x11 -lsocket -ltermcap -lx11"
 
 gcc: ; $(MAKE) -f osos2\\Makefile.os2 "EXE=gcc.exe" "FLAGO=-o " \
-                    "CC=gcc -Wall -DOS2 -Zsys -Zomf -O3 -I/emx/include" 
+                    "CC=gcc -Wall -DOS2 -Zsys -Zomf -O3 -I/emx/include" \
+                    "LIBFILES="
                     
 
 elvis$(EXE): $(HDRS) main$(OBJ) $(OBJS) $(GUIOBJS) $(LPOBJS)
@@ -330,7 +330,7 @@ wc: $(SRCS) $(HDRS)
 	wc $(SRCS) $(HDRS) | sort -n
 
 tags: $(SRCS) $(HDRS)
-	ctags -stv $(SRCS) $(HDRS)
+	ctags $(SRCS) $(HDRS)
 
 ciall: $(SRCS) $(HDRS)
 	ci -u$(REV) Makefile $(SRCS) $(HDRS)
@@ -349,7 +349,7 @@ $(DISTRIB).tar.gz:
 	cp *.c *.h $(MISC) $(DISTRIB)
 	rm -f $(DISTRIB)/sample.c
 	cp lib/* $(DISTRIB)/lib
-	for i in os*/*.c os*/*.h os*/*.mak; do cp $$i $(DISTRIB)/$$i; done
+	for i in os*/*.c os*/*.h os*/*.mak os*/*.lib os*/*.ICO osos2/*.def osos2/*os2*; do cp $$i $(DISTRIB)/$$i; done
 	for i in gui*/*; do if [ -f $$i ]; then cp $$i $(DISTRIB)/$$i; fi; done
 	rm -f $(DISTRIB)/osunix/osconfig.h
 	rm -f $(DISTRIB)/config.h
@@ -357,29 +357,44 @@ $(DISTRIB).tar.gz:
 	tar czf $(DISTRIB).tar.gz $(DISTRIB)
 	rm -rf $(DISTRIB)
 
-$(DISTRIB)-win32.tar.gz: /dosc/msdev/Projects/$(DISTRIB)
+$(DISTRIB)-win32.tar.gz: $(WIN32EXE)
 	rm -rf bin-win32
 	mkdir bin-win32
-	cp /dosc/msdev/Projects/$(DISTRIB)/*.exe bin-win32
-	sed 's/$$//' <README.html >bin-win32/README.html
-	sed 's/$$//' <BUGS >bin-win32/BUGS
-	sed 's/$$//' <COPYING >bin-win32/COPYING
+	cp $(WIN32EXE)/*.exe bin-win32
+	sed 's/$$//' <README.html >bin-win32/README.html
+	sed 's/$$//' <BUGS >bin-win32/BUGS
+	sed 's/$$//' <COPYING >bin-win32/COPYING
 	mkdir bin-win32/lib
 	cp lib/* bin-win32/lib
-	sed 's/$$//' <lib/printdoc.bat >bin-win32/lib/printdoc.bat
+	sed 's/$$//' <lib/printdoc.bat >bin-win32/lib/printdoc.bat
+	sed 's/$$//' <lib/license.bat >bin-win32/lib/license.bat
 	(cd bin-win32; tar czf ../$(DISTRIB)-win32.tar.gz *)
 
-$(DISTRIB)-msdos.tar.gz: /dosc/msvc/$(DISTRIB)
+$(DISTRIB)-msdos.tar.gz: $(DOSEXE)
 	rm -rf bin-msdos
 	mkdir bin-msdos
-	cp /dosc/msvc/$(DISTRIB)/*.exe bin-msdos
-	sed 's/$$//' <README.html >bin-msdos/README.html
-	sed 's/$$//' <BUGS >bin-msdos/BUGS
-	sed 's/$$//' <COPYING >bin-msdos/COPYING
+	cp $(DOSEXE)/*.exe bin-msdos
+	sed 's/$$//' <README.html >bin-msdos/README.html
+	sed 's/$$//' <BUGS >bin-msdos/BUGS
+	sed 's/$$//' <COPYING >bin-msdos/COPYING
 	mkdir bin-msdos/lib
 	cp lib/* bin-msdos/lib
-	sed 's/$$//' <lib/printdoc.bat >bin-msdos/lib/printdoc.bat
+	sed 's/$$//' <lib/printdoc.bat >bin-msdos/lib/printdoc.bat
+	sed 's/$$//' <lib/license.bat >bin-win32/lib/license.bat
 	(cd bin-msdos; tar czf ../$(DISTRIB)-msdos.tar.gz *)
+
+$(DISTRIB)-os2.tar.gz: $(OS2EXE)
+	rm -rf bin-os2
+	mkdir bin-os2
+	cp $(DOSEXE)/*.exe bin-os2
+	sed 's/$$//' <README.html >bin-os2/README.html
+	sed 's/$$//' <BUGS >bin-os2/BUGS
+	sed 's/$$//' <COPYING >bin-os2/COPYING
+	mkdir bin-os2/lib
+	cp lib/* bin-os2/lib
+	sed 's/$$//' <lib/printdoc.bat >bin-os2/lib/printdoc.bat
+	sed 's/$$//' <lib/license.bat >bin-win32/lib/license.bat
+	(cd bin-os2; tar czf ../$(DISTRIB)-os2.tar.gz *)
 
 lib$(SLASH)elvistrs.msg: $(SRCS)
 	sed -n '/%[cds]/d; /[a-z]:/d; s/\[[a-zA-Z]*\]//; s/\\\\/\\/g; s/.*msg(MSG_[A-Z]*, "\([^ 	"][^"]*\)".*/\1/p' *.c os*$(SLASH)*.c | sort -u >lib$(SLASH)elvistrs.msg

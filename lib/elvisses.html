@@ -437,7 +437,7 @@ a Web browser such as Netscape.
 <dt>howto.html
 <dd>This file contains a lot of "How To" discussions for various features.
 It is meant to be searched via the ":howto" alias defined in
-<code>exalias.eg</code>.
+<code>elvis.ali</code>.
 Most of the discussions contain links into the manual, so it is important
 for this file to be located in the same directory as all of the
 <code>elvis*.html</code> files.
@@ -454,6 +454,12 @@ commands for setting up the digraph table for the PC-8 symbol set
 (which corresponds to IBM Code Page 437).
 The default <a href="#elvis.ini">elvis.ini</a> file interprets this file's
 contents automatically for MS-DOS, OS/2 and text-mode Win32.
+
+<dt><a name="elvis.ali"></a>elvis.ali
+<dd>This contains an assortment of aliases.
+If your copy of elvis is configured to support aliases (and all versions are,
+except for MS-DOS) then this file will be automatically loaded via the
+<a href="elvis.ini">elvis.ini</a> script, each time you run elvis.
 
 <dt><a name="elvis.msg"></a>elvis.msg
 <dd>This file stores a translation table, which allows you to customize

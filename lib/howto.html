@@ -36,9 +36,10 @@ For example you could search for "spaces" in a topic line via the following:
 If the first one that it finds isn't the one you want, then you can use
 the <a href="elvisvi.html#n">n</a> command to find the next one.
 
-<p>In addition, the <code>lib/exalias.eg</code> script distributed with elvis
+<p>In addition, the <code>lib/elvis.ali</code> script distributed with elvis
 contains a "howto" alias which loads this file and searches for a given topic.
-If you've loaded the aliases from that file, you display any topic in a
+The aliases from that file are loaded automatically, so
+you should be able to display any topic in a
 a separate window with via a command such as this:
 
 <pre>
@@ -64,9 +65,9 @@ language, like this:
 
 <p>(The <code>perlerr</code> perl script converts perl's error messages
 into a form that elvis can parse.
-It is given in the <a href="elvistip.html#MAKE">Tips</a> chapter.)
+It is given in the <a href="elvistip.html#perlerr">Tips</a> chapter.)
 
-<p>You could also use the <code>extension()</code> function instead of
+<p>You could also use the <code>dirext()</code> function instead of
 <code>knownsyntax()</code>; it doesn't depend on the
 <a href="elvisdm.html#elvis.syn">lib/elvis.syn</a> file.
 As a last resort, you might consider using the <code>x</code> flag of
@@ -349,10 +350,30 @@ Courier fonts which works well.
 <pre>
 	:courier 14</pre>
 
-<dt>Run<!--run execute fork--> a program from within elvis, in parallel, under X11
+<dt>Set<!--set change define use--> a <!--variable-->font for the toolbar buttons.
+<dd>By default, the X11 toolbar uses a font named "variable" which is usually
+an alias to a small, readable, variable-pitch font.
+If your X server has no font named "variable" then you must configure elvis
+to use a different font.
+You may also simply prefer a different font.
+
+<p>The simplest way to change the font is to pass elvis a
+<code>-fc</code>&nbsp;<var>fontname</var> parameter.
+I suggest you use that to experiment with the available fonts, to find
+one you like.
+(You can use the standard <code>xlsfonts</code> program to list the available
+fonts.)
+
+<p>To make the change permanent, you can either set the
+<a href="elvisopt.html#controlfont">controlfont</a> option in your ~/.exrc file,
+or you can set the <a href="elvisgui.html#x11.resources">elvis.control.font</a>
+resource in your ~/.Xdefaults file.
+
+<dt>Run<!--run execute fork spawn--> a program<!--process--> from within elvis, in parallel, under X11
 <dd>The tricky part here is that elvis tries to read the program's stdout
 and stderr, so the output can be displayed in elvis' window.
-Elvis must wait until after all text has been read from stdout/stderr.
+To do that, Elvis would have to wait until after all text has been read
+from stdout/stderr... but you don't want elvis to wait!
 So to run in parallel, you must redirect the program's stdout/stderr to
 /dev/null, like this:
 <pre>
@@ -375,6 +396,19 @@ the temporary file, like this:
 <p>Yes, that's nasty.
 I plan to clean that up some day, by making elvis smart enough to avoid
 reading stdout/stderr when the command line ends with a '&amp;' character.
+
+<dt>Run<!--run fork execute spawn--> an interactive program under X11
+<dd>Sadly, this can't be done with elvis' "x11" user interface
+Because elvis' windows don't have a built-in terminal emulator.
+This is expected to be added for elvis 2.2, but that doesn't help you
+<em>now</em>.
+
+<p>However, by using the "termcap" interface inside an xterm,
+you should be able to run interactive programs such as "crypt" or "pgpv"
+exactly as you can under vi.
+In an xterm (or any other terminal emulator), just run
+"<code>elvis&nbsp;-Gtermcap</code>" instead of plain "<code>elvis</code>".
+
 </dl>
 
 <h2>C.6 <a name="Windows95/98/NT">Windows95/98/NT</a></h2>
@@ -434,11 +468,13 @@ whether the search succeeded or not.
 	:then echo Zippy was here
 	:else echo Where in the world is Zippy the Pinhead?</pre>
 
-<p>You can also use the <code>current("word")</code> function to find
-the word at the cursor location.
+<p>You can also use the <code>current("word")</code> and <code>line()</code>
+<a href="elvisexp.html#13.3">functions</a> to fetch the word at the cursor
+location, or a whole line, respectively.
 
 <pre>
-	:let w=current("word")</pre>
+	:let w=current("word")
+	:let l=line(1)</pre>
 
 <dt>Find the <!-- option's --> short name (or group name) of an option
 <dd>Finding the long name of an option is easy, thanks to
@@ -467,6 +503,43 @@ would give this command:
 <pre>
 	:(main.c)w&nbsp;main.c.recovered</pre>
 
+<dt>Recognize <!--recognize parse handle understand read perl--> error messages <!--errors-->with an unusual<!--perl weird other different--> format <!--style-->
+<dd>Elvis' <a href="elvisex.html#make">:make</a> and
+<a href="elvisex.html#cc">:cc</a> commands assume that all error messages have
+a format that resembles that of <strong>gcc</strong>:
+A file name and line number appear at the beginning of the line (possibly with
+some punctuation or the word "line" mixed in), an optional "error" or "warning"
+code, and then the description of the error to finish the line.  Elvis is
+very good at parsing messages that use formats which resemble this, but
+there is no explicit way to make elvis parse any other format.
+
+<p>However, it is usually possible to construct a little "filter" program to
+convert other error message formats into one that elvis can recognize.
+The <a href="elvistip.html">Tips chapter</a> has an example of how to make
+elvis handle <a href="elvistip.html#perlerr">PERL's error messages</a>.
+
+<dt>Input<!--input type enter key--> non-ASCII<!--non-ascii accented foreign international--> characters<!--letters-->
+<dd>Elvis supports several ways to enter non-ASCII characters:
+<ul>
+<li>If your keyboard driver supports entry of non-ASCII characters, then that
+method should work in elvis.
+However, "dead keys" have been reported to cause trouble.
+<li>Digraphs combine two ASCII characters to form a single non-ASCII character.
+See the <a href="elvisex.html#digraph">:digraph</a> command,
+<a href="elvisopt.html#digraph">digraph</a> option, and the discussion in
+the <a href="elvisinp.html#DIG">Input Mode</a> chapter.
+Briefly, the secret is to type <kbd>&lt;Ctrl-K&gt;</kbd> and then the two
+ASCII characters that you want to combine,
+such as <kbd>&lt;Ctrl-K&gt;&lt;n&gt;&lt;~&gt;</kbd> for "&ntilde;".
+<li>You can type <kbd>&lt;Ctrl-X&gt;</kbd> followed by two hex characters to
+enter any byte into the edit buffer... provided you know the hex code for
+the character you want, of course.
+</ul>
+
+<p>If you're having trouble displaying non-ASCII characters, then you may want
+to look into the <a href="elvisopt.html#nonascii">nonascii</a> option.
+Also, on Unix systems you should verify that your terminal is configured
+correctly (8 bits, not 7 -- and the Latin-1 character set is installed).
 </dl>
 </body>
 </html>

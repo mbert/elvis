@@ -73,7 +73,7 @@ LONG gwframe_WM_INITMENU (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
     /* check if syntax mode is active */
     hMenu = GetMenu (gwp->frameHWnd);
     if (hMenu == (HMENU)wParam) {
-        if (strcmp (optgetstr ("display", NULL), "syntax") == 0)
+        if (windefault->md == &dmsyntax)
             EnableMenuItem (hMenu, IDM_OPTIONS_SYNTAX, MF_ENABLED);
         else
             EnableMenuItem (hMenu, IDM_OPTIONS_SYNTAX, MF_GRAYED);
@@ -774,4 +774,4 @@ LONG gwclient_WM_VSCROLL (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
 }
 
 #endif
-
+/* ex:se ts=4 sw=4: */

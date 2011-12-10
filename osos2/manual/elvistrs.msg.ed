@@ -1,0 +1,2 @@
+%s/<a  *href="*elvistrs.msg"*>\(.*\)<\/a>/\1/
+wq
