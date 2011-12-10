@@ -1,7 +1,7 @@
 /* dmsyntax.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_dmsyntax[] = "$Id: dmsyntax.c,v 2.49 1998/11/14 01:38:08 steve Exp $";
+char id_dmsyntax[] = "$Id: dmsyntax.c,v 2.50 1999/09/30 18:23:02 steve Exp $";
 
 #include "elvis.h"
 #ifdef DISPLAY_SYNTAX
@@ -1063,6 +1063,21 @@ static MARK image(w, line, info, draw)
 						cfont[COMMENT2] = wordfont(kp);
 						if (!cfont[COMMENT2])
 							cfont[COMMENT2] = o_commentfont;
+					}
+					else if (!undec[2])
+					{
+						/* two-char keyword, parse it
+						 * like two-punct keyword.  This
+						 * intended to support Perl's
+						 * $# keyword, where $ is legal
+						 * as the start of a word so it
+						 * wouldn't hit the standard
+						 * freaky-keyword code below.
+						 */
+						sinfo->token = FIRSTPUNCT;
+						cfont[FIRSTPUNCT] = cfont[SECONDPUNCT] = wordfont(kp);
+						if (!cfont[FIRSTPUNCT])
+							cfont[FIRSTPUNCT] = cfont[SECONDPUNCT] = o_keywordfont;
 					}
 					else
 					{

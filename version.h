@@ -2,7 +2,7 @@
 /* Copyright 1996 by Steve Kirkendall */
 
 
-#define VERSION	"2.1_3"
+#define VERSION	"2.1_4"
 #define COPY1 "Copyright (c) 1995-1999 by Steve Kirkendall"
 #if 1
 # define COPY2 "Permission is granted to redistribute the source or binaries under the"

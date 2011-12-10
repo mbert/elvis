@@ -16,6 +16,7 @@
 # undef	 GUI_X11		/* simple X-windows interface */
 #else
 # define GUI_X11		/* simple X-windows interface */
+# define NO_XLOCALE
 #endif
 #undef	GUI_CURSES	    /* curses interface */
 #ifndef __WITH_TERMCAP

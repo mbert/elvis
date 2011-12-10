@@ -95,7 +95,8 @@ extern struct x_optvals_s
 		statusbar, dblclicktime, blinktime, xrows, xcolumns,
 		firstx, firsty, icon, iconic, stopshell, autoiconify,
 		altkey, stagger, warpback, warpto, focusnew, textcursor,
-		underline, outlinemono, borderwidth, submit, cancel, help;
+		underline, outlinemono, borderwidth, xrootwidth, xrootheight,
+		submit, cancel, help;
 } x_optvals;
 #define o_normalfont	 x_optvals.normalfont.value.string
 #define o_boldfont	 x_optvals.boldfont.value.string
@@ -126,6 +127,8 @@ extern struct x_optvals_s
 #define o_underline	 x_optvals.underline.value.boolean
 #define o_outlinemono	 x_optvals.outlinemono.value.number
 #define o_borderwidth	 x_optvals.borderwidth.value.number
+#define o_xrootwidth	 x_optvals.xrootwidth.value.number
+#define o_xrootheight	 x_optvals.xrootheight.value.number
 #define o_submit	 x_optvals.submit.value.string
 #define o_cancel	 x_optvals.cancel.value.string
 #define o_help		 x_optvals.help.value.string

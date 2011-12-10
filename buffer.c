@@ -1,7 +1,7 @@
 /* buffer.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_buffer[] = "$Id: buffer.c,v 2.94 1999/06/15 04:21:43 steve Exp $";
+char id_buffer[] = "$Id: buffer.c,v 2.95 1999/10/08 18:03:03 steve Exp $";
 
 #include "elvis.h"
 
@@ -622,7 +622,7 @@ BUFFER bufload(bufname, filename, reload)
 	MARKBUF	top;
 	MARKBUF	end;
 	BUFFER	initbuf;	/* buffer containing the initialization script */
-	BOOLEAN	oldthen;
+	EXCTLSTATE oldctlstate;
 	int	i;
 	void	*locals;
 
@@ -684,14 +684,14 @@ BUFFER bufload(bufname, filename, reload)
 
 			/* execute the script */
 			locals = optlocal(NULL);
-			oldthen = exthenflag;
+			exctlsave(oldctlstate);
 			if (experform(windefault, marktmp(top, initbuf, 0),
 				marktmp(end, initbuf, o_bufchars(initbuf))) != RESULT_COMPLETE)
 			{
-				exthenflag = oldthen;
+				exctlrestore(oldctlstate);
 				return buf;
 			}
-			exthenflag = oldthen;
+			exctlrestore(oldctlstate);
 			(void)optlocal(locals);
 		}
 	}
@@ -765,10 +765,10 @@ BUFFER bufload(bufname, filename, reload)
 
 			/* Execute the script's contents. */
 			locals = optlocal(NULL);
-			oldthen = exthenflag;
+			exctlsave(oldctlstate);
 			(void)experform(windefault, marktmp(top, initbuf, 0),
 				marktmp(end, initbuf, o_bufchars(initbuf)));
-			exthenflag = oldthen;
+			exctlrestore(oldctlstate);
 			(void)optlocal(locals);
 		}
 	}
@@ -1097,7 +1097,7 @@ BOOLEAN bufwrite(from, to, wfile, force)
 	BOOLEAN	filter;		/* If True, we're writing to a filter */
 	BOOLEAN	wholebuf;	/* if True, we're writing the whole buffer */
 	BOOLEAN	samefile;	/* If True, we're writing the buffer to its original file */
-	BOOLEAN	oldthen;
+	EXCTLSTATE oldctlstate;
 	int	bytes;
 	void	*locals;
 
@@ -1159,15 +1159,15 @@ BOOLEAN bufwrite(from, to, wfile, force)
 
 			/* execute the script */
 			locals = optlocal(NULL);
-			oldthen = exthenflag;
+			exctlsave(oldctlstate);
 			if (experform(windefault, marktmp(top, initbuf, 0),
 				marktmp(next, initbuf, o_bufchars(initbuf))) != RESULT_COMPLETE
 			    && !force)
 			{
-				exthenflag = oldthen;
+				exctlrestore(oldctlstate);
 				return False;
 			}
-			exthenflag = oldthen;
+			exctlrestore(oldctlstate);
 			(void)optlocal(locals);
 		}
 	}
@@ -1264,10 +1264,10 @@ BOOLEAN bufwrite(from, to, wfile, force)
 
 			/* execute the script */
 			locals = optlocal(NULL);
-			oldthen = exthenflag;
+			exctlsave(oldctlstate);
 			(void)experform(windefault, marktmp(top, initbuf, 0),
 				marktmp(next, initbuf, o_bufchars(initbuf)));
-			exthenflag = oldthen;
+			exctlrestore(oldctlstate);
 			(void)optlocal(locals);
 		}
 	}

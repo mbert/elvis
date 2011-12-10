@@ -53,6 +53,7 @@
 #  ifndef M_XENIX /* SCO can't mix <sys/select.h> with <sys/select.h> */
 #   include <sys/types.h>
 #  endif
+#  include <sys/time.h>
 #  include <sys/select.h>
 # else
 #  include <sys/types.h>

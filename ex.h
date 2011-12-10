@@ -15,9 +15,9 @@ typedef enum
 {
 	EX_ABBR, EX_ALIAS, EX_ALL, EX_APPEND, EX_ARGS, EX_AT,
 	EX_BANG, EX_BBROWSE, EX_BREAK, EX_BROWSE, EX_BUFFER,
-	EX_CALC, EX_CC, EX_CD, EX_CHANGE, EX_CLOSE, EX_COLOR, EX_COMMENT,
-		EX_COPY,
-	EX_DELETE, EX_DIGRAPH, EX_DISPLAY, EX_DO, EX_DOALIAS,
+	EX_CALC, EX_CASE, EX_CC, EX_CD, EX_CHANGE, EX_CLOSE, EX_COLOR,
+		EX_COMMENT, EX_COPY,
+	EX_DEFAULT, EX_DELETE, EX_DIGRAPH, EX_DISPLAY, EX_DO, EX_DOALIAS,
 	EX_ECHO, EX_EDIT, EX_ELSE, EX_EQUAL, EX_ERRLIST, EX_ERROR, EX_EVAL,
 	EX_FILE,
 	EX_GOTO, EX_GLOBAL, EX_GUI,
@@ -33,7 +33,7 @@ typedef enum
 	EX_SALL, EX_SAFER, EX_SBBROWSE, EX_SBROWSE, EX_SET, EX_SHELL,
 		EX_SHIFTL, EX_SHIFTR, EX_SLAST, EX_SNEW, EX_SNEXT, EX_SOURCE,
 		EX_SPLIT, EX_SPREVIOUS, EX_SREWIND, EX_STAG, EX_STACK, EX_STOP,
-		EX_SUBAGAIN, EX_SUBRECENT, EX_SUBSTITUTE, EX_SUSPEND,
+		EX_SUBAGAIN, EX_SUBRECENT, EX_SUBSTITUTE, EX_SUSPEND, EX_SWITCH,
 	EX_TAG, EX_THEN, EX_TRY,
 	EX_UNABBR, EX_UNALIAS, EX_UNBREAK, EX_UNDO, EX_UNMAP,
 	EX_VERSION, EX_VGLOBAL, EX_VISUAL,
@@ -74,9 +74,24 @@ typedef struct
 } EXINFO;
 
 
+/* This stores the current state of ex's control structures */
+typedef struct
+{
+	BOOLEAN	thenflag;	/* result of an :if */
+	BOOLEAN	switchcarry;	/* falling through to next :case? */
+	CHAR	*switchvalue;	/* result of :switch, compare to :case value */
+	CHAR	*dotest;	/* expression to be evaluated by :do */
+} EXCTLSTATE;
+
+
 /* defined in exconfig.c */
-extern BOOLEAN	exthenflag;
-extern CHAR	*exdotest;
+extern EXCTLSTATE exctlstate;
+
+/* macros for saving & restoring the control state in a local variable */
+#define exctlsave(v)	{(v) = exctlstate; memset(&exctlstate, 0, sizeof exctlstate);}
+#define exctlrestore(v)	{if (exctlstate.switchvalue) safefree(exctlstate.switchvalue);\
+			if (exctlstate.dotest) safefree(exctlstate.dotest);\
+			exctlstate = (v);}
 
 /* defined in exmake.c */
 extern BOOLEAN	makeflag;
@@ -103,6 +118,7 @@ extern RESULT	ex_at P_((EXINFO *xinf));
 extern RESULT	ex_bang P_((EXINFO *xinf));
 extern RESULT	ex_browse P_((EXINFO *xinf));
 extern RESULT	ex_buffer P_((EXINFO *xinf));
+extern RESULT	ex_case P_((EXINFO *xinf));
 extern RESULT	ex_cd P_((EXINFO *xinf));
 extern RESULT	ex_color P_((EXINFO *xinf));
 extern RESULT	ex_comment P_((EXINFO *xinf));
@@ -138,6 +154,7 @@ extern RESULT	ex_source P_((EXINFO *xinf));
 extern RESULT	ex_stack P_((EXINFO *xinf));
 extern RESULT	ex_substitute P_((EXINFO *xinf));
 extern RESULT	ex_suspend P_((EXINFO *xinf));
+extern RESULT	ex_switch P_((EXINFO *xinf));
 extern RESULT	ex_tag P_((EXINFO *xinf));
 extern RESULT	ex_then P_((EXINFO *xinf));
 extern RESULT	ex_undo P_((EXINFO *xinf));

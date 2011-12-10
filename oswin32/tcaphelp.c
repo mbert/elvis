@@ -1,6 +1,6 @@
 /* oswin32/tcaphelp.c */
 
-char id_tcaphelp[] = "$Id: tcaphelp.c,v 2.26 1998/08/29 16:44:06 steve Exp $";
+char id_tcaphelp[] = "$Id: tcaphelp.c,v 2.27 1999/09/28 22:03:08 steve Exp $";
 
 #include "elvis.h"
 #if defined(GUI_TERMCAP) || defined(GUI_OPEN)
@@ -935,7 +935,7 @@ char *ttytermtype()
 		type = TTY_DEFAULT;
 
 	/* are we using the console? */
-	useconsole = !strcmp(type, "console");
+	useconsole = !strcmp(type, "console") || !strcmp(type, "cygwin");
 	if (useconsole)
 	{
 		inConsole = GetStdHandle(STD_INPUT_HANDLE);

@@ -1,7 +1,7 @@
 /* move.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_move[] = "$Id: move.c,v 2.43 1997/10/05 17:26:01 steve Exp $";
+char id_move[] = "$Id: move.c,v 2.48 1999/10/20 17:33:49 steve Exp $";
 
 #include "elvis.h"
 
@@ -805,8 +805,6 @@ RESULT	m_scroll(win, vinf)
 	WINDOW	win;	/* window where command was typed */
 	VIINFO	*vinf;	/* information about the command */
 {
-	MARKBUF	tmp;
-
 	assert(!win->state->acton);
 	assert(!(win->state->flags & ELVIS_BOTTOM) || vinf->command == ELVCTRL('D'));
 
@@ -835,53 +833,65 @@ RESULT	m_scroll(win, vinf)
 	switch (vinf->command)
 	{
 	  case ELVCTRL('U'):
-		win->di->topline = markoffset((*win->md->move)(win, marktmp(tmp, markbuffer(win->cursor), win->di->topline), -vinf->count, 0, True));
-		win->di->bottomline = markoffset((*win->md->move)(win, marktmp(tmp, markbuffer(win->cursor), win->di->bottomline), -vinf->count, 0, True));
+		markset(win->di->topmark, (*win->md->move)(win, win->di->topmark, -vinf->count, 0, True));
+		markset(win->di->bottommark, (*win->md->move)(win, win->di->bottommark, -vinf->count, 0, True));
 		marksetoffset(win->cursor, markoffset(dispmove(win, -vinf->count, 0)));
 		break;
 
 	  case ELVCTRL('D'):
-		win->di->topline = markoffset((*win->md->move)(win, marktmp(tmp, markbuffer(win->cursor), win->di->topline), vinf->count, 0, True));
-		win->di->bottomline = markoffset((*win->md->move)(win, marktmp(tmp, markbuffer(win->cursor), win->di->bottomline), vinf->count, 0, True));
+		markset(win->di->topmark, (*win->md->move)(win, win->di->topmark, vinf->count, 0, True));
+		markset(win->di->bottommark, (*win->md->move)(win, win->di->bottommark, vinf->count, 0, True));
 		marksetoffset(win->cursor, markoffset(dispmove(win, vinf->count, 0)));
 		break;
 
 	  case ELVCTRL('Y'):
-		win->di->topline = markoffset((*win->md->move)(win, marktmp(tmp, markbuffer(win->cursor), win->di->topline), -vinf->count, 0, True));
-		win->di->bottomline = markoffset((*win->md->move)(win, marktmp(tmp, markbuffer(win->cursor), win->di->bottomline), -vinf->count, 0, True));
+		markset(win->di->topmark, (*win->md->move)(win, win->di->topmark, -vinf->count, 0, True));
+		markset(win->di->bottommark, (*win->md->move)(win, win->di->bottommark, -vinf->count, 0, True));
 		marksetoffset(win->cursor, markoffset(dispmove(win, 0, win->wantcol)));
-		if (markoffset(win->cursor) >= win->di->bottomline)
+		if (markoffset(win->cursor) >= markoffset(win->di->bottommark))
 		{
-			marksetoffset(win->cursor, win->di->bottomline);
+			marksetoffset(win->cursor, markoffset(win->di->bottommark));
 			marksetoffset(win->cursor, markoffset(dispmove(win, -1, win->wantcol)));
 		}
 		break;
 
 	  case ELVCTRL('E'):
-		win->di->topline = markoffset((*win->md->move)(win, marktmp(tmp, markbuffer(win->cursor), win->di->topline), vinf->count, 0, True));
-		win->di->bottomline = markoffset((*win->md->move)(win, marktmp(tmp, markbuffer(win->cursor), win->di->bottomline), vinf->count, 0, True));
-		if (markoffset(win->cursor) < win->di->topline)
+		markset(win->di->topmark, (*win->md->move)(win, win->di->topmark, vinf->count, 0, True));
+		markset(win->di->bottommark, (*win->md->move)(win, win->di->bottommark, vinf->count, 0, True));
+		if (markoffset(win->cursor) < markoffset(win->di->topmark))
 		{
-			marksetoffset(win->cursor, win->di->topline);
+			marksetoffset(win->cursor, markoffset(win->di->topmark));
 			marksetoffset(win->cursor, markoffset(dispmove(win, 0, win->wantcol)));
 		}
 		break;
 
 	  case ELVCTRL('F'):
-		marksetoffset(win->cursor, win->di->bottomline);
-		win->di->topline = markoffset(dispmove(win, -1, 0));
-		marksetoffset(win->cursor, win->di->topline);
-		win->di->bottomline = markoffset((*win->md->move)(win, marktmp(tmp, markbuffer(win->cursor), win->di->topline), o_lines(win), 0, True));
+		if (o_bufchars(markbuffer(win->di->bottommark)) > 0
+		 && markoffset(win->di->bottommark) == o_bufchars(markbuffer(win->di->bottommark)))
+		{
+			marksetoffset(win->cursor, markoffset(win->di->bottommark) - 1L);
+		}
+		else
+		{
+			marksetoffset(win->cursor, markoffset(win->di->bottommark));
+			markset(win->di->topmark, dispmove(win, -2L, 0));
+			marksetoffset(win->cursor, markoffset(win->di->topmark));
+			markset(win->di->bottommark, (*win->md->move)(win, win->di->topmark, o_lines(win), 0, True));
+		}
 		break;
 
 	  case ELVCTRL('B'):
-		/* note: this adjustment of topline can be sloppy, because
-		 * the drawimage() function will perform slop scrolling, if
-		 * necessary, to keep the cursor in the screen.
-		 */
-		marksetoffset(win->cursor, win->di->topline);
-		win->di->topline = markoffset(dispmove(win, -o_lines(win), 0));
-		win->di->bottomline = markoffset((*win->md->move)(win, marktmp(tmp, markbuffer(win->cursor), win->di->topline), o_lines(win), 0, True));
+		if (markoffset(win->di->topmark) == 0)
+		{
+			marksetoffset(win->cursor, 0L);
+		}
+		else
+		{
+			marksetoffset(win->cursor, markoffset(win->di->topmark));
+			markset(win->di->topmark, dispmove(win, 3L - o_lines(win), 0));
+			markset(win->di->bottommark, (*win->md->move)(win, win->di->topmark, o_lines(win), 0, True));
+			markset(win->cursor, dispmove(win, 1L, 0));
+		}
 		break;
 	}
 
@@ -902,6 +912,7 @@ RESULT	m_column(win, vinf)
 	VIINFO	*vinf;	/* information about the command */
 {
 	MARK	dest;
+	long	row = 0L;
 
 	/* choose a column number */
 	switch (vinf->command)
@@ -917,12 +928,14 @@ RESULT	m_column(win, vinf)
 		break;
 
 	  case '$':
+		if (vinf->count > 0)
+			row = vinf->count - 1;
 		vinf->count = INFINITY;
 		break;
 	}
 
 	/* move to the requested column (or as close as possible). */
-	dest = dispmove(win, 0L, vinf->count - 1);
+	dest = dispmove(win, row, vinf->count - 1);
 	marksetoffset(win->state->cursor, markoffset(dest));
 
 	/* if the window is editing the main buffer, set wantcol...
@@ -1399,20 +1412,22 @@ RESULT m_z(win, vinf)
 	  case '\n':
 	  case '\r':
 	  case '+':
+	  case 'H':
 		/* The current line should appear at the top of the screen.
-		 * We'll tweak the top & bottom so they both refer to this
-		 * line.  When the window is redrawn, the redrawing logic
-		 * will cause this line to be output first, and then it'll
-		 * just continue showing lines until the bottom of the
-		 * screen.
+		 * We'll tweak the top mark so it refers to this line.  The
+		 * bottom mark will be set to the end of the file.  When the
+		 * window is redrawn, the redrawing logic will cause this line
+		 * to be output first, and then it'll just continue showing
+		 * lines until the bottom of the screen.
 		 */
-		win->di->topline = markoffset(dispmove(win, 0L, 0));
-		win->di->bottomline = o_bufchars(markbuffer(win->cursor));
+		markset(win->di->topmark, dispmove(win, 0L, 0));
+		marksetoffset(win->di->bottommark, o_bufchars(markbuffer(win->cursor)));
 		win->di->logic = DRAW_CHANGED;
 		break;
 
 	  case '.':
 	  case 'z':
+	  case 'M':
 		/* The current line should appear in the middle of the screen.
 		 * To do this, we'll set the top half a screenful's number of
 		 * lines back, and the bottom some point after the cursor.
@@ -1421,12 +1436,13 @@ RESULT m_z(win, vinf)
 		 * case the lines at the top of the screen fill more than one
 		 * row.
 		 */
-		win->di->topline = markoffset(dispmove(win, -(o_lines(win) / 2), 0));
-		win->di->bottomline = o_bufchars(markbuffer(win->cursor));
+		markset(win->di->topmark, dispmove(win, -(o_lines(win) / 2), 0));
+		marksetoffset(win->di->bottommark, o_bufchars(markbuffer(win->cursor)));
 		win->di->logic = DRAW_CENTER;
 		break;
 
 	  case '-':
+	  case 'L':
 		/* The current line should appear at the bottom of the screen.
 		 * To do this, we'll set the top back a whole screenload's
 		 * number of lines before the cursor line, and the bottom 
@@ -1435,8 +1451,8 @@ RESULT m_z(win, vinf)
 		 * computed top, and then scroll the window if necessary to
 		 * bring the current line onto the screen.
 		 */
-		win->di->topline = markoffset(dispmove(win, -o_lines(win), 0));
-		win->di->bottomline = markoffset(win->cursor) + 1;
+		markset(win->di->topmark, dispmove(win, -o_lines(win), 0));
+		marksetoffset(win->di->bottommark, markoffset(win->cursor) + 1);
 		win->di->logic = DRAW_CHANGED;
 		break;
 	}

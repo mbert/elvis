@@ -96,12 +96,13 @@ extern OPTVAL lpval[];
 #define o_animation		optglob[84].value.number
 #define o_completebinary	optglob[85].value.boolean
 #define o_optionwidth		optglob[86].value.number
+#define o_smarttab		optglob[87].value.boolean
 /* For backward compatibility with older releases of elvis : */
-#define o_more    		optglob[87].value.boolean
-#define o_timeout 		optglob[88].value.boolean
-#define o_hardtabs		optglob[89].value.number
-#define o_redraw		optglob[90].value.boolean
-#define QTY_GLOBAL_OPTS			91
+#define o_more    		optglob[88].value.boolean
+#define o_timeout 		optglob[89].value.boolean
+#define o_hardtabs		optglob[90].value.number
+#define o_redraw		optglob[91].value.boolean
+#define QTY_GLOBAL_OPTS			92
 
 #ifdef FEATURE_LPR
 # define o_lptype		lpval[0].value.string

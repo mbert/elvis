@@ -1,7 +1,7 @@
 /* scan.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_scan[] = "$Id: scan.c,v 2.16 1998/11/28 20:17:56 steve Exp $";
+char id_scan[] = "$Id: scan.c,v 2.17 1999/09/30 18:18:34 steve Exp $";
 
 #include "elvis.h"
 
@@ -178,10 +178,10 @@ void	scanfree(cp)
 
 #ifdef FEATURE_LITRE
 	/* save info from this scan, to speed up later scans */
-	if (scan__top->next && scan__top->buffer)
+	if (!scan__top->next && scan__top->buffer && scan__top->blkno != 0)
 	{
 		saved = *scan__top;
-		changes = scan__top->buffer->changes;
+		changes = saved.buffer->changes;
 	}
 #endif /* FEATURE_LITRE */
 

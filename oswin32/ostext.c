@@ -7,6 +7,9 @@
 #include <io.h>
 #include <errno.h>
 
+/* the following is defined in oswin32\osdir.c */
+extern char *dirnormalize(char *path);
+
 #ifdef GUI_WIN32
 #ifndef O_BINARY
 #define O_BINARY	_O_BINARY
@@ -38,7 +41,7 @@ int txtopen(char *filename, _char_ rwa, BOOLEAN binary)
 	  case 'w': flags |= _O_WRONLY|_O_CREAT|_O_TRUNC;	break;
 	  case 'a': flags |= _O_WRONLY|_O_APPEND;		break;
 	}
-	fd = _open(filename, flags, 0666);
+	fd = _open(dirnormalize(filename), flags, 0666);
 
 	/* return a code indicating the success or reason for failure */
 	if (fd >= 0)

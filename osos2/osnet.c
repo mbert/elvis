@@ -77,7 +77,9 @@ static BOOLEAN site2addr (char *site, struct in_addr *address);
 # endif
 
 
+#ifndef __EMX__
 static BOOLEAN initialized;
+#endif
 
 static int inet_aton (char *site, struct in_addr *addr)
 {
@@ -96,21 +98,22 @@ static int inet_aton (char *site, struct in_addr *addr)
  * or a "numbers and dots" name.  If successful, the address is stuffed into
  * address struct, and True is returned; otherwise False is returned.
  */
-static BOOLEAN site2addr (site, address)
+static BOOLEAN site2addr(site, address)
 	char		*site;
 	struct in_addr	*address;
 {
-	struct hostent	*siteinfo;
+	struct hostent		*siteinfo;
 	static char		prevsite[100];
 	static struct in_addr	prevaddr;
 
+
 	/* if the site name starts with a digit, then assume it is in the
-	 * "numbers and dots" format.  Else use the name server.
+	 * "numbers and dots" format.
 	 */
-	if (isdigit (site[0]))
+	if (isdigit(site[0]))
 	{
 		/* convert to binary address */
-		if (!inet_aton (site, address))
+		if (!inet_aton(site, address))
 			goto Error;
 	}
 	else
@@ -123,15 +126,15 @@ static BOOLEAN site2addr (site, address)
 		}
 
 		/* look up the name */
-		msg (MSG_STATUS, "[s]looking up site $1", site);
-		siteinfo = gethostbyname (site);
+		msg(MSG_STATUS, "[s]looking up site $1", site); /* !!!*/
+		siteinfo = gethostbyname(site);
 		if (!siteinfo)
 		{
 			goto Error;
 		}
 
 		/* use the primary address */
-		memcpy (address, siteinfo->h_addr_list[0], siteinfo->h_length);
+		memcpy(address, siteinfo->h_addr_list[0], siteinfo->h_length);
 
 		/* save the info about this site */
 		strncpy(prevsite, site, sizeof prevsite);
@@ -141,11 +144,9 @@ static BOOLEAN site2addr (site, address)
 	return True;
 
 Error:
-	msg (MSG_ERROR, "[s]unknown site $1", site);
+	msg(MSG_ERROR, "[s]unknown site $1", site);
 	return False;
 }
-
-
 
 /* Open a connection to a given site and port.
  * Returns a sockbuf_t pointer if successful, or NULL for errors (in which
@@ -161,14 +162,14 @@ sockbuf_t *netconnect (site_port, defport)
 	char		buf[150];
 	sockbuf_t	*sb;
 
+#ifndef __EMX__
 	/* If first time, then initialize OS/2 sockets */
 	if (!initialized)
 	{
-#ifndef __EMX__
 	    (void)sock_init ();
-#endif
 		initialized = True;
 	}
+#endif
 
 	/* if site_port contains a port number, then separate it from the site
 	 * name, and use the given port instead of the default port.
@@ -189,23 +190,21 @@ sockbuf_t *netconnect (site_port, defport)
 	msg (MSG_STATUS, "[s]connecting to $1", buf);
 
 	/* create a socket, and a sockbuf_t to buffer it */
-	sb = safealloc (1, sizeof(sockbuf_t));
-	sb->fd = socket (AF_INET, SOCK_STREAM, IPPROTO_IP);
+	sb = safealloc(1, sizeof(sockbuf_t));
+	sb->fd = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
 	if (sb->fd < 0)
 	{
-		safefree (sb);
-		msg (MSG_ERROR, "could not create socket");
+		safefree(sb);
 		return NULL;
 	}
 
 	/* connect the socket to the remote machine */
 	destPort.sin_family = AF_INET;
-	destPort.sin_port = htons ((unsigned short)defport);
+	destPort.sin_port = htons((unsigned short)defport);
 	destPort.sin_addr = serverAddress;
 	if (connect(sb->fd, (struct sockaddr *)&destPort, sizeof(destPort)))
 	{
-		netdisconnect (sb);
-		msg(MSG_ERROR, "could not connect");
+		netdisconnect(sb);
 		return NULL;
 	}
 
@@ -251,18 +250,16 @@ BOOLEAN netread (sockbuf_t *sb)
 	if (sb->left > 0 && sb->right > sb->left)
 		/* regions may overlap -- it is guaranteed to work */
 		memmove(sb->buf, &sb->buf[sb->left], sb->right - sb->left);
-		/* herbert: looks like a bug!
-		 * memcpy(sb->buf, &sb->buf[sb->left], sb->right - sb->left); */
 	sb->right -= sb->left;
 	sb->left = 0;
 
 	/* Read as much data as is available */
-	i = read (sb->fd, &sb->buf[sb->right], sizeof sb->buf - sb->right);
+	i = read(sb->fd, &sb->buf[sb->right], sizeof sb->buf - sb->right);
 	if (i < 0)
-		i = read (sb->fd, &sb->buf[sb->right], sizeof sb->buf - sb->right);
+		i = read(sb->fd, &sb->buf[sb->right], sizeof sb->buf - sb->right);
 	if (i < 0)
 	{
-		msg (MSG_ERROR, "error reading from socket");
+		msg(MSG_ERROR, "error reading from socket");
 		return False;
 	}
 	sb->right += i;
@@ -272,9 +269,8 @@ BOOLEAN netread (sockbuf_t *sb)
 }
 
 
-
 /* Read a line from a socket.  Return the line if successful, NULL if error. */
-char *netgetline (sockbuf_t *sb)
+char *netgetline(sockbuf_t *sb)
 {
 	int	i;
 	char	*ret;
@@ -283,7 +279,7 @@ char *netgetline (sockbuf_t *sb)
 	for (;;)
 	{
 		/* see if we have a whole line now */
-		for (ret = netbuffer (sb), i = sb->left; i < sb->right; i++)
+		for (ret = netbuffer(sb), i = sb->left; i < sb->right; i++)
 		{
 			if (sb->buf[i] == '\n')
 			{
@@ -297,8 +293,8 @@ char *netgetline (sockbuf_t *sb)
 		}
 
 		/* read some more data */
-		i = netbytes (sb);
-		if (!netread (sb) || i == netbytes (sb))
+		i = netbytes(sb);
+		if (!netread(sb) || i == netbytes(sb))
 			return NULL;
 	}
 	/*NOTREACHED*/
@@ -308,23 +304,24 @@ char *netgetline (sockbuf_t *sb)
 /* Send data bytes through a socket.  Returns True if successful, or False if
  * error (after giving an error message).
  */
-BOOLEAN netwrite (sb, data, len)
+BOOLEAN netwrite(sb, data, len)
 	sockbuf_t	*sb;
 	char		*data;
 	int		len;
 {
-	if (write (sb->fd, data, len) == len)
+	if (write(sb->fd, data, len) == len)
 		return True;
-	msg (MSG_ERROR, "transmission failed");
+	msg(MSG_ERROR, "transmission failed");
 	return False;
 }
+
 
 /* Send a line through a socket.  This intended to be used for sending commands
  * to an FTP or HTTP server.  The line should be a normal NUL-terminated string
  * with no newline; this function appends a CRLF.  Returns True if successful,
  * or False if error (after giving an error message).
  */
-BOOLEAN netputline (sb, command, arg1, arg2)
+BOOLEAN netputline(sb, command, arg1, arg2)
 	sockbuf_t	*sb;		/* stream to write to */
 	char		*command;	/* command name */
 	char		*arg1, *arg2;	/* arguments, may be NULL if not used */
@@ -335,41 +332,42 @@ BOOLEAN netputline (sb, command, arg1, arg2)
 	/* combine the command and arg into one string */
 	if (arg2)
 	{
-		len = strlen (command) + strlen (arg1) + strlen (arg2) + 5;
-		buf = safealloc (len, sizeof (char));
-		sprintf (buf, "%s %s %s\r\n", command, arg1, arg2);
+		len = strlen(command) + strlen(arg1) + strlen(arg2) + 5;
+		buf = safealloc(len, sizeof(char));
+		sprintf(buf, "%s %s %s\r\n", command, arg1, arg2);
 	}
 	else if (arg1)
 	{
-		len = strlen (command) + strlen (arg1) + 4;
-		buf = safealloc (len, sizeof (char));
-		sprintf (buf, "%s %s\r\n", command, arg1);
+		len = strlen(command) + strlen(arg1) + 4;
+		buf = safealloc(len, sizeof(char));
+		sprintf(buf, "%s %s\r\n", command, arg1);
 	}
 	else
 	{
-		len = strlen (command) + 3;
-		buf = safealloc (len, sizeof (char));
-		sprintf (buf, "%s\r\n", command);
+		len = strlen(command) + 3;
+		buf = safealloc(len, sizeof(char));
+		sprintf(buf, "%s\r\n", command);
 	}
 	len--; /* <-- so the NUL terminator isn't sent */
 
 	/* send the command to the server */
-	if (write (sb->fd, buf, len) != len && *command)
+	if (write(sb->fd, buf, len) != len && *command)
 	{
-		msg (MSG_ERROR, "could not send request to server");
-		safefree (buf);
+		msg(MSG_ERROR, "could not send request to server");
+		safefree(buf);
 		return False;
 	}
-	safefree (buf);
+	safefree(buf);
 	return True;
 }
+
 
 char *netself P_((void))
 {
 	static char	name[50];
 
-	if (gethostname (name, sizeof(name)))
-		strcpy (name, "graceland.net");
+	if (gethostname(name, sizeof(name)))
+		strcpy(name, "graceland");
 	return name;
 }
 

@@ -21,6 +21,8 @@ The following catagories of topics are available:
 - The "windows" user interface
 <li><a href="#Miscellany">Miscellany</a>
 - Things that didn't fit anywhere else
+<li><a href="#Contacts">Contacts</a>
+- How to contact the authors
 </ul>
 
 <p>If you're using elvis to view this file, you can search for a topic
@@ -40,7 +42,7 @@ the <a href="elvisvi.html#n">n</a> command to find the next one.
 contains a "howto" alias which loads this file and searches for a given topic.
 The aliases from that file are loaded automatically, so
 you should be able to display any topic in a
-a separate window with via a command such as this:
+a separate window via a command such as this:
 
 <pre>
 	:howto spaces</pre>
@@ -399,7 +401,7 @@ reading stdout/stderr when the command line ends with a '&amp;' character.
 
 <dt>Run<!--run fork execute spawn--> an interactive program under X11
 <dd>Sadly, this can't be done with elvis' "x11" user interface
-Because elvis' windows don't have a built-in terminal emulator.
+because elvis' windows don't have a built-in terminal emulator.
 This is expected to be added for elvis 2.2, but that doesn't help you
 <em>now</em>.
 
@@ -433,6 +435,13 @@ The mouse pointer should change shape when you're in the margin.
 Click the left mouse button there to begin marking lines;
 hold the button as you move the mouse to the other end of the range of lines
 and then release it.
+
+<dt>Change<!--change use a different--> the icon for WinElvis<!--winelvis elvis under windows win32-->
+<dd>WinElvis contains two icons -- a low-color version of the Elvis Presley
+postage stamp, and a tiny photo of elvis.
+The stamp is closer to the Unix icon for elvis, so that's the default.
+If you prefer the photo, you can use it by creating a link to WinElvis,
+viewing the link's properties, and clicking the "Change Icon" button there.
 </dl>
 
 <h2>C.7 <a name="Miscellany">Miscellany</a></h2>
@@ -540,6 +549,157 @@ the character you want, of course.
 to look into the <a href="elvisopt.html#nonascii">nonascii</a> option.
 Also, on Unix systems you should verify that your terminal is configured
 correctly (8 bits, not 7 -- and the Latin-1 character set is installed).
+
+<dt>Change <!--change use a different--> the default address range for a command
+<dd>This is sometimes desirable in an <a href="elvistip.html#ALIAS">alias</a>.
+For example the <a href="elvisex.html#write>:w</a> command writes all lines
+by default, but <a href="elvisex.html#substitute">:s</a> alters only one line
+by default.
+You may want to write a macro that uses both of them with the same default,
+or just one of them with a different default.
+
+<p>The most straightforward way to do this is to use the
+<strong>!{</strong><var>default</var><strong>}%</strong> notation.
+Specifically, <strong>!{.}%</strong> will make any command in an alias default
+to using just the current line, and <strong>!{%}%</strong> will make any
+command default to using all lines.
+
+<p>Here's a simple word-counting alias which uses this technique to count
+the words in all lines by default...
+<pre>
+	alias wcw {
+	 local w=0
+	 !{%}% s/\w\+/let w=w+1/gx
+	 calc w
+	}
+</pre>
+
+<dt>Execute <!--execute iterate loop--> a particular command separately for each line in a <!--an address--> range <!-- loop looping-->
+<dd>The <a href="elvisex.html#global">:g</a> command does this, but only for
+the lines which contain a given regular expression.
+You can trick it into executing the command for every line by making it look
+for something that every line has.
+Since every line has a beginning, you can use <strong>:g/^/</strong><var>command</var> to execute the command for every line.
+
+<p>Note that the <a href="elvisex.html#global">:g</a> command can be used with
+an address range.
+This is often convenient.
+
+<p>Here's an alias which uses this technique to search for the longest line
+(assuming all characters are of equal width -- no tabs or control characters)...
+<pre>
+	alias widest {
+	 local w=0 l
+	 !%g/^/ {
+	  if strlen(line()) &gt; w
+	  then let w = strlen(line())
+	  then let l = current("line")
+	 }
+	 calc "Line "l" is the longest, at "w" characters."
+	}
+</pre>
+
+<dt>Convert <!--convert generate produce derive-->plain text to HTML <!--html--> source <!--input tagged text with tags-->
+<dd>Other than the obvious (a long series of manual edit commands),
+there are two ways that you can convert text to HTML in elvis.
+
+<p>The most straightforward method is to build an alias which performs a series
+of substitutions.
+The problem with this method is that it must be rewritten for each type of
+input text.
+Here's an example of a fairly simple alias that converts plain text to HTML.
+(There is a more powerful version of this alias in the standard distribution's
+<a href="elvisses.html#elvis.ali">elvis.ali</a> file.)
+<pre>
+	alias makehtml {
+	 "Convert plain text to HTML
+	 local report=0
+	 "
+	 "Protect characters which are special to 
+	 try !(%)%s/&amp;/\&amp;amp;/g
+	 try !(%)%s/&lt;/\&amp;lt;/g
+	 try !(%)%s/&gt;/\&amp;gt;/g
+	 "
+	 "Convert blank lines to &lt;p&gt; tags
+	 try !(%)s/^$/&lt;p&gt;/
+	 "
+	 "If converting the whole file, then add &lt;html&gt;...&lt;/html&gt;
+	 if "!%" == ""
+	 then {
+	  $a &lt;/body&gt;&lt;/html&gt;
+	  1i &lt;html&gt;&lt;body&gt;
+	 }
+	}
+</pre>
+
+<p>The other way is simpler and more versatile, but it requires the use of
+an external file.
+It uses the <a href="elvisex.html#lpr">:lpr</a> command with
+<a href="elvisopt.html#lptype">lptype=html</a>.
+Since elvis' print mechanism supports all of elvis' display modes,
+you can use this technique to convert any type of text (or even a hex dump
+of a binary file) into HTML.
+
+<pre>
+	:set lptype=html lplines=0 nolpheader
+	:lp foo.html
+</pre>
+
+<dt>Add <!--add insert--> new text around highlighted text, via a macro.
+<dd>The main trick is to use the visual <a href="elvisvi.html#c">c</a> command
+to change the highlighted text, and then use <kbd>^P</kbd> as part of the
+replacement text.
+While typing the replacement text, <kbd>^P</kbd> causes a copy of the original
+text to be inserted.
+So, for example, the following macro could be used to and HTML <strong>&lt;strong&gt;</strong>
+and <strong>&lt;/strong&gt; </strong>tags around the highlighted text.
+<pre>
+	:map B c&lt;strong&gt;^P&lt;/strong&gt;^[
+</pre>
+(Note: When typing that :map command into elvis, you'll need to type
+&lt;Ctrl-V&gt;&lt;Ctrl-P&gt; to get the <kbd>^P</kbd>, and
+&lt;Ctrl-V&gt;&lt;Esc&gt; to get the <kbd>^[</kbd> character.)
+<dd>
+
 </dl>
+
+<h2>C.8 <a name="Contacts">Contacts</a></h2>
+
+<dl>
+
+<dt>Request <!--request get obtain receive-->technical support <!--help questions answers-->
+<dd>The best way to get technical support is by posting a question on the
+<a href="news:comp.editors">comp.editors</a> newsgroup.
+Be sure to mention "elvis" in the subject line, and try to include a succinct
+description of the problem there, too.
+In the body of the message, be sure to mention the version of elvis you're
+using (as reported by "elvis --version"), and your operating system.
+
+<dt>Inform <!--report tell complain inform--> the authors about <!--of--> a bug <!--bugs problems-->
+<dd>Bugs should be reported via e-mail.
+You may not always receive prompt confirmation, but your bug reports are
+appreciated, and acted-upon.
+For OS-specific bugs, you should contact the person who ported elvis to your
+operating system; the author's names and e-mail addresses are listed in the
+<a href="elvisos.html">Operating Systems</a> chapter.
+
+<p>For general bug reports, you should contact the primary author,
+Steve Kirkendall,
+at <a href="mailto:kirkenda@cs.pdx.edu">kirkenda@cs.pdx.edu</a>.
+
+<p>Either way, be sure to mention the version of elvis you're using
+(as reported by "elvis --version"), and your operating system.
+
+<dt>Suggest <!--suggest recommend request ask for add offer give--> a new feature
+<dd>Contact the authors as though you were reporting a bug.
+See above.
+
+<dt>Get <!--get obtain find--> the latest <!--new newer newest most recent--> version <!--release--> of elvis
+<dd>See the "Information via the Web" section of the
+<a href="elvistip.html#URLS">Tips</a> chapter.
+It has links to various elvis-related sites.
+
+</dl>
+
 </body>
 </html>

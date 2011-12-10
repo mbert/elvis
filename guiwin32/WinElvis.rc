@@ -577,6 +577,7 @@ END
 // Icon with lowest ID value placed first to ensure application icon
 // remains consistent on all systems.
 IDI_ELVIS               ICON    DISCARDABLE     "elvis.ico"
+IDI_ICON2               ICON    DISCARDABLE     "elvisold.ico"
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -748,12 +749,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "\0"
             VALUE "FileDescription", "WinElvis\0"
-            VALUE "FileVersion", "2.1d-alpha\0"
+            VALUE "FileVersion", "2.1_4\0"
             VALUE "InternalName", "WinElvis\0"
-            VALUE "LegalCopyright", "Copyright © 1996 Steve Kirkendall & Serge Pirotte\0"
+            VALUE "LegalCopyright", "Copyright © 1999 Steve Kirkendall & Serge Pirotte\0"
             VALUE "OriginalFilename", "WinElvis.exe\0"
             VALUE "ProductName", " WinElvis\0"
-            VALUE "ProductVersion", "2.0\0"
+            VALUE "ProductVersion", "2.1_4\0"
         END
     END
     BLOCK "VarFileInfo"

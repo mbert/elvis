@@ -1,6 +1,6 @@
 if backup && !newfile
 then {
- if os=="unix"
- then eval ! cp (filename) (filename).bak
- else eval ! copy (filename) (basename(filename)).bak >NUL
+ switch os
+ case unix eval ! cp (filename) (filename).bak
+ default   eval ! copy (filename) (dirname(filename) / basename(filename)).bak >NUL
 }

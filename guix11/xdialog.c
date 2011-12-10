@@ -1,6 +1,6 @@
 /* xdialog.c */
 
-char id_xdialog[] = "$Id: xdialog.c,v 2.18 1999/02/26 21:33:52 steve Exp $";
+char id_xdialog[] = "$Id: xdialog.c,v 2.19 1999/10/06 19:11:37 steve Exp $";
 
 #include "elvis.h"
 #ifdef GUI_X11
@@ -802,7 +802,9 @@ static CHAR *keyoneof(dia, key)
 	switch (key)
 	{
 	  case XK_Left:
+	  case XK_KP_Left:
 	  case XK_Right:
+	  case XK_KP_Right:
 		/* find the current value */
 		val = dia->field[dia->current].value;
 		i = CHARlen(val);
@@ -813,7 +815,7 @@ static CHAR *keyoneof(dia, key)
 		}
 
 		/* move left or right */
-		if (key == XK_Left)
+		if (key == XK_Left || key == XK_KP_Left)
 			this--;
 		else
 			this++;
@@ -869,11 +871,13 @@ static CHAR *keystring(dia, key)
 	switch (key)
 	{
 	  case XK_Left:
+	  case XK_KP_Left:
 		if (dia->cursor > 0)
 			dia->cursor--;
 		break;
 
 	  case XK_Right:
+	  case XK_KP_Right:
 		if (dia->cursor < origlen)
 			dia->cursor++;
 		break;
@@ -898,10 +902,12 @@ static CHAR *keystring(dia, key)
 		break;
 
 	  case XK_Home:
+	  case XK_KP_Home:
 		dia->cursor = 0;
 		break;
 
 	  case XK_End:
+	  case XK_KP_End:
 		dia->cursor = CHARlen(dia->field[dia->current].value);
 		break;
 
@@ -916,6 +922,7 @@ static CHAR *keystring(dia, key)
 
 	  case '\177':
 	  case XK_Delete:
+	  case XK_KP_Delete:
 		if (dia->cursor < origlen)
 			CHARcpy(&orig[dia->cursor], &orig[dia->cursor + 1]);
 		break;
@@ -955,6 +962,7 @@ static void keystroke(dia, key)
 	  case '\n':
 	  case XK_Linefeed:
 	  case XK_Return:
+	  case XK_KP_Enter:
 		/* store the values of all options */
 		eventfocus((GUIWIN *)dia->xw);
 		for (i = 0; i < dia->nfields; i++)
@@ -991,10 +999,12 @@ static void keystroke(dia, key)
 		break;
 
 	  case XK_Up:
+	  case XK_KP_Up:
 		makecurrent(dia, dia->current - 1);
 		break;
 
 	  case XK_Down:
+	  case XK_KP_Down:
   		makecurrent(dia, dia->current + 1);
 		break;
 

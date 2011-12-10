@@ -1,7 +1,7 @@
 /* verify.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_verify[] = "$Id: verify.c,v 1.8 1998/09/20 18:09:28 steve Exp $";
+char id_verify[] = "$Id: verify.c,v 1.9 1999/10/08 18:03:03 steve Exp $";
 
 /* This file contains a replacement for elvis' main() function.  The resulting
  * program will test each component of elvis.
@@ -56,7 +56,7 @@ extern BUFFER cutbuffer(_CHAR_ cbname, BOOLEAN	create);
  * Start of stub functions
  */
 
-BOOLEAN exthenflag;
+EXCTLSTATE exctlstate;
 long eventcounter;
 GUI dummygui, *chosengui = &dummygui;
 

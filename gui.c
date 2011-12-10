@@ -1,7 +1,7 @@
 /* gui.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_gui[] = "$Id: gui.c,v 2.13 1997/12/24 03:12:52 steve Exp $";
+char id_gui[] = "$Id: gui.c,v 2.14 1999/10/05 19:09:20 steve Exp $";
 
 #include "elvis.h"
 
@@ -165,11 +165,12 @@ BOOLEAN guipoll(reset)
 			return False;
 	}
 
-	/* if there is no poll() function, or pollfrequency indicates that
-	 * poll() shouldn't be called yet, then return False so the current
-	 * operation will continue.
+	/* if no GUI has been chosen yet, or there is no poll() function, or
+	 * we're quitting, or pollfrequency indicates that poll() shouldn't
+	 * be called yet, then return False so the current operation will
+	 * continue.
 	 */
-	if (!gui || !gui->poll || ++pollctr < o_pollfrequency)
+	if (!gui || !gui->poll || windows || ++pollctr < o_pollfrequency)
 	{
 		return False;
 	}

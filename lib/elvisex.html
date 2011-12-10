@@ -1363,6 +1363,9 @@ It can be abbreviated to ":no", which is certainly easier to type than
 |       | <a href="#try">try</a>               | excmds                            |
 |       | <a href="#while">wh[ile]</a>           | expr                              |
 |       | <a href="#do">do</a>                | excmds                            |
+|       | <a href="#switch">switch</a>            | expr                              |
+|       | <a href="#case">case</a>              | value [excmds]                    |
+|       | <a href="#default">default</a>           | excmds                            |
 |       | <a href="#mkexrc">mk[exrc]</a>[!]       | [file]                            |
 ^-------^-------------------^-----------------------------------^
 </pre>
@@ -1627,8 +1630,38 @@ which follow the <code>:do</code>.  The following example counts from
 		let i=i+1
 	}</pre>
 
-<p>Both the <code>:if/:then/:else</code> and <code>:while/:do</code> command
-structures permit nesting.  I.e., the commands in a <code>:then</code> command
+<p><a name="switch"></a><a name="case"></a><a name="default"></a>
+The <em>:switch</em> command evaluates an expression and stores the result.
+The <em>:case</em> command compares that result to a given value, and executes
+an ex command line if it matches.
+If you omit the command line then it will carry forward to the next <code>:case</code> which does have an
+ex command line; this allows multiple cases to share a single
+ex command line.
+The <em>:default</em> command executes its ex command line if no previous case
+was matched.
+Here's an example:
+<pre>
+	:switch os
+	:case unix
+	:case win32 echo Elvis has graphical and text-mode interfaces.
+	:case os2 {
+	 echo Elvis has been ported natively as a text-mode program.
+	 echo You can also compile it to use the X11 interface from
+	 echo Unix, but you need the EMX libraries to run it.
+	}
+	:case msdos echo Elvis is slow and ugly under DOS.
+	:default echo How are you even running this?
+</pre>
+
+Notice that there is no punctuation after the case value, and that there is
+no "break" or "endswitch" command.
+This example says "Elvis has graphical and text mode interfaces" for both
+the "unix" and "win32" cases; the "unix" case has no command, so it falls
+through to the "win32" case.
+
+<p>The <code>:if/:then/:else</code>, <code>:while/:do</code>, and
+<code>:switch/:case/:default</code> command structures all permit nesting.
+I.e., the commands in a <code>:then</code> command
 can't affect the "if" variable to cause the <code>:else</code> command to
 also be executed.
 

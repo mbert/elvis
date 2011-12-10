@@ -224,7 +224,7 @@ It must do this in order to find the value to use as BIN.
 
 <dt>The "TERM" environment variable
 <dd>The TERM environment variable tells elvis how to access the screen.
-It should probably be left undefined, or set to "console".
+It should probably be left undefined, or set to "console" or "cygwin".
 Other values have not been tested, but the following should work via
 terminal emulators or whatever: dosansi, nansi, vt100, vt100w, and vt52.
 
@@ -284,6 +284,30 @@ there.
 When you switch back to full-screen mode again it will look exactly the same,
 but the mouse should be able to go where no mouse has gone before.
 
+<dt>Cygwin
+<dd>If you use <a href=elvistip.html#cygwin>Cygwin</a>'s <code>mount</code>
+utility to define a mount table, then elvis will try to use it.
+I say "try to" because that table is maintained in the Win32 registry,
+and although elvis can handle the current version of Cygwin, later versions
+may move the mount table to somewhere that elvis can't find.
+Elvis doesn't use the normal Cygwin functions for mapping file names via
+the mount table, because I didn't want to make elvis be dependant upon
+the CYGWIN.DLL library;
+instead, elvis uses standard Win32 registry functions to read the mount table.
+use t
+
+<p>Only elvis has been modified to use the mount table.
+The other utilities (such as <a href=ctags.man>ctags</a>,
+<a href=fmt.man>fmt</a>, and elvis' version of <code>ls</code>)
+will ignore the mount table.
+Also, even elvis will ignore it with respect to the names of the session
+file and temporary files (the <a href=elvisopt.html#session>session</a>,
+<a href="elvisopt.html#sessionpath">sessionpath</a>,
+and <a href="elvisopt.html#directory">directory</a> options).
+<p>Some problems have been reported when running the text-mode version of
+elvis via the <code>bash</code> shell.
+I'm trying to fix that.
+The graphical version of elvis works fine, though.
 </dl>
 
 <h2><a name="os2"></a>9.3 OS/2</h2>

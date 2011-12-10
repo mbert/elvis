@@ -198,8 +198,8 @@ other allcaps initialcaps
 # line exists to prevent $# from being interpreted as a plain dollar sign
 # followed by a comment.
 language perl  
-extension .pl .pm 
-keyword BEGIN END CORE __END__ __FILE__ __LINE__ AUTOLOAD DESTROY
+extension .pl .pm .PL
+keyword BEGIN END CORE __END__ __FILE__ __LINE__ AUTOLOAD DESTROY INIT
 keyword abs accept alarm and atan2 bind binmode bless caller chdir chmod
 keyword chomp chop chown chr chroot close closedir cmp connect continue cos
 keyword crypt dbmclose dbmopen defined delete die do dump each else elsif
@@ -220,22 +220,23 @@ keyword rmdir s scalar seek seekdir select semctl semget semop send setgrent
 keyword sethostent setnetent setpgrp setpriority setprotoent setpwent
 keyword setservent setsockopt shift shmctl shmget shmread shmwrite shutdown
 keyword sin sleep socket socketpair sort splice split sprintf sqrt srand
-keyword stat study sub substr symlink syscall sysread system syswrite tell
-keyword telldir tie time times tr truncate uc ucfirst umask undef unless
+keyword stat study sub substr symlink syscall sysopen sysread system syswrite
+keyword tell telldir tie time times tr truncate uc ucfirst umask undef unless
 keyword unlink unpack unshift untie until use utime values vec wait waitpid
 keyword wantarray warn while write x xor y
 comment #
 function (
 startword &_@%$
-inword _'#
+inword _'
 string "
 strnewline empty
 character '
 regexp /?#:
-useregexp if unless while until m qr (,~&|
+useregexp if unless while until split m qr (,~&|
 useregsub s tr
 other allcaps
-font e ( ) { }
+font emphasized ( ) { }
+font normal $" $#
 
 # TCL shell scripts.
 # Contributed by Jeff Wang (jeffw@advance.com)
@@ -552,26 +553,27 @@ inword _
 # enough.  The particular variation shown here works okay for aliases.
 language ex
 extension .ex .exrc .elvisrc elvis.ini elvis.brf elvis.arf elvis.bwf elvis.awf elvis.ali
-keyword a ab abbr abbreviate all alias append ar args b bb bbrowse br bre break
-keyword browse buffer c ca calc calculate cc cd change chd chdir cl close
-keyword co col color copy d delete di dig digraph dis display do e ec echo
-keyword edit el else er err errlist erro error ev eval ex f file g global
-keyword go goto gu gui h help i if insert j join k l la last le let list lo
-keyword local lp lpr m ma mak make map mark me message mk mkexrc move n N new
-keyword next Next no normal nu number o open p po pop pre previous print
-keyword pu put q qa qall quit r read red redo rew rewind s sN sNext sa saf
-keyword safer sall sb sbb sbbrowse sbr sbrowse se set sh shell sl slast sn
-keyword sne snew snext so source sp split sre srew srewind st sta stac
-keyword stack stag stop subst substitute sus susp suspend t ta tag th then
-keyword to try u una unab unabbr unabbreviate unb unbreak undo unm unmap v
-keyword ve version vglobal vi visual w wa warning wh while wi window wn
+keyword a ab abbr abbreviate all alias append ar args b bb bbrowse br bre
+keyword break browse buffer c ca calc calculate case cc cd change chd
+keyword chdir cl close co col color copy d default delete di dig digraph
+keyword dis display do e ec echo edit el else er err errlist erro error
+keyword ev eval ex f file g global go goto gu gui h help i if insert j
+keyword join k l la last le let list lo local lp lpr m ma mak make map
+keyword mark me message mk mkexrc move n N new next Next no normal nu
+keyword number o open p po pop pre previous print pu put q qa qall quit r
+keyword read red redo rew rewind s sN sNext sa saf safer sall sb sbb
+keyword sbbrowse sbr sbrowse se set sh shell sl slast sn sne snew snext
+keyword so source sp split sre srew srewind st sta stac stack stag stop
+keyword subst substitute sus susp suspend switch t ta tag th then to try
+keyword u una unab unabbr unabbreviate unb unbreak undo unm unmap v ve
+keyword version vglobal vi visual w wa warning wh while wi window wn
 keyword wnext wq wquit write x xit y yank z
 anchor ^ " # & ( < = > @ ~
 # note that ! is not listed as a keyword because it interferes with alias args
 comment "
-regexp /?;:
+regexp /?
 useregsub s
-useregexp , g v global vglobal
+useregexp , ; g v global vglobal
 font fixed !0 !1 !2 !3 !4 !5 !6 !7 !8 !9 !^ !$ !* !< !> !% !! !?
 font fixed 'a 'b 'c 'd 'e 'f 'g 'h 'i 'j 'k 'l 'm 'n 'o 'p 'q 'r 's 't 'u 'v
 font fixed 'w 'x 'y 'z % $
@@ -730,7 +732,7 @@ keyword LIST_UPPER_BOUNDS LOCAL LOCATION LOCKED_IN_CACHE LOWER LOW_INTENSITY
 keyword MATRIX MENU_LABEL MULTI_VALUED
 keyword NEXT NEXT_FIELD NEXT_FORM NEXT_RECORD NO_CONSISTENCY NONE NOT NULL NUMBER_OF_ARRAYS NUMERIC
 keyword OCCURRENCES ON OPERATION OR ORDER ORDERED_BY OUTPUT
-keyword PAGE PIPELINE PREVIOUS_FIELD PREV_FORM PREVIOUS_FORM PREVIOUS_RECORD PREVIOUS
+keyword PAGE PIPELINE PREV_FIELD PREVIOUS_FIELD PREV_FORM PREVIOUS_FORM PREVIOUS_RECORD PREVIOUS
 keyword QUEUE
 keyword RECORD RECORD_CONSISTENCY REF REFERENCE REFRESH REJECT REPAINT REPEAT
 keyword REPEATED REQUIRED RESTART RESULT RETRIEVE RETRIEVE_VALUE RETURN REVERSE
@@ -1105,3 +1107,68 @@ character &.
 startword :.
 inword 
 string '
+
+# GNU Texinfo -- FSF documentation system
+# Contributed by Thomas Esken <esken@uni-muenster.de>, 1999.
+language texinfo
+extension .texinfo .texi .txi
+keyword { } @! @* @, @- @. @: @? @@ @{ @} @" @' @= @^ @` @~
+keyword @AA @aa @acronym @AE @ae @afourlatex @afourpaper @alias
+keyword @anchor @appendix @appendixsec @appendixsection @appendixsubsec
+keyword @appendixsubsubsec @asis @author
+keyword @b @bullet @bye
+keyword @c @cartouche @center @centerchap @chapheading @chapter @cindex
+keyword @cite @clear @code @columnfractions @command @comment @contents
+keyword @copyright @cropmarks
+keyword @defcodeindex @defcv @deffn @deffnx @defindex @defivar @definfoenclose
+keyword @defmac @defmethod @defop @defopt @defspec @deftp @deftypefn
+keyword @deftypefun @deftypeivar @deftypeop @deftypevar @deftypevr @defun
+keyword @defvar @defvr @dfn @dircategory @direntry @display @dmn
+keyword @documentencoding @documentlanguage @dotaccent @dotless @dots
+keyword @email @emph @end @enddots @enumerate @env @equiv @error @evenfooting
+keyword @evenheading @everyfooting @everyheading @example @exampleindent
+keyword @exclamdown @exdent @expansion
+keyword @file @finalout @findex @flushleft @flushright
+keyword @footnote @footnotestyle @format @ftable
+keyword @group
+keyword @H @heading @headings @html @hyphenation
+keyword @i @ifclear @ifhtml @ifinfo @ifnothtml @ifnotinfo @ifnottex @ifset
+keyword @iftex @ignore @image @include @inforef @item @itemize @itemx
+keyword @kbd @kbdinputstyle @key @kindex @L @l @lisp @lowersections
+keyword @macro @majorheading @math @menu @minus @multitable
+keyword @need @node @noindent @novalidate
+keyword @O @o @oddfooting @oddheading @OE @oe @option
+keyword @page @pagesizes @paragraphindent @pindex
+keyword @point @pounds @print @printindex @pxref
+keyword @questiondown @quotation
+keyword @r @raisesections @result @ref @refill @ringaccent @rmacro
+keyword @samp @sc @section @set @setchapternewpage @setcontentsaftertitlepage
+keyword @setfilename @setshortcontentsaftertitlepage @settitle @shortcontents
+keyword @shorttitlepage @smallbook @smalldisplay @smallexample @smallformat
+keyword @smalllisp @sp @ss @strong @subheading @subsection @subsubheading
+keyword @subsubsection @subtitle @summarycontents @syncodeindex @synindex
+keyword @t @tab @table @TeX @tex @thischapter @thischaptername
+keyword @thisfile @thispage @thistitle @tieaccent @tindex @title
+keyword @titlefont @titlepage @today @top
+keyword @u @ubaraccent @udotaccent @unmacro @unnumbered @unnumberedsec
+keyword @unnumberedsubsec @unnumberedsubsubsec @uref @url
+keyword @v @value @var @vindex @vskip @vtable
+keyword @w
+keyword @xref
+startword @
+
+# GNU M4 macro processing language.
+# Contributed by Thomas Esken <esken@uni-muenster.de>, 1999.
+language m4
+extension .m4
+comment #
+keyword ( ) [ ]
+keyword builtin changecom changequote debugfile decr define defn divert divnum
+keyword dnl dumpdef errprint esyscmd eval format ifdef ifelse include incr
+keyword index indir len m4exit m4wrap macro maketemp patsubst popdef pushdef
+keyword regexp traceon traceoff shift sinclude substr syscmf sysval translit
+keyword undefine undivert __file__ __line__
+function (
+string ` '
+startword _
+inword _

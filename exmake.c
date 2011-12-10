@@ -1,7 +1,7 @@
 /* exmake.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_make[] = "$Id: exmake.c,v 2.29 1999/03/11 18:37:39 steve Exp $";
+char id_make[] = "$Id: exmake.c,v 2.30 1999/09/30 18:21:36 steve Exp $";
 
 #include "elvis.h"
 
@@ -123,8 +123,8 @@ static BOOLEAN parse_errmsg()
 		 * name of an existing, writable text file?
 		 */
 		if (!errfile
-		 && (isalnum(*word)
-			|| (perms = dirperm(tochar8(word))) == DIR_READWRITE
+		 && isalnum(*word)
+		 && ((perms = dirperm(tochar8(word))) == DIR_READWRITE
 			|| (o_anyerror && perms == DIR_READONLY))
 		 && *ioeol(tochar8(word)) != 'b')
 		{

@@ -1,5 +1,5 @@
 # Makefile.in
-# $Id: Makefile.in,v 2.62 1999/06/19 01:06:23 steve Exp $
+# $Id: Makefile.in,v 2.65 1999/10/20 18:30:01 steve Exp $
 #
 # Makefile.in should not be modified!  The "configure" script reads Makefile.in
 # and writes a customized Makefile by editing the values of the following
@@ -150,8 +150,8 @@ CFLAGS=	$(FLAGI)os$(OS)
 EVERY=	$(ALL) verify$(EXE) elvdump$(EXE) calc$(EXE)
 SHELL=	/bin/sh
 
-DISTRIB=elvis-2.1_3
-DOSEXE=exedos
+DISTRIB=elvis-2.1_4
+MSDOSEXE=exemsdos
 WIN32EXE=exewin32
 OS2EXE=exeos2
 
@@ -249,6 +249,9 @@ clean.unix:
 	$(RM) verify.elv
 	$(RM) $(DISTRIB).tar.gz
 	$(RM) lib/elvtags.man
+	$(RM) $(MSDOSEXE)/*
+	$(RM) $(WIN32EXE)/*
+	$(RM) $(OS2EXE)/*
 
 clean.msdos:
 	$(RM) *$(OBJ)
@@ -294,6 +297,9 @@ $(DISTRIB).tar.gz:
 	cp lib/* $(DISTRIB)/lib
 	for i in os*/*.c os*/*.h os*/*.mak os*/*.lib os*/*.ICO osos2/*.def osos2/*os2*; do cp $$i $(DISTRIB)/$$i; done
 	for i in gui*/*; do if [ -f $$i ]; then cp $$i $(DISTRIB)/$$i; fi; done
+	mkdir $(DISTRIB)/osos2/manual
+	mkdir $(DISTRIB)/osos2/manual/org
+	cp osos2/manual/*.ed osos2/manual/*.cmd $(DISTRIB)/osos2/manual/
 	rm -f $(DISTRIB)/osunix/osconfig.h
 	rm -f $(DISTRIB)/config.h
 	rm -f $(DISTRIB)/Makefile
@@ -302,6 +308,7 @@ $(DISTRIB).tar.gz:
 	rm -rf $(DISTRIB)
 
 $(DISTRIB)-win32.tar.gz: $(WIN32EXE)
+	@[ -f $(WIN32EXE)/elvis.exe ] || (echo "You need to copy the *.exe files into $(WIN32EXE)"; exit 2)
 	rm -rf bin-win32
 	mkdir bin-win32
 	cp $(WIN32EXE)/*.exe bin-win32
@@ -313,11 +320,13 @@ $(DISTRIB)-win32.tar.gz: $(WIN32EXE)
 	sed 's/$$//' <lib/printdoc.bat >bin-win32/lib/printdoc.bat
 	sed 's/$$//' <lib/license >bin-win32/lib/license
 	(cd bin-win32; tar czf ../$(DISTRIB)-win32.tar.gz *)
+	rm -rf bin-win32
 
-$(DISTRIB)-msdos.tar.gz: $(DOSEXE)
+$(DISTRIB)-msdos.tar.gz: $(MSDOSEXE)
+	@[ -f $(MSDOSEXE)/elvis.exe ] || (echo "You need to copy the *.exe files into $(MSDOSEXE)"; exit 2)
 	rm -rf bin-msdos
 	mkdir bin-msdos
-	cp $(DOSEXE)/*.exe bin-msdos
+	cp $(MSDOSEXE)/*.exe bin-msdos
 	sed 's/$$//' <README.html >bin-msdos/README.html
 	sed 's/$$//' <BUGS >bin-msdos/BUGS
 	sed 's/$$//' <COPYING >bin-msdos/COPYING
@@ -326,8 +335,10 @@ $(DISTRIB)-msdos.tar.gz: $(DOSEXE)
 	sed 's/$$//' <lib/printdoc.bat >bin-msdos/lib/printdoc.bat
 	sed 's/$$//' <lib/license >bin-msdos/lib/license
 	(cd bin-msdos; tar czf ../$(DISTRIB)-msdos.tar.gz *)
+	rm -rf bin-msdos
 
 $(DISTRIB)-os2.tar.gz: $(OS2EXE)
+	@[ -f $(OS2EXE)/elvis.exe ] || (echo "You need to copy the *.exe files into $(OS2EXE)"; exit 2)
 	rm -rf bin-os2
 	mkdir bin-os2
 	cp $(OS2EXE)/*.exe bin-os2
@@ -343,6 +354,7 @@ $(DISTRIB)-os2.tar.gz: $(OS2EXE)
 	mkdir bin-os2/osos2
 	cp osos2/README.os2 bin-os2/osos2/
 	(cd bin-os2; tar czf ../$(DISTRIB)-os2.tar.gz *)
+	rm -rf bin-os2
 
 lib$(SLASH)elvistrs.msg: $(SRCS)
 	sed -n '/%[cds]/d; s/\[[a-zA-Z]*\]//; s/\\\\/\\/g; s/.*msg(MSG_[A-Z]*, "\([^ 	"][^"]*\)".*/\1/p' *.c os*$(SLASH)*.c gui*$(SLASH)*.c | sort -u >lib$(SLASH)elvistrs.msg

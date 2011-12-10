@@ -23,6 +23,7 @@
 #define IDD_OPT_SYNTAX                  120
 #define IDD_OPT_GLOBAL                  121
 #define IDD_OPT_GUI                     122
+#define IDI_ICON2                       126
 #define IDAB_PHYS_MEM                   1000
 #define IDAB_DISK_SPACE                 1001
 #define IDBL_BUFFERS                    1002
@@ -215,7 +216,7 @@
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        125
+#define _APS_NEXT_RESOURCE_VALUE        127
 #define _APS_NEXT_COMMAND_VALUE         40050
 #define _APS_NEXT_CONTROL_VALUE         1132
 #define _APS_NEXT_SYMED_VALUE           101

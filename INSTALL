@@ -1,4 +1,4 @@
-HOW TO COMPILE & INSTALL ELVIS 2.1
+HOW TO COMPILE & INSTALL ELVIS 2.1_4
 
 Separate sets of instructions are provided below for UNIX, Windows-NT,
 MS-DOS, and OS/2.
@@ -10,13 +10,24 @@ development environment if you prefer.  Separate instructions are given
 for both compilation methods, for both operating systems.
 
 All of these instructions assume that you have already unpacked the files
-from the source code archive, "elvis-2.1.tar.gz".  That's a gzipped tar
+from the source code archive, "elvis-2.1_4.tar.gz".  That's a gzipped tar
 archive.  If you don't have the gzip and tar utilities, then the easiest
 way for you to unpack them is to compile the "untar.c" program (available
 via anonymous FTP from ftp://ftp.cs.pdx.edu/pub/elvis/untar.c).  The files
-will be placed in a subdirectory named "elvis-2.1".  The MS-DOS *.MAK files
+will be placed in a subdirectory named "elvis-2.1_4".  The MS-DOS *.MAK files
 assume that you've unpacked them while in C:\MSVC, so the files themselves
-should end up in C:\MSVC\elvis-2.1.
+should end up in C:\MSVC\elvis-2.1_4.
+
+Under MS-DOS, the name of the archive will be mangled.  It will probably
+be "elvis-~1.gz", but it may be something else; the exact name depends on
+how you downloaded it, and whether you already had an old version of that
+archive in the same directory.  The MS-DOS version of the "untar" program
+needs to be passed the mangled name, whatever that turns out to be.  The
+Win32 version, on the other hand, can handle the full "elvis-2.1_4.tar.gz"
+file name.
+
+Also under MS-DOS, you may see complaints about some OS/2 files.  You can
+ignore that; you don't need those files to compile elvis for MS-DOS.
 
 ================================================================================
 
@@ -126,17 +137,7 @@ UNIX
 
 ================================================================================
 
-NOTE FOR WINDOWS/NT: The "vi.exe", "ex.exe", and "view.exe" programs have been
-reported to cause problems under NT.  If they don't work on your system, then
-I suggest you replace them with the equivalent batch files.  Each batch file
-would be just one line long:
-
-	vi.bat:    elvis %1 %2 %3 %4 %4 %5 %6 %7 %8 %9
-	ex.bat:    elvis -e %1 %2 %3 %4 %4 %5 %6 %7 %8 %9
-	view.bat:  elvis -R %1 %2 %3 %4 %4 %5 %6 %7 %8 %9
-
-
-MS-Windows/NT (or Windows95?), with Visual C++ 2.0 (Method #1):
+MS-Windows/NT (or Windows95?), with Visual C++ 2.0 or later (Method #1):
      1)	Run the "makwin32.bat" file.
 
 		makwin32
@@ -153,7 +154,7 @@ MS-Windows/NT (or Windows95?), with Visual C++ 2.0 (Method #1):
 		copy lib\*.* \localbin\lib
 
 
-MS-Windows/NT (or Windows95?), with Visual C++ 2.0 (Method #2):
+MS-Windows/NT (or Windows95?), with Visual C++ 2.0 or later (Method #2):
      1)	Copy all of the "*.mak" files from files from the oswin32 subdirectory.
 
 		copy oswin32\*.mak
@@ -191,11 +192,11 @@ MS-Windows/NT (or Windows95?), with Visual C++ 2.0 (Method #2):
 MS-DOS, using Visual C++ 1.5 (Method #1):
      REMINDER: MSVC++ 1.5 always puts the complete pathnames of all files
         into its NMAKE files.  Because of this, you *MUST* install the
-        source code into a directory named "C:\MSVC\elvis-2.1".  The
-        "elvis-2.1" component of that directory name is stored in the
-        "elvis-2.1.tar.gz" archive file, so you should be in the C:\MSVC
+        source code into a directory named "C:\MSVC\elvis-2.1_4".  The
+        "elvis-2.1_4" component of that directory name is stored in the
+        "elvis-2.1_4.tar.gz" archive file, so you should be in the C:\MSVC
         directory when you extract the files.  After extracting the files,
-        do a "cd elvis-2.1"
+        do a "cd elvis-2.1_4"
 
      1) Run the "makmsdos.bat" file
 
@@ -215,19 +216,19 @@ MS-DOS, using Visual C++ 1.5 (Method #1):
 MS-DOS, using Visual C++ 1.5 (Method #2):
      REMINDER: MSVC++ 1.5 always puts the complete pathnames of all files
         into its NMAKE files.  Because of this, you *MUST* install the
-        source code into a directory named "C:\MSVC\elvis-2.1".  The
-        "elvis-2.1" component of that directory name is stored in the
-        "elvis-2.1.tar.gz" archive file, so you should be in the C:\MSVC
+        source code into a directory named "C:\MSVC\elvis-2.1_4".  The
+        "elvis-2.1_4" component of that directory name is stored in the
+        "elvis-2.1_4.tar.gz" archive file, so you should be in the C:\MSVC
         directory when you extract the files.
 
-     1) Copy all of the "C:\MSVC\elvis-2.1\OSMSDOS\*.MAK" files into the
-	"C:\MSVC\elvis-2.1" directory.
+     1) Copy all of the "C:\MSVC\elvis-2.1_4\OSMSDOS\*.MAK" files into the
+	"C:\MSVC\elvis-2.1_4" directory.
 
 		c:
-		cd \msvc\elvis-2.1
+		cd \msvc\elvis-2.1_4
 		copy osmsdos\*.mak
 
-     2)	Copy the "\MSVC\elvis-2.1\OSMSDOS\OSCONFIG.H" file to
+     2)	Copy the "\MSVC\elvis-2.1_4\OSMSDOS\OSCONFIG.H" file to
 	"\MSVC\elvis-2.1\CONFIG.H" Note that the "OS" is dropped from the
 	filename.
 

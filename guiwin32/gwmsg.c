@@ -522,12 +522,13 @@ LONG gwclient_WM_MOUSEMOVE (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
 LONG gwclient_WM_MOUSEWHEEL (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
 
 {
-    long        delta = (HIWORD (wParam) / WHEEL_DELTA) * 4;
+    short        delta = HIWORD (wParam);
 
+    delta = (delta / WHEEL_DELTA) * 4;
     if (delta > 0)
-        eventscroll ((GUIWIN *)gwp, SCROLL_FWDLN, delta, 0L);
+        eventscroll ((GUIWIN *)gwp, SCROLL_BACKLN, delta, 0L);
     else
-        eventscroll ((GUIWIN *)gwp, SCROLL_BACKLN, -delta, 0L);
+        eventscroll ((GUIWIN *)gwp, SCROLL_FWDLN, -delta, 0L);
     gw_redraw_win (gwp);
     
     return 0;

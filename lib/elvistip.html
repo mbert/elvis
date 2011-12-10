@@ -130,10 +130,10 @@ It even does a very good job of reformatting comments!
 Sadly, it is one of those rare programs that doesn't handle tab characters
 correctly.
 
-<dt><a href="http://www.cygnus.com/">
-http://www.cygnus.com/</a>
-<dd>This is the home page for Cygnus, which makes the <a name=cygwin>CygWin</a>
-tools -- ports of GNU utilities to Microsoft Windows.
+<dt><a href="http://sourceware.cygnus.com/cygwin/">
+http://sourceware.cygnus.com/cygwin/</a>
+<dd>This is the home page for the <a name=cygwin>CygWin</a>
+tools -- ports of GNU utilities to Microsoft Windows, by Cygnus.
 If you're looking for more Unix utilities to go with elvis, this is the place.
 
 <dt><a href="ftp://alf.uib.no/pub/vi">
@@ -488,7 +488,7 @@ elvis' <a href="elvisopt.html#ccprg">ccprg</a> option as follows:
 <p><strong>NOTE:</strong> You can't simply cut&amp;paste the above perl script into a
 file, because it contains some HTML code which PERL wouldn't understand.
 (The diamond is written as "&amp;lt;&amp;gt;".)  A better way
-is to use the visually select those lines via the
+is to visually select those lines via the
 <a href="elvisvi.html#V">shift-V</a> command, and then use the
 <a href="elvis.ali?/alias+wascii+{">:wascii</a> alias to save the formatted
 text to a file as plain ASCII text.
@@ -832,6 +832,15 @@ This is intended to make it easy to save ex scripts (or other source code)
 that are embedded within HTML pages such as this manual.
 It works by temporarily setting <a href="elvisopt.html#lptype">lptype</a>
 to "dumb", and then writing the text via <a href="elvisex.html#lpr">:lp</a>.
+
+<dt>:<code>[</code><var>range</var><code>]</code>makehtml
+<dd>Convert plain text into HTML source.
+By default it acts on the whole edit buffer,
+but you can also tell it to convert only the lines in a given range.
+Uppercase lines are assumed to be headings.
+Lines which start with a number or asterisk are assumed to be list items.
+Indented lines are assumed to be preformatted text.
+It also attempts to create a link for each URL or email address in the text.
 
 <dt>:<code>[</code><var>range</var><code>]</code>cfmt
 <dd>Adjust the line breaks in a C or C++ comment block.

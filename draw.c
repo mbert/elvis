@@ -1,7 +1,7 @@
 /* draw.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_draw[] = "$Id: draw.c,v 2.73 1997/12/24 03:12:52 steve Exp $";
+char id_draw[] = "$Id: draw.c,v 2.75 1999/10/08 18:04:29 steve Exp $";
 
 #include "elvis.h"
 
@@ -26,9 +26,10 @@ static void openmove(WINDOW win, long oldcol, long newcol, CHAR *image, long len
 #endif
 
 /* allocate a drawinfo struct, including the related arrays */
-DRAWINFO *drawalloc(rows, columns)
+DRAWINFO *drawalloc(rows, columns, top)
 	int	rows;	/* height of new window image */
 	int	columns;/* width of new window image */
+	MARK	top;	/* top of screen */
 {
 	DRAWINFO *newp;
 	int	 i;
@@ -43,6 +44,8 @@ DRAWINFO *drawalloc(rows, columns)
 	newp->curchar = (CHAR *)safealloc(rows * columns, sizeof(CHAR));
 	newp->curfont = (char *)safealloc(rows * columns, sizeof(char));
 	newp->offsets = (long *)safealloc(rows * columns, sizeof(long));
+	newp->topmark = markdup(top);
+	newp->bottommark = markdup(top);
 
 	/* clear the current image and the "new" image */
 	for (i = rows * columns; --i >= 0; )
@@ -73,6 +76,8 @@ void drawfree(di)
 	safefree(di->curchar);
 	safefree(di->curfont);
 	safefree(di->offsets);
+	markfree(di->topmark);
+	markfree(di->bottommark);
 	if (di->openimage)
 	{
 		safefree(di->openimage);
@@ -98,7 +103,6 @@ void drawexpose(win, top, left, bottom, right)
 	int	right;	/* right edge to be redrawn */
 {
 	int	row, column, same, base, nonblank;
-	MARKBUF m;
 	long	firstline, lastline;
 
 	assert(win != NULL && top >= 0 && left >= 0 && bottom < o_lines(win)
@@ -159,10 +163,10 @@ void drawexpose(win, top, left, bottom, right)
 		if (win->md->move == dmnormal.move)
 		{
 			/* find line numbers of first and last lines shown */
-			firstline = markline(marktmp(m, markbuffer(win->cursor), win->di->topline)) - 1;
-			lastline = markline(marktmp(m, markbuffer(win->cursor), win->di->bottomline)) - 1;
+			firstline = markline(win->di->topmark) - 1;
+			lastline = markline(win->di->bottommark) - 1;
 
-			/* Some scrolling commands temporarily set bottomline
+			/* Some scrolling commands temporarily set bottommark
 			 * to the end of the buffer.  Ordinarily this causes
 			 * no problems, but if an expose event occurs before
 			 * the screen is redrawn, the the scrollbar's "thumb"
@@ -181,8 +185,8 @@ void drawexpose(win, top, left, bottom, right)
 		}
 		else
 		{
-			(*gui->scrollbar)(win->gw, win->di->topline,
-				win->di->bottomline, win->di->curnbytes);
+			(*gui->scrollbar)(win->gw, markoffset(win->di->topmark),
+				markoffset(win->di->bottommark), win->di->curnbytes);
 		}
 	}
 	guiflush();
@@ -1224,9 +1228,10 @@ static BOOLEAN drawquick(win)
 	    !win->md->canopt ||					/* display mode doesn't support optimization */
 	    di->logic != DRAW_NORMAL ||				/* last command made a subtle change */
 	    di->drawstate != DRAW_VISUAL ||			/* screen doesn't already show image */
+	    markbuffer(win->cursor)!=markbuffer(di->topmark) ||	/* cursor is in different buffer */
 	    di->curchgs != markbuffer(win->cursor)->changes ||	/* last command made a normal change */
-	    cursoff < di->topline ||				/* cursor off top of screen */
-	    cursoff >= di->bottomline ||			/* cursor off bottom of screen */
+	    cursoff < markoffset(di->topmark) ||		/* cursor off top of screen */
+	    cursoff >= markoffset(di->bottommark) ||		/* cursor off bottom of screen */
 	    col < 0 ||						/* cursor off left edge of screen */
 	    col >= di->columns ||				/* cursor off right edge of screen */
 	    win->seltop)					/* visually selecting text */
@@ -1312,8 +1317,9 @@ void drawimage(win)
 	if (win->di->curbuf != markbuffer(win->cursor))
 	{
 		/* place the cursor's line at the center of the screen */
-		win->di->topline = markoffset(dispmove(win, -(o_lines(win) / 2), 0));
-		win->di->bottomline = o_bufchars(markbuffer(win->cursor));
+		markset(win->di->topmark, dispmove(win, -(o_lines(win) / 2), 0));
+		marksetbuffer(win->di->bottommark, markbuffer(win->cursor));
+		marksetoffset(win->di->bottommark, o_bufchars(markbuffer(win->cursor)));
 		win->di->logic = DRAW_CENTER;
 		win->di->curbuf = markbuffer(win->cursor);
 	}
@@ -1325,8 +1331,8 @@ void drawimage(win)
 	}
 
 	/* setup, and choose a starting point for the drawing */
-	next = (*win->md->setup)(win, marktmp(first, markbuffer(win->cursor), win->di->topline),
-		markoffset(win->cursor), marktmp(last, markbuffer(win->cursor), win->di->bottomline), win->mi);
+	next = (*win->md->setup)(win, win->di->topmark,
+		markoffset(win->cursor), win->di->bottommark, win->mi);
 	thiswin = win;
 	thiscell = 0;
 	thiscol = 0;
@@ -1390,7 +1396,7 @@ void drawimage(win)
 		wantcurs = win->di->rows;
 
 	/* draw each line until we reach the last row */
-	win->di->topline = markoffset(next);
+	markset(win->di->topmark, next);
 	for (row = 0; thiscell < maxcell || win->di->cursrow < 0 || (win->di->cursrow > wantcurs && markoffset(next) < o_bufchars(markbuffer(win->cursor))); )
 	{
 		/* set column limits, taking o_sidescroll into consideration */
@@ -1462,7 +1468,7 @@ void drawimage(win)
 			}
 		}
 	}
-	win->di->bottomline = markoffset(next);
+	markset(win->di->bottommark, next);
 	assert(linesshown > 0 && linesshown <= maxrow);
 
 	/* update the scrollbar */
@@ -1496,8 +1502,8 @@ void drawimage(win)
 	 * efficiently next time.
 	 */
 	win->di->logic = nextlogic;
-	win->di->topline = win->di->newline[0].start;
-	win->di->bottomline = markoffset(next);
+	marksetoffset(win->di->topmark, win->di->newline[0].start);
+	markset(win->di->bottommark, next);
 	win->di->nlines = linesshown;
 	win->di->curnbytes = o_bufchars(markbuffer(next));
 	win->di->curchgs = markbuffer(next)->changes;
@@ -2051,4 +2057,39 @@ void drawextext(win, text, len)
 			(*gui->flush)();
 		}
 	}
+}
+
+/* This is like drawextext, except that here we're careful about making
+ * control characters (other than newline) visible.
+ */
+void drawexlist(win, text, len)
+	WINDOW	win;	/* window where ex output should be drawn */
+	CHAR	*text;	/* text to be output */
+	int	len;	/* length of text */
+{
+	CHAR	buf[2];
+	int	from, to;
+
+	/* divide the text into segments of all-printable characters, or
+	 * or individual non-printable characters.
+	 */
+	for (from = to = 0; to < len; to++)
+	{
+		if (text[to] != '\n' && iscntrl(text[to]))
+		{
+			/* draw the last printable segment, if any */
+			if (from < to)
+				drawextext(win, &text[from], to - from);
+			from = to + 1;
+
+			/* draw this control char in a printable format */
+			buf[0] = '^';
+			buf[1] = text[to] ^ '@';
+			drawextext(win, buf, 2);
+		}
+	}
+
+	/* if we ended with a printable segment, then draw it now */
+	if (from < to)
+		drawextext(win, &text[from], to - from);
 }

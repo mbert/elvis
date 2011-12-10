@@ -1,7 +1,7 @@
 /* optglob.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_optglob[] = "$Id: optglob.c,v 2.66 1999/02/06 22:31:24 steve Exp $";
+char id_optglob[] = "$Id: optglob.c,v 2.67 1999/10/05 19:13:34 steve Exp $";
 
 /* This file contains gobal options for the portable parts of elvis. */
 
@@ -95,8 +95,9 @@ static OPTDESC ogdesc[] =
 	{"true", "True",	optsstring,	optisstring	},
 	{"false", "False",	optsstring,	optisstring	},
 	{"animation", "anim",	optnstring,	optisnumber,	"1:100"},
-	{"completebinary", "cob", NULL,		NULL,		"15:100"},
+	{"completebinary", "cob", NULL,		NULL		},
 	{"optionwidth", "ow",	optnstring,	optisnumber,	},
+	{"smarttab", "sta",	NULL,		NULL		},
 	/* added these for the sake of backward compatibility : */
 	{"more", "mo",		NULL,		NULL		},
 	{"timeout", "to",       NULL,		NULL		},

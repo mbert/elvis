@@ -90,13 +90,13 @@ BOOLEAN blkopen(BOOLEAN force, BLK *buf)
 	{
 		if (errno == ENOENT)
 		{
-			fd = _open(o_session, _O_RDWR|_O_CREAT|_O_EXCL|_O_BINARY, 0600);
+			fd = _open(tochar8(o_session), _O_RDWR|_O_CREAT|_O_EXCL|_O_BINARY, 0600);
 			if (fd >= 0)
 			{
 				if (_write(fd, (char *)buf, (unsigned)o_blksize) < o_blksize)
 				{
 					_close(fd);
-					remove(o_session);
+					remove(tochar8(o_session));
 					fd = -1;
 					errno = ENOENT;
 				}

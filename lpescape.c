@@ -1,7 +1,7 @@
 /* lpescape.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_lpescape[] = "$Id: lpescape.c,v 2.14 1997/10/05 19:06:12 steve Exp $";
+char id_lpescape[] = "$Id: lpescape.c,v 2.16 1999/10/05 19:10:37 steve Exp $";
 
 
 /* This file contains a driver for printer types which use escape sequences
@@ -30,7 +30,8 @@ static char *codes[][9] =
 /*pana*/ {"E",	"F",	"-1",	"-0",	"4",	"5",	    "\033t1",	"\033t0",   "\300\301\331\303\305\264\332\302\277\304\263\371"},
 /*ibm*/	 {"E",	"F",	"-1",	"-0",	"4",	"5",	    NULL,	NULL,	    "\300\301\331\303\305\264\332\302\277\304\263\371"},
 /*hp*/	 {"(s3B","(s0B","&d1D",	"&d@",	"(s1S",	"(s0S",	    "\033(10U",	NULL,	    "\300\301\331\303\305\264\332\302\277\304\263\371"},
-/*dumb*/ {NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	    NULL,	NULL,	    "+++++++++-|*"}
+/*dumb*/ {NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	    NULL,	NULL,	    "+++++++++-|*"},
+/*html*/ {"<b>","</b>",	"<u>",	"</u>",	"<i>",	"</i>",	    "<html><body><pre>",	"</pre></body></html>\n",    "+++++++++-|*"}
 };
 
 /* This table is used for converting Latin-1 characters to PC-8 characters.
@@ -81,7 +82,8 @@ static void endfont()
 	}
 	if (scan)
 	{
-		(*prtchar)('\033');
+		if (*scan != '<')
+			(*prtchar)('\033');
 		while (*scan)
 		{
 			(*prtchar)((_CHAR_)*scan);
@@ -112,11 +114,15 @@ static void before(minorno, draw)
 		(*prtchar)((_CHAR_)*scan);
 	}
 
-	/* if the file appears to use Latin-1, and the lpconvert option is set,
-	 * then set the convert pointer to point to the topc8[] array; else
-	 * set the convert pointer to NULL.
+	/* If the file appears to use Latin-1, and the lpconvert option is set,
+	 * and the printer type is a real printer (not "html") then set the
+	 * convert pointer to point to the topc8[] array; else set the convert
+	 * pointer to NULL.
 	 */
-	if (o_lpconvert && digraph('A', 'E') == 0xc6)
+	if (o_lpconvert
+	 && digraph('A', 'E') == 0xc6
+	 && *codes[ptype]
+	 && **codes[ptype] != '<')
 	{
 		convert = topc8;
 	}
@@ -152,7 +158,8 @@ static void fontch(font, ch)
 		}
 		if (scan)
 		{
-			(*prtchar)('\033');
+			if (*scan != '<')
+				(*prtchar)('\033');
 			while (*scan)
 			{
 				(*prtchar)((_CHAR_)*scan);
@@ -188,7 +195,24 @@ static void fontch(font, ch)
 		ch = convert[ch - 0xa0];
 	}
 
-	/* output the character */
+	/* Output the character.  For HTML this may be tricky. */
+	if (*codes[ptype] && **codes[ptype] == '<')
+	{
+		if (ch == '<')
+			scan = "&lt;";
+		else if (ch == '>')
+			scan = "&gt";
+		else if (ch == '&')
+			scan = "&amp;";
+		else
+			scan = NULL;
+		if (scan)
+		{
+			while (*scan)
+				(*prtchar)(*scan++);
+			return;
+		}
+	}
 	(*prtchar)(ch);
 }
 
@@ -197,7 +221,8 @@ static void page(linesleft)
 	int	linesleft;	/* number of lines remaining on page */
 {
 	/* output a formfeed character */
-	(*prtchar)('\f');
+	if (*codes[ptype] && **codes[ptype] != '<')
+		(*prtchar)('\f');
 }
 
 /* This function is called at the end of the print job.  It can output a
@@ -216,7 +241,7 @@ static void after(linesleft)
 	}
 
 	/* and maybe output a formfeed, too */
-	if (o_lpformfeed)
+	if (o_lpformfeed && *codes[ptype] && **codes[ptype] != '<')
 	{
 		(*prtchar)((_CHAR_)'\f');
 	}
@@ -228,5 +253,6 @@ LPTYPE lppana =	{"pana", 1, True, before, fontch, page, after};
 LPTYPE lpibm =	{"ibm", 2, True, before, fontch, page, after};
 LPTYPE lphp =	{"hp", 3, True, before, fontch, page, after};
 LPTYPE lpdumb =	{"dumb", 4, True, before, fontch, page, after};
+LPTYPE lphtml =	{"html", 5, True, before, fontch, page, after};
 
 #endif /* FEATURE_LPR */

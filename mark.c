@@ -1,7 +1,7 @@
 /* mark.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_mark[] = "$Id: mark.c,v 2.13 1998/11/21 01:34:45 steve Exp $";
+char id_mark[] = "$Id: mark.c,v 2.14 1999/10/08 18:04:29 steve Exp $";
 
 #include "elvis.h"
 
@@ -147,13 +147,28 @@ void markadjust(from, to, delta)
 
 /* Find the line number of a mark.  This is defined as being the number of
  * newlines preceding the mark, plus 1.  Note that this is not necessarily
- * how the edit mode defines lines.
+ * how the display mode defines lines.
  */
 long markline(mark)
 	MARK	mark;	/* mark to be converted */
 {
-	long	lnum;
+#if 1
+ static long	lnum;
+ static	MARKBUF	prevmark;
+ static long	prevchanges;
 
+	/* try to avoid calling lowoffset(), since that function is slow */
+	if (markbuffer(mark) == markbuffer(&prevmark)
+	 && markoffset(mark) == markoffset(&prevmark)
+	 && markbuffer(mark)->changes == prevchanges)
+		return lnum;
+
+	/* remember info so we can maybe optimize the next call */
+	prevmark = *mark;
+	prevchanges = markbuffer(mark)->changes;
+#else
+	long	lnum;
+#endif
 	(void)lowoffset(bufbufinfo(markbuffer(mark)), markoffset(mark), NULL, NULL, NULL, &lnum);
 	return lnum;
 }

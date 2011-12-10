@@ -1,7 +1,7 @@
 /* lowbuf.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_lowbuf[] = "$Id: lowbuf.c,v 2.31 1998/11/25 01:28:06 steve Exp $";
+char id_lowbuf[] = "$Id: lowbuf.c,v 2.32 1999/10/01 19:39:27 steve Exp $";
 
 /* This file contains functions which divide the session file into several
  * buffers.  These functions use session.c, and are used by buffer.c
@@ -888,19 +888,21 @@ long lowline(bufinfo, lineno)
  *	  value will be 0.
  */
 BLKNO lowoffset(bufinfo, offset, left, right, lptr, linenum)
-	_BLKNO_	bufinfo;	/* BUFINFO of the lowbuf */
-	long	offset;		/* offset into the buffer */
-	COUNT	*left;		/* output: number of preceding bytes in CHARS block */
-	COUNT	*right;		/* output: number of following bytes in CHARS block */
-	LBLKNO	*lptr;		/* output: logical block number of CHARS block */
-	long	*linenum;	/* output: line number */
+	_BLKNO_	bufinfo; /* BUFINFO of the lowbuf */
+	long	offset;	 /* offset into the buffer */
+	COUNT	*left;	 /* output: number of preceding bytes in CHARS block */
+	COUNT	*right;	 /* output: number of following bytes in CHARS block */
+	LBLKNO	*lptr;	 /* output: logical block number of CHARS block */
+	long	*linenum;/* output: line number */
 {
 	BLKNO	blklist;/* used for stepping from one blklist to next */
 	BLKNO	next;	/* the next blklist block, after this one */
 	LBLKNO	lblkno;	/* counts overall LBLKNO of the given offset */
 	long	lnum;	/* counts newlines */
+	BLK	*blk;	/* contents of a bufinfo or blklist block */
 	register int	i;	/* used for scanning through blklist.blk[] */
-	register BLK	*blk;	/* contents of a bufinfo or blklist block */
+	register struct blki_s *blki;
+	BLKNO	maxblklist = SES_MAXBLKLIST;
 
 	/* treat negative offsets as 0 */
 	if (offset < 0)
@@ -926,24 +928,26 @@ BLKNO lowoffset(bufinfo, offset, left, right, lptr, linenum)
 	}
 
 	/* for each blklist... */
-	for (lblkno = 0, lnum = 1; ; lblkno += SES_MAXBLKLIST, blklist = next)
+	for (lblkno = 0, lnum = 1; ; lblkno += maxblklist, blklist = next)
 	{
 		assert(blklist != 0);
 
 		/* for each element of blklist->blk[]... */
 		seslock(blklist, False, SES_BLKLIST);
 		blk = sesblk(blklist);
-		for (i = 0; i < SES_MAXBLKLIST && blk->blklist.blk[i].blkno; lnum += blk->blklist.blk[i].nlines, i++)
+		for (i = 0, blki = blk->blklist.blk;
+		     i < maxblklist && blki->blkno;
+		     lnum += blki->nlines, i++, blki++)
 		{
 			/* see if we've found it yet */
-			offset -= blk->blklist.blk[i].nchars;
+			offset -= blki->nchars;
 			if (offset < 0L)
 			{
-				/* return the info */
-				next = blk->blklist.blk[i].blkno;
+				/* Yes!  Return the info */
+				next = blki->blkno;
 				sesunlock(blklist, False);
 				if (lptr) *lptr = lblkno + i;
-				i = offset + blk->blklist.blk[i].nchars;
+				i = offset + blki->nchars;
 				if (left) *left = i;
 				if (right) *right = -offset;
 				if (linenum)
@@ -966,7 +970,7 @@ BLKNO lowoffset(bufinfo, offset, left, right, lptr, linenum)
 
 		/* find the next blklist */
 		next = blk->blklist.next;
-		assert(!next || i == SES_MAXBLKLIST);
+		assert(!next || i == maxblklist);
 		if (!next)
 		{
 			/* there is no next blklist block -- do the "*right = 0" * thing.  */

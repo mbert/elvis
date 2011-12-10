@@ -1,7 +1,7 @@
 /* window.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_window[] = "$Id: window.c,v 2.49 1999/02/26 21:29:29 steve Exp $";
+char id_window[] = "$Id: window.c,v 2.50 1999/10/08 18:04:29 steve Exp $";
 
 #include "elvis.h"
 
@@ -187,7 +187,7 @@ WINDOW winalloc(gw, gvals, buf, rows, columns)
 	newp->wrapmargin.value.pointer = (void *)newp;
 
 	/* allocate storage space for the screen images */
-	newp->di = (DRAWINFO *)drawalloc((int)rows, (int)columns);
+	newp->di = (DRAWINFO *)drawalloc((int)rows, (int)columns, newp->cursor);
 
 	/* choose the default display mode */
 	if (!dispset(newp, tochar8(o_bufdisplay(buf))))
@@ -362,7 +362,7 @@ void winresize(win, rows, columns)
 	long	rows;	/* new height of the window */
 	long	columns;/* new width of the window */
 {
-	long	oldtop;
+	MARKBUF	oldtop;
 
 	/* update the options */
 	o_lines(win) = rows;
@@ -373,13 +373,9 @@ void winresize(win, rows, columns)
 	}
 
 	/* free the old screen image, and allocate a new one */
-	oldtop = win->di->topline;
+	oldtop = *win->di->topmark;
 	drawfree(win->di);
-	win->di = drawalloc((int)rows, (int)columns);
-
-	/* try to keep the old top row for the next refresh */
-	win->di->topline = oldtop;
-	win->di->bottomline = markoffset(win->cursor);
+	win->di = drawalloc((int)rows, (int)columns, &oldtop);
 }
 
 /* Cause a different buffer to be associated with this window.  This function

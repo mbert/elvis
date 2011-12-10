@@ -1,7 +1,7 @@
 /* operator.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_operator[] = "$Id: operator.c,v 2.39 1997/12/22 20:09:37 steve Exp $";
+char id_operator[] = "$Id: operator.c,v 2.40 1999/10/07 16:23:58 steve Exp $";
 
 #include "elvis.h"
 
@@ -84,7 +84,7 @@ RESULT opfilter(from, to, prog)
 	 * non-zero exit status then return RESULT_ERROR (but still leave
 	 * the effects of the attempted filter run in the edit buffer).
 	 */
-	return prgclose() == 0 ? RESULT_COMPLETE : RESULT_ERROR;
+	return (gui->prgclose ? (*gui->prgclose)() : prgclose()) == 0 ? RESULT_COMPLETE : RESULT_ERROR;
 }
 
 

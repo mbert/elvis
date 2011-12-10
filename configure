@@ -31,7 +31,8 @@
 #	 xenix			ancient SCO Xenix-386 systems
 #	 sco			SCO UNIX or Open Desktop systems
 #	 bsd			typical BSD implementations
-#	 freebsd		freebsd is a specific BSD implementation
+#	 freebsd		FreeBSD is a specific BSD implementation
+#	 openbsd		OpenBSD is a specific BSD implementation
 #	 posix			generic POSIX implementations
 #	 cygwin			GNU utilities under Windows95/98/NT
 #        (anything else)	generic UNIX, including SysV
@@ -43,7 +44,7 @@
 
 # Set some defaults
 XINCPATH="/usr/include /usr/include/X11 /usr/X11/include /usr/local/X11/include /usr/openwin/include /usr/X11R6/include"
-XLIBPATH="/lib /usr/lib /usr/X11/lib /usr/local/X11/lib /usr/openwin/lib /usr/X11R6/lib "`echo "$LD_LIBRARY_PATH" | tr ':' ' '`
+XLIBPATH="/lib /usr/lib /usr/X11/lib /usr/local/X11/lib /usr/openwin/lib /usr/X11R6/lib /usr/ucblib /usr/ccs/lib /usr/local/lib "`echo "$LD_LIBRARY_PATH" | tr ':' ' '`
 GNUPATH=`echo "$PATH" | tr ':' ' '`
 BINDIR=/usr/local/bin
 LIBDIR=/usr/local/lib/elvis
@@ -55,6 +56,7 @@ WHY=""
 # Initialize some variables.  These aren't merely defaults; don't change them!
 args=""
 XLIBS=""
+NLIBS=""
 
 # Ultrix has a broken /bin/sh; it doesn't support shell functions.  Try to be
 # clever about running bash instead of /bin/sh there.
@@ -71,7 +73,7 @@ fi
 # This function echoes its arguments, but only if the --verbose flag is given
 why()
 {
-	if [ $WHY ]
+	if [ "$WHY" ]
 	then
 		echo "$@"
 	fi
@@ -109,8 +111,9 @@ usage()
 	echo "       --libs=STRING      non-X11 part of the LIBS= string in Makefile"
 	echo "       --ioctl=VARIETY    type of tty ioctl to use: termios, termio, or sgtty"
 	echo "       --verbose          explain any decisions made during configuration"
-	echo "system: linux, sunos, solaris, solaris2, freebsd, bsd, posix, aix, osf-1, hp-ux"
-	echo "        ultrix, qnx, irix, cygwin, xenix, sco (meaning SCO Unix or OpenDesktop)"
+	echo "system: linux, sunos, solaris, solaris2, freebsd, openbsd, bsd, posix,"
+	echo "        aix, osf-1, hp-ux, ultrix, qnx, irix, cygwin, xenix,"
+	echo "        sco (meaning SCO Unix or OpenDesktop)"
 	if [ "$*" ]
 	then
 		echo "$*"
@@ -210,7 +213,7 @@ then
 		why "   This is really '$SYS'"
 		;;
 
-	  linux|solaris|solaris2|aix|osf-1|ultrix|hp-ux|qnx|irix|xenix|sco|bsd|freebsd|posix|cygwin*)
+	  linux|solaris|solaris2|aix|osf-1|ultrix|hp-ux|qnx|irix*|xenix|sco|bsd|freebsd|openbsd|posix|cygwin*)
 		why "   I know '$SYS' -- This should be easy!"
 		;;
 
@@ -403,13 +406,28 @@ fi
 if [ $PROTOCOL_HTTP = define -o $PROTOCOL_FTP = define ]
 then
 	why "Does this system support inet_aton()?"
-	if fgrep inet_aton /usr/include/arpa/inet.h </dev/null >/dev/null
+	if [ "$SYS" = sunos -o "$SYS" = solaris -o "$SYS" = solaris2 ]
+	then
+		why "   Assuming no, because this is a Sun system."
+		NEED_INET_ATON=define
+	elif fgrep inet_aton /usr/include/arpa/inet.h </dev/null >/dev/null
 	then
 		why "   Assuming yes, because it is declared in <arpa/inet.h>"
 		NEED_INET_ATON=undef
 	else
 		why "   Assuming no, because it isn't declared in <arpa/inet.h>"
 		NEED_INET_ATON=define
+	fi
+fi
+if [ $NEED_INET_ATON = undef ]
+then
+	why "Does this system require -lresolv to use inet_aton()?"
+	if [ "`searchpath libresolv.a $XLIBPATH`" = "" ]
+	then
+		why "   Assuming no, because I couldn't find libresolv.a"
+	else
+		why "   Assuming yes, because I found libresolv.a"
+		NLIBS="$NLIBS -lresolv"
 	fi
 fi
 why "Does this system support memmove()?"
@@ -521,7 +539,7 @@ case "$SYS" in
 	fi
 	if [ -f /usr/ccs/lib/libtermcap.a ]
 	then
-		why "For Solaris2, -ltermcap is usually not necessary but since you have and and"
+		why "For Solaris2, -ltermcap is usually not necessary but since you have one and"
 		why "   it is harmless, I'll add it."
 		TLIBS="$TLIBS -ltermcap"
 	fi
@@ -572,6 +590,11 @@ case "$SYS" in
   *freebsd*)
 	why "For FreeBSD, we ignore the <sys/select.h> file"
 	NEED_SELECT_H="undef"
+	;;
+  *openbsd*)
+	why "For OpenBSD, we ignore the <sys/select.h> file"
+	NEED_SELECT_H="undef"
+	TLIBS="-lcurses"
 	;;
   *bsd*)
 	why "For BSD we like to use shlicc2 because it supports shared libraries"
@@ -666,7 +689,7 @@ then
 fi
 if [ "$LIBS" = "" ]
 then
-	LIBS=${TLIBS:--ltermcap}
+	LIBS="${TLIBS:--ltermcap} $NLIBS"
 fi
 case "$LIBS" in
   *ncurses*) NEED_BC=undef;;
@@ -868,7 +891,7 @@ sed -f $tmp Makefile.in >Makefile && rm $tmp
 # Some parting advice
 case "$SYS" in
   *solaris*|*sunos*)
-	if [ "$GUI_X11" = "define" ]
+	if [ "$GUI_X11" = "define" -a "$WHY" = y ]
 	then
 		xlibdir=`dirname "$xlib"`
 		case "$LD_LIBRARY_PATH" in

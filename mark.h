@@ -15,6 +15,7 @@ typedef struct mark_s
 #define markaddoffset(mark,o)	((mark)->offset += (o))
 #define markdup(mark)		markalloc(markbuffer(mark), markoffset(mark))
 #define marktmp(mbuf, buf, off)	((mbuf).buffer = (buf), (mbuf).offset = (off), &(mbuf))
+#define markset(mark,newmark)	(marksetbuffer(mark, markbuffer(newmark)), marksetoffset(mark, markoffset(newmark)))
 
 extern MARK namedmark[26];
 

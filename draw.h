@@ -45,8 +45,8 @@ typedef struct
 	CHAR	 *curchar;	/* characters of current image */
 	char	 *curfont;	/* fonts of current image */
 	long	 *offsets;	/* buffer offsets of each individual cell */
-	long	 topline;	/* offset of first line drawn */
-	long	 bottomline;	/* offset of line after last drawn */
+	MARK	 topmark;	/* first line drawn */
+	MARK	 bottommark;	/* line after last drawn */
 	BUFFER	 curbuf;	/* current buffer */
 	long	 curnbytes;	/* size of buffer when current image drawn */
 	long	 curchgs;	/* buffer's "changes" counter when image drawn */

@@ -799,10 +799,21 @@ It is the opposite of the ^F command.
 
 <dt>z <var>key</var>
 <dd><a name="z"></a>
-This command scrolls the current line to either the
-top (if <var>key</var> is "+"),
-middle (if <var>key</var> is "." or "z"),
-or bottom (if <var>key</var> is "-") of the window.
+This command scrolls to bring the current line to either the
+top (for <kbd>z+</kbd>)
+middle (for <kbd>z.</kbd>)
+or bottom (for <kbd>z-</kbd>) of the window.
+You can also precede this command with a line number, in which case the
+cursor is moved to that line before the scrolling takes place; e.g., 
+<code>98z+</code> will move the cursor to line 98 and then scroll as necessary
+to bring 98 to the top of the window.
+
+<p>Elvis also supports <kbd>zH</kbd>, <kbd>zM</kbd>, and <kbd>zL</kbd>
+as synonyms for those commands.
+These may be easier to remember, because they are somewhat analogous to
+the <a href="#H">H</a>, <a href="#M">M</a>, and <a href="#L">L</a> commands.
+In addition, <kbd>zz</kbd> is an easy-to-type synonym for scrolling a
+line to middle of the window.
 
 <dt><var>count</var> ^D
 <br><var>count</var> ^E

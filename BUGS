@@ -11,7 +11,69 @@ NOTE: Not all of these are truly bugs.  This file also serves as my "to do"
 list, so some items are just unimplemented features that sounded like a good
 idea at one time or another.
 
-* There appears to be a bug in scanning -- a scanned block is not necessarily
+-----------------------------------------------------------------------------
+Fixed (or not) in version 2.1_4:
+
+* Nested font changes don't always work correctly.  For example,
+  "<strong><a href=foo>FOO!</a></strong> bar?" displays "bar?" in the
+  strong font.  "<a href=foo><strong>Foo!</strong></a>" works though.
+
+/ The built-in calculator's shell() function gives an ugly error message
+  if the safer option is set.  It fails correctly; it simply looks ugly.
+
+/ POSIX says that ^F/^B should leave two lines overlapping, not just one
+
+/ POSIX says that $ should accept a count, and move forward (count-1) lines.
+
+/ Executing ":do source somefile", where somefile contains an inner :while
+  loop, messes up the condition for the outer loop.
+
+? The text-mode version of elvis sometimes has problems drawing characters
+  near the left edge of the window.  Apparently it gets confused about where
+  the cursor is located.
+
+	I've seen this on some occasions, but I not recently.  I've never
+	been able to reproduce it reliably.  Perhaps it was a side-effect
+	of some other bug?
+
+/ Under MS-DOS with TERM=nansi (and NANSI.SYS installed, of course) the screen
+  is shifted up one line.  TERM=ansi works, but doesn't use nansi efficiently.
+
+/ For gui="x11", if a window scrolls while some other window has pointer
+  focus, then the cursor isn't drawn.  This is important when, e.g., you
+  use a dialog to search for text.
+
+/ When the same buffer is shown in two windows, inserting text into one
+  window can cause the other to scroll.  This seems to occur only when
+  the location of the change is above the top line of the other window.
+
+	Apparently what's happening is this: In a series of blank lines,
+	(i.e., lines which contain only a newline character), after any
+	character is inserted before line n, line n-1 has the same offset
+	than line n used to have, so the window update functions assume
+	that line n-1 is really still line n, so it shows line n-1 at the
+	top of the window instead of line n.
+
+	Probably the win->di->topline variable, which is currently a long
+	which stores an offset, should be replaced with a MARK.  Since
+	MARKs are updated when a buffer changes, this should fix it.
+
+* Given a URL such as "../untar.c", referenced from "/pub/elvis/unreleased",
+  elvis 2.1_3 tries to fetch "/pub/elvis/unreleased/../untar.c", but it *MUST*
+  be normalized as "/pub/elvis/untar.c" -- i.e., delete instances of "dir/../".
+  Some web servers depend on this.
+
+? In "html" mode, if a single displayed line contains more than one link,
+  elvis always seems to follow the *last* link regardless of which one you
+  click on.  This is bad for some menu bars.
+
+	Actually, this only seems to occur when multiple images appear
+	on a line, and you want to download one of the images.  For
+	real links, elvis works correctly.
+
+	I took a stab at fixing this one.  It seems better now.
+
+? There appears to be a bug in scanning -- a scanned block is not necessarily
   being locked for the whole time that it should be, which means that it may
   be removed from the block cache, in which case NULL may be returned by some
   of the blkXXXX() functions.  Also, on at least one occasion elvis appeared
@@ -21,15 +83,60 @@ idea at one time or another.
 	recent attempts to make searches run faster by keeping at least one
 	scan context for the current location at all times.
 
-/ One user reported crashes in WinElvis when the "Options->syntax" menu item
-  is activated while in "syntax" display mode.
+	The FEATURE_LITRE bug is fixed; hopefully that fixes this too.
 
-* One user reported that elvis was sensitive to keystrokes during quitting.
+* There are still problems with running external programs under Win32.
+  The :make command doesn't work.  Also, the screen is sometimes messed up
+  after running a program.
+
+	I switched back to the older, more complex version of oswin32/osprg.c.
+	The only problem it has is that sometimes 16-bit filter programs don't
+	work correctly... but I just tested it again and that seems to work
+	now.  Anyway, 16-bit filters are less important than :make, so I'm
+	keeping the older version.
+
+/ When viewing an HTML document at a URL such as "http://foo/bar.html?boo/far",
+  containing a link to "zot.html", elvis will resolve that link to be to
+  "http://foo/bar.html?boo/zot.html", but it should be "http://foo/zot.html".
+
+  Similarly, I suspect that fileext() fails on URLs like that.
+
+/ Hitting ^] on an operator doesn't search for an "operatorXX" tag?  I
+  thought it did.
+
+	It appears to work now.  I don't know why it didn't work before.
+
+/ The alias.c program (which is compiled as vi.exe, ex.exe, and view.exe)
+  has been reported to cause problems under WindowsNT, and more recently
+  under Windows98 as well.
+
+	It appears that a Microsoft has introduced a bug into their versions
+	of the "exec" system calls.  I switched to "spawn", which waits a
+	little RAM but seems to work correctly.
+
+/ Under Windows95/98/NT, the "Terminal" font has funny spacing and sometimes
+  characters overlap each other.
+
+	This is a bug in the font, not in elvis.  Elvis only supports
+	fixed-pitch fonts, and although "Terminal" claims to be fixed-pitch,
+	it is really a variable-pitch font.
+
+/ Control chars in an alias aren't displayed in a printable form by the
+  :alias command.  ":alias clean s/.^H//g" looks like "alias clean s///g".
+
+/ Add VIM's "smarttab" option -- <Tab> keys at the beginning of a line act
+  like ^T, so they indent by the shiftwidth amount using a combination of
+  tabs and spaces.  <Tab> keys elsewhere in a line are real tabs.
+
+/ One user reported that elvis was sensitive to keystrokes during quitting.
   I suspect that gui->poll was being called while the file was being written
   (possibly just when written via FTP).  That write should not be quittable.
 
-* Under MS-DOS with TERM=nansi (and NANSI.SYS installed, of course) the screen
-  is shifted up one line.  TERM=ansi works, but doesn't use nansi efficiently.
+------------------------------------------------------------------------------
+Fixed in 2.1_3
+
+/ One user reported crashes in WinElvis when the "Options->syntax" menu item
+  is activated while in "syntax" display mode.
 
 / Can't identify tags whose whose contains a new-style comment.  Apparently
   the tag-selector can't parse \/\/ in an regular expression.
@@ -318,57 +425,8 @@ Fixed in 2.1j-beta....
 / Make elvis.arf strip off the perl version number from #!/usr/bin/perl-XXXX
   lines.  This makes syntax easier to recognize.
 -------------
-* Under X11, the XV button doesn't work.  It reports that the temporary
-  file is empty.
-
-	The XV button does ":w !xv - >/dev/null 2>&1 &".  The "x11" user
-	interface runs xv as a filter, so it can show the program's output
-	in the elvis window.  Since xv doesn't output anything useful, I
-	tried to avoid that by running it in the background.  However,
-	since pipes can fill up, elvis uses a temporary file for the filter's
-	stdin, and a pipe to read its stdout.  Running a program in the
-	background like this causes elvis to read EOF from the filter's
-	stdout immediately, so elvis immediately clobbers the temp file.
-	The filter (xv) sees no data on its stdin.  (Actually this is a
-	little surprising since elvis doesn't truncate the file; it deletes
-	it.  A deleted file is *supposed* to remain allocated until the
-	last file descriptor on it is closed.)
-
-	The short-term fix is to avoid running filters in the background.
-
-	The long-term fix is to make the "x11" interface smarter about
-	running programs in the background, so it can use a pipe for stdin;
-	This would also allow the removal of ">/dev/null 2>&1".
-
 * If xcurses exists, it should probably be used in preference to curses.
   (This would be a change to the "configure" script.)
-
-* In "html" mode, if a single displayed line contains more than one link,
-  elvis always seems to follow the *last* link regardless of which one you
-  click on.  This is bad for some menu bars.
-
-	Actually, this only seems to occur when multiple images appear
-	on a line, and you want to download one of the images.  For
-	real links, elvis works correctly.  This bug can wait until
-	after 2.1 is done.
-
-* For gui="x11", if a window scrolls while some other window has pointer
-  focus, then the cursor isn't drawn.  This is important when, e.g., you
-  use a dialog to search for text.
-
-* When the same buffer is shown in two windows, inserting text into one
-  window can cause the other to scroll.  This seems to occur only when
-  the location of the change is above the top line of the other window.
-
-	Apparently what's happening is this: In a series of blank lines,
-	(i.e., lines which contain only a newline character), after any
-	character is inserted before line n, line n-1 has the same offset
-	than line n used to have, so the window update functions assume
-	that line n-1 is really still line n, so it shows line n-1 at the
-	top of the window instead of line n.
-
-* Hitting ^] on an operator doesn't search for an "operatorXX" tag?  I
-  thought it did.
 
 ? Elvis gets confused if you load a URL which has no filename component,
   such as "http://www.yahoo.com".  Adding a trailing slash avoids that.
@@ -680,7 +738,7 @@ Fixed in 2.1j-beta....
 	> like deducing them.  What do you want to be done?
 
 	Apparently elvis needs to inspect the session's low-level buffers more
-	carefully before I restore them.  In your session file, there is a
+	carefully before restoring them.  In your session file, there is a
 	low-level buffer (at block 52) which contains a reference to a bogus
 	block number, and that's preventing you from restarting elvis to
 	recover the other buffers in that session file.
@@ -760,7 +818,7 @@ Fixed in 2.1j-beta....
 
 	In addition, a potential bug in the termcap interface was fixed.
 
-* Some crashes/hangs have been reported under Linux.  These may have something
+? Some crashes/hangs have been reported under Linux.  These may have something
   to do with <u> and <Shift-U> commands.  Usually there are no clues, but at
   least twice the buffer filled with ^@ characters.  Reported by Steve Woodard,
   woodard@kodakr.kodak.com
@@ -871,9 +929,6 @@ Fixed in 2.1j-beta....
 
 * In the installation routine, create links named "vi", "ex", and "view".
   Similarly, supply .BAT files or something for Win32.
-
-* Some problems have been reported while trying to recover files.  Either
-  there's a bug, or I need to improve the documentation.
 
 * Ctags doesn't produce "Mfilename" tags for main() functions in filename.c
 

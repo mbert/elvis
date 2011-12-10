@@ -287,6 +287,7 @@ static void lookup(tag)
 	long	taglnum;/* line number of number tag address, or 0 */
 	char	*tagline;/* text form of regexp tag address */
 	LINECLS	lc;	/* line classification */
+	int	len;
 	int	i;
 
 	/* open the file, or the "refs" file if the source file is unreadable */
@@ -321,6 +322,9 @@ static void lookup(tag)
 				t++;
 			*l++ = *t++;
 		}
+		len = (int)(l - tagline);
+		if (*t == '$')
+			len++;
 		*l = '\0';
 	}
 
@@ -328,7 +332,7 @@ static void lookup(tag)
 	for (lnum = 1, lc = LC_COMPLETE; (line = getline(fp)) != NULL; lnum++)
 	{
 		/* is this the tag definition? */
-		if (taglnum > 0 ? taglnum == lnum : !strcmp(tagline, line))
+		if (taglnum > 0 ? taglnum == lnum : !strncmp(tagline, line, len))
 		{
 			/* output the tag location */
 			if (!omit_comment_lines)

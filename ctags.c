@@ -1,6 +1,6 @@
 /* ctags.c */
 
-char id_ctags[] = "$Id: ctags.c,v 2.23 1999/02/26 21:31:41 steve Exp $";
+char id_ctags[] = "$Id: ctags.c,v 2.25 1999/10/06 19:10:45 steve Exp $";
 
 /* This is a reimplementation of the ctags(1) program.  It supports ANSI C,
  * and has heaps o' flags.  It is meant to be distributed with elvis.
@@ -49,7 +49,7 @@ char id_ctags[] = "$Id: ctags.c,v 2.23 1999/02/26 21:31:41 steve Exp $";
 extern void	file_open P_((char *));
 extern int	file_getc P_((void));
 extern void	file_ungetc P_((int));
-extern void	file_copyline P_((long, FILE *, char *));
+extern int	file_copyline P_((long, FILE *, char *));
 extern void	cpp_open P_((char *));
 extern void	cpp_echo P_((int));
 extern int	cpp_getc P_((void));
@@ -58,7 +58,7 @@ extern int	lex_gettoken P_((void));
 extern void	maketag P_((int, char *, long, long, int, char *));
 extern void	ctags P_((char *));
 extern void	usage P_((void));
-extern void	main P_((int, char **));
+extern int	main P_((int, char **));
 
 
 #if defined (GUI_WIN32)
@@ -102,7 +102,7 @@ char	hint_class[200];/* class name, for tags preceeded by a name and :: */
 
 /* -------------------------------------------------------------------------- */
 /* display a fatal error message from safe.c */
-#ifdef USE_PROTOTYPES
+#if USE_PROTOTYPES
 void msg(MSGIMP type, char *msg, ...)
 #else
 void msg(type, msg)
@@ -214,7 +214,7 @@ void file_ungetc(ch)
  *
  * This is meant to be used when generating a tag line.
  */
-void file_copyline(seek, fp, buf)
+int file_copyline(seek, fp, buf)
 	long	seek;	/* where the lines starts in the source file */
 	FILE	*fp;	/* the output stream to copy it to if buf==NULL */
 	char	*buf;	/* line buffer, or NULL to write to fp */
@@ -222,41 +222,54 @@ void file_copyline(seek, fp, buf)
 	long	oldseek;/* where the file's pointer was before we messed it up */
 	char	ch;	/* a single character from the file */
 	char	next;	/* the next character from this file */
+	char	*build;	/* where to store the next character */
 
 	/* go to the start of the line */
 	oldseek = ftell(file_fp);
 	fseek(file_fp, seek, 0);
 
 	/* write everything up to, but not including, the newline */
-	for (ch = getc(file_fp); ch != '\n' && ch != EOF; ch = next)
+	for (ch = getc(file_fp), build = buf; ch != '\n' && ch != EOF; ch = next)
 	{
+		/* if too many chars have been written already, then stop */
+		if (build && build >= &buf[160])
+		{
+			break;
+		}
+
 		/* preread the next character from this file */
 		next = getc(file_fp);
 
 		/* if character is '\', or a terminal '$', then quote it */
-		if (buf && (ch == '\\'
+		if (build && (ch == '\\'
 			   || ch == (backward ? '?' : '/')
 			   || (ch == '$' && next == '\n')))
 		{
-			*buf++ = '\\';
+			*build++ = '\\';
 		}
 
 		/* copy the character, unless it is a terminal '\r' */
 		if (ch != '\r' || next != '\n')
 		{
-			if (buf)
-				*buf++ = ch;
+			if (build)
+				*build++ = ch;
 			else
 				putc(ch, fp);
 		}
 	}
 
 	/* mark the end of the line */
-	if (buf)
-		*buf = '\0';
+	if (build)
+		*build = '\0';
 
 	/* seek back to the old position */
 	fseek(file_fp, oldseek, 0);
+
+	/* return 1 if it fit, 0 if it was truncated */
+	if (build && build >= &buf[160])
+		return 0;
+	else
+		return 1;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -772,7 +785,7 @@ void maketag(scope, name, lnum, seek, number, kind)
 	char	*kind;	/* token type of the tag: "f" for function, etc. */
 {
 	TAG	tag;	/* structure for storing tag info */
-	char	buf[200];
+	char	buf[300];
 	char	lnbuf[20];
 
 
@@ -801,8 +814,9 @@ void maketag(scope, name, lnum, seek, number, kind)
 		else
 		{
 			strcpy(buf, backward ? "?^" : "/^");
-			file_copyline(seek, NULL, buf + 2);
-			strcat(buf, backward ? "$?" : "$/");
+			if (file_copyline(seek, NULL, buf + 2))
+				strcat(buf, "$");
+			strcat(buf, backward ? "?" : "/");
 		}
 		tag.TAGADDR = buf;
 
@@ -1022,7 +1036,7 @@ void usage()
 
 
 
-void main(argc, argv)
+int main(argc, argv)
 	int	argc;
 	char	**argv;
 {

@@ -105,7 +105,7 @@ static char *termcap[] =
 "fansi",
 "nnansi",
 "nansi",
-":al=\033[L:dl=\033[M:AL=\033[%dL:DL=\033[%dM:am:xn:bs:ce=\033[K:cl=\033[2J:\
+":al=\033[L:dl=\033[M:AL=\033[%dL:DL=\033[%dM:am:bs:ce=\033[K:cl=\033[2J:\
 :cm=\033[%i%d;%dH:co#80:\
 :k1=#;:k2=#<:k3=#=:k4=#>:k5=#?:k6=#@:k7=#A:k8=#B:k9=#C:k0=#D:\
 :s1=#T:s2=#U:s3=#V:s4=#W:s5=#X:s6=#Y:s7=#Z:s8=#[:s9=#\\:s0=#]:\
@@ -114,7 +114,7 @@ static char *termcap[] =
 :kd=#P:kh=#G:kH=#O:kI=#R:kD=#S:kl=#K:kN=#Q:kP=#I:kr=#M:ku=#H:\
 :KL=#s:KR=#t:\
 :li#25:md=\033[1m:me=\033[m:nd=\033[C:se=\033[m:so=\033[7m:\
-:ue=\033[m:up=\033[A:us=\033[4m:\
+:ue=\033[m:up=\033[A:us=\033[4m:ti=\033[m:te=\033[m:\
 :ac=q\304x\263m\300v\301j\331t\303n\305u\264l\332w\302k\277:",
 
 "pcbios",
@@ -133,6 +133,7 @@ static char *termcap[] =
 
 #ifdef TERM_CONSOLE
 "console",
+"cygwin",
 ":al=\033[L:dl=\033[M:AL=\033[%dL:DL=\033[%dM:am:xn:bs:ce=\033[K:cl=\033[2J:\
 :cm=\033[%i%d;%dH:co#80:\
 :k1=#;:k2=#<:k3=#=:k4=#>:k5=#?:k6=#@:k7=#A:k8=#B:k9=#C:k0=#D:\
@@ -158,7 +159,7 @@ static char *termcap[] =
 :kd=#P:kh=#G:kH=#O:kI=#R:kD=#S:kl=#K:kN=#Q:kP=#I:kr=#M:ku=#H:\
 :KL=#s:KR=#t:\
 :li#25:md=\033[1m:me=\033[m:nd=\033[C:se=\033[m:so=\033[7m:\
-:ue=\033[m:up=\033[A:us=\033[4m:\
+:ue=\033[m:up=\033[A:us=\033[4m:ti=\033[m:te=\033[m:\
 :ac=q\304x\263m\300v\301j\331t\303n\305u\264l\332w\302k\277:",
 #endif
 

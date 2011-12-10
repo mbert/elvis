@@ -1,14 +1,14 @@
 /* exconfig.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_exconfig[] = "$Id: exconfig.c,v 2.84 1999/03/11 17:55:46 steve Exp $";
+char id_exconfig[] = "$Id: exconfig.c,v 2.87 1999/10/08 18:03:03 steve Exp $";
 
 #include "elvis.h"
 
 
 
-BOOLEAN	exthenflag;	/* set by ":if", tested by ":then" & ":else" */
-CHAR	*exdotest;	/* set by ":while", tested by ":do" */
+/* This variable stores the current state of ex's control structures. */
+EXCTLSTATE exctlstate;
 
 
 
@@ -33,7 +33,6 @@ static alias_t	*aliases;	/* This is the head of a list of aliases */
 /* look up a name in the alias list.  The name can be terminated with any
  * non-alphanumeric character, not just '\0'.  Return its name if alias,
  * or NULL otherwise.  Optionally ignore if already in use.
- i
  */
 char *exisalias(name, inuse)
 	char	*name;	/* name of a command, maybe an alias */
@@ -59,29 +58,29 @@ static void listalias(win, alias, shortformat)
 	CHAR	*start;
 	int	len;
 
-	drawextext(win, toCHAR(alias->name), strlen(alias->name));
+	drawexlist(win, toCHAR(alias->name), strlen(alias->name));
 	if (CHARchr(alias->command, '\n') == alias->command + CHARlen(alias->command) - 1)
 	{
 		/* single-line command simply follows the alias name */
-		drawextext(win, blanks, 10 - (CHARlen(alias->name) % 10));
-		drawextext(win, alias->command, CHARlen(alias->command));
+		drawexlist(win, blanks, 10 - (CHARlen(alias->name) % 10));
+		drawexlist(win, alias->command, CHARlen(alias->command));
 	}
 	else if (shortformat)
 	{
 		/* multi-line command, but only show first line */
-		drawextext(win, blanks, 10 - (CHARlen(alias->name) % 10));
+		drawexlist(win, blanks, 10 - (CHARlen(alias->name) % 10));
 		ch[0] = '{';
 		ch[1] = ' ';
-		drawextext(win, ch, 2);
+		drawexlist(win, ch, 2);
 		for (start = alias->command, len = 0;
 		     *start++ != '\n' && len < o_columns(win) - 16;
 		   len++)
 		{
 		}
-		drawextext(win, alias->command, len);
+		drawexlist(win, alias->command, len);
 		ch[0] = ch[1] = ch[2] = '.';
 		ch[3] = '\n';
-		drawextext(win, ch, 4);
+		drawexlist(win, ch, 4);
 	}
 	else
 	{
@@ -89,22 +88,22 @@ static void listalias(win, alias, shortformat)
 		ch[0] = ' ';
 		ch[1] = '{';
 		ch[2] = '\n';
-		drawextext(win, ch, 3);
+		drawexlist(win, ch, 3);
 		for (start = alias->command, len = 0; *start; len++)
 		{
 			if (start[len] == '\n')
 			{
-				drawextext(win, blanks, 10);
-				drawextext(win, start, len);
+				drawexlist(win, blanks, 10);
+				drawexlist(win, start, len);
 				ch[0] = '\n';
-				drawextext(win, ch, 1);
+				drawexlist(win, ch, 1);
 				start += len + 1;
 				len = -1; /* will be incremented to 0 by for()*/
 			}
 		}
 		ch[0] = '}';
 		ch[1] = '\n';
-		drawextext(win, ch, 2);
+		drawexlist(win, ch, 2);
 	}
 }
 
@@ -499,26 +498,26 @@ RESULT	ex_args(xinf)
 				; /* no space is needed */
 			else if (col + len + 4 > o_columns(xinf->window))
 			{
-				drawextext(xinf->window, toCHAR("\n"), 1);
+				drawexlist(xinf->window, toCHAR("\n"), 1);
 				col = 0;
 			}
 			else
 			{
-				drawextext(xinf->window, toCHAR(" "), 1);
+				drawexlist(xinf->window, toCHAR(" "), 1);
 				col++;
 			}
 
 			/* Output the arg.  If current, enclose in '[' */
 			if (i == argnext - 1)
-				drawextext(xinf->window, toCHAR("["), 1);
-			drawextext(xinf->window, toCHAR(arglist[i]), len);
+				drawexlist(xinf->window, toCHAR("["), 1);
+			drawexlist(xinf->window, toCHAR(arglist[i]), len);
 			if (i == argnext - 1)
-				drawextext(xinf->window, toCHAR("]"), 1);
+				drawexlist(xinf->window, toCHAR("]"), 1);
 			col += len;
 		}
 
 		/* the final newline */
-		drawextext(xinf->window, toCHAR("\n"), 1);
+		drawexlist(xinf->window, toCHAR("\n"), 1);
 	}
 	return RESULT_COMPLETE;
 }
@@ -997,7 +996,7 @@ RESULT	ex_if(xinf)
 	if (xinf->command == EX_IF)
 	{
 		/* set "exthenflag" based on result of evaluation */
-		exthenflag = calctrue(result);
+		exctlstate.thenflag = calctrue(result);
 		return RESULT_COMPLETE;
 	}
 	else /* command == EX_EVAL */
@@ -1021,17 +1020,17 @@ RESULT	ex_then(xinf)
 		return result;
 
 	/* For :try, execute the commands unconditionally and then set the
-	 * "exthenflag" to indicatge whether the command succeeded.  Otherwise
+	 * "exthenflag" to indicate whether the command succeeded.  Otherwise
 	 * (for :then and :else) execute the commands if "exthenflag" is set
 	 * appropriately
 	 */
 	if (xinf->command == EX_TRY)
 	{
 		washiding = msghide(True);
-		exthenflag = (BOOLEAN)(exstring(xinf->window, xinf->rhs, NULL) == RESULT_COMPLETE);
+		exctlstate.thenflag = (BOOLEAN)(exstring(xinf->window, xinf->rhs, NULL) == RESULT_COMPLETE);
 		(void)msghide(washiding);
 	}
-	else if (xinf->command == EX_THEN ? exthenflag : !exthenflag)
+	else if (xinf->command == EX_THEN ? exctlstate.thenflag : !exctlstate.thenflag)
 	{
 		result = exstring(xinf->window, xinf->rhs, NULL);
 	}
@@ -1043,6 +1042,11 @@ RESULT	ex_then(xinf)
 RESULT ex_while(xinf)
 	EXINFO	*xinf;
 {
+	/* If there was some other, unused test lying around, then free it. */
+	if (exctlstate.dotest)
+		safefree(exctlstate.dotest);
+	exctlstate.dotest = NULL;
+
 	/* expression is required */
 	if (!xinf->rhs)
 	{
@@ -1050,17 +1054,8 @@ RESULT ex_while(xinf)
 		return RESULT_ERROR;
 	}
 
-	/* If there was some other, unused test lying around, then free it.
-	 *
-	 * NOTE: while/do loops can be nested in certain circumstances.  Any
-	 * code which pushes an older while test onto the stack also sets
-	 * exdotest to NULL so this test won't free those tests.
-	 */
-	if (exdotest)
-		safefree(exdotest);
-
 	/* store the new test */
-	exdotest = xinf->rhs;
+	exctlstate.dotest = xinf->rhs;
 	xinf->rhs = NULL;
 	return RESULT_COMPLETE;
 }
@@ -1073,14 +1068,14 @@ RESULT ex_do(xinf)
 	RESULT	result = RESULT_COMPLETE;
 
 	/* if no :while was executed before this, then fail */
-	if (!exdotest)
+	if (!exctlstate.dotest)
 	{
 		msg(MSG_ERROR, "missing :while");
 		return RESULT_ERROR;
 	}
 
 	/* while the expression is true and valid... */
-	while ((value = calculate(exdotest, NULL, False)) != NULL
+	while ((value = calculate(exctlstate.dotest, NULL, False)) != NULL
 	    && calctrue(value))
 	{
 		/* Run the command.  If no command, then display result */
@@ -1098,8 +1093,8 @@ RESULT ex_do(xinf)
 	}
 
 	/* free the exdotest expression */
-	safefree(exdotest);
-	exdotest = NULL;
+	safefree(exctlstate.dotest);
+	exctlstate.dotest = NULL;
 
 	/* if test could not be evaluated, then this command fails */
 	if (!value)
@@ -1107,6 +1102,92 @@ RESULT ex_do(xinf)
 	return result;
 }
 
+
+/* Implements the :switch command -- evaluate an expression, and store the
+ * result for use in later :case statements.
+ */
+RESULT ex_switch(xinf)
+	EXINFO	*xinf;
+{
+	/* free the old switch value, if any */
+	if (exctlstate.switchvalue)
+		safefree(exctlstate.switchvalue);
+	exctlstate.switchvalue = NULL;
+	exctlstate.switchcarry = False;
+
+	/* verify that we were given an expression */
+	if (!xinf->rhs)
+	{
+		msg(MSG_ERROR, "missing rhs");
+		return RESULT_ERROR;
+	}
+
+	/* compute a new value */
+	exctlstate.switchvalue = calculate(xinf->rhs, NULL, False);
+	if (exctlstate.switchvalue)
+	{
+		exctlstate.switchvalue = CHARdup(exctlstate.switchvalue);
+		return RESULT_COMPLETE;
+	}
+	return RESULT_ERROR;
+}
+
+
+/* This implements the :case and :default commands.  It tests the value from
+ * a previous :switch command, and conditionally executes a command.
+ */
+RESULT ex_case(xinf)
+	EXINFO	*xinf;
+{
+	/* check syntax */
+	if (xinf->command == EX_CASE && !xinf->lhs)
+	{
+		msg(MSG_ERROR, "missing lhs");
+		return RESULT_ERROR;
+	}
+	if (xinf->command == EX_DEFAULT && !xinf->rhs)
+	{
+		msg(MSG_ERROR, "missing ex command");
+		return RESULT_ERROR;
+	}
+
+	/* if a previous case matched, then do nothing here... unless the
+	 * previous match had no ex command line, and is therefor trying to
+	 * execute this case's command line.
+	 */
+	if (!exctlstate.switchvalue && !exctlstate.switchcarry)
+		return RESULT_COMPLETE;
+
+	/* The :default command doesn't care about values, and we don't care
+	 * when a previous match had no ex command line eithe.  Otherwise we
+	 * need to check the :switch value against this case's value.
+	 */
+	if (!exctlstate.switchcarry && xinf->command != EX_DEFAULT)
+	{
+		if (CHARcmp(exctlstate.switchvalue, xinf->lhs))
+			/* no match, so skip this case */
+			return RESULT_COMPLETE;
+	}
+
+	/* It *DOES* match.  Clobber the exswitchvalue so each :switch will
+	 * only match (at most) one case.  This also allows is to detect
+	 * the default condition later.
+	 */
+	if (exctlstate.switchvalue)
+	{
+		safefree(exctlstate.switchvalue);
+		exctlstate.switchvalue = NULL;
+	}
+	exctlstate.switchcarry = False;
+
+	/* Execute the command for this case.  If there is no command, then
+	 * set a flag to indicate that the next case should match.
+	 */
+	if (xinf->rhs)
+		return exstring(xinf->window, xinf->rhs, NULL);
+	exctlstate.switchcarry = True;		
+	return RESULT_COMPLETE;
+}
 
 
 
@@ -1256,7 +1337,7 @@ MissingRHS:
 		}
 		if (*outbuf)
 		{
-			drawextext(windefault, outbuf, (int)CHARlen(outbuf));
+			drawexlist(windefault, outbuf, (int)CHARlen(outbuf));
 		}
 	}
 	return RESULT_COMPLETE;

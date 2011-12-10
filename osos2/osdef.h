@@ -69,7 +69,8 @@
 
 /*=============================================================================
  * This is the default path that elvis searches through when looking for its
- * support files.
+ * support files. This is *never* used, it gets overridden by code in osinit()
+ * on program startup. Call it `default for a default' :-)
  */
 #define OSLIBPATH	"e:\\usr\\lib\\elvis"
 

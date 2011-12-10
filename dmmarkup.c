@@ -1,7 +1,7 @@
 /* dmmarkup.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_dmmarkup[] = "$Id: dmmarkup.c,v 2.85 1999/06/15 04:18:16 steve Exp $";
+char id_dmmarkup[] = "$Id: dmmarkup.c,v 2.87 1999/10/05 19:14:08 steve Exp $";
 
 /* This file contains some fairly generic text formatting code -- generic
  * in the sense that it can be easily tweaked to format a variety of types
@@ -1170,7 +1170,8 @@ static CHAR *htmltagatcursor(win, cursor)
 	{
 		scanalloc(&p, marktmp(tmp, markbuffer(cursor), mui->line[i].offset));
 		anyviz = False;
-		while ((token = htmlget(&p)) != NULL && (!anyviz || token->offset[0] < endoffset))
+		while ((token = htmlget(&p)) != NULL
+				&& (!anyviz || token->offset[0] < endoffset))
 		{
 			if (!token->markup)
 			{
@@ -1183,7 +1184,8 @@ static CHAR *htmltagatcursor(win, cursor)
 			 || !CHARncmp(token->text, toCHAR("<frame "), 7)
 			 || !CHARncmp(token->text, toCHAR("<htmlurl "), 9)
 			 || !CHARncmp(token->text, toCHAR("<ulink "), 7)
-			 || (anchor.text[1] == '/' && !CHARncmp(token->text, toCHAR("<img "), 5)))
+			 || (anchor.text[1] == '/'
+				&& !CHARncmp(token->text, toCHAR("<img "), 5)))
 			{
 				anchor = *token;
 				anyviz = False;
@@ -1192,7 +1194,9 @@ static CHAR *htmltagatcursor(win, cursor)
 				anyviz = True;
 		}
 		scanfree(&p);
+#if 0
 		endoffset = mui->line[i].offset;
+#endif
 	} while (anchor.text[0] == 0 && --i >= 0);
 
 	/* If we found an <a ...> tag, then generate a dynamically-allocated
@@ -1336,7 +1340,20 @@ static MARK htmltagload(tagname, from)
 	 	|| urllocal(tochar8(o_filename(markbuffer(from))))
 	 			!= tochar8(o_filename(markbuffer(from))) ))
 	{
+		/* get the directory part of the origin name */
 		inherit = dirdir(tochar8(o_filename(markbuffer(from))));
+
+		/* if it contains '?' or '#' then lop that off and try again */
+		if ((tmp = strchr(inherit, '?')) != NULL
+		 || (tmp = strchr(inherit, '#')) != NULL)
+		{
+			*tmp = '\0';
+			inherit = dirdir(inherit);
+		}
+
+		/* if the inherit string contains a pathname, and the new URL
+		 * doesn't, then combine the new URL with the inherit pathname.
+		 */
 		if (strlen(inherit) > 2
 		 && inherit[strlen(inherit) - 1] == '/'
 		 && !urllocal(tochar8(o_filename(markbuffer(from)))))
@@ -2548,8 +2565,8 @@ static twrap_t textitle(token)
 		font = 'b';
 		break;
 
-	  case 't':	/* \secTion{} */
-		center = False;
+	  case 't':	/* \secTion{} or \parT{} */
+		center = (BOOLEAN)(token->text[1] == 'p'); /* part */
 		indent = 0;
 		font = 'b';
 		break;
@@ -2717,15 +2734,17 @@ static TOKEN *texget(refp)
     	{ "title",	     "-22-NY-",	textitle	},
 #define TEX_AUTHOR &markups[10]
     	{ "author",	     "-12-NY-",	textitle	},
-#define TEX_CHAPTER &markups[11]
+#define TEX_PART &markups[11]
+    	{ "part",	     "-c2NNYS",	textitle	},
+#define TEX_CHAPTER &markups[12]
     	{ "chapter",	     "-c2NNYS",	textitle	},
-#define TEX_SECTION &markups[12]
+#define TEX_SECTION &markups[13]
     	{ "section",	     "-c2NNYS",	textitle	},
-#define TEX_SUBSECTION &markups[13]
+#define TEX_SUBSECTION &markups[14]
     	{ "subsection",	     "-12NNYS",	textitle	},
-#define TEX_DIGRAPH &markups[14]
+#define TEX_DIGRAPH &markups[15]
 	{ "digraph",	     "-------", texdigraph	},
-#define TEX_HFIL &markups[15]
+#define TEX_HFIL &markups[16]
 	{ "hfil",	     "--=----"			},
 	{ "hfill",	     "--=----"			},
 	{ "hline",	     "-02--Y-",	htmlhr		}, /* reuse HTML! */
@@ -2846,6 +2865,7 @@ static TOKEN *texget(refp)
 		     || !CHARcmp(rettok.text, "\\footnote")
 		     ||	!CHARcmp(rettok.text, "\\title")
 		     ||	!CHARcmp(rettok.text, "\\author")
+		     || !CHARcmp(rettok.text, "\\part")
 		     || !CHARcmp(rettok.text, "\\chapter")
 		     || !CHARcmp(rettok.text, "\\section")
 		     || !CHARcmp(rettok.text, "\\subsection")
@@ -2865,6 +2885,11 @@ static TOKEN *texget(refp)
 			if (!CHARncmp(rettok.text, "\\author", 7))
 			{
 				rettok.markup = TEX_AUTHOR;
+				goto End;
+			}
+			if (!CHARncmp(rettok.text, "\\part", 5))
+			{
+				rettok.markup = TEX_PART;
 				goto End;
 			}
 			if (!CHARncmp(rettok.text, "\\chapter", 8))
@@ -2888,7 +2913,8 @@ static TOKEN *texget(refp)
 		 * doesn't become the default font.
 		 */
 		if ((!CHARncmp(rettok.text, "\\text", 4)
-			|| !CHARcmp(rettok.text, "\\code"))
+			|| !CHARcmp(rettok.text, "\\code")
+			|| !CHARcmp(rettok.text, "\\emph"))
 		 && *refp
 		 && **refp == '{')
 		{

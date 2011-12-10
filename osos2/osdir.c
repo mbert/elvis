@@ -80,11 +80,15 @@ char *dirdir (pathname)
 	char	*slash;
 
 	strncpy (dir, pathname, sizeof dir);
+	for (slash = &dir[strlen(dir)]; 
+		--slash >= dir && *slash != '/' && *slash != '\\';)
+	{
+	}
 
 	/* Convert slashes to backslashes. */
-	fix_slashes (dir);
+/*	fix_slashes (dir);
+	slash = strrchr (dir, OSPATHSEP);*/
 
-	slash = strrchr (dir, OSPATHSEP);
 	if (slash == dir)
 	{
 		dir[1] = '\0';

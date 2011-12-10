@@ -1,7 +1,7 @@
 /* calc.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_calc[] = "$Id: calc.c,v 2.65 1999/04/08 22:09:25 steve Exp $";
+char id_calc[] = "$Id: calc.c,v 2.68 1999/10/12 22:43:30 steve Exp $";
 
 #include "elvis.h"
 #include <setjmp.h>
@@ -396,6 +396,14 @@ static BOOLEAN func(name, arg)
 	}
 	else if (!CHARcmp(name, toCHAR("dirext")))
 	{
+		/* if this is a URL, and it contains a '#' or '?' character,
+		 * then truncate it there.
+		 */
+		if ((arg[3] == ':' || arg[4] == ':')
+		 && ((tmp = CHARchr(arg, '#')) != NULL
+		   || (tmp = CHARchr(arg, '?')) != NULL))
+			*tmp = '\0';
+
 		/* find the last '.' in the name */
 		for (tmp = arg + CHARlen(arg); --tmp >= arg && isalnum(*tmp); )
 		{
@@ -782,17 +790,19 @@ static BOOLEAN func(name, arg)
 		*--arg = '!';
 
 		/* Run the command and read its output */
-		if (ioopen(tochar8(arg), 'r', False, False, 't'))
+		if (!ioopen(tochar8(arg), 'r', False, False, 't'))
+			return False;
+		arg = name;
+		while ((i = ioread(arg,RESULT_AVAIL(name))) > 0)
 		{
-			arg = name;
-			while ((i = ioread(arg,RESULT_AVAIL(name))) > 0)
+			if (RESULT_OVERFLOW(arg, i + 1))
 			{
-				if (RESULT_OVERFLOW(arg, i + 1))
-					goto Overflow;
-				arg += i;
+				ioclose();
+				goto Overflow;
 			}
-			ioclose();
+			arg += i;
 		}
+		ioclose();
 
 		/* Remove the last newline */
 		if (arg != name && arg[-1] == '\n')
@@ -1536,6 +1546,16 @@ void main(int argc, char **argv)
 		{
 		  case '?':
 			fprintf(stderr, "usage: %s [-m] [-e expr] [arg]...\n", argv[0]);
+			fprintf(stderr, "This program is meant to be used primarily for testing elvis' built-in\n");
+			fprintf(stderr, "calculator.  It may also be useful for systems that don't have \"bc\".\n");
+			fprintf(stderr, "The -m flag causes the expression to be evaluated using elvis' simpler\n");
+			fprintf(stderr, "syntax, which is used mostly for outputing messages; otherwise it uses\n");
+			fprintf(stderr, "the normal syntax.  The -eexpr flag causes it to evaluate expr and quit;\n");
+			fprintf(stderr, "otherwise it reads expressions from stdin until EOF.  Any remaining\n");
+			fprintf(stderr, "arguments are used as parameters which are accessible as $1 through $9\n");
+			fprintf(stderr, "in the expression.  See the elvis manual for more information.\n");
+			fprintf(stderr, "\n");
+			fprintf(stderr, "This program is unsupported and carries no guarantees.\n");
 			exit(0);
 			break;
 
@@ -1560,7 +1580,7 @@ void main(int argc, char **argv)
 	}
 	else
 	{
-		while (gets(tochar8(expr)))
+		while (fgets(tochar8(expr), sizeof expr, stdin))
 		{
 			result = calculate(expr, (CHAR **)&argv[optind], msg);
 			if (result)

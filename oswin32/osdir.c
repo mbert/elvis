@@ -10,8 +10,14 @@
 
 #if !defined(JUST_DIRFIRST) && !defined(JUST_DIRPATH)
 # include "elvis.h"
+# define BOOLEAN winBOOLEAN
+# define CHAR winCHAR
+# include <windows.h> /* for registry functions */
+# undef BOOLEAN
+# undef CHAR
 #endif
 #include <stdlib.h>
+#include <string.h>
 #include <io.h>
 #include <direct.h>
 #include <errno.h>
@@ -29,6 +35,15 @@
 
 #ifndef JUST_DIRPATH
 
+/* These are CygWin mount points */
+static struct mtab_s
+{
+	char	native[MAX_PATH];	/* Windows name for a directory */
+	char	unix[MAX_PATH];		/* Unix name for a directory */
+	int	unixlen;		/* length of unix[] */
+} mtab[10];
+static int nmtabs;	/* number of used entries in mtab[] */
+
 /* These are used for communication between dirfirst() and dirnext() */
 static char			finddir[MAX_PATH];
 static char			findwild[MAX_PATH];
@@ -40,6 +55,33 @@ static struct _find_t		FileData;
 #endif
 static long			hSearch;
 
+/* adjust a file path via the Cygwin mount table */
+char *dirnormalize(char *path)
+{
+	static char	winp[MAX_PATH + 1];
+	int		i;
+
+	/* convert slashes to backslashes */
+	for (i = 0; path[i]; i++)
+		if (path[i] == '/')
+			winp[i] = '\\';
+		else
+			winp[i] = path[i];
+	winp[i] = '\0';
+
+	/* check it against Cygwin's mount table */
+	for (i = 0; i < nmtabs; i++)
+		if (!strncmp(winp, mtab[i].unix, mtab[i].unixlen)
+		 && (!winp[mtab[i].unixlen] || winp[mtab[i].unixlen] == '\\'))
+			break;
+	if (i < nmtabs)
+	{
+		strcpy(winp, mtab[i].native);
+		strcat(winp, path + mtab[i].unixlen);
+	}
+	return winp;
+}
+
 /* Return the first filename (in a static buffer) that matches
  * wildexpr, or wildexpr if none matches.  If wildexpr has no contains
  * no wildcards, then just return wildexpr without checking for files.
@@ -49,10 +91,10 @@ char *dirfirst(char *wildexpr, BOOLEAN ispartial)
 	/* remember the directory name */
 	strcpy(finddir, dirdir(wildexpr));
 
-	/* Copy the wildexpr into fildwild[].  If it is meant to be a partial
+	/* Copy the wildexpr into findwild[].  If it is meant to be a partial
 	 * name, then append "*" to it.
 	 */
-	strcpy(findwild, wildexpr);
+	strcpy(findwild, dirnormalize(wildexpr));
 	if (ispartial)
 		strcat(findwild, "*");
 
@@ -109,7 +151,7 @@ char *dirnext(void)
 /* Return True if wildexpr contains any wildcards; else False */
 BOOLEAN diriswild(char *wildexpr)
 {
-	if (strchr(wildexpr, '*') || strchr(wildexpr, '?'))
+	if (nmtabs > 0 || strchr(wildexpr, '*') || strchr(wildexpr, '?'))
 	{
 		return True;
 	}
@@ -147,7 +189,7 @@ DIRPERM dirperm(char *filename)
 	else if (i > 0)
 		return DIR_READONLY;
 
-	if (_stat(filename, &statb) < 0)
+	if (_stat(dirnormalize(filename), &statb) < 0)
 	{
 		if (errno == ENOENT)
 			return DIR_NEW;
@@ -156,7 +198,8 @@ DIRPERM dirperm(char *filename)
 	}
 	if ((statb.st_mode & _S_IFMT) != _S_IFREG
 	 || !strcmp(filename, "nul")
-	 || !strcmp(filename, "prn"))
+	 || !strcmp(filename, "prn")
+	 || !strncmp(filename, "lpt", 3))
 		return DIR_NOTFILE;
 	if ((statb.st_mode & _S_IWRITE) == 0)
 		return DIR_READONLY;
@@ -256,19 +299,10 @@ char *dirpath(char *dir, char *file)
 	{
 		while (*dir)
 		{
-#if 0
-			switch (*dir)
-			{
-			  case '/':	if (dir[1]) *build++ = '\\';	break;
-			  case '\\':	if (dir[1]) *build++ = *dir;	break;
-			  default:	*build++ = *dir;		break;
-			}
-#else
 			if (*dir == '/')
 				*build++ = '\\';
 			else
 				*build++ = *dir;
-#endif
 			dir++;
 		}
 	}
@@ -286,6 +320,7 @@ char *dirpath(char *dir, char *file)
 			*build++ = *file++;
 	}
 	*build = '\0';
+
 	return path;
 }
 
@@ -325,6 +360,13 @@ void osinit(argv0)
 {
 	char	*tmp;
  static	char	path[260];
+	char	name[200];
+	char	value[200];
+	HKEY	hCygnus, hMounts, hKey;
+	int	i, j;
+	DWORD	dw, dw2;
+	FILETIME when;
+	struct mtab_s swapper;
 
 	/* if argv0 isn't a pathname, then try to locate "elvis.exe" in
 	 * the execution path.  We need this when figuring out the default
@@ -380,6 +422,67 @@ void osinit(argv0)
 	tmp = dirdir(argv0);
 	sprintf(path, "~\\elvislib;%s;%s", tmp, dirpath(tmp, "lib"));
 	o_elvispath = toCHAR(path);
+
+	/* Read the mounts for the latest Cygwin version */
+	hCygnus = hMounts = hKey = 0;
+	if (RegOpenKeyEx(HKEY_CURRENT_USER, "Software\\Cygnus Solutions\\CYGWIN.DLL setup", 0L, KEY_READ|KEY_EXECUTE, &hCygnus) == ERROR_SUCCESS)
+	{
+		/* there may be multiple versions.  Use the most recent one */
+		for (i = 0, dw = sizeof name, *value = '\0';
+		     RegEnumKeyEx(hCygnus, i, name, &dw, NULL, NULL, NULL, &when) == ERROR_SUCCESS;
+		     i++, dw = sizeof name)
+		{
+			if (strcmp(*name=='b' ? name+1 : name,
+				   *value=='b' ? value+1 : value) > 0)
+				strcpy(value, name);
+		}
+		strcpy(name, value);
+		strcat(name, "\\mounts");
+		if (RegOpenKeyEx(hCygnus, name, 0L, KEY_READ|KEY_EXECUTE, &hMounts) == ERROR_SUCCESS)
+		{
+			for (i = nmtabs = 0, dw = sizeof name;
+			     nmtabs < QTY(mtab) && RegEnumKeyEx(hMounts, i, name, &dw, NULL, NULL, NULL, &when) == ERROR_SUCCESS;
+			     i++, dw = sizeof name)
+			{
+				/* print the mount table entry */
+				if (RegOpenKeyEx(hMounts, name, 0L, KEY_READ|KEY_EXECUTE, &hKey) == ERROR_SUCCESS)
+				{
+					dw = sizeof mtab[nmtabs].native;
+					if (RegQueryValueEx(hKey, "native", NULL, &dw2, mtab[nmtabs].native, &dw) != ERROR_SUCCESS
+					 || dw2 != REG_SZ
+					 || !(dw = sizeof mtab[nmtabs].unix) /* yes, ASSIGNMENT! */
+					 || RegQueryValueEx(hKey, "unix", NULL, &dw2, mtab[nmtabs].unix, &dw) != ERROR_SUCCESS
+					 || dw2 != REG_SZ)
+						msg(MSG_WARNING, "Cygwin mount table contains malformed entries");
+					else
+						nmtabs++;
+					RegCloseKey(hKey);
+				}
+			}
+			RegCloseKey(hMounts);
+		}
+		RegCloseKey(hCygnus);
+	}
+
+	/* convert forward slashes in mtab[] to backslashes */
+	for (i = 0; i < nmtabs; i++)
+	{
+		while ((tmp = strchr(mtab[i].native, '/')) != NULL)
+			*tmp = '\\';
+		while ((tmp = strchr(mtab[i].unix, '/')) != NULL)
+			*tmp = '\\';
+		mtab[i].unixlen = strlen(mtab[i].unix);
+	}
+
+	/* sort mtab[] by the length of the unix name (longest first) */
+	for (i = 0; i < nmtabs - 1; i++)
+		for (j = i + 1; j < nmtabs; j++)
+			if (mtab[i].unixlen < mtab[j].unixlen)
+			{
+				swapper = mtab[i];
+				mtab[i] = mtab[j];
+				mtab[j] = swapper;
+			}
 }
 
 #endif /* !JUST_DIRPATH */

@@ -343,7 +343,8 @@ void x_ev_process(event)
 			if (!IsModifierKey(mykey) && mykey != XK_Mode_switch)
 			{
 				/* function keys become a control sequence */
-				sprintf(text, "%c%04x", ELVCTRL('K'), (int)mykey);
+				sprintf(text, "%c%04x", ELVCTRL('K'),
+					mykey ? (int)mykey : event->xkey.keycode);
 				i = strlen(text);
 			}
 		}

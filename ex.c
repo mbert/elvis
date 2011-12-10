@@ -1,7 +1,7 @@
 /* ex.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_ex[] = "$Id: ex.c,v 2.151 1999/03/11 17:53:08 steve Exp $";
+char id_ex[] = "$Id: ex.c,v 2.153 1999/10/08 18:03:03 steve Exp $";
 
 #include "elvis.h"
 
@@ -122,12 +122,14 @@ static struct
 /*c   */{"change",	EX_CHANGE,	ex_append,	a_Range | a_Bang | a_Count | a_Text | q_Undo | q_Ex			},
 /*cha */{"chdir",	EX_CD,		ex_cd,		a_Bang | a_File | q_Exrc | q_Unsafe					},
 /*ca  */{"calculate",	EX_CALC,	ex_comment,	a_Cmds | q_Exrc								},
+/*cas */{"case",	EX_CASE,	ex_case,	a_Lhs | a_Cmds | q_Exrc							},
 /*cc  */{"cc",		EX_CC,		ex_make,	a_Bang | a_Rhs | q_Unsafe | q_SwitchB					},
 /*cd  */{"cd",		EX_CD,		ex_cd,		a_Bang | a_File | q_Exrc | q_Unsafe					},
 /*cl  */{"close",	EX_CLOSE,	ex_xit,		a_Bang | q_MayQuit							},
 /*co  */{"copy",	EX_COPY,	ex_move,	a_Range | a_Target | a_Pflag | q_Autop | q_Undo				},
 /*col */{"color",	EX_COLOR,	ex_color,	a_Rhs | q_Exrc | q_Custom						},
 /*d   */{"delete",	EX_DELETE,	ex_delete,	a_Range | a_Buffer | a_Count | a_Pflag | q_Undo | q_Autop		},
+/*de  */{"default",	EX_DEFAULT,	ex_case,	a_Cmds | q_Exrc								},
 /*di  */{"display",	EX_DISPLAY,	ex_display,	a_Rhs									},
 /*dig */{"digraph",	EX_DIGRAPH,	ex_digraph,	a_Bang | a_Rhs | q_Exrc | q_Custom					},
 /*do  */{"do",		EX_DO,		ex_do,		a_Cmds | q_Exrc			 					},
@@ -192,6 +194,7 @@ static struct
 /*sta */{"stag",	EX_STAG,	ex_tag,		a_Rhs									},
 /*stac*/{"stack",	EX_STACK,	ex_stack,	d_None									},
 /*su  */{"suspend",	EX_SUSPEND,	ex_suspend,	a_Bang | q_Unsafe							},
+/*sw  */{"switch",	EX_SWITCH,	ex_switch,	a_Cmds | q_Exrc								},
 /*t   */{"to",		EX_COPY,	ex_move,	a_Range | a_Target | a_Pflag | q_Autop | q_Undo				},
 /*ta  */{"tag",		EX_TAG,		ex_tag,		a_Bang | a_Rhs | q_Unsafe | q_SwitchB					},
 /*th  */{"then",	EX_THEN,	ex_then,	a_Cmds | q_Exrc			 					},
@@ -1848,8 +1851,8 @@ static RESULT parse(win, refp, xinf)
 	CHAR	*logstr;/* start of string command, or NULL if from buffer */
 	int	i;
 
-	/* if verbose, then display this line on stderr */
-	if (o_verbose >= 3 && !win)
+	/* if verbose, then display this line in window, or on stderr */
+	if (o_verbose >= (win ? 5 : 3))
 	{
 		lntext = NULL;
 		for (scandup(&p2, refp); p2 && *p2 != '\n'; scannext(&p2))
@@ -2609,15 +2612,12 @@ RESULT exstring(win, str, name)
 {
 	EXINFO	xinfb;	/* buffer, holds info about command being parsed */
 	CHAR	*p;	/* pointer used for scanning command line */
-	BOOLEAN	oldthenflag;
-	CHAR	*olddotest;
+	EXCTLSTATE oldctlstate;
 	RESULT	result;
 	void	*locals;
 
-	/* commands run this way don't affect the :if or :while expressions */
-	oldthenflag = exthenflag;
-	olddotest = exdotest;
-	exdotest = NULL;
+	/* commands run this way don't affect :if/:while/:switch expressions */
+	exctlsave(oldctlstate);
 	locals = optlocal(NULL);
 
 	/* start reading commands */
@@ -2648,8 +2648,7 @@ Fail:
 
 Done:
 	(void)optlocal(locals);
-	exthenflag = oldthenflag;
-	exdotest = olddotest;
+	exctlrestore(oldctlstate);
 	return result;
 }
 

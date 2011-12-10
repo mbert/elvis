@@ -47,6 +47,18 @@
 # define ARGV0	VI
 #endif
 
+/* Win32 seems to have developed an inability to exec() correctly.  The shell
+ * thinks the program has exited when in fact it has merely exec'ed some
+ * other function.  This messes up the ex/vi/view aliases for elvis.  To work
+ * around it, we SPAWN elvis and wait for it to return before the alias exits.
+ * This wastes a little memory, but at least it works.
+ */
+#if _MSC_VER >= 900 /* 32-bit compiler for Windows */
+# define execvp(p,a)	(i = _spawnvp(_P_WAIT, p,a)); if (i >= 0) exit(i);
+#endif
+
+
+
 main(argc, argv)
 	int	argc;
 	char	*argv[];

@@ -50,7 +50,6 @@ EXE=.exe
 
 ################################################################################
 # This is the shell command which is used for deleting a file if it exists.
-# The "-f" causes "rm" to be silent if the file doesn't exist.
 RM=del 
 
 ################################################################################
@@ -76,6 +75,11 @@ FLAGI=-I
 # the end is just in case this Makefile is reconfigured for an operating
 # system which requires the EXE macro to be something like ".exe".
 ALL=elvis$(EXE) vi$(EXE) ex$(EXE) ref$(EXE) ctags$(EXE) fmt$(EXE)
+
+################################################################################
+# The Elvis manual in INF format. This is done by a number of batch files
+# in the manual subdirectory.
+MANUAL=lib\\elvis.INF
 
 ################################################################################
 # This is the directory where "make install" will place the executable programs
@@ -163,7 +167,7 @@ CFLAGS=	$(FLAGI)os$(OS)
 EVERY=	$(ALL) elvdump$(EXE) calc$(EXE) verify$(EXE) 
 # Herbert 1998: SHELL needs to be blanked out under OS/2 if using GNU make.
 #SHELL=	/bin/sh
-DISTRIB=elvis-2.1_3
+DISTRIB=elvis-2.1_4
 DOSEXE=exedos
 WIN32EXE=exewin32
 OS2EXE=exeos2
@@ -171,6 +175,11 @@ OS2EXE=exeos2
 all: $(ALL)
 
 every: $(EVERY)
+
+# The manual converted from the HTML documentation to OS/2's INF...
+$(MANUAL): 
+	cd osos2\\manual && h2i-guide.cmd
+	$(CP) osos2\\manual\\elvis.INF $(MANUAL)
 
 # Elvis compiled for a.out format and linked against emx.dll...
 emx: ; $(MAKE) elvisemx.exe -f osos2\\Makefile.os2 "OBJ=.o" "EXE=emx.exe" \
@@ -182,7 +191,7 @@ emx: ; $(MAKE) elvisemx.exe -f osos2\\Makefile.os2 "OBJ=.o" "EXE=emx.exe" \
 # Elvis compiled for a.out format and linked against emx.dll with x11...
 debug: ; $(MAKE) -f osos2\\Makefile.os2 "OBJ=.o" "EXE=x11.exe" \
                     "CC=gcc -g -Wall -DOS2 -D__WITH_TERMCAP -O3 \
-                    -Zmtd -D__D_ST_MT_ERRNO__ -D__WITH_X11   \
+                    -Zmtd -D__D_ST_MT_ERRNO__ -D__WITH_X11"   \
                     "FLAGO=-o " \
                     "LIBFILES=-L/usr/lib/x11 -lsocket -ltermcap -lx11"
 
@@ -200,30 +209,44 @@ gcc: ; $(MAKE) -f osos2\\Makefile.os2 "EXE=gcc.exe" "FLAGO=-o " \
 
 elvis$(EXE): $(HDRS) main$(OBJ) $(OBJS) $(GUIOBJS) $(LPOBJS)
 	$(CC) $(CFLAGS) $(LDFLAGS) main$(OBJ) $(OBJS) $(GUIOBJS) $(LPOBJS) $(LIBFILES) $(DEFFILE) $(FLAGO)elvis$(EXE)
+	$(CP) elvis$(EXE) $(OS2EXE)
+	$(RM) elvis$(EXE) 
 
 pmelvis$(EXE): $(HDRS) main$(OBJ) $(OBJS) $(GUIOBJS) $(LPOBJS)
 	$(CC) $(CFLAGS) $(LDFLAGS) main$(OBJ) $(OBJS) $(GUIOBJS) $(LPOBJS) $(LIBFILES) $(PMDEFFILE) $(FLAGO)pmelvis$(EXE)
 
 elvis-no-tcp$(EXE): $(HDRS) main$(OBJ) $(OBJS) $(GUIOBJS) $(LPOBJS)
 	$(CC) $(CFLAGS) $(LDFLAGS) main$(OBJ) $(OBJS) $(GUIOBJS) $(LPOBJS) $(DEFFILE) $(FLAGO)elvis-no-tcp$(EXE)
+	$(CP) elvis-no-tcp$(EXE) $(OS2EXE)
+	$(RM) elvis-no-tcp$(EXE) 
 
 vi$(EXE): alias.c
 	$(CC) $(CFLAGS) $(LDFLAGS) -DARGV0=VI alias.c $(FLAGO)vi$(EXE)
+	$(CP) vi$(EXE) $(OS2EXE)
+	$(RM) vi$(EXE) 
 
 ex$(EXE): alias.c
 	$(CC) $(CFLAGS) $(LDFLAGS) -DARGV0=EX alias.c $(FLAGO)ex$(EXE)
+	$(CP) ex$(EXE) $(OS2EXE)
+	$(RM) ex$(EXE) 
 
 view$(EXE): alias.c
 	$(CC) $(CFLAGS) $(LDFLAGS) -DARGV0=VIEW alias.c $(FLAGO)view$(EXE)
 
 ctags$(EXE): $(CTOBJS)
 	$(CC) $(CFLAGS) $(LDFLAGS) $(CTOBJS) $(FLAGO)ctags$(EXE)
+	$(CP) ctags$(EXE) $(OS2EXE)
+	$(RM) ctags$(EXE) 
 
 ref$(EXE): $(REFOBJS)
 	$(CC) $(CFLAGS) $(LDFLAGS) $(REFOBJS) $(FLAGO)ref$(EXE)
+	$(CP) ref$(EXE) $(OS2EXE)
+	$(RM) ref$(EXE) 
 
 fmt$(EXE): fmt.c os$(OS)$(SLASH)osdir.c
 	$(CC) $(CFLAGS) $(LDFLAGS) fmt.c $(FLAGO)fmt$(EXE)
+	$(CP) fmt$(EXE) $(OS2EXE)
+	$(RM) fmt$(EXE) 
 
 verify$(EXE): $(HDRS) verify$(OBJ) $(OBJ1) $(OBJ2)
 	$(CC) $(CFLAGS) $(LDFLAGS) verify$(OBJ) $(OBJS) $(LIBFILES) $(FLAGO)verify$(EXE)
@@ -367,7 +390,7 @@ $(DISTRIB)-win32.tar.gz: $(WIN32EXE)
 	mkdir bin-win32/lib
 	cp lib/* bin-win32/lib
 	sed 's/$$//' <lib/printdoc.bat >bin-win32/lib/printdoc.bat
-	sed 's/$$//' <lib/license.bat >bin-win32/lib/license.bat
+	sed 's/$$//' <lib/license >bin-win32/lib/license
 	(cd bin-win32; tar czf ../$(DISTRIB)-win32.tar.gz *)
 
 $(DISTRIB)-msdos.tar.gz: $(DOSEXE)
@@ -380,21 +403,21 @@ $(DISTRIB)-msdos.tar.gz: $(DOSEXE)
 	mkdir bin-msdos/lib
 	cp lib/* bin-msdos/lib
 	sed 's/$$//' <lib/printdoc.bat >bin-msdos/lib/printdoc.bat
-	sed 's/$$//' <lib/license.bat >bin-win32/lib/license.bat
+	sed 's/$$//' <lib/license >bin-win32/lib/license
 	(cd bin-msdos; tar czf ../$(DISTRIB)-msdos.tar.gz *)
 
 $(DISTRIB)-os2.tar.gz: $(OS2EXE)
 	rm -rf bin-os2
 	mkdir bin-os2
-	cp $(DOSEXE)/*.exe bin-os2
-	sed 's/$$//' <README.html >bin-os2/README.html
-	sed 's/$$//' <BUGS >bin-os2/BUGS
-	sed 's/$$//' <COPYING >bin-os2/COPYING
-	mkdir bin-os2/lib
-	cp lib/* bin-os2/lib
-	sed 's/$$//' <lib/printdoc.bat >bin-os2/lib/printdoc.bat
-	sed 's/$$//' <lib/license.bat >bin-win32/lib/license.bat
-	(cd bin-os2; tar czf ../$(DISTRIB)-os2.tar.gz *)
+	cp $(OS2EXE)\\*.exe bin-os2
+	mkdir bin-os2\\lib
+	cp lib/* bin-os2\\lib
+	type README.html >bin-os2\\README.html
+	type BUGS >bin-os2\\BUGS
+	type COPYING >bin-os2\\COPYING
+	type lib\\printdoc.bat >bin-os2\\lib\\printdoc.bat
+	type lib\\license >bin-os2\\lib\\license
+	(cd bin-os2 && tar cvf ..\\$(DISTRIB)-os2.tar * && gzip ..\\$(DISTRIB)-os2.tar)
 
 lib$(SLASH)elvistrs.msg: $(SRCS)
 	sed -n '/%[cds]/d; /[a-z]:/d; s/\[[a-zA-Z]*\]//; s/\\\\/\\/g; s/.*msg(MSG_[A-Z]*, "\([^ 	"][^"]*\)".*/\1/p' *.c os*$(SLASH)*.c | sort -u >lib$(SLASH)elvistrs.msg

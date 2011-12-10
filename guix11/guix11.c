@@ -2,7 +2,7 @@
 
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_guix11[] = "$Id: guix11.c,v 2.37 1999/03/11 17:54:44 steve Exp $";
+char id_guix11[] = "$Id: guix11.c,v 2.39 1999/10/06 19:11:37 steve Exp $";
 
 #include "elvis.h"
 #ifdef GUI_X11
@@ -152,16 +152,27 @@ static struct
 } keys[] =
 {
 	{ "<Up>",	XK_Up,		"k",	MAP_ALL },
+	{ "<KP_Up>",	XK_KP_Up,	"k",	MAP_ALL },
 	{ "<Down>",	XK_Down,	"j",	MAP_ALL },
+	{ "<KP_Down>",	XK_KP_Down,	"j",	MAP_ALL },
 	{ "<Left>",	XK_Left,	"h",	MAP_ALL },
+	{ "<KP_Left>",	XK_KP_Left,	"h",	MAP_ALL },
 	{ "<Right>",	XK_Right,	"l",	MAP_ALL },
+	{ "<KP_Right>",	XK_KP_Right,	"l",	MAP_ALL },
 	{ "<Prior>",	XK_Prior,	"\002",	MAP_ALL_VISUAL },
+	{ "<KP_Prior>",	XK_KP_Prior,	"\002",	MAP_ALL_VISUAL },
 	{ "<Next>",	XK_Next,	"\006",	MAP_ALL_VISUAL },
+	{ "<KP_Next>",	XK_KP_Next,	"\006",	MAP_ALL_VISUAL },
 	{ "<Home>",	XK_Home,	"^",	MAP_ALL },
+	{ "<KP_Home>",	XK_KP_Home,	"^",	MAP_ALL },
 	{ "<Begin>",	XK_Begin,	"^",	MAP_ALL },
+	{ "<KP_Begin>",	XK_KP_Begin,	"^",	MAP_ALL },
 	{ "<End>",	XK_End,		"$",	MAP_ALL },
+	{ "<KP_End>",	XK_KP_End,	"$",	MAP_ALL },
 	{ "<Insert>",	XK_Insert,	"i",	MAP_ALL },
+	{ "<KP_Insert>",XK_KP_Insert,	"i",	MAP_ALL },
 	{ "<Delete>",	XK_Delete,	"x",	MAP_ALL },
+	{ "<KP_Delete>",XK_KP_Delete,	"x",	MAP_ALL },
 	{ "<Undo>",	XK_Undo,	"u",	MAP_ALL_VISUAL },
 	{ "<Help>",	XK_Help,	":help\r",MAP_ALL_VISUAL },
 	{ "<Multi_key>",XK_Multi_key,	"\013",	MAP_INPUT|MAP_OPEN }
@@ -199,6 +210,8 @@ static OPTDESC x11desc[] =
 	{"underline", "uln",	NULL,		NULL		},
 	{"outlinemono", "om",	optnstring,	optisnumber,	"0:3"},
 	{"borderwidth", "xbw",	optnstring,	xoptisnumber,	"0:5"},
+	{"xrootwidth", "xrw",	optnstring,	optisnumber,	"320:4096"},
+	{"xrootheight", "xrh",	optnstring,	optisnumber,	"200:4096"},
 	{"submit", "Submit",	optsstring,	optisstring	},
 	{"cancel", "Cancel",	optsstring,	optisstring	},
 	{"help", "Help",	optsstring,	optisstring	}
@@ -988,6 +1001,8 @@ static int init(argc, argv)
 	optpreset(o_underline, True, OPT_HIDE|OPT_SCRATCH);
 	optpreset(o_outlinemono, DEFAULT_OUTLINEMONO, OPT_HIDE);
 	optpreset(o_borderwidth, DEFAULT_BORDERWIDTH, OPT_HIDE);
+	optpreset(o_xrootwidth, rootwidth, OPT_HIDE|OPT_LOCK);
+	optpreset(o_xrootheight, rootheight, OPT_HIDE|OPT_LOCK);
 	optinsert("x11", QTY(x11desc), x11desc, (OPTVAL *)&x_optvals);
 
 	/* initialize the colors */
@@ -1144,7 +1159,8 @@ static void destroygw(gw, force)
 	x_st_destroy(xw);
 	XFreeGC(x_display, xw->gc);
 #ifndef NO_XLOCALE
-	XDestroyIC(xw->ic);
+	if (xw->ic)
+		XDestroyIC(xw->ic);
 #endif
 	if (xw->win)
 	{

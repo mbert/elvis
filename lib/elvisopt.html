@@ -362,6 +362,7 @@ Its default value is 12.
 |---------------------|---------|--------|-----------------------------|
 | <a href="#autoindent">autoindent, ai</a>      | Boolean | buf    | auto-indent new text        |
 | <a href="#inputtab">inputtab, it</a>        | One-Of  | buf    | input mode's (Tab) key      |
+| <a href="#smarttab">smarttab, sta</a>       | Boolean | global | if indenting, (Tab) shifts  |
 | <a href="#completebinary">completebinary, cob</a> | Boolean | global | complete names of binaries? |
 | <a href="#autotab">autotab, at</a>         | Boolean | buf    | allow autoindent to use '\t'|
 | <a href="#tabstop">tabstop, ts</a>         | Number  | buf    | width of tabstop columns    |
@@ -399,6 +400,15 @@ of the <kbd>Tab</kbd> key.  It can be set to one of the following values:
     This is the default for the <code>(Elvis ex history)</code> buffer,
     which is used for entering in ex commands.
 </ul>
+
+<p><a name="smarttab"></a>The <em>smarttab</em> option only affects the
+behavior of the <kbd>Tab</kbd> key in input mode,
+when the cursor is in the indentation portion of a line
+-- before the first nonwhitespace character.
+If this option is true, then <kbd>Tab</kbd> is treated like <kbd>^T</kbd>,
+so the line is shifted rightward by one shiftwidth.
+By default this option is false, so the <kbd>Tab</kbd> key is treated normally
+(in accordance with the <a href="#inputtab>inputtab</a> option).
 
 <p><a name="completebinary"></a>The <em>completebinary</em> option controls
 whether binary files are included in the list of possible filename completions.
@@ -1789,6 +1799,7 @@ You should set lptype to one of the following values:
 	|   cr    | Line printers, overtypes via carriage-return|
 	|   bs    | Overtypes via backspace, like nroff         |
 	|  dumb   | Plain ASCII, no font control                |
+	|  html   | HTML source code                            |
 	|-- --- --|-- --- --- --- --- --- --- --- --- --- --- --|
 	| windows | The Win32 print facility (in WinElvis only) |
 	^---------^---------------------------------------------^
@@ -2202,6 +2213,7 @@ For example, the command...
 | <a href="#showstack">showstack, sstk</a>     | Boolean | win    | display some debugging info |
 | <a href="#showtag">showtag, st</a>         | Boolean | global | display tag on status line  |
 | <a href="#sidescroll">sidescroll, ss</a>      | Number  | win    | sideways scrolling amount   |
+| <a href="#smarttab">smarttab, sta</a>       | Boolean | global | if indenting, (Tab) shifts  |
 | <a href="#stagger">stagger</a>             | Number  | x11    | offset for next new window  |
 | <a href="#statusbar">statusbar, xstat</a>    | Boolean | x11    | enables the statusbar       |
 | <a href="#stringfont">stringfont, sfont</a>   | One-Of  | syntax | font used for strings       |

@@ -152,7 +152,7 @@ void x_ta_drawcursor(xw)
 	{
 		x_ta_erasecursor(xw);
 	}
-	else /* save the image of the cursor where we'll draw the cursor */
+	else /* save the image of the character where we'll draw the cursor */
 	{
 		if (xw->grexpose)
 		{
@@ -542,7 +542,8 @@ void x_ta_event(xw, event)
 		x2 = (event->xexpose.x + event->xexpose.width - 1) / xw->ta.cellw;
 		y2 = (event->xexpose.y + event->xexpose.height - 1) / xw->ta.cellh;
 		eventexpose((GUIWIN *)xw, y, x, y2, x2);
-		x_ta_drawcursor(xw); /*!!!*/
+		if (xw->ta.nextcursor != CURSOR_NONE)
+			x_ta_drawcursor(xw);
 		break;
 
 	  case GraphicsExpose:

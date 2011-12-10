@@ -1,7 +1,7 @@
 /* input.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_input[] = "$Id: input.c,v 2.63 1999/02/06 22:30:00 steve Exp $";
+char id_input[] = "$Id: input.c,v 2.65 1999/10/05 19:13:34 steve Exp $";
 
 #include "elvis.h"
 
@@ -142,7 +142,7 @@ static void addchar(cursor, top, bottom, info)
 
 /* This function attempts to expand an abbreviation at the cursor location,
  * if there is one.  If so, it deletes the short form, and pushes the long
- * form an following character back onto the type-ahead buffer.  Else it
+ * form and following character back onto the type-ahead buffer.  Else it
  * returns False.
  */
 static BOOLEAN tryabbr(win, nextc)
@@ -285,6 +285,20 @@ static RESULT perform(win)
 	{
 		marksetoffset(state->top, markoffset(state->cursor));
 		marksetoffset(state->bottom, markoffset(state->cursor));
+	}
+
+	/* if the "smarttab" option is set, and the cursor is in the line's
+	 * indentation area, then INP_TAB is treated like INP_SHIFTR.
+	 */
+	if (o_smarttab && ii->cmd == INP_TAB)
+	{
+		scanalloc(&cp, state->cursor);
+		while (scanprev(&cp) && (*cp == '\t' || *cp == ' '))
+		{
+		}
+		if (!cp || *cp == '\n')
+			ii->cmd = INP_SHIFTR;
+		scanfree(&cp);
 	}
 
 	/* process the keystroke */
@@ -505,7 +519,7 @@ static RESULT perform(win)
 				markaddoffset(tmp, -1);
 
 				/* if previous char can't be in name, fail */
-				if (CHARchr(toCHAR(" \t\n()<>"), scanchar(tmp)))
+				if (CHARchr(toCHAR("\t\n()<>"), scanchar(tmp)))
 				{
 					markfree(tmp);
 					guibeep(win);
@@ -516,29 +530,24 @@ static RESULT perform(win)
 				littlecp = &name.partial[QTY(name.partial)];
 				*--littlecp = '\0';
 				ch = scanchar(tmp);
-				do
+				markaddoffset(tmp, -1L);
+				peek = scanchar(tmp);
+				while (markoffset(tmp) > markoffset(state->top)
+					&& ch != '\n' && ch && ch != '\t' &&
+					(!(ch == ' ' || ch == '<' || ch == '>' || ch == '(' || ch == ')')
+						|| peek == '\\'))
 				{
 					*--littlecp = ch;
-					markaddoffset(tmp, -1L);
-					ch = (markoffset(tmp) >= markoffset(state->top)) ? scanchar(tmp) : '\n';
-					if (markoffset(tmp) - 1 >= markoffset(state->top))
-					{
-						from = *tmp;
-						markaddoffset(&from, -1L);
-						peek = scanchar(&from);
-					}
-					else
-						peek = 'x'; /* not backslash */
-				} while (ch != '\n' && ch && ch != '\t' &&
-				   (!(ch == ' ' || ch == '<' || ch == '>' || ch == '(' || ch == ')')
-					|| peek == '\\'));
-				markaddoffset(tmp, 1);
+					ch = peek;
+					markaddoffset(tmp, -1);
+					if (markoffset(tmp) >= 0)
+						peek = scanchar(tmp);
+				}
+				markaddoffset(tmp, 2);
 
 				/* try to expand the filename */
 				littlecp = iofilename(littlecp,
-					(ch == '(') ? ')' :
-					o_inputtab(markbuffer(cursor)) == 'e' ? ' ' :
-					'\t');
+					(ch == '(') ? ')' : '\t');
 				if (!littlecp)
 				{
 					markfree(tmp);
@@ -546,12 +555,24 @@ static RESULT perform(win)
 					break;
 				}
 
-				/* name found -- replace old word with expanded name */
+				/* name found -- replace old word with expanded
+				 * name.  Note that we need to convert from
+				 * char[] to CHAR[], and add backslashes before
+				 * certain characters.
+				 */
 				for (cp = name.full, col = 0;
-				     (*cp++ = *littlecp++) != '\0'; /* yes, ASSIGNMENT! */
-				     col++)
+				     *littlecp != '\0';
+				     littlecp++, col++)
 				{
+					if (strchr(" <>#%", *littlecp) != NULL
+					 || (littlecp[0] == '\\' && !isalnum(littlecp[1]) && littlecp[1] != '\0'))
+						*cp++ = '\\', col++;
+					if (*littlecp == '\t')
+						*cp++ = ' ';
+					else
+						*cp++ = *littlecp;
 				}
+				*cp = '\0';
 				bufreplace(tmp, win->state->bottom, name.full, col);
 				marksetoffset(cursor, markoffset(tmp) + col);
 				marksetoffset(win->state->bottom, markoffset(cursor));

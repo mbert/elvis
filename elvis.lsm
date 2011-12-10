@@ -1,8 +1,8 @@
 Begin3
 Title:          elvis, a clone of the vi text editor
 Version:        2.1
-Release:	3
-Entered-date:   1APR99
+Release:	4
+Entered-date:   15OCT99
 Description:    Clone of vi editor, with added support for multiple edit
 		buffers, multiple windows, a variety of user interfaces
 		(including X-windows), several display modes (including
@@ -11,12 +11,12 @@ Description:    Clone of vi editor, with added support for multiple edit
 		improvements to the X-windows interface, a new graphical
 		interface for Win32, OS/2 ports, enhanced tags, and an
 		:alias command.  Many other small changes, and bug fixes.
-Keywords:       vi editor HTML syntax-coloring X11
+Keywords:       vi editor HTML FTP HTTP syntax-coloring X11
 Author:         kirkenda@cs.pdx.edu (Steve Kirkendall)
 Maintained-by:  
 Primary-site:   ftp.cs.pdx.edu /pub/elvis
-                991k elvis-2.1_3.tgz
-                976  elvis.lsm
+                1012k elvis-2.1_4.tar.gz
+                999   elvis.lsm
 Alternate-site: sunsite.unc.edu /pub/Linux/apps/editors
 		ftp.false.com /pub/elvis
 Original-site:  

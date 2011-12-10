@@ -73,7 +73,7 @@ typedef union
 	struct
 	{
 		BLKNO	next;		/* ref to next block of BLKNO values */
-		struct
+		struct blki_s
 		{
 			BLKNO	blkno;	/* which block stores next CHARs */
 			COUNT	nchars;	/* number of CHARs used in the block */

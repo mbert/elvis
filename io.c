@@ -1,7 +1,7 @@
 /* io.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_io[] = "$Id: io.c,v 2.43 1998/11/25 01:27:09 steve Exp $";
+char id_io[] = "$Id: io.c,v 2.45 1999/10/12 21:33:09 steve Exp $";
 
 #include "elvis.h"
 
@@ -557,6 +557,11 @@ char *iopath(path, filename, usefile)
 			strcpy(name, tochar8(o_home));
 			i = strlen(name);
 			next++;
+
+			/* bug in MS network, we don't want \\ in filename */
+			if (i > 0 && (name[i-1] == '/' || name[i-1] == '\\') &&
+			    next != NULL && (*next == '/' || *next == '\\'))
+                                i--;
 		}
 		/* else if path element starts with "./" then use the current
 		 * file's directory.  (unless there is no current file)
@@ -737,13 +742,6 @@ char *iofilename(partial, endchar)
 		if (dirperm(match) == DIR_NOTFILE)
 			endchar = (char)*slash;
 		
-		/* quote the dangerous chars */
-		match[matchlen] = '\0';
-		str = addquotes(dangerous, toCHAR(match));
-		strncpy(match, tochar8(str), QTY(match) - 1);
-		match[QTY(match) - 1] = '\0';
-		matchlen = strlen(match);
-
 		/* append a tab or slash, and return it */
 		match[matchlen] = endchar;
 		match[matchlen + 1] = '\0';

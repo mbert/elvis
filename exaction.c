@@ -1,7 +1,7 @@
 /* exaction.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_exaction[] = "$Id: exaction.c,v 2.86 1999/02/26 21:27:08 steve Exp $";
+char id_exaction[] = "$Id: exaction.c,v 2.88 1999/10/07 16:23:58 steve Exp $";
 
 #include "elvis.h"
 
@@ -533,10 +533,13 @@ RESULT	ex_file(xinf)
 	switch (xinf->command)
 	{
 	  case EX_EQUAL:
-		if (xinf->from != xinf->to)
+		if (xinf->anyaddr)
 		{
-			msg(MSG_INFO, "[ddd]$1,$2 = $3 lines",
-			       xinf->from, xinf->to, xinf->to - xinf->from + 1);
+			if (xinf->from != xinf->to)
+				msg(MSG_INFO, "[dd]$1,$2 = ($2-$1+1) lines",
+				       xinf->from, xinf->to);
+			else
+				msg(MSG_INFO, "[d]$1", xinf->from);
 		}
 		else
 		{
@@ -962,7 +965,7 @@ RESULT	ex_bang(xinf)
 
 	/* clean up & exit */
 	markfree(mark);
-	return (prgclose() == 0) ? RESULT_COMPLETE : RESULT_ERROR;
+	return (gui->prgclose ? (*gui->prgclose)() : prgclose()) == 0 ? RESULT_COMPLETE : RESULT_ERROR;
 }
 
 

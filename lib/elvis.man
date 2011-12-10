@@ -9,8 +9,8 @@ elvis \- a clone of the ex/vi text editor
 .RB [ -R ]
 .RB [ -e ]
 .RB [ -i ]
-.RB [ -s ]
-.RB [ -S | - ]
+.RB [ -S ]
+.RB [ -s | - ]
 .RB [ -f
 .IR session ]
 .RB [ -o

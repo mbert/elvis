@@ -17,7 +17,7 @@ typedef struct
 BEGIN_EXTERNC
 extern RESULT lp P_((WINDOW win, MARK top, MARK bottom, BOOLEAN force));
 END_EXTERNC
-extern LPTYPE lpepson, lppana, lpibm, lphp, lpdumb;
+extern LPTYPE lpepson, lppana, lpibm, lphp, lpdumb, lphtml;
 extern LPTYPE lpcr, lpbs;
 extern LPTYPE lpps, lpps2;
 #ifdef GUI_WIN32

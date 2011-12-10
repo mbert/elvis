@@ -1,7 +1,7 @@
 /* lp.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_lp[] = "$Id: lp.c,v 2.28 1997/11/02 18:54:45 steve Exp $";
+char id_lp[] = "$Id: lp.c,v 2.29 1999/09/30 18:17:56 steve Exp $";
 
 /* This file contains generic printing code. */
 
@@ -19,7 +19,7 @@ static void draw(CHAR *p, long qty, _char_ font, long offset);
 
 
 /* This is a list of all known printer types.  The first one is the default. */
-static LPTYPE	*alltypes[] = {&lpepson, &lppana, &lpibm, &lphp, &lpdumb, &lpcr, &lpbs, &lpps, &lpps2,
+static LPTYPE	*alltypes[] = {&lpdumb, &lpepson, &lppana, &lpibm, &lphp, &lpcr, &lpbs, &lphtml, &lpps, &lpps2,
 #if defined (GUI_WIN32)
  &lpwindows,
 #endif
