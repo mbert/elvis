@@ -327,7 +327,9 @@ int fscanf(FILE *fp, const char *format, ...)
 {
 }
 
-/* <stdio.h> Change fp's I/O offset */
+/* <stdio.h> Change fp's I/O offset.  The 'whence' parameter is one of
+ * SEEK_SET, SEEK_CUR, or SEEK_END.
+ */
 int fseek(FILE *fp, long int offset, int whence)
 {
 }
@@ -734,8 +736,9 @@ size_t strlen(const char *string)
 {
 }
 
-/* <string.h> Append the rear string onto the end of the front string, up
- * to an overall length limit.
+/* <string.h> Append the first "length" chars from the "rear" string onto the
+ * end of the "front" string.  It is assumed that "front" is a buffer large
+ * enough to contain strlen(front)+length+1 characters.
  */
 char *strncat(char *front, const char *rear, size_t length)
 {

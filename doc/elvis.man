@@ -11,7 +11,7 @@ elvis \- a clone of the ex/vi text editor
 .RB [ -s | - ]
 .RB [ -b ]
 .RB [ -R ]
-.RB [ -S | -SS ]
+.RB [ -S ]
 .RB [ -f
 .IR session ]
 .RB [ -o
@@ -27,7 +27,7 @@ elvis \- a clone of the ex/vi text editor
 .IR blksize ]
 .RI [ file ]...
 .SH VERSION
-Elvis 2.2_0
+Elvis 2.2_1
 .SH DESCRIPTION
 .PP
 .B Elvis
@@ -139,19 +139,14 @@ This sets the "defaultreadonly" option, which
 causes all new buffers to be marked as "readonly" so you won't accidentally
 overwrite the original file.
 .IP \fB-S\fR
-Sets security=safer, making
-.B Elvis
-paranoid about certain potentially harmful commands.
-The intent is to protect the user against writing by malicious scripts.
-The ./.exrc file and modelines are executed with security=safer temporarily
-regardless of whether \fB-S\fR was given.
-The \fB-S\fR flag is just used to make
-.B Elvis
-permanently paranoid, for the duration of this process.
-.IP \fB-SS\fR
 Sets security=restricted.
-This is more extreme security than "-S".
-The intent is to protect the system against reading by malicious users.
+This is intended to allow
+.B Elvis
+to be used as a restricted editor.
+Be aware that with or without this flag, \fByou use Elvis at your own risk\fR.
+I have tried to make
+.B -S
+secure, but I'm not guaranteeing anything.
 .IP "\fB-f \fIsession\fR"
 Makes
 .B Elvis
@@ -162,14 +157,15 @@ Session files are discussed in the description of the \fB-r\fR flag, above.
 Redirects messages and trace information out to
 .I logfile
 instead of going to stdout/stderr as usual.
-This is useful under Windows95, where stdout/stderr don't show anywhere.
-If you're having trouble configuring WinElvis, try running "WinElvis -VVV -o log"
+This is useful under Microsoft Windows, where stdout/stderr don't show anywhere.
+If you're having trouble configuring WinElvis,
+try running "WinElvis -VVV -o log"
 and then you can find the trace and error messages in the file "log".
 .IP "\fB-G \fIgui\fR"
 Makes
 .B Elvis
 use the named \fIgui\fR user interface instead of the default.
-To see a list of supported user interfaces, give the command "elvis -?".
+To see a list of supported user interfaces, give the command "elvis -G?".
 .IP "\fB-c \fIcommand\fR"
 After loading the first file, interpret \fIcommand\fR as an ex command line.
 Several ex command lines can be sent in one line, separated by "|".
@@ -194,6 +190,8 @@ This sets the "window" option, which has very little effect in
 .IP "\fB-B \fIblksize\fR"
 If a new session file is created, this causes it to use blocks of size
 .IR blksize .
+This should be a power of 2 between 512 and 8192.
+The default is 2048 except for MS-DOS where it is 1024.
 .PP
 In addition, the following options are also supported to maintain backward
 compatibility, although their future use is discouraged.
@@ -246,8 +244,9 @@ by default.
 .I elvis.ini
 file.
 The default
-.I elvis.ini
-file does this, making the new default font be 18-point Courier.)
+.I elvis.x11
+file does this,
+making the new default font be Courier in a reasonable point size.)
 .PP
 To specify a bold font, use \fB-fb\fI fontname.\fR
 The specified font should have the same size character cell as the normal
@@ -380,7 +379,7 @@ If
 .B Elvis
 happens to be displaying an HTML document, then tag lookup
 pursues hypertext links so you can double-click on any underlined text
-to view the topic that describes that text.
+to view the topic that describes that text (i.e., follow the link).
 Double-clicking button 3 simulates a ^T keystroke,
 taking you back to where you did the last tag lookup.
 .PP

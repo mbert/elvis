@@ -17,9 +17,11 @@ alias fbrowsetweak {
  1
  eval insert <HTML><HEAD><TITLE>(d)</TITLE></HEAD><H1>(d)</H1><BODY><MENU>
  $a </MENU></HTML>
- if !userprotocol
- then eval file (d)/
- else 1i <!DOCTYPE user protocol>
+ "The directory name must end with an OS-dependent slash
+ if file[,-1] != ""/""
+ then eval file (d/"")
+ if userprotocol
+ then 1i <!DOCTYPE user protocol>
  "Move to the first file so that <tab> will move to the second
  1
  /HREF

@@ -1,17 +1,17 @@
 <html><head>
-<title>README.html file for elvis 2.2</title>
-<meta name="description" content="Quick intro to elvis 2.2, with links to source code and binaries">
+<title>README.html file for Elvis 2.2</title>
+<meta name="description" content="Quick intro to Elvis 2.2, with links to source code and binaries">
 <meta name="keywords" content="vi, elvis, unix, linux, msdos, win32, windows95 windowsNT, nt, os2, os/2, editor, source">
 </head><body>
 
 <center>
-<h1>Quick intro to elvis 2.2, with links to source code and binaries</h1>
+<h1>Quick intro to Elvis 2.2, with links to source code and binaries</h1>
 </center>
 
 <strong>CONTENTS</strong>
 <ul>
 <li><a HREF="#thisfile">1. About this file</a>
-<li><a HREF="#vi">2. Differences between vi and elvis 2.2</a>
+<li><a HREF="#vi">2. Differences between vi and Elvis 2.2</a>
 <li><a HREF="#new">3. Differences between 2.1 and 2.2</a>
 <ul>
 <li><a HREF="#NewEx">3.1 New EX commands</a>
@@ -19,27 +19,28 @@
 <li><a HREF="#NewOptions">3.3 New options</a>
 <li><a HREF="#OldOptions">3.4 Changed or removed options</a>
 </ul>
-<li><a HREF="#links">4. Links to related files</a>
+<li><a HREF="#v221">4. Differences between 2.2.0 and 2.2.1</a>
+<li><a HREF="#links">5. Links to related files</a>
 </ul>
 <pre graphic>
 .---------------------------------------------------------------.
-| <strong>This is not elvis' user manual!</strong>  The <em>real</em> documentation for   |
-| elvis is located in its online help facility.  While running  |
-| elvis, enter the command "<code>:help</code>" to see the table of contents.|
+| <strong>This is not Elvis' user manual!</strong>  The <em>real</em> documentation for   |
+| Elvis is located in its online help facility.  While running  |
+| Elvis, enter the command "<code>:help</code>" to see the table of contents.|
 ^---------------------------------------------------------------^</pre>
 
 <h1><a NAME="thisfile">1. About this file</a></h1>
 
 This file is written in the HTML markup language.
 You can view it with any WWW viewer, such as Netscape.
-You can also use elvis 2.2 to view it; this version of elvis
+You can also use Elvis 2.2 to view it; this version of Elvis
 has the ability to view HTML documents, and print them.
 
-<p>If elvis 2.2 doesn't automatically start up in HTML mode when you
+<p>If Elvis 2.2 doesn't automatically start up in HTML mode when you
 view this file, then you'll need to force it into HTML mode by
 giving the command "<code>:display html</code>".
 
-<h1><a name="vi">2. Differences between vi and elvis 2.2</a></h1>
+<h1><a name="vi">2. Differences between vi and Elvis 2.2</a></h1>
 Elvis is a superset of vi.
 It runs on more operating systems than vi,
 it is free,
@@ -61,7 +62,7 @@ Here's a just brief list:
 <li>A variety of display modes, including syntax coloring and HTML.
 <li>Online help, with hypertext links.
 <li>Enhanced tags, to support overloading in C++.
-<li>Network support, so you can load/save files via FTP, or even use elvis 		as a light-weight Web browser.
+<li>Network support, so you can load/save files via FTP, or even use Elvis 		as a light-weight Web browser.
 <li>Aliases, which allow you to define new ex commands.
 <li>Built-in calculator
 
@@ -69,14 +70,14 @@ Here's a just brief list:
 
 <p>For a more complete list, with links to detailed descriptions, check the
 online manual.
-You can bring up the online manual by starting elvis and giving the command
+You can bring up the online manual by starting Elvis and giving the command
 "<code>:help</code>".
 The list of extensions appears after the table of contents and a brief
 introduction.
 
 <h1><a name="new">3. Differences between 2.1 and 2.2</a></h1>
 
-The following is a summary of changes made since the release of elvis 2.1.
+The following is a summary of changes made since the release of Elvis 2.1.
 These are in addition to any bug fixes.
 
 <h2><a name="NewEx">3.1 New EX commands</a></h2>
@@ -127,7 +128,7 @@ vi commands.
 <dd>Closes all windows except this one.
 
 <dt>:preserve
-<dd>Exit elvis, but don't delete the session file.
+<dd>Exit Elvis, but don't delete the session file.
 
 <dt>:push
 <dd>This is similar to <strong>:e</strong>, except that <strong>:push</strong>
@@ -225,7 +226,7 @@ Toggles text between uppercase and lowercase.
 <dl>
 <dt>antialias, aasqueeze
 <dd>For "x11" only, the <strong>antialias</strong> option controls whether
-elvis will use the Xft library to draw antialiased text.
+Elvis will use the Xft library to draw antialiased text.
 Antialiased fonts tend to leave a much larger gap between lines, so the
 <strong>aasqueeze</strong> option gives you a way to reduce that gap, and
 get more lines on the screen.
@@ -244,8 +245,8 @@ to help it choose a contrasting foreground color.
 store attributes about the buffer, for use by your own maps and aliases.
 
 <dt>binary
-<dd>This is set to indicate that elvis was invoked with a "-b" flag.
-The default <code>elvis.brf</code> uses this to set the <strong>readeol</strong>
+<dd>This is set to indicate that Elvis was invoked with a "-b" flag.
+The default <code>Elvis.brf</code> uses this to set the <strong>readeol</strong>
 option to "binary" when appropriate.
 
 <dt>blinktime
@@ -253,7 +254,7 @@ option to "binary" when appropriate.
 Setting it to 0 will disable blinking.
 
 <dt>cleantext
-<dd>Controls when elvis erases old text.
+<dd>Controls when Elvis erases old text.
 Its value is a comma-delimited set of keywords, which may include
 "short", "long", "bs", "input", and/or "ex".
 
@@ -265,7 +266,7 @@ Its value is a comma-delimited set of keywords, which may include
 It's value is a comma-delimited list of keywords, which may include
 "dollar", "paren", "space", "special", "tilde", and "wildcard".
 Windows users may want to remove the "space" keyword, which will prevent
-elvis from parsing spaces as name delimiters; this will make it easier to
+Elvis from parsing spaces as name delimiters; this will make it easier to
 enter names with spaces in them.
 
 <dt>folding
@@ -319,7 +320,7 @@ See "<code>:help set lpoptions</code>".
 
 <dt>prefersyntax
 <dd>You can set the <strong>prefersyntax</strong> option to one of
-"never", "writable", "local", or "always" to control when elvis should
+"never", "writable", "local", or "always" to control when Elvis should
 start displaying a file in the "syntax" display modes rather than one of
 the markup display modes such as "html".
 For example, after "<code>:set prefersyntax=writable</code>", whenever you edit
@@ -419,7 +420,332 @@ You can now set the value to a comma-delimited list of column widths.
 
 </dl>
 
-<h1><a name="links">4. Links to related files</a></h1>
+<h1><a name="v221">4. Differences between 2.2.1 and 2.2.0</h1>
+Elvis 2.2.1 is mostly a bug-fix update of 2.2.0.
+A few new feature crept in though.
+
+<h2>4.1 Fixed bugs</h2>
+<dl>
+
+<dt>:andale was using Luxi Mono fonts
+<dd>The <code>:andale</code> alias (used in the "x11" user interface)
+was actually using Luxi Mono fonts instead of Andale fonts.
+
+<dt>filenamerules broke newline handling
+<dd>When I implemented the filenamerules option in 2.2.0, I accidentally
+broke the way it parses newlines.
+This is important if you remove the <strong>spaces</strong> keyword from
+filenamerules, and then do something like
+"<code>:n `grep foo *.txt`</code>"
+to sets the args list to all files containing "foo".
+
+<dt>HTTP User-agent: header line
+<dd>When sending HTTP requests, Elvis should send a User-agent: header line.
+Some web sites demand this.
+
+<dt>Default button names
+<dd>In the "html" display mode, the &lt;input type=submit&gt; and
+&lt;input type=reset&gt; tags should have the default values "Submit" and
+"Reset" respectively.
+In 2.2.0, they have no default.
+
+<dt>&lt;hr/&gt; shows ------------&gt;
+<dd>The "html" display mode had trouble with tags that end with "/&gt;".
+Elvis would display the &gt; on the screen instead of hiding it.
+
+<dt>&lt;Esc&gt;
+<dd>The &lt;Esc&gt; key should beep when pressed in visual command mode.
+
+<dt>Delayed screen updates in "x11" user interface
+<dd>When a map times out, Elvis wasn't updating the screens immediately
+in the "x11" user interface, which made it hard to detect that the map
+had indeed timed out.
+
+<dt>"d)" could crash
+<dd>In a file full of blank lines, "d)" caused 2.2.0 to dump core.
+
+<dt>:put from a cut buffer
+<dd>The <code>:put<code> command wasn't accepting a cut buffer name argument.
+
+<dt>:dict didn't handle single words
+<dd>The <code>:dict</code> alias (after ":load dict") didn't handle single-word
+queries correctly.
+
+<dt>The directory editor's links were relative to the wrong directory.
+<dd>If you used "<code>:e dirname</code>" to edit the directory "dirname",
+then the links in the generated HTML weren't interpreted as being relative
+to "dirname".  They were treated as being relative to the current directory.
+
+<dt>"x11" converts &lt;b&gt; to ^K0062.
+<dd>The "x11" user interface is too aggressive when trying to convert key names
+from angle-bracket notation to raw characters.
+If a map contains an HTML tag such as &lt;b&gt;, and the tag name happens to match
+the name of a key such as the "b" key, then Elvis was trying to convert that
+keystroke into a raw control sequence.
+
+<dt>":normal cwFOO^[" didn't work
+<dd>The c operator was implemented in a way that didn't work in the
+<code>:normal</code> command.
+
+<dt>".IP \(bu 4" had too large of an indent.
+<dd>This is apparently due to the fact that "4" has no explicit scaling suffix,
+and .IP was using the wrong default scaling factor.
+
+<dt>Hard to enter ^ in WinElvis on a Norwegian keyboard
+<dd>WinElvis has always had a hard time with "dead keys", but now I'm hopeful
+that it should work.  The ^ key works in Norway now, at least.
+
+<dt>":e +cmd file" didn't work
+<dd>For the <code>:e</code> command and a few others, the "+" flag could only
+handle a line number parameter, not a full ex command line.
+
+<dt>Typos in manual.
+<dd>Many found and fixed.
+Still many more to be found, I'm sure.
+
+<dt>:chregion always changes the comment
+<dd>The :chregion shouldn't change the comment of an existing region unless
+you give a new comment explicitly, or the old comment was merely the old
+font name.
+
+<dt>":set show=spell" doesn't work very well.
+<dd>You need to load the whole dictionary to get good suggestions from the
+spell checker.
+In 2.2.0 you had to turn on the "spellautoload" option, but in 2.2.1 that
+option is on by default.
+
+<dt>:map doesn't list all user-defined maps.
+<dd>2.2.0 assumed that any map tied to a symbolic key was defined by the
+system, so it wouldn't list it unless you said "<code>:map all</code>".
+This means you couldn't see actions mapped to function keys.
+2.2.1 is smarter about this -- it adds a flag to indicate whether the
+map was added by the user or created automatically by the GUI.
+
+<dt>Command names were truncated in error messages.
+<dd>When displaying a "bad command name" error message, 2.2.0 would truncate
+the name at the first character that prevented it from being recognized as
+a command.
+2.2.1 displays the full name of the bad command, exactly as you typed it.
+
+<dt>:man doesn't display backslashes correctly
+<dd>The <code>:man</code> alias didn't handle backslashes very well,
+so pages which use a lot of backslashes such as ":man groff_man" looked bad.
+
+<dt>:%unr doesn't always remove all regions.
+<dd>This mostly occured when running autocmds.
+It also affected the <code>:chregion</code> command.
+
+<dt>:%j only joined two lines
+<dd>The command "<code>:1,%j</code>" joins all lines but "<code>:%j</code>"
+only joined two.
+
+<dt>elvis.ini maps too much
+<dd>The default "elvis.ini" file contained maps without the
+<strong>nosave</strong> flag, so if you ran <code>:mkexrc</code> in an xterm,
+your ~/.elvisrc file would contain maps that are present in all user interfaces
+and for all termcap terminal types.
+
+<dt>:mkexrc can lose GUI-specific options
+<dd>The <code>:mkexrc</code> command only saved GUI-specific options for the
+current GUI.
+This means that running <code>:mkexrc</code> in the "termcap" interface could
+clobber your default font for the "x11" interface.
+2.2.1 gets around this by storing all GUI-specific options, even those for
+other GUIs or unknown GUIs, just so it can save them in the ~/.elvisrc file.
+
+<dt>&lt;li&gt;&lt;p&gt; looks ugly
+<dd>Many HTML documents use this sequence of tags to generate lists that have
+a bit of vertical whitespace between items.
+But 2.2.0 was drawing the list item marker (bullet or number) on the blank
+line, instead of the line where the paragraph's text starts.
+2.2.1 treats this as a special case -- it ignores the &lt;p&gt; in this context.
+
+<dt>security=safer is too strict
+<dd>The "security=safer" setting didn't allow some command that it should
+have allowed.
+This prevented some harmless and useful commands such as "elvis -client foo"
+from working.
+To get this working right, I had to overhaul the behavior of "security=safer".
+It is no longer a more lenient superset of "security=restricted".
+See ":help set security" for details.
+
+<p>One consequence of this is that the "-S" flag now sets security=restricted.
+
+<dt>:wq didn't work when security=safer or security=restricted.
+<dd>The manual said it should.
+The new version of security=safer doesn't allow any writing, but you can
+now <code>:wq</code> when security=restricted.
+
+<dt>The "ax" text object didn't support tag names with hyphens
+<dd>I've extended it to allow single hyphens but not double hyphens
+(since double hyphens mark comments).
+It also allows colons, for namespace control.
+
+<dt>dirperm(".") returns readonly
+<dd>The <code>dirperm()</code> function didn't recognize directories
+correctly.
+This was a bug in the way the "dir:" pseudo-protocol was implemented.
+
+<dt>hlobject didn't allow commas
+<dd>An increasing number of options in elvis store multiple values in
+comma-delimited lists.
+The "hlobject" option can store multiple values, but required them to
+be either crammed together or delimited by spaces.
+Now it supports commas.
+
+<dt>rcssince didn't work
+<dd>The rcssince alias (part of ":load since") is supposed to be executed
+when a buffer is loaded, but it used some commands which are illegal during
+initialization.
+Most of the commands that are illegal during initialization are only
+illegal because they're useless until the first file is loaded into a buffer.
+The rcssince alias was actually running after the file was loaded, so it
+should be allowed, but Elvis had a rather weak idea of when "initialization"
+ends.
+
+<dt>:suspend didn't work
+<dd>It wasn't in Elvis' internal command list correctly.
+The <code>:stop</code> equivalent has always worked though.
+
+<dt>Backslashes aren't handled right in "simpler syntax"
+<dd>If a "simpler syntax" expression started with \( or \$ then Elvis
+should convert that to a literal ( or $ character.
+Instead, 2.2.0 was leaving it as a literal \ followed by an parenthesized
+subexpression, or $ variable substitution.
+(This arose from trying to make an initial \\ remain unchanged so Windows
+users could five UNC names such as \\machine\dir\file.)
+
+<dt>AliasLeave events 
+<dd>At the end of an alias, 2.2.0 generated an AliasEnter event when it
+should have generated an AliasLeave event.
+
+<dt>:eval does not compute
+<dd>The :eval command could get confused if the command that it runs
+needs to evaluate an expression.
+This was because a static buffer is used to return the results of evaluations,
+and :eval didn't copy the result into a local buffer before trying to execute
+it.
+
+<dt>Trouble with gzipped files
+<dd>The "<code>:load gzip</code>" command (formerly "<code>:load augz</code>")
+sets up elvis to automatically handle gzipped files.
+It has some problems, but the two biggest problems are now fixed.
+<p>One problem was that filtering commands always wrote out the final newline
+to gunzip, even though that newline wasn't part of the gzipped data.
+This caused gunzip to output an error message.
+2.2.1 doesn't write out the final newline when the "partiallastline" option
+is set.
+<p>The other main problem was that the file was initially displayed in hex
+mode, even after the file had been gunzipped into text.
+To get around this, elvis will now temporarily remove ".gz" from the end of
+the file name, then rerun the "elvis.arf" script, and then slap the ".gz"
+back on the file name again so the file can be saved correctly.
+
+<dt>"x11" could generate a BadMatch error while exiting
+<dd>This would occur if you start Elvis from an xterm,
+and then exited the xterm before Elvis.
+Elvis will now ignore that particular error.
+
+</dl>
+
+<h2>4.2 New features</h2>
+<dl>
+
+<dt>:nofold
+<dd>Wipes out folds.  This differs from <code>:unfold</code> in that
+<code>:unfold</code> leaves some information behind to allow the region to
+be easily refolded.  <code>:nofold</code> leaves nothing behind.
+
+<dt>Persistent information
+<dd>Elvis can store cursor positions and some other things between invocations.
+See the "persistfile" and "persist" options.
+
+<dt>%&lt; and #&lt; in filenames
+<dd>When giving file name arguments, you can use %&lt; and #&lt; to get the name of
+the current or alternate file, with its extension removed.
+For example, if you're editing "database_interface.c", then you can get to
+"database_interface.h" by typing "<code>:e %&lt;.h</code>".
+
+<dt>:phelp command
+<dd>Like <code>:help</code> except that <code>:phelp</code> doesn't split
+the screen.
+Instead, it saves your old cursor position on the tag stack and then shows
+the help page in your current screen.
+
+<dt>X11 buttons can simulate keystrokes
+<dd>The <code>:gui</code> command accepts a new notation for defining toolbar
+buttons that simulate keystrokes instead of invoking an ex command.
+This is useful when you want to do something with a character selection;
+ex commands treat all selections as line selections.
+
+<p>The notation uses square brackets around the name.
+You can put the characters to simulate after the closing square bracket.
+If you omit those characters, then Elvis will simulate keystrokes that
+spell out the button name, with the brackets included.
+You can then set up a <code>:map</code> to convert that to something else.
+That can be nice because elvis allows maps to be somewhat context sensitive.
+
+<dt>Computed line addresses
+<dd>In ex command lines, you can now use
+<code>=</code><var>option</var> to pull a line address from an option, or
+<code>=(</code><var>expression</var><code>)</code> for more complex expressions.
+This is often handy in aliases.
+
+<dt>GDB interface
+<dd>The core of a simple GDB interface is provided,
+to allow Elvis and GDB to work together.
+This depends on Elvis' "x11" user interface; you can't use it with the termcap
+interface.
+It is implemented partly as a C program that acts as a "wrapper" around GDB
+and parses its output for things that Elvis needs to know, and partly as a
+set of aliases which receive that information and act on it (e.g., by moving
+the cursor, or changing the highlight of breakpoint lines).
+
+<dt>Generic "state" display
+<dd>A new "state" option has been created.
+If the "show" option contains the keyword "state", then the value of the
+"state" option will be displayed at the bottom of the window.
+This can be handy in complex alias packages.
+The GDB interface uses it to indicate the debugged program's status.
+
+<dt>More function keys
+<dd>The &lt;F11&gt; and &lt;F12&gt; function keys are now supported on most
+platforms.
+I also tried to support shift and control function keys, with some success
+on Linux.
+
+<dt>:map noselect ...
+<dd>The :map command now supports a <strong>noselect</strong> flag.
+This is short for "every context except select".
+
+<dt>:load scripts described
+<dd>I've added a section to the "Tips" chapter describing the scripts
+in Elvis' library.
+(These may be loaded via the <code>:load</code> alias.)
+
+<dt>:source can read from a program
+<dd>The :source command has been extended to allow it to read the output of
+a program, and interpret that output as a series of ex commands.
+For example, you could create a program that scans an HTML document and
+outputs a series of <code>:fold</code> commands to allow you to selective
+hide sections of it.
+
+<dt>incsearch partially supports history
+<dd>When using incremental search, the final search expression is stored
+in the search history.
+You can use arrow keys or ^Ok and ^Oj to retrieve a previous search.
+Full editing is still only supported for non-incremental searches, though.
+
+<dt>herefile script
+<dd>After "<code>:load herefile</code>", Elvis should be able to highlight
+"herefiles" in shell scripts.
+Herefiles are text files embedded within the script itself, between
+<code>&lt;&lt;</code><var>SYMBOL</var> and a line containing just
+<var>SYMBOL</var>.
+
+</dl>
+
+<h1><a name="links">5. Links to related files</a></h1>
 
 The main download site is
 <a href="ftp://ftp.cs.pdx.edu/pub/elvis/">ftp.cs.pdx.edu</a>.
@@ -461,8 +787,8 @@ So if you extract the files using <code>untarw32.exe</code>,
 DOS programs won't be able to find them with their expected names,
 and vice versa.
 Consequently, you must use <code>untardos.exe</code> to unpack
-<code>elvis-2.2_0-msdos.tar.gz</code>, and <code>untarw32.exe</code> to unpack
-<code>elvis-2.2_0-win32.tar.gz</code>.
+<code>elvis-2.2_1-msdos.tar.gz</code>, and <code>untarw32.exe</code> to unpack
+<code>elvis-2.2_1-win32.tar.gz</code>.
 (Actually, I recently added a <strong>-m</strong> flag which forces
 <code>untarw32.exe</code> to convert long file names to short ones using
 the MS-DOS method.)
@@ -472,21 +798,21 @@ the MS-DOS method.)
 For brief instructions on how to use <code>untaros2,</code>
 run it with no arguments.
 
-<dt><a href="elvis-2.2_0.tar.gz">elvis-2.2_0.tar.gz</a>
+<dt><a href="elvis-2.2_1.tar.gz">elvis-2.2_1.tar.gz</a>
 <dd>This is a gzipped tar archive of the source code and documentation for
 Elvis 2.2 and its related programs.
 
-<dt><a href="elvis-2.2_0-msdos.tar.gz">elvis-2.2_0-msdos.tar.gz</a>
+<dt><a href="elvis-2.2_1-msdos.tar.gz">elvis-2.2_1-msdos.tar.gz</a>
 <dd>This archive contains the documentation and MS-DOS executables
 for Elvis 2.2.
 
-<dt><a href="elvis-2.2_0-win32.tar.gz">elvis-2.2_0-win32.tar.gz</a>
+<dt><a href="elvis-2.2_1-win32.tar.gz">elvis-2.2_1-win32.tar.gz</a>
 <dd>This archive contains the documentation and Win32 executables
 for Elvis 2.2.
 These were compiled and tested under Windows95, but should work under
 WindowsNT 3.51 (or later) as well.
 
-<dt><a href="elvis-2.2_0-os2.tar.gz">elvis-2.2_0-os2.tar.gz</a>
+<dt><a href="elvis-2.2_1-os2.tar.gz">elvis-2.2_1-os2.tar.gz</a>
 <dd>This archive contains the documentation and OS/2 executables
 for Elvis 2.2.
 <strong>If this link is broken then look in Herbert's site, below.</strong>
@@ -495,7 +821,7 @@ for Elvis 2.2.
 <a href="http://www.fh-wedel.de/pub/fh-wedel/staff/di/elvis/00-index.html">
 http://www.fh-wedel.de/pub/fh-wedel/staff/di/elvis/00-index.html</a>
 <dd>This is where the OS/2 maintainer stores his most up-to-date versions.
-It may be better than the <code>elvis-2.2_0-os2.tar.gz</code> file, above.
+It may be better than the <code>elvis-2.2_1-os2.tar.gz</code> file, above.
 </dl>
 
 </body></html>

@@ -12,6 +12,6 @@ alias readDICT {
 alias dict {
 	" Show the definition of a term in a new window
 	local w="!*"
-	let w =~ s/ /\\ /g
+	let w =~ s/ /\\ /ge
 	eval sp dict:(w)
 }

@@ -18,7 +18,7 @@ fmt \- adjust line-length for paragraphs of text
 .ad b
 .SH VERSION
 This page describes the
-.B Elvis 2.2_0
+.B Elvis 2.2_1
 version of
 .BR fmt .
 See

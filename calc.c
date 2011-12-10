@@ -4,7 +4,7 @@
 
 #include "elvis.h"
 #ifdef FEATURE_RCSID
-char id_calc[] = "$Id: calc.c,v 2.143 2003/10/18 04:47:18 steve Exp $";
+char id_calc[] = "$Id: calc.c,v 2.145 2004/03/14 23:18:52 steve Exp $";
 #endif
 
 #ifdef TRY
@@ -135,6 +135,9 @@ static CHAR *feature[] =
 # endif
 # ifdef FEATURE_NORMAL
 	toCHAR("normal"),
+# endif
+# ifdef FEATURE_PERSIST
+	toCHAR("persist"),
 # endif
 # ifdef FEATURE_PROTO
 	toCHAR("proto"),
@@ -2268,12 +2271,17 @@ CHAR *calculate(expr, arg, rule)
 
 		  case '\\':
 			/* In most contexts, a backslash is treated as a
-			 * literal character.  However, it can also be used to
-			 * quote the special characters of a message string:
-			 * dollar sign, parentheses, and the backslash itself.
+			 * literal character; this works best in Windows names.
+			 * However, it can also be used to quote the special
+			 * characters of a message string: dollar sign,
+			 * parentheses, and (except at the beginning of the
+			 * line) the backslash itself.  A \\ at the beginning
+			 * of a line could be a Windows \\machine\dir\file name.
 			 */
 			expr++;
-			if (build == result || !*expr || !strchr("$()\\", *expr))
+			if (!*expr
+			 || (build == result && *expr == '\\')
+			 || !strchr("$()", *expr))
 			{
 				/* at front of expression, or if followed by
 				 * normal character - literal */
@@ -2727,7 +2735,7 @@ CHAR *calculate(expr, arg, rule)
 	if (base > 0)
 	{
 Mismatch:
-		msg(MSG_ERROR, "(\"()\") mismatch");
+		msg(MSG_ERROR, "\\(\\) mismatch");
 		return (CHAR *)0;
 	}
 

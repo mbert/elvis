@@ -1,5 +1,5 @@
 # Makefile.in
-# $Id: Makefile.in,v 2.121 2003/10/21 02:31:00 steve Exp $
+# $Id: Makefile.in,v 2.124 2004/03/19 23:02:53 steve Exp $
 #
 # Makefile.in should not be modified!  The "configure" script reads Makefile.in
 # and writes a customized Makefile by editing the values of the following
@@ -71,7 +71,7 @@ FLAGI=-I
 # ctags and elvtags are the same program under different names.  The $(EXE) on
 # the end is just in case this Makefile is reconfigured for an operating
 # system which requires the EXE macro to be something like ".exe".
-ALL=elvis$(EXE) ref$(EXE) elvtags$(EXE) elvfmt$(EXE)
+ALL=elvis$(EXE) ref$(EXE) elvtags$(EXE) elvfmt$(EXE) elvgdb$(EXE)
 
 ################################################################################
 # The installation directories are relative to this
@@ -107,7 +107,7 @@ CP=cp
 ###############################################################################
 # Portable compilation rules
 
-VERSION=2.2_0
+VERSION=2.2_1
 MISC=	BUGS README.html COPYING INSTALL Makefile.in configure instman.sh\
 	elvis.lsm makwin32.bat makmsdos.bat makos2.cmd e2 \
 	elvis.spec.in Announce-$(VERSION)
@@ -137,12 +137,12 @@ GUIHDRS=$(GNOMEHDRS) $(X11HDRS)
 LPSRCS=	lpescape.c lpovrtyp.c lpps.c
 LPOBJS=	lpescape$(OBJ) lpovrtyp$(OBJ) lpps$(OBJ)
 HDRS=	$(OSHDRS) $(GUIHDRS) autocmd.h buffer.h buffer2.h calc.h color.h\
-	cut.h descr.h digraph.h display.h display2.h draw.h draw2.h elvis.h\
-	elvisio.h event.h ex.h gui.h gui2.h input.h lowbuf.h lp.h map.h\
-	mark.h message.h message2.h misc.h more.h move.h need.h operator.h\
-	opsys.h optglob.h options.h regexp.h region.h safe.h scan.h session.h\
-	spell.h state.h state2.h tag.h tagsrch.h tagelvis.h version.h vi.h\
-	vicmd.h window.h config.h
+	cut.h descr.h digraph.h display.h display2.h draw.h draw2.h elvctype.h\
+	elvis.h elvisio.h event.h ex.h fold.h gui.h gui2.h input.h lowbuf.h\
+	lp.h map.h mark.h message.h message2.h misc.h more.h move.h need.h\
+	operator.h opsys.h optglob.h options.h regexp.h region.h safe.h scan.h\
+	session.h spell.h state.h state2.h tag.h tagsrch.h tagelvis.h version.h\
+	vi.h vicmd.h window.h config.h
 SRCS=	$(OSSRCS) $(GUISRCS) $(LPSRCS) autocmd.c buffer.c calc.c color.c cut.c\
 	descr.c digraph.c display.c dmhex.c dmmarkup.c dmnormal.c dmsyntax.c\
 	draw.c event.c ex.c exaction.c exconfig.c exedit.c exmake.c exsubst.c\
@@ -198,6 +198,9 @@ ref$(EXE): $(REFOBJS)
 
 fmt$(EXE): fmt.c os$(OS)$(SLASH)osdir.c
 	$(CC) $(CFLAGS) fmt.c -o fmt$(EXE)
+
+elvgdb$(EXE): elvgdb.c
+	$(CC) $(CFLAGS) elvgdb.c $(LIBS) -o elvgdb$(EXE)
 
 verify$(EXE): $(HDRS) verify$(OBJ) $(OBJ1) $(OBJ2)
 	$(CC) $(CFLAGS) verify$(OBJ) $(OBJ1) $(OBJ2) -o verify$(EXE)

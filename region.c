@@ -89,18 +89,18 @@ static region_t *rgnfind(from, to, font, after, lag)
 	/* for each region... */
 	if (lag) *lag = after;
 	for (r = after ? after->next : markbuffer(from)->regions;
-	     r && markoffset(r->to) <= markoffset(from);
+	     r && markoffset(r->from) < markoffset(to);
 	     r = r->next)
 	{
+		/* did we find a match? */
+		if (markoffset(r->to) > markoffset(from)
+		 && (!font || r->font == font))
+			/* Yes!  return it */
+				return r;
+
+		/* update the lag pointer */
 		if (lag) *lag = r;
 	}
-
-	/* did we find a match? */
-	if (r
-	 && markoffset(r->from) < markoffset(to)
-	 && (!font || r->font == font))
-		/* Yes!  return it */
-			return r;
 
 	/* no matching region was found */
 	return NULL;
@@ -333,7 +333,7 @@ region_t *regionfind(mark)
 	return rgnfind(mark, &tmp, '\0', NULL, NULL);
 }
 
-/* This implements the :region and :unregion commands. */
+/* This implements the :region, :unregion, and :chregion commands. */
 RESULT ex_region(xinf)
 	EXINFO	*xinf;	/* details about the command */
 {
@@ -409,13 +409,11 @@ RESULT ex_region(xinf)
 		if (comment)
 		{
 			*comment++ = '\0';
-			while (*comment == ' ');
+			while (*comment == ' ')
 				comment++;
 			if (*comment == '\0')
-				comment = xinf->rhs;
+				comment = NULL;
 		}
-		else
-			comment = xinf->rhs;
 		newfont = colorfind(xinf->rhs);
 
 		/* for each matching region... */
@@ -424,8 +422,11 @@ RESULT ex_region(xinf)
 		{
 			/* change the font & comment */
 			r->font = newfont;
-			safefree(r->comment);
-			r->comment = CHARdup(comment);
+			if (comment || !CHARcmp(r->comment, xinf->lhs))
+			{
+				safefree(r->comment);
+				r->comment = CHARdup(comment ? comment : xinf->rhs);
+			}
 		}
 
 		/* clean up abutting regions, etc. */

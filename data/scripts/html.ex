@@ -1,80 +1,105 @@
 "This file contains some maps that are useful when editing XML or HTML code.
 
-" When a > is input at the end of a tag, automatically add the closing tag
-map input > noremap >mmF<ye`mpa>bi/`mli
+alias htmlmap {
+  " Load maps for "html" display mode
 
-" Make the % command match XML tags.  This doesn't work as the destination of
-" operator commands or during visual selections, though, so we only map it for
-" commands.
-map command % noremap :xmlmatch
+  " Remove the special handing for >
+  unmap input mode=html >
 
-" Add <> to matchchar
-set matchchar="{}()[]<>"
+  " Protect some characters when inserting in html display mode
+  map input mode=html noremap & &amp;
+  map input mode=html noremap < &lt;
+  map input mode=html noremap > &gt;
 
-alias xmlmatch {
-    "Move the cursor to the matching HTML or XML tag name
+  " No tag highlighting -- let tags do their own highlighting
+  set hlobject=""
+}
+alias htmlunmap {
+  " Load maps for "syntax html" display mode
 
-    "If not on tag name, then do the normal % character match
-    if current(/\i/) == ""
-    then normal %
-    else {
-	" d is the direction to search
-	" i counts nested tag pairs
-	" n is the tag name without any punctuation
-	" t is origin tag name without args or >
-	local d i n t
+  " Remove maps that protect some special HTML characters
+  unmap input mode=html &
+  unmap input mode=html <
+  unmap input mode=html >
 
-	"Configure search parameters to be "normal"
-	local nowrapscan magic magicchar=^$.[* magicname noincsearch ignorecase nosmartcase
+  " When a > is input at the end of a tag, automatically add the closing tag
+  map input mode=html > noremap ><Esc>F<yef>pa><Esc>bi/<Esc>hi
 
-	"HTML ignores case, but XML is case sensitive
-	if (tolower(dirext(filename)) << 4) == ".htm"
-	then set ignorecase
-	else set noignorecase
+  " Highlight the innermost tag */
+  set hlobject="ix,ax"
+}
+aug edithtml
+au DispMapEnter html htmlmap
+au DispMapLeave html htmlunmap
+aug END
+if display == "html"
+then htmlmap
+else htmlunmap
 
-	"This particular alias doesn't really change the file, but it uses
-	"the :normal command which *can* change the file and hence is not
-	"allowed on locked buffers.  Temporarily turn off locking.
-	local nolocked
+" Add ax to matchchar -- lets you use % to find matching tag pairs
+set matchchar="{}()[]ax"
 
-	"Get the current tag name
-	let t=current(/<\/\i\+/)
-	if t
-	then {
-	    let d="backward"
-	    let n=t[,3...]
-	}
-	else {
-	    let t=current(/<\i\+/)
-	    if t
-	    then {
-		let d="forward"
-		let n=t[,2...]
-	    }
-	    else error cursor isn't on a tag name
-	}
+" Arrange for innermost tag to be highlighted later, when hlobject is set */
+if hllayers == 0
+then {
+  set hllayers=2
+  if color("hlobject1") == ""
+  then color hlobject1 boxed
+  if color("hlobject2") == ""
+  then color hlobject2 bold
+}
 
-	" move to the start of this tag, so we don't immediately find it in
-	" the following search loop and mistake it for a nested tag.
-	normal F<
-
-	"search for the tag, for nested tags.  Stop on the matching one
-	normal mx
-	try {
-	    set i=1
-	    while i > 0
-	    do {
-		"find the next opening or closing tag, in the proper direction
-		switch d
-		case forward normal /<\/\?\=$n\>
-		case backward normal ?</*\=$n\>
-
-		"count nested tag levels
-		if current(/<\/\?$n/) == t
-		then let i = i + 1
-		else let i = i - 1
-	    }
-	}
-	else normal `x
+" For X11, set up some buttons
+if gui == "x11"
+then {
+  gui gap
+  gui Heading: htmlblock pair h1
+  gui Heading?current("selection")=="line"
+  gui Subheading: htmlblock pair h2
+  gui Subheading?current("selection")=="line"
+  gui Left: htmlblock div left
+  gui Left?current("selection")=="line"
+  gui Right: htmlblock div right
+  gui Right?current("selection")=="line"
+  gui Center: htmlblock div center
+  gui Center?current("selection")=="line"
+  gui Bullet: htmlblock list ul
+  gui Bullet?current("selection")=="line"
+  gui Number: htmlblock list ol
+  gui Number?current("selection")=="line"
+  gui Preformat: htmlblock pair pre
+  gui Preformat?current("selection")=="line"
+  gui Other: eval htmlblock pair (t)
+  gui Other?current("selection")=="line"
+  gui Other;"HTML tag to add" t
+  gui gap
+  gui [Bold]
+  gui Bold?current("selection")=="line" || current("selection")=="character"
+  gui [Italic]
+  gui Italic?current("selection")=="line" || current("selection")=="character"
+  gui [Code]
+  gui Code?current("selection")=="line" || current("selection")=="character"
+  gui gap
+  gui Undo: u
+  alias htmlblock {
+    switch "!1"
+    case pair {
+      !> a </!2>
+      !< i <!2>
     }
+    case div {
+      !> a </div>
+      !< i <div align=!2>
+      if "!2" != "left"
+      then warning Elvis doesn't display text aligned to the !2
+    }
+    case list {
+      !% s/^/<li>/
+      !> a </!2>
+      !< i <!2>
+    }
+  }
+  map select mode=html noremap [Bold] c<strong<C-V>><C-P></strong<C-V>><Esc>
+  map select mode=html noremap [Italic] c<em<C-V>><C-P></em<C-V>><Esc>
+  map select mode=html noremap [Code] c<code<C-V>><C-P></code<C-V>><Esc>
 }

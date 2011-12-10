@@ -2,18 +2,18 @@
 
 alias since {
   " Highlight the differences between current buffer and its file
-  "local a s=since f t=/tmp/diff report=0 u=/tmp/diff.ex
-  set s=since t=/tmp/diff report=0 u=/tmp/diff.ex
+  local a s=since f t=/tmp/diff report=0
   let f = "!*" || filename
   if !exists(filename)
   then error usage: since [filename]
   eval unr (s)
-  w! (t)
-  let a = "diff" f t
-  let a = a;"| sed -n 's/^[0-9,]*a\\([0-9,]*\\)$/\\1reg diff added/p;s/^[0-9,]*c\\([0-9,]*\\)$/\\1reg diff changed/p' >";u
-  eval !!(a)
-  safely source (u)
-  eval !!rm (t)
+  try w! (t)
+  then {
+    let a = "diff" f t
+    let a = a;"| sed -n 's/^[0-9,]*a\\([0-9,]*\\)$/\\1reg diff added/p;s/^[0-9,]*c\\([0-9,]*\\)$/\\1reg diff changed/p'"
+    eval safely source !!(a)
+    eval !!rm (t)
+  }
 }
 
 alias rcssince {
@@ -22,12 +22,14 @@ alias rcssince {
   eval unr (s)
   if exists("RCS"/filename;",v") || exists(filename;",v")
   then {
-    w! (t)
-    let a = "co -p !1 2>/dev/null" filename "| diff - " t
-    let a = a;"| sed -n 's/^[0-9,]*a\\([0-9,]*\\)$/\\1reg" s "added/p;s/^[0-9,]*c\\([0-9,]*\\)$/\\1reg" s "changed/p'"
-    let a = shell(a)
-    eval (a)
-    eval !!rm (t)
+    try w! (t)
+    then {
+      let a = "co -p !1 2>/dev/null" filename "| diff - " t "| sed -n '"
+      let a = a;"s/^[0-9,]*a\\([0-9,]*\\)$/\\1reg" s "added/p;"
+      let a = a;"s/^[0-9,]*c\\([0-9,]*\\)$/\\1reg" s "changed/p'"
+      eval safely source !!(a)
+      eval !!rm (t)
+    }
   }
 }
 

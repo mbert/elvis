@@ -4,7 +4,7 @@
 
 #include "elvis.h"
 #ifdef FEATURE_RCSID
-char id_ex[] = "$Id: ex.c,v 2.226 2003/10/19 23:13:33 steve Exp $";
+char id_ex[] = "$Id: ex.c,v 2.244 2004/03/26 21:33:27 steve Exp $";
 #endif
 
 #if USE_PROTOTYPES
@@ -39,6 +39,7 @@ static char *cname(int i);
 /* These are the possible arguments for a command.  These may be combined
  * via the bitwise OR operator to describe arbitrary combinations of these.
  */
+#define a_None    0x00000000L	/* no arguments */
 #define a_Line	  0x00000001L	/* single line specifier */
 #define a_Range	  0x00000002L	/* range of lines */
 #define a_Multi	  0x00000004L	/* command character may be stuttered */
@@ -61,24 +62,25 @@ static char *cname(int i);
 
 /* The following values indicate the default values of arguments */
 #define d_All	  0x00080000L	/* default range is all lines */
-#define d_2Lines  0x00100000L	/* default range is two lines (for :join) */
-#define d_None	  0x00180000L	/* default range is no lines (else current line) */
+#define d_None	  0x00100000L	/* default range is no lines (else current line) */
 #define d_LnMask  0x00180000L	/* mask value for extracting line defaults */
 #define d_File	  0x00200000L	/* default file is current file (else no default) */
 
 /* The following indicate other quirks of commands */
+#define q_None	      0x0000L	/* no quirks */
 #define q_Unsafe      0x0001L	/* command can't be executed if "safer" */
 #define q_FileUnsafe  0x0002L	/* command can't take filename if "safer" */
-#define q_Restricted  0x0004L	/* "Unsafe" flags only apply if "restricted" */
-#define q_Autop	      0x0008L	/* autoprint current line */
-#define q_Zero	      0x0010L	/* allow Target or Line to be 0 */
-#define q_Exrc	      0x0020L	/* command may be run in a .exrc file */
-#define q_Undo	      0x0040L	/* save an "undo" version before this command */
-#define q_Custom      0x0080L	/* save options/maps after command */
-#define q_Ex	      0x0100L	/* only allowed in ex mode, not vi's <:> cmd */
-#define q_CtrlV	      0x0200L	/* use ^V for quote char, instead of \ */
-#define q_MayQuit     0x0400L	/* may cause window to disappear */
-#define q_SwitchB     0x0800L	/* may move cursor to a different buffer */
+#define q_Restricted  0x0004L	/* command can't be executed if "restricted" */
+#define q_FileRestr   0x0008L	/* command can't take filename if "restricted"*/
+#define q_Autop	      0x0010L	/* autoprint current line */
+#define q_Zero	      0x0020L	/* allow Target or Line to be 0 */
+#define q_Exrc	      0x0040L	/* command may be run in a .exrc file */
+#define q_Undo	      0x0080L	/* save an "undo" version before this command */
+#define q_Custom      0x0100L	/* save options/maps after command */
+#define q_Ex	      0x0200L	/* only allowed in ex mode, not vi's <:> cmd */
+#define q_CtrlV	      0x0400L	/* use ^V for quote char, instead of \ */
+#define q_MayQuit     0x0800L	/* may cause window to disappear */
+#define q_SwitchB     0x1000L	/* may move cursor to a different buffer */
 
 
 /* This array maps ex command names to command codes. The order in which
@@ -108,30 +110,30 @@ static struct
 }
 	cmdnames[] =
 {   /*	 cmd name	cmd code	function	flags (describing arguments)            quirks */
-/*!   */{"!",		EX_BANG,	ex_bang,	a_Range | a_Cmds | d_None,		q_Exrc | q_Unsafe | q_Undo	},
-/*#   */{"#",		EX_NUMBER,	ex_print,	a_Range | a_Count | a_Pflag						},
+/*!   */{"!",		EX_BANG,	ex_bang,	a_Range | a_Cmds | d_None,		q_Exrc | q_Unsafe | q_Restricted | q_Undo },
+/*#   */{"#",		EX_NUMBER,	ex_print,	a_Range | a_Count | a_Pflag,		q_None				},
 /*&   */{"&",		EX_SUBAGAIN,	ex_substitute,	a_Range | a_Rhs,			q_Undo				},
 /*<   */{"<",		EX_SHIFTL,	ex_shift,	a_Range | a_Multi | a_Bang | a_Count,	q_Autop | q_Undo		},
 /*=   */{"=",		EX_EQUAL,	ex_file,	a_Range									},
 /*>   */{">",		EX_SHIFTR,	ex_shift,	a_Range | a_Multi | a_Bang | a_Count,	q_Autop | q_Undo		},
 #ifdef FEATURE_MISC
-/*@   */{"@",		EX_AT,		ex_at,		a_Buffer								},
+/*@   */{"@",		EX_AT,		ex_at,		a_Buffer,				q_None				},
 #endif
-/*N   */{"Next",	EX_PREVIOUS,	ex_next,	a_Bang,					q_Unsafe | q_SwitchB		},
+/*N   */{"Next",	EX_PREVIOUS,	ex_next,	a_Bang,					q_SwitchB			},
 /*"   */{"\"",		EX_COMMENT,	ex_comment,	a_Cmds,					q_Exrc				},
 /*a   */{"append",	EX_APPEND,	ex_append,	a_Line | a_Bang | a_Cmds | a_Text,	q_Zero | q_Undo | q_Ex		},
-/*ab  */{"abbreviate",	EX_ABBR,	ex_map,		a_Bang | a_Lhs | a_Rhs,			q_Exrc|q_Custom|q_Unsafe|q_CtrlV},
+/*ab  */{"abbreviate",	EX_ABBR,	ex_map,		a_Bang | a_Lhs | a_Rhs,			q_Exrc | q_Custom | q_Unsafe | q_Restricted | q_CtrlV},
 #ifdef FEATURE_MISC
-/*al  */{"all",		EX_ALL,		ex_all,		a_Bang | a_Cmds,			q_Exrc				},
+/*al  */{"all",		EX_ALL,		ex_all,		a_Bang | a_Cmds,			q_None				},
 #endif
 #ifdef FEATURE_ALIAS
-/*ali */{"alias",	EX_ALIAS,	ex_alias,	a_Bang | a_Lhs | a_Cmds,		q_Exrc | q_Unsafe | q_Custom	},
+/*ali */{"alias",	EX_ALIAS,	ex_alias,	a_Bang | a_Lhs | a_Cmds,		q_Exrc | q_Unsafe | q_Restricted | q_Custom },
 #endif
-/*ar  */{"args",	EX_ARGS,	ex_args,	a_Files,				q_Exrc | q_Unsafe		},
+/*ar  */{"args",	EX_ARGS,	ex_args,	a_Files,				q_Exrc | q_FileRestr		},
 #ifdef FEATURE_AUTOCMD
-/*au  */{"autocmd",	EX_AUTOCMD,	ex_autocmd,	a_Bang | a_Cmds,			q_Exrc | q_Unsafe | q_Custom	},
+/*au  */{"autocmd",	EX_AUTOCMD,	ex_autocmd,	a_Bang | a_Cmds,			q_Exrc | q_Unsafe | q_Restricted | q_Custom	},
 /*aue */{"auevent",	EX_AUEVENT,	ex_auevent,	a_Bang | a_Rhs,				q_Exrc | q_Custom		},
-/*aug */{"augroup",	EX_AUGROUP,	ex_augroup,	a_Bang | a_Lhs,				q_Exrc | q_Unsafe		},
+/*aug */{"augroup",	EX_AUGROUP,	ex_augroup,	a_Bang | a_Lhs,				q_Exrc				},
 #endif
 #ifdef FEATURE_MISC
 /*b   */{"buffer",	EX_BUFFER,	ex_buffer,	a_Bang | a_Rhs,				q_SwitchB			},
@@ -144,21 +146,21 @@ static struct
 /*bre */{"break",	EX_BREAK,	ex_map,		a_Bang | a_Rhs,				q_CtrlV				},
 #endif
 /*c   */{"change",	EX_CHANGE,	ex_append,	a_Range | a_Bang | a_Count | a_Text,	q_Undo | q_Ex			},
-/*cha */{"chdir",	EX_CD,		ex_cd,		a_Bang | a_File,			q_Exrc | q_Unsafe		},
+/*cha */{"chdir",	EX_CD,		ex_cd,		a_Bang | a_File,			q_Exrc | q_Unsafe | q_Restricted},
 #ifdef FEATURE_SPELL
 /*che */{"check",	EX_CHECK,	ex_check,	a_Bang | a_Rhs,				q_Exrc | q_Custom		},
 #endif
 #ifdef FEATURE_REGION
-/*chr */{"chregion",	EX_CHREGION,	ex_region,	a_Range | a_Rhs | a_Lhs							},
+/*chr */{"chregion",	EX_CHREGION,	ex_region,	a_Range | a_Rhs | a_Lhs,		q_None				},
 #endif
 #ifdef FEATURE_CALC
 /*ca  */{"calculate",	EX_CALC,	ex_comment,	a_Cmds,					q_Exrc				},
 /*cas */{"case",	EX_CASE,	ex_case,	a_Lhs | a_Cmds,				q_Exrc				},
 #endif
 #ifdef FEATURE_MAKE
-/*cc  */{"cc",		EX_CC,		ex_make,	a_Bang | a_Rhs,				q_Unsafe | q_SwitchB		},
+/*cc  */{"cc",		EX_CC,		ex_make,	a_Bang | a_Rhs,				q_Unsafe | q_Restricted | q_SwitchB},
 #endif
-/*cd  */{"cd",		EX_CD,		ex_cd,		a_Bang | a_File,			q_Exrc | q_Unsafe		},
+/*cd  */{"cd",		EX_CD,		ex_cd,		a_Bang | a_File,			q_Exrc | q_Unsafe | q_Restricted},
 /*cl  */{"close",	EX_CLOSE,	ex_xit,		a_Bang,					q_MayQuit			},
 /*co  */{"copy",	EX_COPY,	ex_move,	a_Range | a_Target | a_Pflag,		q_Autop | q_Undo		},
 /*col */{"color",	EX_COLOR,	ex_color,	a_Bang | a_Lhs | a_Rhs,			q_Exrc | q_Custom		},
@@ -174,18 +176,18 @@ static struct
 #ifdef FEATURE_AUTOCMD
 /*doa */{"doautocmd",	EX_DOAUTOCMD,	ex_doautocmd,	a_Rhs,					q_Exrc				},
 #endif
-/*e   */{"edit",	EX_EDIT,	ex_edit,	a_Bang | a_Plus | a_File | d_File,	q_FileUnsafe | q_SwitchB	},
+/*e   */{"edit",	EX_EDIT,	ex_edit,	a_Bang | a_Plus | a_File | d_File,	q_FileRestr | q_SwitchB		},
 /*ec  */{"echo",	EX_ECHO,	ex_comment,	a_Rhs,					q_Exrc				},
 /*el  */{"else",	EX_ELSE,	ex_then,	a_Cmds,					q_Exrc				},
 #ifdef FEATURE_MAKE
-/*er  */{"errlist",	EX_ERRLIST,	ex_errlist,	a_Bang | a_File | a_Filter,		q_SwitchB|q_FileUnsafe|q_Restricted},
+/*er  */{"errlist",	EX_ERRLIST,	ex_errlist,	a_Bang | a_File | a_Filter,		q_SwitchB | q_Restricted	},
 #endif
 /*erro*/{"error",	EX_ERROR,	ex_message,	a_Rhs,					q_Exrc				},
 #ifdef FEATURE_CALC
 /*ev  */{"eval",	EX_EVAL,	ex_if,		a_Cmds,					q_Exrc				},
 #endif
-/*ex  */{"ex",		EX_EDIT,	ex_edit,	a_Bang | a_Plus | a_File | d_File,	q_FileUnsafe | q_SwitchB	},
-/*f   */{"file",	EX_FILE,	ex_file,	a_Bang | a_File,			q_FileUnsafe			},
+/*ex  */{"ex",		EX_EDIT,	ex_edit,	a_Bang | a_Plus | a_File | d_File,	q_FileRestr | q_SwitchB		},
+/*f   */{"file",	EX_FILE,	ex_file,	a_Bang | a_File,			q_FileUnsafe | q_FileRestr	},
 #ifdef FEATURE_FOLD
 /*fo  */{"fold",	EX_FOLD,	ex_fold,	a_Range | a_Bang | a_Rhs 						},
 #endif
@@ -202,10 +204,10 @@ static struct
 #ifdef FEATURE_CALC
 /*if  */{"if",		EX_IF,		ex_if,		a_Cmds,					q_Exrc				},
 #endif
-/*j   */{"join",	EX_JOIN,	ex_join,	a_Range | a_Bang | a_Count | d_2Lines,	q_Autop | q_Undo		},
+/*j   */{"join",	EX_JOIN,	ex_join,	a_Range | a_Bang | a_Count,		q_Autop | q_Undo		},
 /*k   */{"k",		EX_MARK,	ex_mark,	a_Line | a_Lhs								},
 /*l   */{"list",	EX_LIST,	ex_print,	a_Range | a_Count | a_Pflag						},
-/*la  */{"last",	EX_LAST,	ex_next,	0,					q_Unsafe | q_SwitchB		},
+/*la  */{"last",	EX_LAST,	ex_next,	0,					q_SwitchB			},
 #ifdef FEATURE_CALC
 /*le  */{"let",		EX_LET,		ex_set,		a_Bang | a_Cmds,			q_Exrc | q_Custom		},
 #endif
@@ -213,66 +215,72 @@ static struct
 /*se  */{"local",	EX_LOCAL,	ex_set,		a_Rhs,					q_Exrc		 		},
 #endif
 #ifdef FEATURE_LPR
-/*lp  */{"lpr",		EX_LPR,		ex_lpr,		a_Range|a_Bang|a_Append|a_File|a_Filter|d_All,	q_Unsafe		},
+/*lp  */{"lpr",		EX_LPR,		ex_lpr,		a_Range|a_Bang|a_Append|a_File|a_Filter|d_All,	q_Unsafe | q_Restricted	},
 #endif
 /*m   */{"move",	EX_MOVE,	ex_move,	a_Range | a_Target,			q_Autop | q_Undo		},
 /*ma  */{"mark",	EX_MARK,	ex_mark,	a_Line | a_Lhs								},
 #ifdef FEATURE_MAKE
-/*mak */{"make",	EX_MAKE,	ex_make,	a_Bang | a_Rhs,				q_Unsafe | q_SwitchB		},
+/*mak */{"make",	EX_MAKE,	ex_make,	a_Bang | a_Rhs,				q_Unsafe | q_Restricted | q_SwitchB},
 #endif
-/*map */{"map",		EX_MAP,		ex_map,		a_Bang | a_Rhs,				q_Exrc|q_Custom|q_Unsafe|q_CtrlV},
+/*map */{"map",		EX_MAP,		ex_map,		a_Bang | a_Rhs,				q_Exrc | q_Custom | q_Unsafe | q_Restricted | q_CtrlV},
 /*me  */{"message",	EX_MESSAGE,	ex_message,	a_Rhs,					q_Exrc				},
 #ifdef FEATURE_MKEXRC
-/*mk  */{"mkexrc",	EX_MKEXRC,	ex_mkexrc,	a_Bang | a_File,			q_Unsafe			},
+/*mk  */{"mkexrc",	EX_MKEXRC,	ex_mkexrc,	a_Bang | a_File,			q_Unsafe | q_Restricted		},
 #endif
-/*n   */{"next",	EX_NEXT,	ex_next,	a_Bang | a_Files,			q_Unsafe | q_SwitchB		},
+/*n   */{"next",	EX_NEXT,	ex_next,	a_Bang | a_Files,			q_FileRestr | q_SwitchB		},
 #ifdef FEATURE_SPLIT
-/*ne  */{"new",		EX_SNEW,	ex_split										},
+/*ne  */{"new",		EX_SNEW,	ex_split,	a_None,					q_None				},
 #endif
 /*no  */{"normal",	EX_NORMAL,	ex_display,	a_Range | a_Bang | a_Cmds | d_None,	q_Undo 				},
-#ifdef FEATURE_HLSEARCH
-/*noh */{"nohlsearch",	EX_NOHLSEARCH,	ex_nohlsearch										},
+#ifdef FEATURE_FOLD
+/*nof */{"nofold",	EX_NOFOLD,	ex_fold,	a_Range | a_Bang 							},
 #endif
-/*nu  */{"number",	EX_NUMBER,	ex_print,	a_Range | a_Count | a_Pflag						},
-/*o   */{"open",	EX_OPEN,	ex_edit,	a_Bang | a_Plus | a_File,		q_SwitchB | q_FileUnsafe	},
-/*on  */{"only",	EX_ONLY,	ex_qall,	a_Bang | d_None								},
-/*p   */{"print",	EX_PRINT,	ex_print,	a_Range | a_Count | a_Pflag						},
-/*pre */{"previous",	EX_PREVIOUS,	ex_next,	a_Bang,					q_Unsafe | q_SwitchB		},
+#ifdef FEATURE_HLSEARCH
+/*noh */{"nohlsearch",	EX_NOHLSEARCH,	ex_nohlsearch,	a_None,					q_None				},
+#endif
+/*nu  */{"number",	EX_NUMBER,	ex_print,	a_Range | a_Count | a_Pflag,		q_None				},
+/*o   */{"open",	EX_OPEN,	ex_edit,	a_Bang | a_Plus | a_File,		q_SwitchB | q_FileRestr		},
+/*on  */{"only",	EX_ONLY,	ex_qall,	a_Bang | d_None,			q_None				},
+/*p   */{"print",	EX_PRINT,	ex_print,	a_Range | a_Count | a_Pflag,		q_None				},
+/*ph  */{"phelp",	EX_PHELP,	ex_help,	a_Lhs | a_Rhs,				q_SwitchB			},
+/*pre */{"previous",	EX_PREVIOUS,	ex_next,	a_Bang,					q_SwitchB			},
 /*pres*/{"preserve",	EX_PRESERVE,	ex_qall,	d_None,					q_MayQuit			},
 /*po  */{"pop",		EX_POP,		ex_pop,		a_Bang,					q_SwitchB			},
-/*pu  */{"put",		EX_PUT,		ex_put,		a_Line,					q_Zero | a_Buffer | q_Undo	},
-/*pus */{"push",	EX_PUSH,	ex_edit,	a_Bang | a_Plus | a_File,		q_FileUnsafe | q_SwitchB	},
+/*pu  */{"put",		EX_PUT,		ex_put,		a_Line | a_Buffer,			q_Zero | a_Buffer | q_Undo	},
+/*pus */{"push",	EX_PUSH,	ex_edit,	a_Bang | a_Plus | a_File,		q_FileRestr | q_SwitchB		},
 /*q   */{"quit",	EX_QUIT,	ex_xit,		a_Bang,					q_MayQuit			},
 /*qa  */{"qall",	EX_QALL,	ex_qall,	a_Bang,					q_MayQuit			},
-/*r   */{"read",	EX_READ,	ex_read,	a_Line | a_File | a_Filter,		q_Zero|q_Undo|q_Unsafe|q_Restricted},
+/*r   */{"read",	EX_READ,	ex_read,	a_Line | a_File | a_Filter,		q_Zero | q_Undo | q_Restricted	},
 /*red */{"redo",	EX_REDO,	ex_undo,	a_Lhs,					q_Autop				},
 #ifdef FEATURE_REGION
-/*reg */{"region",	EX_REGION,	ex_region,	a_Range | a_Lhs | a_Rhs							},
+/*reg */{"region",	EX_REGION,	ex_region,	a_Range | a_Lhs | a_Rhs,		q_None				},
 #endif
-/*rew */{"rewind",	EX_REWIND,	ex_next,	a_Bang,					q_Unsafe | q_SwitchB		},
-/*s   */{"substitute",	EX_SUBSTITUTE,	ex_substitute,	a_Range|a_RegExp|a_RegSub|a_Rhs|a_Count|a_Pflag, q_Autop|q_Undo|q_Exrc	},
+/*rew */{"rewind",	EX_REWIND,	ex_next,	a_Bang,					q_SwitchB			},
+/*s   */{"s",		EX_SUBSTITUTE,	ex_substitute,	a_Range|a_RegExp|a_RegSub|a_Rhs|a_Count|a_Pflag, q_Autop|q_Undo|q_Exrc	},
+/*su  */{"suspend",	EX_SUSPEND,	ex_suspend,	a_Bang,					q_Unsafe | q_Restricted		},
+/*sub */{"substitute",	EX_SUBSTITUTE,	ex_substitute,	a_Range|a_RegExp|a_RegSub|a_Rhs|a_Count|a_Pflag, q_Autop|q_Undo|q_Exrc	},
 #ifdef FEATURE_SPLIT
-/*sN  */{"sNext",	EX_SPREVIOUS,	ex_next,	0,					q_Unsafe			},
-/*sa  */{"sall",	EX_SALL,	ex_sall,	0									},
+/*sN  */{"sNext",	EX_SPREVIOUS,	ex_next,	0,					q_None				},
+/*sa  */{"sall",	EX_SALL,	ex_sall,	0,					q_None				},
 #endif
-/*saf */{"safely",	EX_SAFELY,	ex_then,	a_Cmds,					q_Exrc				},
+/*saf */{"safely",	EX_SAFELY,	ex_then,	a_Cmds,					q_Exrc 				},
 #if defined(FEATURE_SPLIT) && defined(FEATURE_MISC)
-/*sbb */{"sbbrowse",	EX_SBBROWSE,	ex_buffer,	a_Bang									},
+/*sbb */{"sbbrowse",	EX_SBBROWSE,	ex_buffer,	a_Bang,					q_None				},
 #endif
 #ifdef FEATURE_BROWSE
 /*sbr */{"sbrowse",	EX_SBROWSE,	ex_browse,	a_Bang|a_Rhs								},
 #endif
 /*se  */{"set",		EX_SET,		ex_set,		a_Bang | a_Rhs,				q_Exrc | q_Custom		},
-/*sh  */{"shell",	EX_SHELL,	ex_suspend,	0,					q_Unsafe			},
+/*sh  */{"shell",	EX_SHELL,	ex_suspend,	0,					q_Unsafe | q_Restricted		},
 #ifdef FEATURE_SPLIT
-/*sl  */{"slast",	EX_SLAST,	ex_next,	0,					q_Unsafe			},
-/*sn  */{"snext",	EX_SNEXT,	ex_next,	a_Files,				q_Unsafe			},
-/*snew*/{"snew",	EX_SNEW,	ex_split,	0,					q_Unsafe			},
+/*sl  */{"slast",	EX_SLAST,	ex_next,	0,					q_None				},
+/*sn  */{"snext",	EX_SNEXT,	ex_next,	a_Files,				q_FileRestr			},
+/*snew*/{"snew",	EX_SNEW,	ex_split,	0,					q_None				},
 #endif
-/*so  */{"source",	EX_SOURCE,	ex_source,	a_Bang | a_File,			q_Exrc | q_Unsafe | q_Restricted	},
+/*so  */{"source",	EX_SOURCE,	ex_source,	a_Bang | a_File | a_Filter,		q_Exrc | q_Restricted		},
 #ifdef FEATURE_SPLIT
-/*sp  */{"split",	EX_SPLIT,	ex_split,	a_Line | a_Plus | a_File | a_Filter,	q_FileUnsafe			},
-/*sr  */{"srewind",	EX_SREWIND,	ex_next,	a_Bang,					q_Unsafe			},
+/*sp  */{"split",	EX_SPLIT,	ex_split,	a_Line | a_Plus | a_File | a_Filter,	q_FileRestr			},
+/*sr  */{"srewind",	EX_SREWIND,	ex_next,	a_Bang,					q_None				},
 #endif
 /*st  */{"stop",	EX_STOP,	ex_suspend,	a_Bang,					q_Unsafe | q_Restricted		},
 #ifdef FEATURE_SPLIT
@@ -281,7 +289,6 @@ static struct
 #ifdef FEATURE_MISC
 /*stac*/{"stack",	EX_STACK,	ex_stack,	d_None									},
 #endif
-/*su  */{"suspend",	EX_SUSPEND,	ex_suspend,	a_Bang,					q_Unsafe | q_Restricted		},
 #ifdef FEATURE_CALC
 /*sw  */{"switch",	EX_SWITCH,	ex_switch,	a_Cmds,					q_Exrc				},
 #endif
@@ -306,8 +313,8 @@ static struct
 #endif
 /*v   */{"vglobal",	EX_VGLOBAL,	ex_global,	a_Range|a_Bang|a_RegExp|a_Cmds|d_All,	q_Undo				},
 /*ve  */{"version",	EX_VERSION,	ex_version,	0,					q_Exrc								},
-/*vi  */{"visual",	EX_VISUAL,	ex_edit,	a_Bang | a_Plus | a_File,		q_FileUnsafe | q_SwitchB	},
-/*w   */{"write",	EX_WRITE,	ex_write,	a_Range|a_Bang|a_Append|a_File|a_Filter|d_All,	q_Unsafe		},
+/*vi  */{"visual",	EX_VISUAL,	ex_edit,	a_Bang | a_Plus | a_File,		q_FileRestr | q_SwitchB		},
+/*w   */{"write",	EX_WRITE,	ex_write,	a_Range|a_Bang|a_Append|a_File|a_Filter|d_All|d_File,	q_Unsafe | q_FileRestr	},
 /*wa  */{"warning",	EX_WARNING,	ex_message,	a_Rhs,					q_Exrc				},
 #ifdef FEATURE_CALC
 /*wh  */{"while",	EX_WHILE,	ex_while,	a_Cmds,					q_Exrc				},
@@ -318,10 +325,10 @@ static struct
 /*wn  */{"wnext",	EX_WNEXT,	ex_next,	a_Bang,					q_SwitchB			},
 #ifdef FEATURE_SPELL
 /*wo  */{"words",	EX_WORDS,	ex_check,	a_Bang | a_Rhs,				q_Exrc | q_Custom		},
-/*wordf*/{"wordfile",	EX_WORDFILE,	ex_wordfile,	a_Bang | a_Files,			q_Exrc|q_Custom|q_FileUnsafe|q_Restricted},
+/*wordf*/{"wordfile",	EX_WORDFILE,	ex_wordfile,	a_Bang | a_Files,			q_Exrc | q_Custom | q_FileRestr	},
 #endif
-/*wq  */{"wquit",	EX_WQUIT,	ex_xit,		a_Bang | a_File | d_File,		q_FileUnsafe | q_MayQuit	},
-/*x   */{"xit",		EX_XIT,		ex_xit,		a_Bang | a_File ,			q_FileUnsafe | q_MayQuit	},
+/*wq  */{"wquit",	EX_WQUIT,	ex_xit,		a_Bang | a_File | d_File,		q_Unsafe | q_FileRestr | q_MayQuit	},
+/*x   */{"xit",		EX_XIT,		ex_xit,		a_Bang | a_File ,			q_Unsafe | q_FileRestr | q_MayQuit	},
 /*y   */{"yank",	EX_YANK,	ex_delete,	a_Range | a_Buffer | a_Count						},
 #ifdef FEATURE_MISC
 /*z   */{"z",		EX_Z,		ex_z,		a_Line | a_Rhs								},
@@ -817,6 +824,87 @@ ELVBOOL exparseaddress(refp, xinf)
 		lnum = o_buflines(markbuffer(&xinf->defaddr));
 		break;
 
+#ifdef FEATURE_MISC
+	  case '=':
+		/* if followed immediately by a letter or '(' then it is used
+		 * as a computed address.
+		 */
+		if (!scannext(refp))
+			return ElvFalse;
+		if (**refp == '(' || elvalpha(**refp))
+		{
+			CHAR	*expr, *value;
+			int	nest;
+			CHAR	string;
+
+			/* collect chars of the expression */
+			expr = NULL;
+			if (**refp == '(')
+			{
+				/* collect to matching ')' */
+				for (nest = 1, string = '\0';
+				     nest > 0 && **refp && **refp != '\n';
+				     (*refp)++)
+				{
+					/* append char to expression */
+					buildCHAR(&expr, **refp);
+
+					/* recognize nested () */
+					if (!string)
+					{
+						switch (**refp)
+						{
+						  case '\'':
+						  case '"':
+							string = **refp;
+							break;
+
+						  case '(':
+							nest++;
+							break;
+
+						  case ')':
+							nest--;
+							break;
+						}
+					}
+					else if (**refp == string)
+						string = '\0';
+					else if (**refp == '\\' && (*refp)[1] == string)
+						(*refp)++;
+				}
+			}
+			else
+			{
+				/* collect chars of option name */
+				while (elvalnum(**refp))
+				{
+					buildCHAR(&expr, **refp);
+					(*refp)++;
+				}
+			}
+
+			/* evaluate the expression */
+			value = calculate(expr, NULL, CALC_ALL);
+			safefree(expr);
+			if (!value)
+				/* error msg already given */
+				return ElvFalse;
+
+			/* sanity checks */
+			if (!calcnumber(value)
+			 || (lnum = CHAR2long(value)) < 0
+			 || lnum > o_buflines(markbuffer(&xinf->defaddr)))
+			{
+				msg(MSG_ERROR, "bad calculated line number");
+				return ElvFalse;
+			}
+			break;
+		}
+		/* else fall through so '=' is parsed later as a command... */
+		scanprev(refp);
+#endif /* FEATURE_MISC */
+
 	  default:
 		/* use the default address, but don't consume any chars */
 		lnum = markline(&xinf->defaddr);
@@ -880,6 +968,7 @@ static ELVBOOL parsecommandname(refp, xinf)
 	int	len;		/* number of characters in name so far */
 	MARK	start;		/* where the command name started */
 	int	i;
+	CHAR	*cp;
 
 	/* if no command, then assume either "goto" or comment */
 	if (!*refp || **refp == '\n' || **refp == '|')
@@ -974,6 +1063,12 @@ static ELVBOOL parsecommandname(refp, xinf)
 	/* If we still haven't found anything, give up! */
 	if (matches == 0)
 	{
+		/* try to read additional letters */
+		scandup(&cp, refp);
+		len--;
+		for (; len < QTY(cmdname) && cp && elvalpha(*cp); scannext(&cp))
+			cmdname[len++] = *cp;
+		scanfree(&cp);
 		cmdname[len] = '\0';
 		msg(MSG_ERROR, "[s]bad command name $1", cmdname);
 		return ElvFalse;
@@ -1394,11 +1489,12 @@ static RESULT parsecmds(refp, xinf, flags)
 {
 	ELVBOOL	shell;	/* is this command for a shell? */
 	ELVBOOL	bol;	/* at front of a line? */
-	CHAR	*scan;
+	CHAR	*scan, *scanend;
 	CHAR	ch;
 	MARKBUF	end;
 	MARK	start;
 	int	i;
+	ELVFNR	rules;
 
 	/* if the command doesn't use cmds, then do nothing */
 	if ((flags & a_Cmds) == 0)
@@ -1441,20 +1537,25 @@ static RESULT parsecmds(refp, xinf, flags)
 
 	/* shell commands are more complex, due to substitutions... */
 	bol = ElvTrue;
+	rules = exfilenamerules(o_filenamerules);
 	while (*refp && **refp && **refp != '\n')
 	{
 		/* copy most characters literally, but perform
 		 * substitutions for !, %, #
 		 */
 		ch = **refp;
+		scanend = NULL;
 		switch (ch)
 		{
 		  case '%':
-			scan = o_filename(markbuffer(&xinf->defaddr));
-			break;
-
 		  case '#':
-			scan = buffilenumber(refp);
+			if (!(rules & ELVFNR_SPECIAL))
+			{
+				buildCHAR(&xinf->rhs, **refp);
+				scan = xinf->rhs;
+				break;
+			}
+			scan = buffilenumber(markbuffer(&xinf->defaddr), refp, &scanend);
 			break;
 
 		  case '!':
@@ -1515,8 +1616,12 @@ static RESULT parsecmds(refp, xinf, flags)
 			/* we want to... but do we have the string? */
 			if (scan)
 			{
-				for ( ; *scan; scan++)
-					buildCHAR(&xinf->rhs, *scan);
+				if (scanend)
+					for ( ; scan != scanend; scan++)
+						buildCHAR(&xinf->rhs, *scan);
+				else
+					for ( ; *scan; scan++)
+						buildCHAR(&xinf->rhs, *scan);
 			}
 			else
 			{
@@ -1603,8 +1708,8 @@ ELVBOOL exaddfilearg(file, nfiles, filename, rules)
 	{
 		/* expand any environment variables */
 		filename = tochar8(calculate(toCHAR(filename), NULL,
-			 (ELVFNR)(((rules & ELVFNR_DOLLAR) ? CALC_DOLLAR : 0) | 
-				  ((rules & ELVFNR_PAREN) ? CALC_PAREN : 0))));
+			 (CALCRULE)(((rules&ELVFNR_DOLLAR) ? CALC_DOLLAR : 0) |
+				    ((rules&ELVFNR_PAREN) ? CALC_PAREN : 0))));
 		if (!filename)
 			return ElvFalse;
 	}
@@ -1720,6 +1825,7 @@ static ELVBOOL parsefileargs(refp, xinf, flags)
 {
 	CHAR	*filename;
 	CHAR	*scan, *val;
+	CHAR	ch;
 	ELVFNR	rules;
 #ifdef FEATURE_BACKTICK
 	CHAR	*expr;
@@ -1838,6 +1944,7 @@ static ELVBOOL parsefileargs(refp, xinf, flags)
 			break;
 
 		  case '#':
+		  case '%':
 			/* if filenamerules doesn't contain "special" just add char */
 			if (!(rules & ELVFNR_SPECIAL))
 			{
@@ -1848,39 +1955,16 @@ static ELVBOOL parsefileargs(refp, xinf, flags)
 			/* replace # with name of alternate file, or a numbered
 			 * file.
 			 */
-			scan = buffilenumber(refp);
+			ch = **refp;
+			scan = buffilenumber(markbuffer(&xinf->defaddr), refp, &val);
 			if (!scan)
 			{
-				msg(MSG_ERROR, "[c]no value to substitute for $1", '#');
+				msg(MSG_ERROR, "[C]no value to substitute for $1", ch);
 				goto Error;
 			}
-			for ( ; *scan; scan++)
+			for ( ; scan != val; scan++)
 			{
 				buildCHAR(&filename, *scan);
-			}
-			break;
-
-		  case '%':
-			/* filenamerules doesn't contain "special" just add char */
-			if (!(rules & ELVFNR_SPECIAL))
-			{
-				buildCHAR(&filename, **refp);
-				break;
-			}
-
-			/* replace % with name of current file */
-			scan = o_filename(markbuffer(&xinf->defaddr));
-			if (scan)
-			{
-				for ( ; *scan; scan++)
-				{
-					buildCHAR(&filename, *scan);
-				}
-			}
-			else
-			{
-				msg(MSG_ERROR, "[c]no value to substitute for $1", '%');
-				goto Error;
 			}
 			break;
 
@@ -1940,7 +2024,9 @@ static ELVBOOL parsefileargs(refp, xinf, flags)
 			 */
 			for (; *val; val++)
 			{
-				if (*val == '\t' || (*val == ' ' && (rules & ELVFNR_SPACE)))
+				if (*val == '\t'
+				 || *val == '\n'
+				 || (*val == ' ' && (rules & ELVFNR_SPACE)))
 				{
 					if (filename)
 					{
@@ -2152,7 +2238,11 @@ static RESULT parse(win, refp, xinf)
 			xinf->anyaddr = ElvTrue;
 			sel = ElvFalse;
 		}
-		else if ((*refp && strchr("./?'0123456789$+-,;", (char)**refp)))
+		else if (*refp
+			&& (strchr("./?'0123456789$+-,;", (char)**refp)
+			    || (**refp == '='
+				&& ((*refp)[1] == '('/*)*/
+				    || elvalpha((*refp)[1]) ))))
 		{
 			do
 			{
@@ -2274,16 +2364,15 @@ static RESULT parse(win, refp, xinf)
 	quirks = cmdnames[xinf->cmdidx].quirks;
 
 	/* is the command legal in this context? */
-	if (!win && 0 == (quirks & q_Exrc))
+	if (o_initializing && 0 == (quirks & q_Exrc))
 	{
 		msg(MSG_ERROR, "[s]$1 is illegal during initialization", xinf->cmdname);
 		return RESULT_ERROR;
 	}
-	if (((0 == (quirks & q_Restricted)) ? o_security != 'n' /* !normal */
-					    : o_security == 'r')/* restricted */
-	 && 0 != (quirks & q_Unsafe))
+	if (((quirks & q_Unsafe) != 0 && o_security == 's' /* safer */)
+	 || ((quirks & q_Restricted) != 0 && o_security == 'r' /* restricted */))
 	{
-		msg(MSG_ERROR, "[s]$1 is unsafe", xinf->cmdname);
+		msg(MSG_ERROR, "[s]unsafe to :$1", xinf->cmdname);
 		return RESULT_ERROR;
 	}
 
@@ -2444,13 +2533,22 @@ static RESULT parse(win, refp, xinf)
 	{
 		return RESULT_ERROR;
 	}
-	if (((0 == (quirks & q_Restricted)) ? o_security != 'n' /* !normal */
-					    : o_security == 'r')/* restricted */
-	 && 0 != (quirks & q_FileUnsafe)
-	 && xinf->nfiles > 0)
+	if (xinf->nfiles > 0 &&
+		(((quirks & q_FileUnsafe) != 0 && o_security == 's' /* safer */)
+	      || ((quirks & q_FileRestr) != 0 && o_security == 'r' /* restricted */)))
 	{
-		msg(MSG_ERROR, "[s]$1 filename is unsafe", xinf->cmdname);
-		return RESULT_ERROR;
+		/* We have a filename.  However, some commands use the
+		 * current filename by default; if that is what's happing
+		 * here, then allow it.  Else error.
+		 */
+		if (xinf->nfiles > 1
+		 || !bufdefault
+		 || !o_filename(bufdefault)
+		 || CHARcmp(toCHAR(xinf->file[0]), o_filename(bufdefault)))
+		{
+			msg(MSG_ERROR, "[s]unsafe to :$1 filename", xinf->cmdname);
+			return RESULT_ERROR;
+		}
 	}
 
 	/* for some commands, parse a long argument string which
@@ -2539,14 +2637,6 @@ static RESULT parse(win, refp, xinf)
 			xinf->to = o_buflines(markbuffer(&xinf->defaddr));
 		}
 
-		/* if only one address was given, and the default range
-		 * include should include 2 lines, then add second line.
-		 */
-		if (!twoaddrs && (flags & d_LnMask) == d_2Lines)
-		{
-			xinf->to = xinf->from + 1;
-		}
-
 		/* if there was a count, add it to "from" to make "to" */
 		if (xinf->count > 0)
 		{
@@ -2583,7 +2673,7 @@ static RESULT parse(win, refp, xinf)
 			bufreplace(marktmp(logstart, log, 0L), marktmp(logend, log, o_bufchars(log)), NULL, 0L);
 			o_maplog = 'a';
 		}
-		bufreplace(marktmp(logend, log, o_bufchars(log)), &logend, toCHAR(":"), 1L);
+		bufappend(log, toCHAR(":"), 1L);
 		if (logstr)
 		{
 			if (*refp)
@@ -2591,13 +2681,12 @@ static RESULT parse(win, refp, xinf)
 			else
 				loglen = CHARlen(logstr);
 			assert(loglen > 0L);
-			bufreplace(marktmp(logend, log, o_bufchars(log)),
-					&logend, logstr, loglen);
+			bufappend(log, logstr, loglen);
 		}
 		else
 			bufpaste(marktmp(logend, log, o_bufchars(log)),
 					&orig, scanmark(refp));
-		bufreplace(marktmp(logend, log, o_bufchars(log)), &logend, toCHAR("\n"), 1L);
+		bufappend(log, toCHAR("\n"), 1L);
 	}
 #endif /* FEATURE_MAPDB */
 
@@ -2730,7 +2819,8 @@ static RESULT execute(xinf)
 
 	/* most commands aren't allowed to switch buffers */
 	if (xinf->newcurs
-	 && markbuffer(xinf->window->cursor) != markbuffer(xinf->newcurs)
+	 && (!xinf->window
+	    || markbuffer(xinf->window->cursor) != markbuffer(xinf->newcurs))
 	 && !(quirks & q_SwitchB))
 	{
 		markfree(xinf->newcurs);
@@ -2813,15 +2903,13 @@ static RESULT execute(xinf)
 					tochar8(o_bufname(markbuffer(xinf->window->cursor))),
 					tochar8(o_bufname(markbuffer(xinf->newcurs))),
 					loglines);
-				bufreplace(marktmp(logend, log, o_bufchars(log)),
-					&logend,
-					toCHAR(line),
-					(long)strlen(line));
+				bufappend(log, toCHAR(line), strlen(line));
 			}
 #endif /* FEATURE_MAPDB */
 
 			optprevfile(o_filename(markbuffer(xinf->window->cursor)),
 				    markline(xinf->window->cursor));
+#if 0
 			if (gui->retitle)
 			{
 				(*gui->retitle)(xinf->window->gw,
@@ -2833,6 +2921,9 @@ static RESULT execute(xinf)
 			dispset(xinf->window, o_initialsyntax(markbuffer(xinf->newcurs))
 			    ? "syntax"
 			    : tochar8(o_bufdisplay(markbuffer(xinf->newcurs))));
+#else
+			winchgbuf(xinf->window, markbuffer(xinf->newcurs), ElvTrue);
+#endif
 			bufoptions(markbuffer(xinf->newcurs));
 
 		}
@@ -3455,10 +3546,12 @@ CHAR *excomplete(win, from, to)
 
 	/* Many commands take ex commands as their arguments.  The a_Cmds
 	 * flag is set for these commands, but it is also set for a few
-	 * others.  Oh well, it's close enough.  Also, the :help command's
-	 * arguments resemble an ex command.
+	 * others.  Oh well, it's close enough.  Also, the :help and :phelp
+	 * commands' arguments resemble an ex command.
 	 */
-	if ((cmdnames[i].flags & a_Cmds) != 0 || cmdnames[i].code == EX_HELP)
+	if ((cmdnames[i].flags & a_Cmds) != 0
+	 || cmdnames[i].code == EX_HELP
+	 || cmdnames[i].code == EX_PHELP)
 		return excomplete(win, marktmp(tmp, markbuffer(to), offset), to);
 
 	/* does the command take filename arguments or a target address? */

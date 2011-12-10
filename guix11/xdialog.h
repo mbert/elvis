@@ -37,6 +37,7 @@ typedef struct dialog_s
 	X11WIN	*xw;	/* window where command should be run */
 	char	*name;	/* name of the dialog, from toolbar button */
 	char	*desc;	/* one-line description of what "submit" does */
+	CHAR	*vicmd;	/* chars to push into input queue if "submit" pressed */
 	char	*excmd;	/* the command to execute if "submit" pressed */
 	char	*spec;	/* descriptions of the fields */
 	X_FIELD	*field;	/* details about each field */
@@ -62,7 +63,7 @@ typedef struct dialog_s
 } dialog_t;
 
 
-extern void x_dl_add P_((X11WIN *xw, char *name, char *desc, char *excmd, char *spec));
+extern void x_dl_add P_((X11WIN *xw, char *name, char *desc, CHAR *vicmd, char *excmd, char *spec));
 extern void x_dl_delete P_((dialog_t *dia));
 extern void x_dl_destroy P_((X11WIN *xw));
 extern void x_dl_event P_((Window w, XEvent *event));

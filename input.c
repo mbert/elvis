@@ -4,7 +4,7 @@
 
 #include "elvis.h"
 #ifdef FEATURE_RCSID
-char id_input[] = "$Id: input.c,v 2.83 2003/10/18 04:47:18 steve Exp $";
+char id_input[] = "$Id: input.c,v 2.84 2003/12/28 20:29:47 steve Exp $";
 #endif
 
 /* These data types are used to store the parsing state for input mode
@@ -1202,7 +1202,7 @@ void inputchange(win, from, to, linemd)
 	/* Was this command issued via <Control-O> from input mode?
 	 * If not, then we'll need to push one.
 	 */
-	if (!win->state->pop)
+	if (!win->state->pop || win->state->perform == _viperform)
 	{
 		inputpush(win, 0, 'i');
 	}

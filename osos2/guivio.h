@@ -12,20 +12,6 @@
 #if !defined(_GUIVIO_H)
 #define _GUIVIO_H
 
-#define INCL_VIO
-#define INCL_KBD
-#define INCL_DOSPROCESS
-#define INCL_DOSERRORS
-#ifdef __EMX__
-# define USE_OS2_TOOLKIT_HEADERS
-#endif
-#include <os2.h>
-#ifdef CHAR
-# undef CHAR
-#endif
-
-#include <string.h>
-
 /*
  * A VIO color index.  The four high-order bits contain the background
  * color, while the four low-order bits contain the foreground colour.

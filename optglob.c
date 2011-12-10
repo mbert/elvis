@@ -6,7 +6,7 @@
 
 #include "elvis.h"
 #ifdef FEATURE_RCSID
-char id_optglob[] = "$Id: optglob.c,v 2.110 2003/10/21 00:18:16 steve Exp $";
+char id_optglob[] = "$Id: optglob.c,v 2.119 2004/03/26 21:34:40 steve Exp $";
 #endif
 
 #ifdef FEATURE_LISTCHARS
@@ -128,6 +128,11 @@ static OPTDESC ogdesc[] =
 	{"listchars", "lcs",	optsstring,	optislistchars,	"eol:,tab:,trail:,ff:,cr:,esc:,bs:,del:,nul:,precedes:,extends:,markup" },
 	{"cleantext", "ct",	optsstring,	optispacked,	"bs,input,short,long,ex" },
 	{"filenamerules", "fnr",optsstring,	optispacked,	"tilde,dollar,paren,wildcard,special,space" },
+	{"state", "state",	optsstring,	optisstring	},
+	{"initializing", "ing",	NULL,		NULL		},
+	{"persistfile", "perf",	optsstring,	optisstring	},
+	{"persist", "pers",	optsstring,	optispacked,	"cursor,change,hours:,marks,regions,folds,external:,ex:,search:,args,max:"},
+
 	/* added these for the sake of backward compatibility : */
 	{"more", "mo",		NULL,		NULL		},
 	{"hardtabs", "ht",	optnstring,	optisnumber,	"1:1000"},
@@ -308,6 +313,7 @@ void optglobinit()
 	o_incsearch = ElvFalse;
 	optpreset(o_spelldict, NULL, OPT_HIDE | OPT_UNSAFE);
 	optpreset(o_spellsuffix, NULL, OPT_HIDE);
+	optpreset(o_spellautoload, ElvTrue, OPT_HIDE);
 	optpreset(o_locale, NULL, OPT_HIDE);
 	optpreset(o_mkexrcfile, NULL, OPT_HIDE);
 	optpreset(o_prefersyntax, 'n', OPT_HIDE); /* never */
@@ -320,6 +326,9 @@ void optglobinit()
 #endif
 	optpreset(o_cleantext, toCHAR("long"), OPT_HIDE);
 	optpreset(o_filenamerules, toCHAR("tilde,dollar,paren,wildcard,special,space"), OPT_HIDE);
+	optpreset(o_initializing, ElvTrue, OPT_HIDE|OPT_LOCK);
+	optpreset(o_persistfile, NULL, OPT_HIDE | OPT_UNSAFE);
+	optpreset(o_persist, toCHAR("cursor,change,hours:8,marks,regions,folds,ex:50,search:20,args"), OPT_HIDE);
 
 	/* Set the "home" option from $HOME */
 	envval = getenv("HOME");

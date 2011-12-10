@@ -4,7 +4,7 @@
 
 #include "elvis.h"
 #ifdef FEATURE_RCSID
-char id_exedit[] = "$Id: exedit.c,v 2.68 2003/10/17 17:41:23 steve Exp $";
+char id_exedit[] = "$Id: exedit.c,v 2.71 2004/03/19 16:28:59 steve Exp $";
 #endif
 
 
@@ -211,6 +211,8 @@ RESULT	ex_join(xinf)
 	 * line then we should assume we're supposed to join two lines.
 	 */
 	newlines = xinf->to - xinf->from;
+	if (newlines == 0)
+		newlines = 1;
 	if (xinf->from + newlines > o_buflines(markbuffer(xinf->fromaddr)))
 	{
 		msg(MSG_ERROR, "nothing to join with this line");
@@ -424,14 +426,17 @@ RESULT	ex_read(xinf)
 	 * command, this should be the start of the first line read; else it
 	 * should be the start of the last line read.
 	 */
-	if (xinf->window->state->flags & ELVIS_1LINE)
+	if (xinf->window)
 	{
-		marksetoffset(xinf->newcurs, offset);
-	}
-	else
-	{
-		marksetoffset(xinf->newcurs, markoffset(
-			(*xinf->window->md->move)(xinf->window, xinf->newcurs, -1, 0, ElvFalse)));
+		if (xinf->window->state->flags & ELVIS_1LINE)
+		{
+			marksetoffset(xinf->newcurs, offset);
+		}
+		else
+		{
+			marksetoffset(xinf->newcurs, markoffset(
+				(*xinf->window->md->move)(xinf->window, xinf->newcurs, -1, 0, ElvFalse)));
+		}
 	}
 	return RESULT_COMPLETE;
 }
@@ -626,20 +631,10 @@ RESULT	ex_write(xinf)
 	{
 		name = tochar8(xinf->rhs);
 	}
-	else if (xinf->nfiles >= 1)
+	else
 	{
 		assert(xinf->nfiles == 1);
 		name = xinf->file[0];
-	}
-	else
-	{
-		name = tochar8(o_filename(markbuffer(xinf->fromaddr)));
-		if (!name)
-		{
-			msg(MSG_ERROR, "[S]no file name for $1",
-				o_bufname(markbuffer(xinf->fromaddr)));
-			return RESULT_ERROR;	/* nishi */
-		}
 	}
 
 	/* if writing to a different filename, remember that name */

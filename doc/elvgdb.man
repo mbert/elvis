@@ -1,0 +1,352 @@
+.TH ELVGDB 1 "" "" "User commands"
+.SH NAME
+elvgdb \- allows gdb and elvis to work together
+.SH SYNOPSIS
+.ad l
+.B elvgdb
+.RI [ gdbargs ]
+.br
+.B elvgdb
+.RB [ \-t
+.IR gdbcommand ]
+.ad b
+.SH DESCRIPTION
+.B elvgdb
+is a program that allows the
+.BR gdb (1)
+debugger and the
+.BR elvis (1)
+editor to work together.
+It only functions properly in X windows.
+.PP
+There are two ways to use it.
+Without a
+.BI \-t gdbcommand
+flag it behaves as a "server", running an interactive
+.B gdb
+process and allowing that
+.B gdb
+to send information to elvis.
+With a
+.BI \-t gdbcommand
+flag it behaves as a "client", pasting the
+.I gdbcommand
+into the
+.BR xterm (1X)
+where the
+.BR elvgdb / gdb
+server is running.
+.PP
+Usually, you will use it by starting
+.B elvis
+with its "x11" user interface,
+and then running ":gdb \fIprogram\fR [\fIcore\fR]".
+This will start an
+.B xterm
+process with
+.B elvgdb
+(running as a server, without "-t") and
+.B gdb
+running inside it.
+Various
+.B elvis
+aliases and buttons may invoke
+.B elvgdb
+with the "-t" to send a command to the debugger.
+
+.SH SERVER
+When invoked without a
+.B \-t
+flag,
+.B elvgdb
+invokes gdb, passing it all of the command-line parameters and also
+inserting a "--annotate=2" parameter which causes gdb to output extra
+information that may be useful to elvis.
+.PP
+.B elvgdb
+also filters
+.BR gdb "'s"
+output to extract that information (called "annotations" in the
+.B gdb
+info pages) so it can send it to elvis.
+There is a "elvgdb.ini" file (described in ELVGDB.INI below) which tells
+.B elvgdb
+which annotations elvis is likely to care about, and which surrounding
+text to send back.
+.PP
+The information is sent to
+.B elvis
+via the equivalent of
+.BR elvis "'s"
+-client mechanism, which is only supported by
+.BR elvis "'s"
+"x11" user interface.
+You must start
+.B elvis
+before you start
+.BR elvgdb ,
+because
+.B elvgdb
+only tries to locate
+.B elvis
+during its initialization.
+.PP
+The information is sent to
+.B elvis
+in the form of a ":fromgdb" command.
+.B elvis
+has no built-in command by that name;
+you are expected to define an ":fromgdb" alias in
+.BR elvis .
+An example of such an alias is provided with
+.BR elvis.
+You can load it (and some other useful
+.BR gdb -related
+things)
+by running ":load gdb".
+The ":gdb" alias does this automatically.
+.P
+The first argument of each ":fromgdb" command is the name of the annotation
+that triggered the message.
+Other text (either extra information in the annotation, or text enclosed
+between the triggering annotation and some later annotation) follows
+as extra arguments.
+Usually, the ":fromgdb" alias will be a big switch statement that checks
+the first argument (the annotation name), and then possibly also parses
+the extra information in some annotation-dependent way.
+.SH CLIENT
+The server
+.B elvgdb
+process attaches an attribute to the display's root window, giving the
+Window ID of the
+.B xterm
+in which the server
+.BR elvgdb / gdb
+is running.
+The client 
+.B elvgdb
+uses this to find the server.
+.P
+To send the
+.I gdbcommand
+text,
+it first creates an invisible window of its own and
+then claims the X selection, simulates a middle-click on the
+.B xterm
+window, and waits for the
+.B xterm
+to fetch the selection so the
+.B xterm
+can paste it.
+.SH ELVGDB.INI
+The
+.I elvgdb.ini
+file tells
+.B elvgdb
+how to handle each annotion.
+It can reside anywhere in $ELVISPATH, just like
+.BR elvis "'s"
+own configuration files.
+.PP
+It is a text file.
+Blank lines, and lines that start with a "#" character, are ignored.
+All other lines should be of the form...
+.IP
+.I annotations
+:
+.I attributes 
+.PP
+\|... where
+.I annotations
+is a space-delimited list of annotation names, and 
+.I attributes
+is a space-delimited list of attributes.
+.SS ATTRIBUTES
+.PP
+The following attribute names control the way that the annotation is
+handled by
+.BR elvgdb .
+.PP
+.TS
+l l.
+fromgdb	  Start a new command to be sent to elvis
+args	  Append arguments to the next command sent to elvis
+text	  Append the following text to the next command sent to elvis
+toelvis	  Send a ":fromgdb name args text" command to elvis.
+table	  Store the annotation name for use with "record" attributes
+record	  Send previous record (if any), and start a new one.
+flush	  Flush output after each character because user is typing
+trace	  Show the annotation name, to help debug the configuration
+server	  If following text begins with "server" then suppress output
+limit	  Try to avoid sending multiple copies of the message
+.TE
+.PP
+The "table" and "record" attributes,
+and the special "field\fIn\fR" pseudo-annotations described below,
+are all intended to help work around the obnoxious way that
+.B gdb
+annotates its breakpoints table.
+The idea is that
+the "breakpoints-table" annotation will have the "table" attribute,
+the "record" annotation will have the "record" attribute,
+selected "field\fIn\fR" annotations will have the "text" attribute, and
+the "breakpoints-table-end" annotation will have a normal "toelvis" attribute.
+This will cause each record to send a ":fromgdb breakpoints-table" message to
+elvis with selected fields appended as arguments.
+.PP
+The "server" attribute is used to suppress output from commands issued by
+elvis (via "elvgdb -t \fIgdbcommands\fR"), as opposed to those commands
+entered into gdb directly by the user.
+Generally, any annotation which has the "flush" attribute should also have
+the "server" attribute.
+.PP
+The "limit" attribute is mostly due to the fact that
+.B gdb
+sometimes sends many "breakpoints-invalid" messages between prompts, but
+we only want elvis to update its breakpoints once.
+.PP
+In addition, the following attributes can be used to alter the appearance
+of text that follows particular annotations:
+.br
+.TS
+l l.
+black	  Use black foreground for the following text
+gray	  Use gray foreground for the following text
+red	  Use red foreground for the following text
+green	  Use green foreground for the following text
+brown	  Use brown foreground for the following text
+yellow	  Use yellow foreground for the following text
+blue	  Use blue foreground for the following text
+magenta	  Use magenta foreground for the following text
+cyan	  Use cyan foreground for the following text
+white	  Use white foreground for the following text
+bold	  Switch to bold/bright text
+underline Switch to underlined text
+highlight Don't switch back to normal
+.TE
+.SS ANNOTATIONS
+.PP
+For the names and descriptions of annotations, see the
+.B gdb
+info pages.
+.B elvgdb
+also uses a few pseudo-annotations for special purposes.
+These are:
+.IP "field\fIn\fR"
+When
+.B gdb
+emits a "field" annotation with a numeric argument \fIn\fR,
+.B elvgdb
+converts that into a "field\fIn\fR" annotation before looking up its attributes.
+In other words, "field\fIn\fR" in the
+.I elvgdb.ini
+file is used to specify the attributes of a "field" annotation that has
+the argument "\fIn\fR".
+This is intented to help work around the obnoxious annotations used for
+the breakpoint table.
+.IP elvgdb-all
+Merged with the attributes of all real annotations.
+This is mostly so you can say "elvgdb-all:trace" to trace all annotations.
+.IP elvgdb-default
+Used to supply the attributes of any annotation that isn't specifically
+mentioned in the elvgdb.ini configuration file.
+For example, "elvgdb-default: trace" would cause any recently added
+(or otherwise unhandled) annotations to be shown.
+.IP elvgdb-init
+Simulated before
+.B gdb
+starts.
+Its highlighting attributes are used for the
+.B gdb
+copyright statement.
+.IP elvgdb-term
+Simulated after
+.B gdb
+terminates.
+You can use the "fromgdb toelvis" attribute pair to have a message be sent to
+.B elvis
+so it knows when
+.BR elvgdb / gdb
+isn't running anymore.
+.IP elvgdb-trace
+The highlighting attributes of this pseudo-annotation are
+used when displaying the name of any traced annotation.
+For example,
+"elvgdb-trace: magenta" would cause traced annotations to appear in magenta.
+.IP
+Also, if the "elvgdb-trace" annotation has the "fromgdb" attribute, then
+elvgdb will mark the start of any command that it is preparing to send
+to elvis.
+The "toelvis" attribute will cause it to display the whole command when it is
+actually sent.
+The "table" attribute will cause elvis to mark the start and end of any table.
+The "server" attribute will inhibit the effect of "server" on any real
+annotation, so that server commands will be visible.
+.SH OPTIONS
+.PP
+When used as a server (without
+.BR \-t\fIcommands\fP ),
+.B elvgdb
+passes all of its parameters to
+.BR gdb .
+See
+.BR gdb (1)
+for a description of the options that it supports.
+.PP
+When used as a filter, you must use a
+.BI \-t gdbcommand
+flag, as follows:
+.IP "\fB\-t\fP \fIgdbcommand\fP"
+Paste
+.I gdbcommand
+into the
+.BR xterm (1X)
+where the
+.BR elvgdb / gdb
+server is running.
+Assuming
+.B gdb
+is prompting for a command, this should cause gdb to execute the
+.IR gdbcommand .
+.SH ENVIRONMENT
+.TP
+$ELVISPATH
+This is a list of directories where the "elvis.ini" file may reside.
+.TP
+$secret
+This contains the value of
+.BR elvis '
+.I secret
+option.
+.B elvgdb
+includes this in the requests that it sends back to elvis.
+This is important because the for
+.B elvis
+to respond to the "breakpoints-invalid" annotation, it must send
+an "info breakpoints" command back to
+.B elvgdb
+by running ":!elvgdb -t info breakpoints".
+Normally
+.B elvis
+would refuse to execute ":!\fIshellcmd\fR" for a client
+due to security concerns, but we know that
+.B elvgdb
+can be trusted because it knows the right "secret" value.
+.SH FILES
+.TP
+.I elvgdb.ini
+This file resides somewhere in $ELVISPATH.
+It describes the appearance and behavior of each annotation.
+See the ELVGDB.INI section, above, for details.
+.SH "SEE ALSO"
+.BR elvis (1),
+.BR gdb (1),
+.BR xterm (1X)
+.P
+Run "info gdb Annotations" for information about
+.BR gdb 's
+annotations.
+.SH AUTHOR
+Steve Kirkendall
+.br
+kirkenda@cs.pdx.edu

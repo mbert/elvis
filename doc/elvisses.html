@@ -1,5 +1,5 @@
 <html><head>
-<title>Elvis-2.2_0 Sessions</title>
+<title>Elvis-2.2_1 Sessions</title>
 </head><body>
 
 <h1>10. SESSIONS, INITIALIZATION, AND RECOVERY</h1>
@@ -240,12 +240,12 @@ prevents an error message when no file is found.
 	then {
 	  augroup! html
 	  au!
-	  " <lt;Space>gt; jumps forward one page
-	  au DispMapEnter html map nosave command <lt;Space>gt; <lt;C-F>gt;
-	  au DispMapLeave html unmap command <lt;Space>gt;
-	  " <lt;Enter>gt; follows a hypertext link
-	  au DispMapEnter html map nosave command <lt;Enter>gt; <lt;C-]>gt;
-	  au DispMapLeave html unmap command <lt;Enter>gt;
+	  " &lt;Space&gt; jumps forward one page
+	  au DispMapEnter html map nosave command &lt;Space&gt; &lt;C-F&gt;
+	  au DispMapLeave html unmap command &lt;Space&gt;
+	  " &lt;Enter&gt; follows a hypertext link
+	  au DispMapEnter html map nosave command &lt;Enter&gt; &lt;C-]&gt;
+	  au DispMapLeave html unmap command &lt;Enter&gt;
 	  augroup END
 	}
 </pre>
@@ -471,7 +471,7 @@ After recovering your text and exiting Elvis, you should manually delete the
 session file via
 "<code>rm&nbsp;/var/tmp/elvis*.ses</code>", or whatever the session file's name
 is.
-For DOS/Windows users, the command would be "<code>DEL&nbsp;\TEMP\ELVIS-2.2_0</code>".
+For DOS/Windows users, the command would be "<code>DEL&nbsp;\TEMP\ELVIS-2.2_1</code>".
 
 <p>If you can figure out how to reproduce the problem, please let me know!
 My email address is <address>kirkenda@cs.pdx.edu</address>

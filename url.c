@@ -2,7 +2,7 @@
 
 #include "elvis.h"
 #ifdef FEATURE_RCSID
-char id_url[] = "$Id: url.c,v 2.24 2003/10/18 17:01:29 steve Exp $";
+char id_url[] = "$Id: url.c,v 2.25 2004/03/07 20:10:28 steve Exp $";
 #endif
 
 static char	url_protocol[10];
@@ -216,7 +216,8 @@ ELVBOOL urlremote(url)
 	 */
 	if (!parseurl(url)
 	 || !strcmp(url_protocol, "mailto")
-	 || !strcmp(url_protocol, "file"))
+	 || !strcmp(url_protocol, "file")
+	 || !strcmp(url_protocol, "dir"))
 		return ElvFalse;
 	return ElvTrue;
 }

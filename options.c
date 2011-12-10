@@ -10,7 +10,7 @@
 
 #include "elvis.h"
 #ifdef FEATURE_RCSID
-char id_options[] = "$Id: options.c,v 2.77 2003/10/17 17:41:23 steve Exp $";
+char id_options[] = "$Id: options.c,v 2.79 2004/03/21 23:24:41 steve Exp $";
 #endif
 
 #ifndef OPT_MAXCOLS
@@ -57,6 +57,17 @@ typedef struct optstk_s
 				/* valid anymore when values get restored */
 } OPTSTK;
 
+
+/* This stores the args of a ":set gui.options..." command line, where "gui"
+ * is anything other than the current user interface.
+ */
+typedef struct optforeign_s
+{
+	struct optforeign_s *next;	/* some other options */
+	CHAR		    *args;	/* the arguments of the :set command */
+} OPTFOREIGN;
+
+
 #if USE_PROTOTYPES
 static ELVBOOL optshow(char *name);
 static void optoutput(ELVBOOL domain, ELVBOOL all, ELVBOOL set, CHAR *outbuf, size_t outsize);
@@ -74,6 +85,15 @@ static OPTDOMAIN	*head;
 #ifdef FEATURE_MISC
 /* stack of local options */
 static OPTSTK *stack = (OPTSTK *)1;
+
+# ifdef FEATURE_MKEXRC
+/* list of foreign GUI settings.  Note that we also store a tail pointer,
+ * so we can easily add items to the end of the list.  This is important
+ * because sometimes it matters which option gets set first; e.g., xll.font
+ * must be set before x11.italicfont.
+ */
+static OPTFOREIGN *foreignhead, *foreigntail;
+# endif
 #endif
 
 
@@ -1222,6 +1242,41 @@ ELVBOOL optset(bang, args, outbuf, outsize)
 	ELVBOOL	  b;
         int       i;
 
+#ifdef FEATURE_MISC
+	/* check whether this is for a foreign GUI */
+	for (i = 0; elvalnum(args[i]); i++)
+	{
+	}
+	if (args[i] == '.')
+	{
+		/* this is a GUI-specific setting -- For foreign GUI? */
+		if (strlen(gui->name) != (size_t)i || CHARncmp(toCHAR(gui->name), args, i))
+		{
+			/* This is a foreign GUI setting */
+
+# ifdef FEATURE_MKEXRC
+			/* save the settings */
+			OPTFOREIGN *f = (OPTFOREIGN *)safealloc(sizeof(OPTFOREIGN), 1);
+			f->args = CHARdup(args);
+			f->next = NULL;
+			if (foreigntail)
+				foreigntail->next = f;
+			else
+				foreignhead = f;
+			foreigntail = f;
+# endif
+
+			/* don't do anything else with foreign settings */
+			return ElvTrue;
+		}
+		else /* setting for this GUI */
+		{
+			/* skip past the "gui." part of args */
+			args += i + 1;
+		}
+	}
+#endif
+
 	/* be optimistic.  Begin by assuming this will succeed. */
 	ret = ElvTrue;
 
@@ -1574,7 +1629,6 @@ char *optevent(name)
 void optsave(custom)
 	BUFFER	custom;	/* where to stuff the "set" commands */
 {
-	MARKBUF   m;
 	OPTDOMAIN *dom;
 	int	  i, j, pass;
 	CHAR	  *str;
@@ -1619,12 +1673,18 @@ void optsave(custom)
 					/* then add it to the custom buffer */
 					if (dom->desc[i].asstring)
 					{
+						/* Non-Boolean */
 						str = (*dom->desc[i].asstring)(&dom->desc[i], &dom->val[i]);
-						tmp = (char *)safealloc(11 + strlen(dom->desc[i].longname) + 2 * CHARlen(str), sizeof(char));
-						if (pass == 2 || (dom->val[i].flags & OPT_UNSAFE))
+						tmp = (char *)safealloc(12 + strlen(gui->name) + strlen(dom->desc[i].longname) + 2 * CHARlen(str), sizeof(char));
+						if (dom->val[i].flags & OPT_UNSAFE)
 							strcpy(tmp, "try set ");
 						else
 							strcpy(tmp, "set ");
+						if (pass == 2)
+						{
+							strcat(tmp, gui->name);
+							strcat(tmp, ".");
+						}
 						strcat(tmp, dom->desc[i].longname);
 						strcat(tmp, "=");
 						for (j = strlen(tmp); *str; )
@@ -1640,18 +1700,40 @@ void optsave(custom)
 					}
 					else
 					{
-						tmp = (char *)safealloc(12 + strlen(dom->desc[i].longname), sizeof(char));
-						sprintf(tmp, "%sset %s%s\n",
-							(pass == 2 || (dom->val[i].flags & OPT_UNSAFE)) ? "try " : "",
-							dom->val[i].value.boolean ? "" : "no",
-							dom->desc[i].longname);
+						/* Boolean */
+						tmp = (char *)safealloc(13 + strlen(gui->name) + strlen(dom->desc[i].longname), sizeof(char));
+						if (pass == 1)
+							sprintf(tmp, "%sset %s%s\n",
+								(dom->val[i].flags & OPT_UNSAFE) ? "try " : "",
+								dom->val[i].value.boolean ? "" : "no",
+								dom->desc[i].longname);
+						else
+							sprintf(tmp, "%sset %s.%s%s\n",
+								(dom->val[i].flags & OPT_UNSAFE) ? "try " : "",
+								gui->name,
+								dom->val[i].value.boolean ? "" : "no",
+								dom->desc[i].longname);
 					}
-					bufreplace(marktmp(m, custom, o_bufchars(custom)), &m, toCHAR(tmp), (long)strlen(tmp));
+					bufappend(custom, toCHAR(tmp), 0);
 					safefree((void *)tmp);
 				}
 			}
 		}
 	}
+
+# ifdef FEATURE_MISC
+	/* we also need to save options for foreign GUIs */
+	{
+		OPTFOREIGN *f;
+
+		for (f = foreignhead; f; f = f->next)
+		{
+			bufappend(custom, toCHAR("set "), 4);
+			bufappend(custom, f->args, 0);
+			bufappend(custom, toCHAR("\n"), 1);
+		}
+	}
+# endif
 }
 #endif /* FEATURE_MKEXRC */
 

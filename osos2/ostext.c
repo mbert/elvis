@@ -5,6 +5,9 @@
  * Martin "Herbert" Dietze.
  *
  * $Log: ostext.c,v $
+ * Revision 1.6  2003/10/23 23:35:45  steve
+ * Herbert's latest changes.
+ *
  * Revision 1.5  2003/10/17 17:41:23  steve
  * Renamed the BOOLEAN data type to ELVBOOL to avoid name clashes with
  *   types defined other headers.
@@ -31,12 +34,12 @@
 #include <io.h>
 #include <stdlib.h>
 #include <errno.h>
-#ifdef __EMX__
+#if defined __EMX__ || defined __WATCOMC__
 # define EACCESS EPERM
 #endif
 #include "elvis.h"
 #ifdef FEATURE_RCSID
-char id_ostext[] = "$Id: ostext.c,v 1.5 2003/10/17 17:41:23 steve Exp $";
+char id_ostext[] = "$Id: ostext.c,v 1.6 2003/10/23 23:35:45 steve Exp $";
 #endif
 
 

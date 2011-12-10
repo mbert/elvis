@@ -1014,7 +1014,6 @@ void colorsave(buf)
 {
 	int	i;
 	CHAR	cmd[200];
-	MARKBUF	end;
 	guidot_t *scan;
 
 	/* for each color role... */
@@ -1035,8 +1034,7 @@ void colorsave(buf)
 		CHARcat(cmd, toCHAR("\n"));
 
 		/* append it to the buffer */
-		(void)marktmp(end, buf, o_bufchars(buf));
-		bufreplace(&end, &end, cmd, CHARlen(cmd));
+		bufappend(buf, cmd, 0);
 	}
 
 	/* Append the colors for other GUIs too */
@@ -1049,8 +1047,7 @@ void colorsave(buf)
 		CHARcat(cmd, toCHAR("\n"));
 
 		/* append it to the buffer */
-		(void)marktmp(end, buf, o_bufchars(buf));
-		bufreplace(&end, &end, cmd, CHARlen(cmd));
+		bufappend(buf, cmd, 0);
 	}
 }
 #endif /* FEATURE_MKEXRC */

@@ -48,6 +48,7 @@
 #define TRACE_BUF	"Elvis map log"
 #define BBROWSE_BUF	"Elvis buffer list"
 #define EQUALTILDE_BUF	"Elvis equal tilde"
+#define PERSIST_BUF	"Elvis persist"
 
 /* Names of files that store default contents of buffers */
 #define INIT_FILE	"elvis.ini"	/* executed before first file is loaded */

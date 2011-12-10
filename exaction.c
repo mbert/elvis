@@ -4,7 +4,7 @@
 
 #include "elvis.h"
 #ifdef FEATURE_RCSID
-char id_exaction[] = "$Id: exaction.c,v 2.120 2003/10/18 04:47:18 steve Exp $";
+char id_exaction[] = "$Id: exaction.c,v 2.127 2004/03/22 00:20:03 steve Exp $";
 #endif
 
 #ifdef FEATURE_MISC
@@ -403,7 +403,7 @@ RESULT	ex_edit(xinf)
 	STATE	*s;	/* used for stepping though state stack */
 	CHAR	*p;	/* used for scanning movement string */
 	EXINFO	xinfb;	/* dummy command buffer, used for parsing address */
-	long	line=1;	/* default line number to start on */
+	long	line=0;	/* default line number to start on (0 = no default) */
 
 	assert(xinf->command == EX_EDIT || xinf->command == EX_OPEN
 		|| xinf->command == EX_VISUAL || xinf->command == EX_PUSH);
@@ -507,7 +507,10 @@ RESULT	ex_edit(xinf)
 		 */
 		memset((char *)&xinfb, 0, sizeof xinfb);
 		xinfb.defaddr.buffer = newbuf;
-		xinfb.defaddr.offset = lowline(bufbufinfo(newbuf), line);
+		if (line > 0)
+			xinfb.defaddr.offset = lowline(bufbufinfo(newbuf), line);
+		else
+			xinfb.defaddr.offset = newbuf->docursor;
 		if (xinf->lhs && (o_newfile(newbuf) || o_bufchars(newbuf) > 0))
 		{
 			(void)scanstring(&p, xinf->lhs);
@@ -518,6 +521,12 @@ RESULT	ex_edit(xinf)
 					xinfb.to);
 			}
 			scanfree(&p);
+
+#if 1
+			marksetbuffer(xinf->window->cursor, newbuf);
+			marksetoffset(xinf->window->cursor, xinfb.defaddr.offset);
+			exstring(xinf->window, xinf->lhs, "+");
+#endif
 		}
 
 		/* change the buffer of this window. */
@@ -537,6 +546,7 @@ RESULT	ex_edit(xinf)
 		}
 
 		/* both commands accept a "+line" argument */
+		/*!!! THIS ONLY HANDLES LINE NUMBERS, NOT WHOLE COMMANDS */
 		if (xinf->lhs)
 		{
 			xinfb.defaddr = xinf->defaddr;
@@ -630,16 +640,17 @@ RESULT	ex_file(xinf)
 		}
 
 		/* output statistics of this file */
-		if (markbuffer(xinf->window->cursor) == buf && o_buflines(buf) > 0)
+		if (!xinf->bang && xinf->window != NULL)
 		{
-			msg(MSG_INFO,
-				"[dd](filename)(readonly?\" [READONLY]\")(modified?\" [MODIFIED]\")(!edited?\" [NOT EDITED]\")(newfile?\" [NEW FILE]\") ($1 * 100 / $2)%",
-				lnum, o_buflines(buf));
-		}
-		else
-		{
-			msg(MSG_INFO,
-				"(filename)(readonly?\" [READONLY]\")(modified?\" [MODIFIED]\")(!edited?\" [NOT EDITED]\")(newfile?\" [NEW FILE]\")");
+			if (markbuffer(xinf->window->cursor) == buf && o_buflines(buf) > 0)
+			{
+				msg(MSG_INFO, "[dd](filename)(readonly?\" [READONLY]\")(modified?\" [MODIFIED]\")(!edited?\" [NOT EDITED]\")(newfile?\" [NEW FILE]\") ($1 * 100 / $2)%",
+					lnum, o_buflines(buf));
+			}
+			else
+			{
+				msg(MSG_INFO, "(filename)(readonly?\" [READONLY]\")(modified?\" [MODIFIED]\")(!edited?\" [NOT EDITED]\")(newfile?\" [NEW FILE]\")");
+			}
 		}
 		break;
 	}
@@ -872,7 +883,7 @@ RESULT	ex_next(xinf)
 		else
 #endif
 		{
-			xinf->newcurs = markalloc(newbuf, 0);
+			xinf->newcurs = markalloc(newbuf, newbuf->docursor);
 		}
 	}
 
@@ -953,6 +964,8 @@ RESULT	ex_bang(xinf)
 	CHAR	iobuf[4096];
 	int	len;
 	ELVBOOL	origrefresh;
+	ELVBOOL	partiallast;
+	ELVBOOL	last;
 
 	assert(xinf->command == EX_BANG);
 
@@ -1023,6 +1036,11 @@ RESULT	ex_bang(xinf)
 		return RESULT_ERROR;
 	}
 
+	/* if partial last line, then omit the newline from the range */
+	last = (ELVBOOL)(markoffset(xinf->toaddr) == o_bufchars(markbuffer(xinf->toaddr)));
+	if (o_partiallastline(markbuffer(xinf->toaddr)) && last)
+		markaddoffset(xinf->toaddr, -1L);
+
 	/* write the original text from buffer to filter */
 	mark = markdup(xinf->fromaddr);
 	scanalloc(&cp, mark);
@@ -1057,11 +1075,35 @@ RESULT	ex_bang(xinf)
 	bufreplace(xinf->fromaddr, xinf->toaddr, NULL, 0);
 
 	/* read the new input lines */
+	partiallast = ElvFalse;
 	while ((len = prgread(iobuf, QTY(iobuf))) > 0)
 	{
 		/* insert a chunk of text into buffer */
 		bufreplace(mark, mark, iobuf, (long)len);
 		markaddoffset(mark, len);
+		partiallast = (ELVBOOL)(iobuf[len - 1] != '\n');
+	}
+
+	/* if we had a partial last line before filtering, but not after,
+	 * then clean up
+	 */
+	marksetoffset(xinf->toaddr, o_bufchars(markbuffer(xinf->toaddr)));
+	if (last && o_partiallastline(markbuffer(xinf->toaddr)) && !partiallast)
+	{
+		/* delete the bogus newline that elvis added at the end of the
+		 * partial last line
+		 */
+		bufreplace(mark, xinf->toaddr, NULL, 0L);
+		o_partiallastline(markbuffer(mark)) = ElvFalse;
+	}
+	/* if we had a complete last line before, but not now, fix it */
+	else if (last && !o_partiallastline(markbuffer(xinf->toaddr)) && partiallast)
+	{
+		/* add a bogus newline.  Elvis wants to see one there even if
+		 * it isn't really part of the buffer's intended text.
+		 */
+		bufreplace(xinf->toaddr, xinf->toaddr, toCHAR("\n"), 1L);
+		o_partiallastline(markbuffer(mark)) = ElvTrue;
 	}
 
 	/* clean up & exit */
@@ -1086,50 +1128,58 @@ RESULT	ex_source(xinf)
 	assert(xinf->command == EX_SOURCE);
 
 	/* the file name is REQUIRED! */
-	if (xinf->nfiles != 1)
+	if (xinf->nfiles != 1 && xinf->rhs == NULL)
 	{
 		msg(MSG_ERROR, "[s]$1 requires a file name", xinf->cmdname);
 		return RESULT_ERROR;
 	}
-		
+
 	/* if ! appeared after the command name, and the file doesn't exist,
 	 * then do nothing but return with no error.
 	 */
-	if (xinf->bang && dirperm(xinf->file[0]) == DIR_NEW)
+	if (xinf->bang && xinf->rhs == NULL && dirperm(xinf->file[0]) == DIR_NEW)
 	{
 		return RESULT_COMPLETE;
 	}
 
 	/* open the file */
-	if (!ioopen(xinf->file[0], 'r', ElvFalse, ElvFalse, 't'))
+	if (xinf->rhs == NULL
+		    ? !ioopen(xinf->file[0], 'r', ElvFalse, ElvFalse, 't')
+		    : !ioopen(tochar8(xinf->rhs), 'r', ElvTrue, ElvFalse, 't'))
 		return RESULT_ERROR;
 
 	/* create a temp buffer */
 	buf = bufalloc(NULL, 0, ElvTrue);
 	assert(buf != NULL);
-	o_filename(buf) = CHARdup(toCHAR(xinf->file[0])); 
-	optflags(o_filename(buf)) |= OPT_FREE;
+	if (xinf->rhs == NULL)
+	{
+		o_filename(buf) = CHARdup(toCHAR(xinf->file[0])); 
+		optflags(o_filename(buf)) |= OPT_FREE;
+	}
 
 	/* fill the temp buffer with text read from the file */
 	io = (CHAR *)safealloc(1024, sizeof(CHAR));
 	while ((nbytes = ioread(io, 1024)) > 0)
 	{
-		bufreplace(marktmp(end, buf, o_bufchars(buf)), &end, io, nbytes);
+		bufappend(buf, io, nbytes);
 	}
 	safefree(io);
-	(void)ioclose();
+	if (!ioclose())
+	{
+		return RESULT_ERROR;
+	}
 
 	/* execute the contents of the buffer as a series of ex commands */
 #ifdef FEATURE_MISC
 	popopt = optlocal(NULL);
 #endif
 #ifdef FEATURE_AUTOCMD
-	(void)auperform(xinf->window, ElvFalse, NULL, AU_SCRIPTENTER, toCHAR(xinf->file[0]));
+	(void)auperform(xinf->window, ElvFalse, NULL, AU_SCRIPTENTER, o_filename(buf));
 #endif
 	result = experform(xinf->window, marktmp(start, buf, 0),
 					 marktmp(end, buf, o_bufchars(buf)));
 #ifdef FEATURE_AUTOCMD
-	(void)auperform(xinf->window, ElvFalse, NULL, AU_SCRIPTLEAVE, toCHAR(xinf->file[0]));
+	(void)auperform(xinf->window, ElvFalse, NULL, AU_SCRIPTLEAVE, o_filename(buf));
 #endif
 #ifdef FEATURE_MISC
 	(void)optlocal(popopt);
@@ -1441,8 +1491,10 @@ RESULT	ex_fold(xinf)
 	FOLD	fold;
 	RESULT	result = RESULT_COMPLETE;
 	CHAR	*args[2], arg[20];
+	int	flags;
 
-	assert(xinf->command == EX_FOLD || xinf->command == EX_UNFOLD);
+	assert(xinf->command == EX_FOLD || xinf->command == EX_UNFOLD
+		||xinf->command == EX_NOFOLD);
 
 	/* evaluate the name, if any */
 	if (xinf->rhs)
@@ -1466,7 +1518,18 @@ RESULT	ex_fold(xinf)
 	markaddoffset(&tobuf, -1L);
 
 	/* Decide how to behave, based on presence/absence of args */
-	if (xinf->anyaddr && name)
+	if (xinf->command == EX_NOFOLD)
+	{
+		/* Discard any FOLDs (either folded or unfolded) that are
+		 * partially or wholly in the given range.
+		 */
+		flags = FOLD_INSIDE|FOLD_OUTSIDE|FOLD_DESTROY;
+		if (xinf->bang)
+			flags |= FOLD_NESTED;
+		(void)foldbyrange(xinf->fromaddr, &tobuf, ElvTrue, flags);
+		(void)foldbyrange(xinf->fromaddr, &tobuf, ElvFalse, flags);
+	}
+	else if (xinf->anyaddr && name)
 	{
 		/* Create a new fold/unfold */
 		fold = foldalloc(xinf->fromaddr, &tobuf, name);

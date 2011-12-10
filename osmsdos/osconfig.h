@@ -30,6 +30,7 @@
 #undef	FEATURE_HLOBJECT /* the hlobject and hllayers options */
 #undef	FEATURE_HLSEARCH  /* the hlsearch option */
 #undef	FEATURE_INCSEARCH /* the incsearch option */
+#undef	FEATURE_LISTCHARS /* the listchars option */
 #undef	FEATURE_LITRE	/* faster searches for literal strings */
 #define	FEATURE_LPR	/* the ":lpr" command */
 #define	FEATURE_MAKE	/* the :make and :cc commands */
@@ -38,6 +39,7 @@
 #undef	FEATURE_MKEXRC	/* the ":mkexrc" command */
 #define	FEATURE_MOUSE	/* allow the mouse to be used for selections & tags */
 #undef	FEATURE_NORMAL	/* vim-style :normal command */
+#undef	FEATURE_PERSIST	/* the persistfile option */
 #undef	FEATURE_PROTO	/* using aliases to add new protocols */
 #undef	FEATURE_RAM	/* if invoked with "-f ram" then use XMS/EMS */
 #undef	FEATURE_RCSID	/* include RCS Id strings for all source files */
@@ -51,7 +53,6 @@
 #undef	FEATURE_TEXTOBJ	/* text objects */
 #define	FEATURE_V	/* the v/V/^V marking commands */
 #undef	FEATURE_XFT	/* antialiased fonts in X11 -- useless in MSDOS */
-#undef	FEATURE_LISTCHARS /* the listchars option */
 
 /* The following provide custom implementation of some common functions which
  * are either missing or poorly implemented on some systems.

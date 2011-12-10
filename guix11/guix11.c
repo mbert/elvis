@@ -5,7 +5,7 @@
 
 #include "elvis.h"
 #ifdef FEATURE_RCSID
-char id_guix11[] = "$Id: guix11.c,v 2.82 2003/10/17 17:41:23 steve Exp $";
+char id_guix11[] = "$Id: guix11.c,v 2.89 2004/03/22 00:22:15 steve Exp $";
 #endif
 #ifdef GUI_X11
 # include "guix11.h"
@@ -80,6 +80,7 @@ static struct
 #if USE_PROTOTYPES
 static void beep(GUIWIN *gw);
 static int catchErrors(Display *disp, XErrorEvent *err);
+static int ignoreErrors(Display *disp, XErrorEvent *err);
 static void moveto(GUIWIN *gw, int column, int row);
 static ELVBOOL scroll(GUIWIN *gw, int qty, ELVBOOL notlast);
 static ELVBOOL shift(GUIWIN *gw, int qty, int rows);
@@ -193,37 +194,32 @@ static struct
 	MAPFLAGS flags;
 } keys[] =
 {
-	{ "<Up>",	XK_Up,		"k",	MAP_ALL },
-	{ "<KP_Up>",	XK_KP_Up,	"k",	MAP_ALL },
-	{ "<Down>",	XK_Down,	"j",	MAP_ALL },
-	{ "<KP_Down>",	XK_KP_Down,	"j",	MAP_ALL },
-	{ "<Left>",	XK_Left,	"h",	MAP_ALL },
-	{ "<KP_Left>",	XK_KP_Left,	"h",	MAP_ALL },
-	{ "<Right>",	XK_Right,	"l",	MAP_ALL },
-	{ "<KP_Right>",	XK_KP_Right,	"l",	MAP_ALL },
-	{ "<Prior>",	XK_Prior,	"\002",	MAP_ALL },
-	{ "<KP_Prior>",	XK_KP_Prior,	"\002",	MAP_ALL },
-	{ "<Next>",	XK_Next,	"\006",	MAP_ALL },
-	{ "<KP_Next>",	XK_KP_Next,	"\006",	MAP_ALL },
-	{ "<Home>",	XK_Home,	"^",	MAP_ALL },
-	{ "<KP_Home>",	XK_KP_Home,	"^",	MAP_ALL },
-	{ "<Begin>",	XK_Begin,	"^",	MAP_ALL },
-	{ "<KP_Begin>",	XK_KP_Begin,	"^",	MAP_ALL },
-	{ "<End>",	XK_End,		"$",	MAP_ALL },
-	{ "<KP_End>",	XK_KP_End,	"$",	MAP_ALL },
-	{ "<Insert>",	XK_Insert,	"i",	MAP_ALL },
-	{ "<KP_Insert>",XK_KP_Insert,	"i",	MAP_ALL },
-	{ "<Delete>",	XK_Delete,	"x",	MAP_ALL },
-	{ "<KP_Delete>",XK_KP_Delete,	"x",	MAP_ALL },
-	{ "<Undo>",	XK_Undo,	"u",	MAP_ALL },
-	{ "<Help>",	XK_Help,	":help\r",MAP_ALL },
-#ifdef XK_ISO_Left_Tab
-	{ "<Left_Tab>",	XK_ISO_Left_Tab,"g\t",	MAP_COMMAND },
-#endif
-#ifdef XK_3270_BackTab
-	{ "<Back_Tab>",	XK_3270_BackTab,"g\t",	MAP_COMMAND },
-#endif
-	{ "<Multi_key>",XK_Multi_key,	"\013",	MAP_INPUT|MAP_HISTORY }
+	{ "<Up>",	XK_Up,		"k",	MAP_NOSAVE|MAP_ALL },
+	{ "<KP_Up>",	XK_KP_Up,	"k",	MAP_NOSAVE|MAP_ALL },
+	{ "<Down>",	XK_Down,	"j",	MAP_NOSAVE|MAP_ALL },
+	{ "<KP_Down>",	XK_KP_Down,	"j",	MAP_NOSAVE|MAP_ALL },
+	{ "<Left>",	XK_Left,	"h",	MAP_NOSAVE|MAP_ALL },
+	{ "<KP_Left>",	XK_KP_Left,	"h",	MAP_NOSAVE|MAP_ALL },
+	{ "<Right>",	XK_Right,	"l",	MAP_NOSAVE|MAP_ALL },
+	{ "<KP_Right>",	XK_KP_Right,	"l",	MAP_NOSAVE|MAP_ALL },
+	{ "<Prior>",	XK_Prior,	"\002",	MAP_NOSAVE|MAP_ALL },
+	{ "<KP_Prior>",	XK_KP_Prior,	"\002",	MAP_NOSAVE|MAP_ALL },
+	{ "<Next>",	XK_Next,	"\006",	MAP_NOSAVE|MAP_ALL },
+	{ "<KP_Next>",	XK_KP_Next,	"\006",	MAP_NOSAVE|MAP_ALL },
+	{ "<Home>",	XK_Home,	"^",	MAP_NOSAVE|MAP_ALL },
+	{ "<KP_Home>",	XK_KP_Home,	"^",	MAP_NOSAVE|MAP_ALL },
+	{ "<Begin>",	XK_Begin,	"^",	MAP_NOSAVE|MAP_ALL },
+	{ "<KP_Begin>",	XK_KP_Begin,	"^",	MAP_NOSAVE|MAP_ALL },
+	{ "<End>",	XK_End,		"$",	MAP_NOSAVE|MAP_ALL },
+	{ "<KP_End>",	XK_KP_End,	"$",	MAP_NOSAVE|MAP_ALL },
+	{ "<Insert>",	XK_Insert,	"i",	MAP_NOSAVE|MAP_ALL },
+	{ "<KP_Insert>",XK_KP_Insert,	"i",	MAP_NOSAVE|MAP_ALL },
+	{ "<Delete>",	XK_Delete,	"x",	MAP_NOSAVE|MAP_ALL },
+	{ "<KP_Delete>",XK_KP_Delete,	"x",	MAP_NOSAVE|MAP_ALL },
+	{ "<Undo>",	XK_Undo,	"u",	MAP_NOSAVE|MAP_ALL },
+	{ "<Help>",	XK_Help,	":help\r",MAP_NOSAVE|MAP_ALL },
+	{ "<S-Tab>",	XK_Tab,		"g\t",	MAP_NOSAVE|MAP_ALL },
+	{ "<Multi_key>",XK_Multi_key,	"\013",	MAP_NOSAVE|MAP_INPUT|MAP_HISTORY }
 };
 
 
@@ -266,7 +262,8 @@ static OPTDESC x11desc[] =
 	{"cancel", "Cancel",	optsstring,	optisstring	},
 	{"help", "Help",	optsstring,	optisstring	},
 	{"synccursor", "xsync",	NULL,		NULL		},
-	{"scrollbgimage", "sbi",NULL,		NULL		}
+	{"scrollbgimage", "sbi",NULL,		NULL		},
+	{"secret", "secret",	optnstring,	optisnumber	}
 #ifdef FEATURE_XFT
        ,{"antialias", "aa",	NULL,		NULL		},
 	{"aasqueeze", "aas",	optnstring,	xoptisnumber,	"0:10"}
@@ -307,8 +304,9 @@ static void loadresources()
 {
 	int	i;
 	Atom	gottype;
-	long	length, dummy;
+	unsigned long	length, dummy;
 	char	*type;
+	unsigned char *utype;
 	XrmDatabase db;
 	XrmValue value;
 
@@ -345,9 +343,8 @@ static void loadresources()
 		XGetWindowProperty(x_display, root, x_resource_manager,
 			0L, 65536L, ElvFalse,
 			XA_STRING, &gottype, &i,
-			(unsigned long *)&length,
-			(unsigned long *)&dummy,
-			(unsigned char **)&type);
+			&length, &dummy, &utype);
+		type = (char *)utype;
 	}
 	if (type && i == 8 && gottype == XA_STRING)
 	{
@@ -771,7 +768,6 @@ void x_reconfig(xw, columns, rows)
 }
 
 
-#if 0
 /* dummy X11 error handler */
 static int ignoreErrors(disp, err)
 	Display		*disp;
@@ -779,7 +775,6 @@ static int ignoreErrors(disp, err)
 {
 	return 0;
 }
-#endif
 
 
 /* Test whether this GUI is available in this environment.
@@ -984,6 +979,8 @@ static int init(argc, argv)
 	ELVBOOL	mustfork = ElvFalse;
 	char	*geomstr = NULL;
 	GUI	*oldgui;
+	struct timeval tv;
+	struct timezone tz;
 
 	/* initialization */
 	if (!x_display)
@@ -1246,6 +1243,8 @@ static int init(argc, argv)
 	optpreset(o_xencoding, toCHAR(DEFAULT_XENCODING), OPT_HIDE);
 	optpreset(o_scrollwheelspeed, DEFAULT_SCROLLWHEELSPEED, OPT_HIDE);
 	optpreset(o_scrollbgimage, ElvTrue, OPT_HIDE);
+	gettimeofday(&tv, &tz);
+	optpreset(o_secret, 0L, OPT_HIDE|OPT_UNSAFE);
 	optinsert("x11", QTY(x11desc), x11desc, (OPTVAL *)&x_optvals);
 
 	/* convert geometry string, if given */
@@ -1294,6 +1293,8 @@ static int init(argc, argv)
 	{
 		if (keys[i].sym == XK_Delete)
 			sprintf(raw, "%c", ELVCTRL('?'));
+		else if (keys[i].sym == XK_Tab)
+			sprintf(raw, "%c%04lx", ELVCTRL('S'), (long)XK_Tab);
 		else
 			sprintf(raw, "%c%04lx",ELVCTRL('K'), (long)keys[i].sym);
 		mapinsert(toCHAR(raw), (int)strlen(raw), toCHAR(keys[i].cooked), (int)strlen(keys[i].cooked), toCHAR(keys[i].label), keys[i].flags, NULL);
@@ -1719,6 +1720,7 @@ static void term()
 	guicmd(NULL, "newtoolbar");
 
 	/* warp the cursor back to the original (non-Elvis) window */
+	XSetErrorHandler(ignoreErrors);
 	if (o_warpback && fromwin != root)
 	{
 		XGetInputFocus(x_display, &curfocus, &dummy);
@@ -2234,12 +2236,18 @@ static ELVBOOL guicmd(gw, extra)
 		op = *extra++;
 	else
 		op = '\0';
-	for (label = extra; *extra && !strchr(":\";=?~", *extra); extra++)
+	if (*extra == '[')
+		extra++;
+	for (label = extra; *extra && !strchr("]:\";=?~", *extra); extra++)
 	{
 	}
 	end = extra;
 	if (*extra)
-		op = *extra++;
+	{
+		if (!op)
+			op = *extra;
+		extra++;
+	}
 
 	/* Trim whitespace */
 	while (label < end && elvspace(end[-1]))
@@ -2372,7 +2380,7 @@ static int keylabel(given, givenlen, label, rawin)
 		goto Found;
 	}
 
-	/* Maybe it is a label in foo or <foo> format? */
+	/* Maybe it is a label in <foo> format? */
 	if (given[0] == '<' && given[givenlen - 1] == '>' && givenlen < QTY(lblbuf)-1)
 	{
 		/* Look for "C-" or "S-" modifier */
@@ -2387,19 +2395,21 @@ static int keylabel(given, givenlen, label, rawin)
 		CHARncpy(lblbuf, given, (size_t)givenlen);
 		givenlen -= 2;
 	}
+	/* Maybe it is a function key label in #n format? */
 	else if (given[0] == '#' && givenlen < QTY(lblbuf) - 2)
 	{
+		/* look for "c" or "s" modifier */
+		i = elvtoupper(given[givenlen - 1]);
+		if (i == 'C' || i == 'S')
+		{
+			modifier = i;
+			givenlen--;
+		}
+
 		/* standardize the format of the #nn string */
 		lblbuf[1] = 'F';
 		CHARncpy(lblbuf + 2, given + 1, (size_t)givenlen);
 	}
-#if 0
-	else if (givenlen < QTY(lblbuf)-3)
-	{
-		/* standardize the format of the foo string */
-		CHARncpy(lblbuf + 1, given, (size_t)givenlen);
-	}
-#endif
 	else
 	{
 		/* too long to be a key label */
@@ -2410,7 +2420,7 @@ static int keylabel(given, givenlen, label, rawin)
 	lblbuf[givenlen + 1] = '\0';
 	name = tochar8(lblbuf + 1);
 	key = XStringToKeysym(name);
-	if (key == NoSymbol)
+	if (key == NoSymbol || (unsigned)key <= 127)
 	{
 		return 0;
 	}
@@ -2420,7 +2430,7 @@ Found:	/* We have a key!  At this point, "key" and "name" are the only
 	 */
 
 	/* if function key, then convert label to #n format (else <foo>) */
-	if (key >= XK_F1 && key <= XK_F10)
+	if (key >= XK_F1 && key <= XK_F35)
 	{
 		if (modifier)
 			sprintf((char *)lblbuf, "#%ld%c", (long)(key - XK_F1 + 1), elvtolower(modifier));
@@ -2429,16 +2439,22 @@ Found:	/* We have a key!  At this point, "key" and "name" are the only
 	}
 	else
 	{
-		lblbuf[0] = '<';
-		if (modifier)
+		/* we want to build the label in "lblbuf", but "name" may be a
+		 * pointer into "lblbuf" so we must be careful...
+		 */
+		if (toCHAR(name) != lblbuf + 1)
 		{
-			lblbuf[1] = modifier;
-			lblbuf[2] = '-';
-			lblbuf[3] = '\0';
+			lblbuf[0] = '<';
+			if (modifier)
+			{
+				lblbuf[1] = modifier;
+				lblbuf[2] = '-';
+				lblbuf[3] = '\0';
+			}
+			else
+				lblbuf[1] = '\0';
+			CHARcat(&lblbuf[1], toCHAR(name));
 		}
-		else
-			lblbuf[1] = '\0';
-		CHARcat(&lblbuf[1], name);
 		CHARcat(lblbuf, toCHAR(">"));
 	}
 

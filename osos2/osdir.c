@@ -11,9 +11,8 @@
  * Martin "Herbert" Dietze.
  *
  * $Log: osdir.c,v $
- * Revision 1.14  2003/10/17 17:41:23  steve
- * Renamed the BOOLEAN data type to ELVBOOL to avoid name clashes with
- *   types defined other headers.
+ * Revision 1.15  2003/10/23 23:35:45  steve
+ * Herbert's latest changes.
  *
  * Revision 1.13  2003/10/12 18:36:18  steve
  * Changed elvis' ctype macro names to start with "elv"
@@ -55,13 +54,14 @@
 #include <errno.h>
 #ifdef __IBMC__ /* Herbert: not needed for emx/gcc */
 # include <direct.h>
+# include <sys/stat.h>
 #endif
 #include <io.h>
 #include <string.h>
 #if !defined(JUST_DIRFIRST) && !defined(JUST_DIRPATH)
 # include "elvis.h"
 # ifdef FEATURE_RCSID
-char id_osdir[] = "$Id: osdir.c,v 1.14 2003/10/17 17:41:23 steve Exp $";
+char id_osdir[] = "$Id: osdir.c,v 1.15 2003/10/23 23:35:45 steve Exp $";
 # endif
 #endif
 
@@ -77,7 +77,8 @@ char id_osdir[] = "$Id: osdir.c,v 1.14 2003/10/17 17:41:23 steve Exp $";
 #define INCL_DOSFILEMGR
 #define INCL_DOSERRORS
 #ifdef __EMX__
-# define USE_OS2_TOOLKIT_HEADERS
+/*# define USE_OS2_TOOLKIT_HEADERS*/
+#define CHAR OS2CHAR
 #endif
 #include <os2.h>
 #ifdef CHAR
@@ -526,11 +527,11 @@ dirperm (char  *filename)  /* name of file to check */
           return DIR_BADPATH;
         }
     }
-  if ((st.st_mode & S_IFMT) == S_IFDIR)
+  if ((st.st_mode & S_IFDIR) != 0)
     {
       return DIR_DIRECTORY;
     }
-  else if ((st.st_mode & S_IFMT) != S_IFREG)
+  else if ((st.st_mode & S_IFREG) == 0)
     {
       return DIR_NOTFILE;
     }

@@ -4,7 +4,7 @@
 
 #include "elvis.h"
 #ifdef FEATURE_RCSID
-char id_message[] = "$Id: message.c,v 2.52 2003/10/18 04:47:18 steve Exp $";
+char id_message[] = "$Id: message.c,v 2.53 2004/03/19 23:04:10 steve Exp $";
 #endif
 #if USE_PROTOTYPES
 # include <stdarg.h>
@@ -288,7 +288,11 @@ void msg(imp, terse, va_alist)
 	}
 
 	/* can't nest msg() calls.  If another call is in progress, exit now */
+#if 0
 	if (*verbose || (msghiding && (imp == MSG_ERROR || imp == MSG_WARNING)))
+#else
+	if (*verbose || msghiding)
+#endif
 	{
 		if (imp == MSG_FATAL)
 		{

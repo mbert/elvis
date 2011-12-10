@@ -25,11 +25,12 @@ alias! man {
  (=b) set bd=man
  (=b)r !!man !*
  try (=b)1 s/^Reformatting.*ait\.\.\.$//
- try (=b)% s/\\/\\\\/g
+ try (=b)% s/\\//g
  try (=b)% s/_\(.\)*\(.\)/\\fI\2\\fR/g
  try (=b)% s/.\(.\)*\(.\)/\\fB\2\\fR/g
  try (=b)% s/\\fR\\fB//g
  try (=b)% s/\\fR\\fI//g
+ try (=b)% s//\\\\/g
  (=b)1 i .nf
  (=b) set nomod nospell
  (=b)split
@@ -126,13 +127,26 @@ then {
   "Use Andale mono font for the main font, and Courier for italic (X11 only)
   if !isnumber(!(14)1)
   then error usage: andale [fontsize]
-  set font="luxi mono*!(14)1" italicfont="courier*!(14)1i"
+  set font="andale mono*!(14)1" italicfont="courier*!(14)1i"
  }
 
  alias! fork {
   "Run a program in the background (X11 only)
   !! >/dev/null 2>&1 !* &
  }
+ 
+ alias! gdb {
+   " Start gdb in an xterm, connected to elvis
+   if gui != "x11"
+   then error The :gdb alias only works with the "x11" user interface
+   if !alias("fromgdb")
+   then load gdb
+   if secret != 0
+   then error Already running -- secret!=0
+   let secret=rand(1000000000)
+   eval fork secret=(secret) xterm +ls -xrm "*allowSendEvents:true" -e elvgdb !*
+ }
+
 }
 
 if feature("array")
@@ -312,7 +326,7 @@ alias! features {
  calc "Network protocols: ";(f ? f : "none")
 
  set f="" l="Other features:    "
- for i in alias array autocmd backtick browse cachedesc calc complete equaltilde fold g hlobject hlsearch image incsearch listchars litre lpr make mapdb misc mkexrc normal proto ram rcsid showtag smartargs spell split tags textobj v xft
+ for i in alias array autocmd backtick browse cachedesc calc complete equaltilde fold g hlobject hlsearch image incsearch listchars litre lpr make mapdb misc mkexrc normal persist proto ram rcsid showtag smartargs spell split tags textobj v xft
  do {
   if feature(i)
   then {
@@ -336,11 +350,18 @@ alias! customize {
  let o = elvispath(f)
  if o == ""
  then error "!^" is not a known configuration file
+ "Choose a base directory
  if os=="msdos" || os=="os2" || os == "win32"
  then let d=$HOME/"dotelvis"
  else let d=$HOME/".elvis"
+ "If the directory doesn't exist yet, then create it
  if dirperm(d) == "new"
  then eval !mkdir "(d)"
+ "If we need a subdirectory and it doesn't exist yet, then create it
+ let n = dirname(d/f)
+ if dirperm(n) == "new"
+ then eval !mkdir "(n)"
+ "If customized file exists, then load it; else start with the default version
  let n = d / f
  if exists(n)
  then e (n)
@@ -426,6 +447,9 @@ then {
     " `line' as the :g is running.  The work-around is to use :unfold
     " until all of the :g commands are finished, and then do :%fold! to
     " fold them.
+
+    " Start by removing any folds already in the file
+    %nofold
 
     " #if and #else directives
     g/^\s*#\s*[ie][fl]/ {

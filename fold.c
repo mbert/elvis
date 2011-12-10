@@ -3,7 +3,7 @@
 
 #include "elvis.h"
 #ifdef FEATURE_RCSID
-char id_fold[] = "$Id: fold.c,v 2.10 2003/10/17 17:41:23 steve Exp $";
+char id_fold[] = "$Id: fold.c,v 2.11 2004/03/19 23:03:39 steve Exp $";
 #endif
 #undef DEBUG_FOLD
 
@@ -156,11 +156,11 @@ RESULT foldbyname(buf, name, infold)
 
 /* Locate FOLDs by region, and either delete them or unfold/refold them.
  * Return RESULT_COMPLETE if at least one region was deleted/moved, or
- * RESULT_COMPLETE if it had no effect.
+ * RESULT_ERROR if it had no effect.
  *
  * This search always acts on regions which overlap the from/to range,
  * or which exactly match the from/to range.  They can also optionally
- * affected wholely enclosed FOLDs, and/or FOLDs which are nested inside
+ * affected wholly enclosed FOLDs, and/or FOLDs which are nested inside
  * other FOLDs which are affected by this command.
  */
 RESULT foldbyrange(from, to, infold, flags)

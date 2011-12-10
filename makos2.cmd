@@ -28,12 +28,13 @@ copy osos2\config-no-tcp.h config.h
 echo deleting some object files, don't worry if they do not exist...
 del calc.obj dmmarkup.obj ex.obj http.obj io.obj osnet.obj url.obj ftp.obj buffer.obj
 echo building non-tcp/ip elvis...
-make -f osos2\Makefile.os2 ALL="elvis-no-tcp.exe ref.exe ctags.exe fmt.exe
+make -f osos2\Makefile.os2 wcc-no-tcp
 goto done
 
 :gcc
 echo copying config file for non tcp/ip compile using gcc...
-copy osos2\config-no-tcp.h config.h
+rem copy osos2\config-no-tcp.h config.h
+copy osos2\config-with-tcp.h config.h
 echo building non-tcp/ip elvis with emx/gcc...
 make -f osos2\Makefile.os2 gcc
 goto done
@@ -63,14 +64,14 @@ goto done
 echo copying config file for tcp/ip compile...
 copy osos2\config-with-tcp.h config.h
 echo building elvis and misc programs...
-make -f osos2\Makefile.os2 all
+make -f osos2\Makefile.os2 wcc
 goto done
 
 :package
 cd exeos2
 del *gcc.exe
 cd ..
-make -f osos2/Makefile.os2 elvis-2.2j-os2.tar.gz
+make -f osos2/Makefile.os2 elvis-2.2_1-os2.tar.gz
 goto done
 
 :all

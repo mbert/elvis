@@ -1,5 +1,5 @@
 <html><head>
-<title>Elvis-2.2_0 User Interfaces</title>
+<title>Elvis-2.2_1 User Interfaces</title>
 </head><body>
 
 <h1>8. USER INTERFACES</h1>
@@ -206,6 +206,25 @@ toolbar button that has the given label.
 <dd>This leaves a small gap between the previous button and the following
 button.
 
+<dt>:gui [<var>label</var>] <var>keys</var>
+<dd>This creates a button named <var>label</var>.
+Whenever you click the button,
+elvis will act as though you typed the <var>keys</var>.
+The <var>keys</var> can use <a href="elvisex.html#KEYS">symbolic names</a>
+for keys, just like the <a href="elvisex.html#map">:map</a> command.
+
+<p>
+If you define a button without specifying the <var>keys</var>, then
+elvis will send the button label enclosed in square brackets.
+You can then use the <a href="elvisex.html#map">:map</a> command
+to map that to whatever you want.
+This can be handy because Elvis allows you to make context-sensitive maps.
+
+<pre>
+:gui [Bold]
+:map select mode=html [Bold] c&lt;b&gt;&lt;C-P&gt;&lt;\b&gt;&lt;Esc&gt;
+:map select mode=man [Bold] c\fB&lt;C-P&gt;\fP&lt;Esc&gt;</pre>
+
 <dt>:gui <var>label</var> : <var>excommand</var>
 <dd>This creates a button named <var>label</var>.
 Whenever you click the button, the <var>excommand</var> will be interpreted
@@ -265,7 +284,7 @@ It is also displayed on pop-up dialogs, as described below.
 When you click on the toolbar button, the dialog appears immediately.
 You can then edit some values, and then hit the [Submit] button
 to store the edited values into <a href="elvisopt.html">options</a> and
-run the toolbar button's ex command (if any), or hit the [Cancel] button
+run the toolbar button's keys and/or ex command (if any), or hit the [Cancel] button
 to do nothing.
 
 <p>The simplest dialog is specified by giving just a pair of semicolons after
@@ -387,6 +406,8 @@ This means that when you hit the &lt;m&gt; key, you get an "m" character.
 Function keys and cursor keys have no standard translation, so
 Elvis converts them to a ^K character followed the Keysym binary value,
 expressed as four hex digits.
+The shift and control versions of the keys use ^S and ^C as the prefix
+character, respectively.
 
 <p>You can use the "^Kxxxx" character sequences as the first argument to a
 <a href="elvisex.html#map">:map</a> command.
@@ -411,36 +432,22 @@ if Elvis is compiled with the FEATURE_IMAGE defined (i.e.,
 if "<code>:calc</code> <a href="elvisexp.html#feature">feature("image")</a>"
 returns <code>True</code>)
 then you can use the
-<a href="elvisex.html#gui">:gui</a> command to change Elvis' icon.
-<dl>
-<dt>:gui icon
-<dd>Display the name of the current icon, if any.
-<dt>:gui icon <var>filename.xpm</var>
-<dd>Load an image from an XPM file, and use the image as Elvis' icon.
-If <var>filename.xpm</var> isn't found in the current directory then
-Elvis will search for it in the <a href="elvisopt.html#elvispath">elvispath</a>.
-</dl>
-
-<p>Even without FEATURE_IMAGE, you may still be able to use the icons with
-some window managers.
-For example, with FVWM2 you could put the following in your ~/.fvwm2rc file...
-<pre>
-	Style "elvis" Icon /usr/include/X11/pixmaps/elvis.xpm</pre>
+<a href="elvisopt.html#iconimage">iconimage</a> option to change Elvis' icon.
 
 <p>The following color icons are available:
 <pre graphic>
-    .------------.------------------------------------------------.
-    |    NAME    | DESCRIPTION                                    |
-    |------------|------------------------------------------------|
-    | elvis.xpm  | 48x32, 4 colors, same as the monochrome icon   |
-    | kde.xpm    | 32x32, a resized version of elvis.xpm          |
-    | mini.xpm   | 16x14, 6 colors, for fvwm95 taskbar            |
-    | normal.xpm | 56x46, on a shaded button for NextStep-ish WMs |
-    | small.xpm  | 21x18, on a shaded button for NextStep-ish WMs |
-    | elvis1.xpm | 32x32, Spike                                   |
-    | elvis2.xpm | 32x32, 2 1/2 Years (among others)              |
-    | elvis3.xpm | 32x32, My Aim Is True                          |
-    ^------------^------------------------------------------------^
+    .----------.------------------------------------------------.
+    | XPM NAME | DESCRIPTION                                    |
+    |----------|------------------------------------------------|
+    |  elvis   | 48x32, 4 colors, same as the monochrome icon   |
+    |  kde     | 32x32, a resized version of elvis.xpm          |
+    |  mini    | 16x14, 6 colors, for fvwm95 taskbar            |
+    |  normal  | 56x46, on a shaded button for NextStep-ish WMs |
+    |  small   | 21x18, on a shaded button for NextStep-ish WMs |
+    |  elvis1  | 32x32, Spike                                   |
+    |  elvis2  | 32x32, 2 1/2 Years (among others)              |
+    |  elvis3  | 32x32, My Aim Is True                          |
+    ^----------^------------------------------------------------^
 </pre>
 The last three use a lot of colors, and should be avoided if you're
 using a Pseudocolor display (8 bits per pixel or less).
@@ -451,6 +458,12 @@ Other shaded-button icons use the exact same colors for the shading,
 so the overall impact on your color table isn't too bad.
 But if you don't normally use icons on shaded buttons,
 then you should probably use only the first three icons.
+
+<p>Even without FEATURE_IMAGE, you may still be able to use the icons with
+some window managers.
+For example, with FVWM2 you could put the following in your ~/.fvwm2rc file...
+<pre>
+	Style "elvis" Icon /usr/include/X11/pixmaps/elvis2.xpm</pre>
 
 <h3><a name="x11.bgimage"></a>8.1.7 X11 Background Images</h3>
 Elvis supports the use of images in some backgrounds.
@@ -531,7 +544,7 @@ via the tag stack, like the <a href="elvisvi.html#^T">^T</a> command.
 In addition to all the ASCII keys,
 WinElvis allows you to <a href="elvisex.html#map">:map</a> any cursor keys
 or function keys.  In fact, the cursor keys all have rather convenient
-maps built-in; you can see them by running "<code>:map</code>" with no arguments.
+maps built-in; you can see them by running<br>"<code>:map&nbsp;all</code>".
 
 <p>All of the cursor keys and function keys send multi-character sequences
 to WinElvis.  WinElvis then uses its standard mapping facilities to convert
@@ -768,6 +781,16 @@ This was easy to extend to 9 keys, but starting with the 10th function key
 things get strange because termcap field names must be two characters long.
 Also, there was no way to describe shift-function keys, control-function keys,
 or alt-function keys, so I invented by own fields for them.
+(Note that most Unix variants, including Linux, use &lt;Alt-F<var>n</var>&gt;
+to switch console screens, so applications such as Elvis can't use
+&lt;Alt-F<var>n</var>&gt; themselves.)
+When using terminfo, there are standard termcap names for the terminfo
+function key names, and elvis uses them, but terminfo simply supports 46
+different &lt;F<var>n</var>&gt; keys, not &lt;Shift-F<var>n</var>&gt; or
+&lt;Ctrl-F<var>n</var>&gt; keys; to work around this in the PC world,
+terminfo databases are set up with &lt;Shift-F<var>n</var>&gt; configured
+as &lt;F13&gt; through &lt;F24&gt;, and &lt;Ctrl-F<var>n</var>&gt; keys
+as &lt;F25&gt; through &lt;F36&gt;.
 
 <p>The following table lists all of the key field names, and the keys they
 refer to.
@@ -802,36 +825,42 @@ and what (if anything) that key is normally mapped to.
 |  #8       | :k8=:         | F8 key                            |
 |  #9       | :k9=:         | F9 key                            |
 |  #10      | :k0=:ka=:k;=: | F10 key                           |
-|  #1s      | :s1=:         | Shift-F1 key          (ELVIS ONLY)|
-|  #2s      | :s2=:         | Shift-F2 key          (ELVIS ONLY)|
-|  #3s      | :s3=:         | Shift-F3 key          (ELVIS ONLY)|
-|  #4s      | :s4=:         | Shift-F4 key          (ELVIS ONLY)|
-|  #5s      | :s5=:         | Shift-F5 key          (ELVIS ONLY)|
-|  #6s      | :s6=:         | Shift-F6 key          (ELVIS ONLY)|
-|  #7s      | :s7=:         | Shift-F7 key          (ELVIS ONLY)|
-|  #8s      | :s8=:         | Shift-F8 key          (ELVIS ONLY)|
-|  #9s      | :s9=:         | Shift-F9 key          (ELVIS ONLY)|
-|  #10s     | :s0=:         | Shift-F10 key         (ELVIS ONLY)|
-|  #1c      | :c1=:         | Control-F1 key        (ELVIS ONLY)|
-|  #2c      | :c2=:         | Control-F2 key        (ELVIS ONLY)|
-|  #3c      | :c3=:         | Control-F3 key        (ELVIS ONLY)|
-|  #4c      | :c4=:         | Control-F4 key        (ELVIS ONLY)|
-|  #5c      | :c5=:         | Control-F5 key        (ELVIS ONLY)|
-|  #6c      | :c6=:         | Control-F6 key        (ELVIS ONLY)|
-|  #7c      | :c7=:         | Control-F7 key        (ELVIS ONLY)|
-|  #8c      | :c8=:         | Control-F8 key        (ELVIS ONLY)|
-|  #9c      | :c9=:         | Control-F9 key        (ELVIS ONLY)|
-|  #10c     | :c0=:         | Control-F10 key       (ELVIS ONLY)|
-|  #1a      | :a1=:         | Alt-F1 key            (ELVIS ONLY)|
-|  #2a      | :a2=:         | Alt-F2 key            (ELVIS ONLY)|
-|  #3a      | :a3=:         | Alt-F3 key            (ELVIS ONLY)|
-|  #4a      | :a4=:         | Alt-F4 key            (ELVIS ONLY)|
-|  #5a      | :a5=:         | Alt-F5 key            (ELVIS ONLY)|
-|  #6a      | :a6=:         | Alt-F6 key            (ELVIS ONLY)|
-|  #7a      | :a7=:         | Alt-F7 key            (ELVIS ONLY)|
-|  #8a      | :a8=:         | Alt-F8 key            (ELVIS ONLY)|
-|  #9a      | :a9=:         | Alt-F9 key            (ELVIS ONLY)|
-|  #10a     | :a0=:         | Alt-F10 key           (ELVIS ONLY)|
+|  #11      | :F1=:         | F11 key                           |
+|  #12      | :F2=:         | F12 key                           |
+|  #1s      | :s1=:F3=:     | Shift-F1 key                      |
+|  #2s      | :s2=:F4=:     | Shift-F2 key                      |
+|  #3s      | :s3=:F5=:     | Shift-F3 key                      |
+|  #4s      | :s4=:F6=:     | Shift-F4 key                      |
+|  #5s      | :s5=:F7=:     | Shift-F5 key                      |
+|  #6s      | :s6=:F8=:     | Shift-F6 key                      |
+|  #7s      | :s7=:F9=:     | Shift-F7 key                      |
+|  #8s      | :s8=:FA=:     | Shift-F8 key                      |
+|  #9s      | :s9=:FB=:     | Shift-F9 key                      |
+|  #10s     | :s0=:FC=:     | Shift-F10 key                     |
+|  #11s     | :FD=:         | Shift-F11 key                     |
+|  #12s     | :FE=:         | Shift-F12 key                     |
+|  #1c      | :c1=:FF=:     | Control-F1 key                    |
+|  #2c      | :c2=:FG=:     | Control-F2 key                    |
+|  #3c      | :c3=:FH=:     | Control-F3 key                    |
+|  #4c      | :c4=:FI=:     | Control-F4 key                    |
+|  #5c      | :c5=:FJ=:     | Control-F5 key                    |
+|  #6c      | :c6=:FK=:     | Control-F6 key                    |
+|  #7c      | :c7=:FL=:     | Control-F7 key                    |
+|  #8c      | :c8=:FM=:     | Control-F8 key                    |
+|  #9c      | :c9=:FN=:     | Control-F9 key                    |
+|  #10c     | :c0=:FO=:     | Control-F10 key                   |
+|  #11c     | :FP=:         | Control-F11 key                   |
+|  #12c     | :FQ=:         | Control-F12 key                   |
+|  #1a      | :a1=:         | Alt-F1 key      (DOS/WINDOWS ONLY)|
+|  #2a      | :a2=:         | Alt-F2 key      (DOS/WINDOWS ONLY)|
+|  #3a      | :a3=:         | Alt-F3 key      (DOS/WINDOWS ONLY)|
+|  #4a      | :a4=:         | Alt-F4 key      (DOS/WINDOWS ONLY)|
+|  #5a      | :a5=:         | Alt-F5 key      (DOS/WINDOWS ONLY)|
+|  #6a      | :a6=:         | Alt-F6 key      (DOS/WINDOWS ONLY)|
+|  #7a      | :a7=:         | Alt-F7 key      (DOS/WINDOWS ONLY)|
+|  #8a      | :a8=:         | Alt-F8 key      (DOS/WINDOWS ONLY)|
+|  #9a      | :a9=:         | Alt-F9 key      (DOS/WINDOWS ONLY)|
+|  #10a     | :a0=:         | Alt-F10 key     (DOS/WINDOWS ONLY)|
 ^-----------^---------------^-----------------------------------^
 </pre>
 

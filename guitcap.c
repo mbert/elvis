@@ -167,21 +167,21 @@ static struct
 }
 	keys[] =
 {
-	{"<Up>",	"ku",		"k",	MAP_ALL},
-	{"<Down>",	"kd",		"j",	MAP_ALL},
-	{"<Left>",	"kl",		"h",	MAP_ALL},
-	{"<Right>",	"kr",		"l",	MAP_ALL},
-	{"<PgUp>",	"PUkPk2",	"\002", MAP_ALL},
-	{"<PgDn>",	"PDkNk5",	"\006", MAP_ALL},
-	{"<Home>",	"HMkhK1",	"^",	MAP_ALL},
-	{"<End>",	"ENkHK5@7",	"$",	MAP_ALL},
-	{"<Insert>",	"kI",		"i",	MAP_ALL},
+	{"<Up>",	"ku",		"k",	MAP_NOSAVE|MAP_ALL},
+	{"<Down>",	"kd",		"j",	MAP_NOSAVE|MAP_ALL},
+	{"<Left>",	"kl",		"h",	MAP_NOSAVE|MAP_ALL},
+	{"<Right>",	"kr",		"l",	MAP_NOSAVE|MAP_ALL},
+	{"<PgUp>",	"PUkPk2",	"\002", MAP_NOSAVE|MAP_ALL},
+	{"<PgDn>",	"PDkNk5",	"\006", MAP_NOSAVE|MAP_ALL},
+	{"<Home>",	"HMkhK1",	"^",	MAP_NOSAVE|MAP_ALL},
+	{"<End>",	"ENkHK5@7",	"$",	MAP_NOSAVE|MAP_ALL},
+	{"<Insert>",	"kI",		"i",	MAP_NOSAVE|MAP_ALL},
 #ifdef FEATURE_MISC
-	{"<Delete>",	"kD",		"x",	MAP_ALL},
-	{"<Compose>",	"k+",		"\013",	MAP_INPUT},
-	{"<C-Left>",	"#4KL",		"B",	MAP_ALL},
-	{"<C-Right>",	"%iKR",		"W",	MAP_ALL},
-	{"<S-Tab>",	"kB",		"g\t",	MAP_COMMAND},
+	{"<Delete>",	"kD",		"x",	MAP_NOSAVE|MAP_ALL},
+	{"<Compose>",	"k+",		"\013",	MAP_NOSAVE|MAP_INPUT},
+	{"<C-Left>",	"#4KL",		"B",	MAP_NOSAVE|MAP_ALL},
+	{"<C-Right>",	"%iKR",		"W",	MAP_NOSAVE|MAP_ALL},
+	{"<S-Tab>",	"kB",		"g\t",	MAP_NOSAVE|MAP_COMMAND},
 #endif
 	{"#1",		"k1"},
 	{"#2",		"k2"},
@@ -194,26 +194,32 @@ static struct
 	{"#9",		"k9"},
 	{"#10",		"k0kak;"},
 #ifdef FEATURE_MISC
-	{"#1s",		"s1"},
-	{"#2s",		"s2"},
-	{"#3s",		"s3"},
-	{"#4s",		"s4"},
-	{"#5s",		"s5"},
-	{"#6s",		"s6"},
-	{"#7s",		"s7"},
-	{"#8s",		"s8"},
-	{"#9s",		"s9"},
-	{"#10s",	"s0"},
-	{"#1c",		"c1"},
-	{"#2c",		"c2"},
-	{"#3c",		"c3"},
-	{"#4c",		"c4"},
-	{"#5c",		"c5"},
-	{"#6c",		"c6"},
-	{"#7c",		"c7"},
-	{"#8c",		"c8"},
-	{"#9c",		"c9"},
-	{"#10c",	"c0"},
+	{"#11",		"F1"},
+	{"#12",		"F2"},
+	{"#1s",		"s1F3"},
+	{"#2s",		"s2F4"},
+	{"#3s",		"s3F5"},
+	{"#4s",		"s4F6"},
+	{"#5s",		"s5F7"},
+	{"#6s",		"s6F8"},
+	{"#7s",		"s7F9"},
+	{"#8s",		"s8FA"},
+	{"#9s",		"s9FB"},
+	{"#10s",	"s0FC"},
+	{"#11s",	"FD"},
+	{"#12s",	"FE"},
+	{"#1c",		"c1FF"},
+	{"#2c",		"c2FG"},
+	{"#3c",		"c3FH"},
+	{"#4c",		"c4FI"},
+	{"#5c",		"c5FJ"},
+	{"#6c",		"c6FK"},
+	{"#7c",		"c7FL"},
+	{"#8c",		"c8FM"},
+	{"#9c",		"c9FN"},
+	{"#10c",	"c0FO"},
+	{"#11c",	"FP"},
+	{"#12c",	"FQ"},
 	{"#1a",		"a1"},
 	{"#2a",		"a2"},
 	{"#3a",		"a3"},
@@ -1355,7 +1361,7 @@ static int init(argc, argv)
 	o_ttyunderline = ElvTrue;
 	o_ttyitalic = ElvTrue;
 	o_ttywrap = ElvTrue;
-	optinsert("tcap", QTY(goptdesc), goptdesc, &ttygoptvals.term);
+	optinsert("termcap", QTY(goptdesc), goptdesc, &ttygoptvals.term);
 
 	/* initialize the termcap stuff */
 	starttcap();
@@ -1495,10 +1501,10 @@ static void loop()
 			 *
 			 * JohnW 13/08/96 - try to sort out keeping program
 			 * output on screen until vi mode is entered again.
-                         * We have some program output on the screen and we
-                         * may want to keep looking at it while we do another
-                         * command, so don't do a big refresh until we're
-                         * out of bottom-line mode
+			 * We have some program output on the screen and we
+			 * may want to keep looking at it while we do another
+			 * command, so don't do a big refresh until we're
+			 * out of bottom-line mode
 			 *
 			 * Steve 9/12/96 - switched it back, partially, because
 			 * moving the ttyresume() call to the afterprg==2
@@ -2160,26 +2166,39 @@ static int ttyprgclose()
 	/* resume curses */
 	if (!isread)
 	{
-		ttyresume(ElvFalse);
+		if (windows != NULL)
+		{
+			ttyresume(ElvFalse);
 
-		/* Okay, now we're in a weird sort of situation.  The screen is
-		 * about to be forced to display "Hit <Enter> to continue" on
-		 * the bottom of the window in open mode, and then wait for a
-		 * keystroke.  That's a Good Thing.  But there are two problems
-		 * we need to address:
-		 *    * We want that prompt to appear at the bottom of the
-		 *	screen, not the bottom of the window.
-		 *    * After the user hits a key, we want to redraw all
-		 *	windows.
-		 *
-		 * We'll set a flag indicating this situation.  The movecurs()
-		 * function will test for that flag, and merely pretend to move
-		 * the cursor when it is set.  The loop() function will test
-		 * that flag after each keystroke, and expose all windows if
-		 * it is set.
-		 */
-		afterprg = 2;
-		afterscrl = 0;
+			/* Okay, now we're in a weird sort of situation.
+			 * The screen is about to be forced to display
+			 * "Hit <Enter> to continue" on the bottom of the
+			 * window in open mode, and then wait for a keystroke.
+			 * That's a good thing.  But there are two problems
+			 * we need to address:
+			 *    * We want that prompt to appear at the bottom
+			 *	of the screen, not the bottom of the window.
+			 *    * After the user hits a key, we want to redraw
+			 *	all windows.
+			 *
+			 * We'll set a flag indicating this situation.  The
+			 * movecurs() function will test for that flag, and
+			 * merely pretend to move the cursor when it is set.
+			 * The loop() function will test that flag after each
+			 * keystroke, and expose all windows if it is set.
+			 */
+			afterprg = 2;
+			afterscrl = 0;
+		}
+		else
+		{
+			/* A program was run during initialization, probably
+			 * as part of an autocmd BufReadPost event.  The first
+			 * window hasn't been displayed yet, so there's nothing
+			 * the user needs to see.  Don't wait for keys
+			 */
+			ttyresume(ElvTrue);
+		}
 	}
 
 #ifdef FEATURE_MISC

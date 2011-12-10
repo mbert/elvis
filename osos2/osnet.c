@@ -5,6 +5,9 @@
  * Herbert 
  *
  * $Log: osnet.c,v $
+ * Revision 1.6  2003/10/23 23:35:45  steve
+ * Herbert's latest changes.
+ *
  * Revision 1.5  2003/10/17 17:41:23  steve
  * Renamed the BOOLEAN data type to ELVBOOL to avoid name clashes with
  *   types defined other headers.
@@ -77,6 +80,12 @@ char id_osnet[] = "$Id";
 #  define BSD_SELECT
 #  include <types.h>
 # endif
+# ifdef __WATCOMC__
+#  define BSD_SELECT
+  typedef long off_t;
+  #include <sys/time.h>
+  #include <utils.h>
+# endif
 # ifdef __EMX__
 #  include <sys/types.h>
 #  include <sys/time.h>
@@ -86,7 +95,6 @@ char id_osnet[] = "$Id";
 # ifdef __EMX__
 #  include <io.h>
 #  include <netinet/in.h>
-#  include <arpa/inet.h>
 # endif
 # include <sys/select.h>
 # ifdef __IBMC__

@@ -23,18 +23,3 @@ alias writeMAILTO {
   w !!mail -s"!(no subject)subject=" !2 >/dev/null 2>&1
   se nomod
 }
-
-alias readMAN {
- local report=0 nosaveregexp
- local magic magicchar=^$.[* noignorecase
- r !!man !2
- set bd=man
- try 1 s/^Reformatting.*ait\.\.\.$//
- try % s/\\/\\\\/g
- try % s/_\(.\)/\\fI\1\\fR/g
- try % s/.\(.\)/\\fB\1\\fR/g
- try % s/\\fR\\fB//g
- try % s/\\fR\\fI//g
- 1 i .nf
- set nomod
-}

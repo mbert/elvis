@@ -4,7 +4,7 @@
 
 #include "elvis.h"
 #ifdef FEATURE_RCSID
-char id_move[] = "$Id: move.c,v 2.66 2003/10/17 17:41:23 steve Exp $";
+char id_move[] = "$Id: move.c,v 2.67 2003/12/28 20:31:11 steve Exp $";
 #endif
 
 #ifdef FEATURE_G
@@ -1620,6 +1620,7 @@ RESULT m_fsentence(win, vinf)
 	long	para;
 	long	offset;
 	long	count;
+	MARKBUF	tmp;
 
 	DEFAULT(1);
 
@@ -1651,6 +1652,7 @@ RESULT m_fsentence(win, vinf)
 	else
 	{
 		para = 0;
+		scanseek(&cp, marktmp(tmp, markbuffer(win->state->cursor), 0L));
 	}
 	marksetoffset(win->state->cursor, offset);
 	if (para == offset)

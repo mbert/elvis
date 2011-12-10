@@ -9,7 +9,7 @@
 
 #include "elvis.h"
 #ifdef FEATURE_RCSID
-char id_spell[] = "$Id: spell.c,v 1.38 2003/10/17 17:41:23 steve Exp $";
+char id_spell[] = "$Id: spell.c,v 1.39 2004/03/21 23:24:41 steve Exp $";
 #endif
 
 #define MAXWLEN	100	/* maximum word length */
@@ -799,7 +799,6 @@ static void savehelp(node, partial)
 void spellsave(custom)
 	BUFFER	custom;	/* buffer to append spell commands to, or NULL */
 {
-	MARKBUF end;
 	int	i, col, len;
 	spellcheck_t level;
 
@@ -820,9 +819,7 @@ void spellsave(custom)
 		CHARcat(saveline, toCHAR("\n"));
 		if (custom)
 		{
-			end.buffer = custom;
-			end.offset = o_bufchars(custom);
-			bufreplace(&end, &end, saveline, CHARlen(saveline));
+			bufappend(custom, saveline, 0);
 		}
 		else
 		{
@@ -835,8 +832,6 @@ void spellsave(custom)
 		return;
 
 	/* also save the :check commands */
-	end.buffer = custom;
-	end.offset = o_bufchars(custom);
 	for (level = SPELL_CHECK_ALL; level <= SPELL_CHECK_NONE; level++)
 	{
 		for (i = 1, col = 0; i < colornpermanent; i++)
@@ -850,37 +845,32 @@ void spellsave(custom)
 			{
 				if (col > 0)
 				{
-					bufreplace(&end, &end, toCHAR("\n"), 1);
-					end.offset++;
+					bufappend(custom, toCHAR("\n"), 1);
 				}
-				bufreplace(&end, &end,
+				bufappend(custom,
 					toCHAR(level == SPELL_CHECK_NONE
 						? "try check -"
 						: level == SPELL_CHECK_TAGONLY
 							? "try check +"
 							: "try check *"),
 					11);
-				end.offset += 11;
 				col = 11;
 			}
 			else
 			{
 				/* space between words */
-				bufreplace(&end, &end, blanks, 1);
-				end.offset++;
+				bufappend(custom, blanks, 1);
 				col++;
 			}
 
 			/* add this font name */
-			bufreplace(&end, &end, colorinfo[i].name, len);
-			end.offset += len;
+			bufappend(custom, colorinfo[i].name, len);
 		}
 
 		/* end the line */
 		if (col > 0)
 		{
-			bufreplace(&end, &end, toCHAR("\n"), 1);
-			end.offset++;
+			bufappend(custom, toCHAR("\n"), 1);
 		}
 	}
 }

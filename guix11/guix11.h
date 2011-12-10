@@ -122,7 +122,7 @@ extern struct x_optvals_s
 		autoiconify, altkey, stagger, warpback, warpto, focusnew,
 		textcursor, outlinemono, borderwidth, xrootwidth, xrootheight,
 		xencoding, scrollwheelspeed, submit, cancel, help, synccursor,
-		scrollbgimage;
+		scrollbgimage, secret;
 #ifdef FEATURE_XFT
 	OPTVAL	antialias, aasqueeze;
 #endif
@@ -165,6 +165,7 @@ extern struct x_optvals_s
 #define o_help		 x_optvals.help.value.string
 #define o_synccursor	 x_optvals.synccursor.value.boolean
 #define o_scrollbgimage	 x_optvals.scrollbgimage.value.boolean
+#define o_secret	 x_optvals.secret.value.number
 #ifdef FEATURE_XFT
 # define o_antialias	 x_optvals.antialias.value.boolean
 # define o_aasqueeze	 x_optvals.aasqueeze.value.number

@@ -8,6 +8,9 @@
  * this way, anyhow.  :-)
  *
  * $Log: osblock.c,v $
+ * Revision 1.6  2003/10/23 23:35:45  steve
+ * Herbert's latest changes.
+ *
  * Revision 1.5  2003/10/17 17:41:23  steve
  * Renamed the BOOLEAN data type to ELVBOOL to avoid name clashes with
  *   types defined other headers.
@@ -32,7 +35,7 @@
 #define INCL_DOSFILEMGR
 #define INCL_DOSERRORS
 #ifdef __EMX__
-# define USE_OS2_TOOLKIT_HEADERS
+#define CHAR OS2CHAR
 #endif
 #include <os2.h>
 #ifdef CHAR

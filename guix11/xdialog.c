@@ -3,7 +3,7 @@
 
 #include "elvis.h"
 #ifdef FEATURE_RCSID
-char id_xdialog[] = "$Id: xdialog.c,v 2.32 2003/10/18 18:20:08 steve Exp $";
+char id_xdialog[] = "$Id: xdialog.c,v 2.33 2004/02/01 02:09:45 steve Exp $";
 #endif
 #ifdef GUI_X11
 #include "guix11.h"
@@ -449,10 +449,11 @@ static void parsespec(dia)
 
 
 /* create a new dialog */
-void x_dl_add(xw, name, desc, excmd, spec)
+void x_dl_add(xw, name, desc, vicmd, excmd, spec)
 	X11WIN	*xw;	/* window where the command should be performed */
 	char	*name;	/* name of the toolbar button */
 	char	*desc;	/* one-line description of the "submit" action */
+	CHAR	*vicmd;	/* keys to push into input queue if "submit" pressed */
 	char	*excmd;	/* the command to execute if "submit" is pressed */
 	char	*spec;	/* list of options to use as fields */
 {
@@ -477,6 +478,7 @@ void x_dl_add(xw, name, desc, excmd, spec)
 	dia->xw = xw;
 	dia->name = safedup(name);
 	dia->desc = safedup(desc ? desc : name);
+	dia->vicmd = vicmd ? CHARdup(vicmd) : NULL;
 	dia->excmd = excmd ? safedup(excmd) : NULL;
 	dia->spec = safedup(spec);
 	dia->current = -2;
@@ -731,6 +733,8 @@ void x_dl_delete(dia)
 	if (dia->name)
 		safefree(dia->name);
 	safefree(dia->desc);
+	if (dia->vicmd)
+		safefree(dia->vicmd);
 	if (dia->excmd)
 		safefree(dia->excmd);
 	safefree(dia->spec);
@@ -1001,6 +1005,7 @@ static void keystroke(dia, key)
 	char	tmp[300];
 	long	l, min, max;
 	GUIWIN	*gw;
+	CHAR	*vicmd;
 	char	*excmd;
 
 	switch (key)
@@ -1024,9 +1029,17 @@ static void keystroke(dia, key)
 		 * be destroyed.
 		 */
 		gw = (GUIWIN *)dia->xw;
+		vicmd = dia->vicmd ? CHARdup(dia->vicmd) : NULL;
 		excmd = dia->excmd ? safedup(dia->excmd) : NULL;
 		if (!dia->pinned)
 			x_dl_delete(dia);
+
+		/* push the vi keystrokes, if any */
+		if (vicmd)
+		{
+			eventkeys(gw, vicmd, CHARlen(vicmd));
+			safefree(vicmd);
+		}
 
 		/* execute the ex command, if any */
 		if (excmd)

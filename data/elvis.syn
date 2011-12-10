@@ -886,15 +886,15 @@ keyword dig digraph dis display do doau doautocmd doloop e ec echo edit el
 keyword else er err errlist erro error ev eval ex f file fold for foreach
 keyword g global go goto gu gui h help i if insert j join k l la last le
 keyword let list lo local lp lpr m ma mak make map mark me message mk
-keyword mkexrc move n N new next Next no normal nu number o open p po pop
-keyword pre previous print pu push put q qa qall quit r read red redo rew
-keyword rewind s sN sNext sa saf safely sall sb sbb sbbrowse sbr sbrowse se
-keyword set sh shell sl slast sn sne snew snext so source sp split sre
-keyword srew srewind st sta stac stack stag stop subst substitute sus susp
-keyword suspend switch t ta tag th then to try u una unab unabbr
-keyword unabbreviate unb unbreak undo unfold unm unmap v ve version
-keyword vglobal vi visual w wa warning wordf wordfile words wh while wi
-keyword window wn wnext wq wquit write x xit y yank z
+keyword mkexrc move n N new next Next no nof nofold noh nohlsearch normal nu
+keyword number o open p po pop pre previous print pu push put q qa qall quit
+keyword r read red redo rew rewind s sN sNext sa saf safely sall sb sbb
+keyword sbbrowse sbr sbrowse se set sh shell sl slast sn sne snew snext so
+keyword source sp split sre srew srewind st sta stac stack stag stop subst
+keyword substitute sus susp suspend switch t ta tag th then to try u una unab
+keyword unabbr unabbreviate unalias unb unbreak undo unfold unm unmap v ve
+keyword version vglobal vi visual w wa warning wordf wordfile words wh while
+keyword wi window wn wnext wq wquit write x xit y yank z
 anchor ^ " # & < = > @ ~
 # note that ! is not listed as a keyword because it interferes with alias args
 comment "
@@ -986,6 +986,38 @@ anchor ^ rem ;
 keyword break buffers country device devicehigh dos drivparm fcbs files
 keyword include lastdrive menucolor menudefault menuitem numlock
 keyword set shell stacks submenu switches
+
+# The "elvgdb.ini" file
+language elvgdb.ini
+extension elvgdb.ini
+comment #
+inword -
+font annotation arg-begin arg-end arg-name-end arg-value array-section-begin
+font annotation array-section-end breakpoint breakpoints-headers
+font annotation breakpoints-invalid breakpoints-table breakpoints-table-end
+font annotation commands display-begin display-end display-expression
+font annotation display-expression-end display-format display-number-end
+font annotation display-value elt elt-rep elt-rep-end elvgdb-default
+font annotation elvgdb-init elvgdb-term elvgdb-trace error error-begin
+font annotation exited field-begin field-end field-name-end field-value
+font annotation field0 field1 field2 field3 field4 field5 field6 field7
+font annotation field8 field9 frame-address frame-address-end frame-args
+font annotation frame-begin frame-end frame-function-name frame-source-begin
+font annotation frame-source-end frame-source-file frame-source-file-end
+font annotation frame-source-line frame-where frames-invalid function-call
+font annotation overload-choice post-prompt post-prompt-for-continue
+font annotation post-query pre-error pre-prompt pre-prompt-for-continue
+font annotation pre-query prompt prompt prompt-for-continue query record
+font annotation signal signal-handler-caller signal-name signal-name-end
+font annotation signal-string signal-string-end signalled source starting
+font annotation stopped value-begin value-end value-history-begin
+font annotation value-history-end value-history-value watchpoint
+font delimiter :
+keyword args black blue bold brown cyan flush fromgdb gray green highlight
+keyword limit magenta record red server table text toelvis trace underline
+keyword white yellow
+color annotation bold blue or light blue
+color delimiter bold red
 
 # Windows and LanManager INI files
 # Original version contributed by Jay Wardle <jayw@lsid.hp.com>

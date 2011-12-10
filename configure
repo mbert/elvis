@@ -1020,6 +1020,7 @@ cat >config.h <<eof-config
 #define	FEATURE_TEXTOBJ	/* text objects */
 #define	FEATURE_V	/* the v/V/^V marking commands */
 #${FEATURE_XFT:-undef}	FEATURE_XFT	/* support antialiased fonts in "x11" */
+#define	FEATURE_PERSIST	/* the persistfile option */
 
 /* The FEATURE_CALC option, above, controls whether the calculator and all of
  * the features that depend on it should be included in elvis.  You almost
@@ -1213,6 +1214,14 @@ cat >> $tmp << eof-gnome
 s!^GNOMESRCS=.*!GNOMESRCS=!
 s!^GNOMEOBJS=.*!GNOMEOBJS=!
 eof-gnome
+fi
+
+# Remove the elvgdb program if X11 isn't available
+if [ "$GUI_X11" != "define" ]
+then
+cat >> $tmp <<eof-noelvgdb
+/^ALL=/s! elvgdb.(EXE)!!
+eof-noelvgdb
 fi
 
 # Run "Makefile.in" through that sed script, to produce "Makefile"

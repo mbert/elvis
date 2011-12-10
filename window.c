@@ -4,7 +4,7 @@
 
 #include "elvis.h"
 #ifdef FEATURE_RCSID
-char id_window[] = "$Id: window.c,v 2.72 2003/10/17 17:41:23 steve Exp $";
+char id_window[] = "$Id: window.c,v 2.74 2004/03/19 16:43:08 steve Exp $";
 #endif
 
 #if USE_PROTOTYPES
@@ -185,6 +185,8 @@ WINDOW winalloc(gw, gvals, buf, rows, columns)
 	newp->gw = gw;
 	newp->guivals = gvals;
 	newp->cursor = markalloc(buf, buf->docursor);
+	if (buf->docursor != buf->changepos)
+		newp->prevcursor = markalloc(buf, buf->changepos);
 	newp->wantcol = 0;
 	newp->cursx = newp->cursy = -1;
 
@@ -449,6 +451,12 @@ void winchgbuf(win, buf, force)
 		{
 			bufoptions(buf);
 		}
+
+		/* if the change location is different from docursor, then
+		 * use it as the previous location for this window.
+		 */
+		if (buf->changepos != buf->docursor)
+			win->prevcursor = markalloc(buf, buf->changepos);
 
 		/* switch to the new buffer's preferred display mode */
 		dispset(win, o_initialsyntax(buf) ? "syntax" : tochar8(o_bufdisplay(buf)));

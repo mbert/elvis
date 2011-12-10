@@ -4,7 +4,7 @@
 
 #include "elvis.h"
 #ifdef FEATURE_RCSID
-char id_map[] = "$Id: map.c,v 2.54 2003/10/17 17:41:23 steve Exp $";
+char id_map[] = "$Id: map.c,v 2.58 2004/03/21 23:24:41 steve Exp $";
 #endif
 
 #ifdef FEATURE_MAPDB
@@ -364,12 +364,12 @@ static void trace(where)
 			bufreplace(marktmp(logstart, log, 0L), marktmp(logend, log, o_bufchars(log)), NULL, 0L);
 			o_maplog = 'a';
 		}
-		bufreplace(marktmp(logend, log, o_bufchars(log)), &logend, toCHAR(where), (long)strlen(where));
+		bufappend(log, toCHAR(where), 0);
 		ch[0] = ':';
-		bufreplace(marktmp(logend, log, o_bufchars(log)), &logend, ch, 1L);
-		bufreplace(marktmp(logend, log, o_bufchars(log)), &logend, traceimg, (long)CHARlen(traceimg));
+		bufappend(log, ch, 1);
+		bufappend(log, traceimg, 0);
 		ch[0] = '\n';
-		bufreplace(marktmp(logend, log, o_bufchars(log)), &logend, ch, 1L);
+		bufappend(log, ch, 1);
 	}
 
 	/* maybe arrange for single-stepping to occur on next keystroke */
@@ -393,7 +393,7 @@ MAPSTATE mapdo(keys, nkeys)
 	MAP		*scan;		/* used for scanning through maps */
 	int		ambkey, ambuser;/* ambiguous key maps and user maps */
 	MAP		*match;		/* longest fully matching map */
-	ELVBOOL		ascmd = ElvFalse;	/* did we just resolve an ASCMD map? */
+	ELVBOOL		ascmd = ElvFalse;/* did we just resolve an ASCMD map? */
 	ELVBOOL		didtimeout;	/* did we timeout? */
 	MAPFLAGS	now;		/* current keystroke parsing state */
 	BUFFER		buf;		/* a cut buffer that is in "learn" mode */
@@ -776,11 +776,18 @@ CHAR *maplist(flags, mode, reflen)
 	static CHAR buf[200];
 	CHAR	*scan, *build;
 	int	i;
+	MAPFLAGS nosave;
+
+	/* extract the MAP_NOSAVE flag */
+	nosave = ~flags & MAP_NOSAVE;
+	flags &= ~MAP_NOSAVE;
 
 	/* find first/next map item */
 	m = (m ? m->next : (flags & MAP_ABBR) ? abbrs : maps);
 	flags &= ~MAP_ABBR;
-	while (m && ((m->flags & flags) == 0 || (mode && (!m->mode || CHARcmp(mode, m->mode)))))
+	while (m && ((m->flags & flags) == 0
+		  || (m->flags & nosave) != 0
+	          || (mode && (!m->mode || CHARcmp(mode, m->mode))) ))
 	{
 		m = m->next;
 	}
@@ -993,6 +1000,9 @@ void mapalert()
 }
 
 
+/* This checks for possible abbreviations.  If an abbreviation is detected,
+ * this will also perform the expansion.
+ */
 CHAR *mapabbr(bkwd, oldptr, newptr, exline)
 	CHAR	*bkwd;	/* possible abbreviation, BACKWARDS */
 	long	*oldptr;/* where to store the length of short form */
@@ -1050,24 +1060,15 @@ CHAR *mapabbr(bkwd, oldptr, newptr, exline)
 void mapsave(buf)
 	BUFFER	buf;	/* the buffer to append to */
 {
-	MARKBUF	append;	/* where to put the command */
 	static MAP *m;	/* used for scanning map list */
 	static CHAR text[200];
-	long	len;
+	int	len;
 	CHAR	*scan;
 	int	i;
-
-	(void)marktmp(append, buf, o_bufchars(buf));
 
 	/* for each map... */
 	for (m = maps; m; m = m->next)
 	{
-		/* if for a GUI-specific key, ignore it */
-		if (m->label && *m->label != '#')
-		{
-			continue;
-		}
-
 		/* if specifically marked as "nosave", ignore it */
 		if (m->flags & MAP_NOSAVE)
 		{
@@ -1085,6 +1086,12 @@ void mapsave(buf)
 
 		  case MAP_COMMAND|MAP_MOTION|MAP_SELECT:
 			break;
+
+		  case MAP_INPUT|MAP_HISTORY|MAP_COMMAND|MAP_MOTION|MAP_SELECT:
+			if (m->flags & MAP_ASCMD)
+				/* "visual" implies "input history" */
+				break;
+			/* else fall through... */
 
 		  default:
 			if (m->flags & MAP_INPUT)
@@ -1230,8 +1237,7 @@ void mapsave(buf)
 		text[len++] = '\n';
 
 		/* append the command to the buffer */
-		bufreplace(&append, &append, text, len);
-		markaddoffset(&append, len);
+		bufappend(buf, text, len);
 	}
 
 	/* for each abbreviation... */
@@ -1267,8 +1273,7 @@ void mapsave(buf)
 		text[len++] = '\n';
 
 		/* append the command to the buffer */
-		bufreplace(&append, &append, text, len);
-		markaddoffset(&append, len);
+		bufappend(buf, text, len);
 	}
 }
 #endif /* def FEATURE_MKEXRC */

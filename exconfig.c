@@ -4,7 +4,7 @@
 
 #include "elvis.h"
 #ifdef FEATURE_RCSID
-char id_exconfig[] = "$Id: exconfig.c,v 2.147 2003/10/19 23:13:33 steve Exp $";
+char id_exconfig[] = "$Id: exconfig.c,v 2.154 2004/03/21 23:24:41 steve Exp $";
 #endif
 
 
@@ -698,7 +698,7 @@ RESULT	ex_doalias(xinf)
 # endif
 		result = exstring(xinf->window, cmd, alias->name);
 # ifdef FEATURE_AUTOCMD
-		(void)auperform(xinf->window, ElvFalse, NULL, AU_ALIASENTER, toCHAR(alias->name));
+		(void)auperform(xinf->window, ElvFalse, NULL, AU_ALIASLEAVE, toCHAR(alias->name));
 #  ifdef FEATURE_MISC
 		(void)optlocal(popopt);
 #  endif
@@ -719,7 +719,6 @@ void exaliassave(custom)
 	BUFFER	custom;	/* the buffer to which the :au commands are added */
 {
 	ELVBOOL anyout;	/* any groups output yet? */
-	MARKBUF	end;
 	alias_t	*alias;
 	CHAR	*cmd, *word;
 
@@ -738,9 +737,7 @@ void exaliassave(custom)
 		if (!anyout)
 		{
 			anyout = ElvTrue;
-			(void)marktmp(end, custom, o_bufchars(custom));
-			bufreplace(&end, &end,
-			    toCHAR("try {\n"), 6L);
+			bufappend(custom, toCHAR("try {\n"), 6);
 		}
 
 		/* construct an alias command string */
@@ -775,8 +772,7 @@ void exaliassave(custom)
 		}
 
 		/* add the command to the buffer */
-		end.offset = o_bufchars(custom);
-		bufreplace(&end, &end, cmd, CHARlen(cmd));
+		bufappend(custom, cmd, 0);
 
 		/* free the string form of the command */
 		safefree(cmd);
@@ -786,8 +782,7 @@ void exaliassave(custom)
 	/* if any groups were output, then we need to end "try {" */
 	if (anyout)
 	{
-		end.offset = o_bufchars(custom);
-		bufreplace(&end, &end, toCHAR("}\n"), 2L);
+		bufappend(custom, toCHAR("}\n"), 2);
 	}
 }
 
@@ -992,6 +987,7 @@ RESULT	ex_digraph(xinf)
 }
 
 
+/* implements the :display and :normal commands. */
 RESULT	ex_display(xinf)
 	EXINFO	*xinf;
 {
@@ -1070,7 +1066,7 @@ RESULT	ex_display(xinf)
 	{
 		displist(xinf->window);
 	}
-	else
+	else if (xinf->window)
 	{
 		/* trim trailing whitespace from the mode name */
 		if (xinf->rhs)
@@ -1082,8 +1078,8 @@ RESULT	ex_display(xinf)
 		/* set the mode */
 		if (!dispset(xinf->window, tochar8(xinf->rhs)))
 			return RESULT_ERROR;
+		xinf->window->di->logic = DRAW_CHANGED;
 	}
-	xinf->window->di->logic = DRAW_CHANGED;
 	return RESULT_COMPLETE;
 }
 
@@ -1356,7 +1352,8 @@ RESULT	ex_help(xinf)
 	 * the tag stack.
 	 */
 	bufwilldo(tagdefn, ElvFalse);
-	if ((*gui->creategw)(tochar8(o_bufname(markbuffer(tagdefn))), ""))
+	if (xinf->command == EX_HELP
+	 && (*gui->creategw)(tochar8(o_bufname(markbuffer(tagdefn))), ""))
 	{
 		return RESULT_COMPLETE;
 	}
@@ -1392,7 +1389,8 @@ RESULT	ex_help(xinf)
 RESULT	ex_if(xinf)
 	EXINFO	*xinf;
 {
-	CHAR	*result;
+	CHAR	*value;
+	RESULT	result;
 
 	/* expression is required */
 	if (!xinf->rhs)
@@ -1401,9 +1399,11 @@ RESULT	ex_if(xinf)
 		return RESULT_ERROR;
 	}
 
+
 	/* evaluate expression */
-	result = calculate(xinf->rhs, NULL, xinf->command == EX_EVAL ? CALC_MSG : CALC_ALL);
-	if (!result)
+	value = calculate(xinf->rhs, NULL,
+				xinf->command == EX_EVAL ? CALC_MSG : CALC_ALL);
+	if (!value)
 	{
 		return RESULT_ERROR;
 	}
@@ -1411,13 +1411,16 @@ RESULT	ex_if(xinf)
 	if (xinf->command == EX_IF)
 	{
 		/* set "exthenflag" based on result of evaluation */
-		exctlstate.thenflag = calctrue(result);
+		exctlstate.thenflag = calctrue(value);
 		return RESULT_COMPLETE;
 	}
 	else /* command == EX_EVAL */
 	{
 		/* execute the result as an ex command */
-		return exstring(xinf->window, result, NULL);
+		value = CHARdup(value);
+		result = exstring(xinf->window, value, NULL);
+		safefree(value);
+		return result;
 	}
 }
 #endif /* FEATURE_CALC */
@@ -1815,6 +1818,7 @@ static MAPFLAGS maphelp(refcp, refmode)
 		flags |= maphelp2(refcp, "command", MAP_COMMAND);
 		flags |= maphelp2(refcp, "motion", MAP_MOTION);
 		flags |= maphelp2(refcp, "select", MAP_SELECT);
+		flags |= maphelp2(refcp, "noselect", MAP_COMMAND|MAP_MOTION);
 		flags |= maphelp2(refcp, "visual", MAP_ASCMD);
 		flags |= maphelp2(refcp, "noremap", MAP_NOREMAP);
 		flags |= maphelp2(refcp, "nosave", MAP_NOSAVE);
@@ -1922,24 +1926,26 @@ RESULT	ex_map(xinf)
 		if (xinf->bang)
 			flags |= MAP_INPUT|MAP_HISTORY;
 
-		/* "visual" implies at least one of "input history" */
-		if ((flags & (MAP_INPUT|MAP_HISTORY|MAP_ASCMD)) == MAP_ASCMD)
-			flags |= MAP_INPUT|MAP_HISTORY;
-
 		/* if no other context specified, assume "command motion select" */
 		if ((flags & MAP_WHEN) == 0)
 			flags |= MAP_COMMAND|MAP_MOTION|MAP_SELECT;
+
+		/* "visual" implies at least one of "input history" */
+		if ((flags & (MAP_INPUT|MAP_HISTORY|MAP_ASCMD)) == MAP_ASCMD)
+			flags |= MAP_INPUT|MAP_HISTORY;
 	}
 
 	/* either list, unmap, or map */
 	if (!lhs)
 	{
+		if (all)
+			flags |= MAP_NOSAVE;
+
 		/* can't list maps before the first window is created */
 		if (xinf->window)
-			while ((line = maplist(flags & (MAP_WHEN|MAP_ABBR), mode, &len)) != (CHAR *)0)
+			while ((line = maplist(flags & (MAP_WHEN|MAP_ABBR|MAP_NOSAVE), mode, &len)) != (CHAR *)0)
 			{
-				if (*line == ' ' || all)
-					drawextext(xinf->window, line, len);
+				drawextext(xinf->window, line, len);
 			}
 	}
 	else if (!rhs)
@@ -1957,8 +1963,12 @@ RESULT	ex_map(xinf)
 
 
 #ifdef FEATURE_EQUALTILDE
+/* Apply an ex command to a string instead of a buffer.  Return the resulting
+ * string, or NULL if the command failed or has no characters.  This is used
+ * by the ":let x =~ excmd" command.
+ */
 static CHAR *equaltilde(value, len, cmd)
-	CHAR	*value;	/*value to act on */
+	CHAR	*value;	/* value to act on */
 	int	len;	/* length of value (which might not be NUL terminated)*/
 	CHAR	*cmd;	/* ex command to apply to the value */
 {
@@ -1972,30 +1982,17 @@ static CHAR *equaltilde(value, len, cmd)
 	/* store the value into the buffer */
 	bufreplace(marktmp(top, buf, 0L), marktmp(bottom, buf, o_bufchars(buf)),
 		value, len);
-	bufreplace(marktmp(bottom, buf, o_bufchars(buf)), &bottom, toCHAR("\n"), 1);
+	bufappend(buf, toCHAR("\n"), 1);
 
-#if 0
-	/* temporarily move the cursor to this buffer */
-	top = *windefault->cursor;
-	marksetoffset(windefault->cursor, 0L);
-	marksetbuffer(windefault->cursor, buf);
-#else
 	/* temporarily make this the default buffer */
 	prevdef = bufdefault;
 	bufoptions(buf);
-#endif
 
 	/* apply the ex command line to the buffer */
 	result = exstring(windefault, cmd, "equaltilde");
 
-#if 0
-	/* restore the cursor */
-	marksetbuffer(windefault->cursor, top.buffer);
-	marksetoffset(windefault->cursor, top.offset);
-#else
 	/* restore the buffer */
 	bufoptions(prevdef);
-#endif
 
 	/* if the command failed or has no characters, return NULL */
 	if (result != RESULT_COMPLETE || o_bufchars(buf) == 0L)

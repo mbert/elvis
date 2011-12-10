@@ -3,7 +3,7 @@
 
 #include "elvis.h"
 #ifdef FEATURE_RCSID
-char id_tcaphelp[] = "$Id: tcaphelp.c,v 2.34 2003/10/17 17:41:23 steve Exp $";
+char id_tcaphelp[] = "$Id: tcaphelp.c,v 2.35 2004/01/30 00:55:08 steve Exp $";
 #endif
 #if defined(GUI_TERMCAP) || defined(GUI_OPEN)
 # define CHAR CHAR_nt
@@ -436,7 +436,8 @@ static	ELVBOOL	justdbl;/* between double-click & bogus single-click */
 						/* Ctrl-6 should be a ^^ character */
 						buf[got++] = ELVCTRL('^');
 					}
-					else if (!strchr("EF68*:\x1d", (char)event.Event.KeyEvent.wVirtualScanCode))
+					else if (event.Event.KeyEvent.wVirtualScanCode >= ' '
+					      && !strchr("EF68*:", (char)event.Event.KeyEvent.wVirtualScanCode))
 					{
 						buf[got++] = '#';
 						buf[got++] = (char)event.Event.KeyEvent.wVirtualScanCode;

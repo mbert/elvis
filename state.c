@@ -4,7 +4,7 @@
 
 #include "elvis.h"
 #ifdef FEATURE_RCSID
-char id_state[] = "$Id: state.c,v 2.43 2003/10/17 17:41:23 steve Exp $";
+char id_state[] = "$Id: state.c,v 2.44 2004/02/05 15:47:35 steve Exp $";
 #endif
 
 #if USE_PROTOTYPES
@@ -299,7 +299,7 @@ RESULT statekey(key)
 		 * function, then end it now.
 		 */
 		if (windefault
-		 && ((focus->state->acton->flags & ELVIS_BOTTOM) != 0
+		 && ((focus->state->acton && (focus->state->acton->flags & ELVIS_BOTTOM) != 0)
 		   || (focus->state->flags & (ELVIS_ONCE|ELVIS_1LINE|ELVIS_POP)) == 0))
 			drawopencomplete(focus);
 

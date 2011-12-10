@@ -4,7 +4,7 @@
 
 #include "elvis.h"
 #ifdef FEATURE_RCSID
-char id_draw[] = "$Id: draw.c,v 2.131 2003/10/17 17:41:23 steve Exp $";
+char id_draw[] = "$Id: draw.c,v 2.133 2004/03/07 21:37:49 steve Exp $";
 #endif
 
 #if defined (GUI_WIN32)
@@ -95,7 +95,7 @@ static ELVBOOL hlprep(win, buf)
 		/* build the vinf textobject command */
 		prevcount = vinf.count;
 		vinf.count = 0L;
-		while (elvspace(*obj))
+		while (*obj == ',' || elvspace(*obj))
 			obj++;
 		if (elvdigit(*obj))
 		{
@@ -1524,6 +1524,10 @@ static void genlastrow(win)
 		{
 			if (win->di->cursface < colornpermanent)
 				arg = colorinfo[(int)win->di->cursface].name;
+		}
+		else if (!CHARncmp(cp, "state", 5))
+		{
+			arg = o_state;
 		}
 #ifdef DISPLAY_HTML
 		else if (!CHARncmp(cp, "link", 4))

@@ -5,7 +5,7 @@
 
 #include "elvis.h"
 #ifdef FEATURE_RCSID
-char id_xtool[] = "$Id: xtool.c,v 2.20 2003/10/18 18:20:08 steve Exp $";
+char id_xtool[] = "$Id: xtool.c,v 2.22 2004/02/05 23:31:19 steve Exp $";
 #endif
 #ifdef GUI_X11
 # include "guix11.h"
@@ -20,9 +20,10 @@ typedef struct tool_s
 {
 	struct tool_s	*next;		/* another toolbar button */
 	char		*label;		/* toolbar button legend */
+	CHAR		*vicmd;		/* keys to stuff into input queue */
 	char		*excmd;		/* command to execute */
 	CHAR		*when;		/* condition when button works */
-	CHAR		*in;		/* condition when button drawn as "in" */
+	CHAR		*in;		/* condition when button drawn as "in"*/
 	CHAR		*comment;	/* one-line description of the button */
 	char		*spec;		/* pop-up dialog specificaton */
 	int		width;		/* width of button's label */
@@ -137,11 +138,13 @@ static void freetool(tool)
 
 	/* free its memory */
 	safefree(tool->label);
+	if (tool->vicmd) safefree(tool->vicmd);
 	if (tool->excmd) safefree(tool->excmd);
 	if (tool->when) safefree(tool->when);
 	if (tool->in) safefree(tool->in);
 	if (tool->comment) safefree(tool->comment);
 	if (tool->spec) safefree(tool->spec);
+	safefree(tool);
 }
 
 
@@ -205,19 +208,51 @@ static void addline(retptr, label, op, value)
 	_char_	op;
 	CHAR	*value;
 {
+	int	len;
+
 	/* if NULL value, then do nothing */
 	if (!value || !*value)
 		return;
 
 	/* build a command */
 	buildstr(retptr, " gui ");
+	if (op == ']')
+		buildCHAR(retptr, '[');
 	buildstr(retptr, label);
 	buildCHAR(retptr, op);
-	for (; *value; value++)
-		buildCHAR(retptr, *value);
-	/* Note that we don't need an explicit '\n' added here, because all of
-	 * the value strings end with '\n' already.
+	len = strlen(label);
+	if (op != ']'
+	 || value[0] != '['
+	 || CHARncmp(toCHAR(label), value+1, len)
+	 || value[len + 1] != ']'
+	 || value[len+2])
+	{
+		for (; *value; value++)
+		{
+			/* Convert control chars to ^c notation, except that
+			 * newlines should remain newlines for all attributes
+			 * except the vi command string.
+			 */
+			if (*value < ' ' || *value == 127)
+			{
+				if (*value == '\n' && op != ']')
+					buildCHAR(retptr, *value);
+				else
+				{
+					buildCHAR(retptr, '^');
+					buildCHAR(retptr, ELVCTRL(*value));
+				}
+			}
+			else
+				buildCHAR(retptr, *value);
+		}
+	}
+
+	/* For vicmd we need to append a newline.  All others have newline
+	 * in the value string already.
 	 */
+	if (op == ']')
+		buildCHAR(retptr, '\n');
 }
 
 /* This returns a dynamically-allocated string describing the attributes
@@ -245,6 +280,7 @@ CHAR *x_tb_dump(label)
 	{
 		if (tool->gap && !(label && *label))
 			buildstr(&ret, " gui gap\n");
+		addline(&ret, tool->label, ']', tool->vicmd);
 		addline(&ret, tool->label, ':', toCHAR(tool->excmd));
 		addline(&ret, tool->label, '?', tool->when);
 		addline(&ret, tool->label, '=', tool->in);
@@ -474,7 +510,7 @@ void x_tb_draw(xw, fromscratch)
 	{
 		/* compute the button's new state */
 		newstate = TB_REDRAW;
-		if (tool->excmd == NULL && tool->spec == NULL)
+		if (!tool->vicmd && !tool->excmd && !tool->spec)
 		{
 			newstate = 0; /* flat, inactive */
 		}
@@ -608,12 +644,20 @@ void x_tb_event(xw, event)
 			 * the [Submit] button, the excmd will be executed.
 			 */
 			x_dl_add(xw, clicked->label, clicked->comment ? tochar8(clicked->comment) : NULL,
-				clicked->excmd, clicked->spec);
+				clicked->vicmd, clicked->excmd, clicked->spec);
 		}
-		else if (clicked->excmd)
+		else
 		{
-			/* execute its ex command */
-			eventex((GUIWIN *)xw, clicked->excmd, clicked->safer);
+			if (clicked->vicmd)
+			{
+				/* push the keys into the input queue */
+				eventkeys((GUIWIN *)xw, clicked->vicmd, CHARlen(clicked->vicmd));
+			}
+			if (clicked->excmd)
+			{
+				/* execute its ex command */
+				eventex((GUIWIN *)xw, clicked->excmd, clicked->safer);
+			}
 		}
 
 		x_didcmd = ElvTrue;
@@ -643,6 +687,8 @@ ELVBOOL x_tb_config(gap, label, op, value)
 {
 	TOOL	*tool;
 	ELVBOOL	changed;/* do we need to reconfigure after this? */
+	int	len;
+	CHAR	*rawin;
 
 	/* if no label was given, then clobber all tools */
 	if (!label)
@@ -670,6 +716,31 @@ ELVBOOL x_tb_config(gap, label, op, value)
 	/* apply the operator to the tool */
 	switch (op)
 	{
+	  case ']':
+		if (tool->vicmd) safefree(tool->vicmd);
+		if (value)
+		{
+			/* find length, excluding newline */
+			len = strlen (value);
+			if (len > 0 && value[len-1] == '\n')
+				len--;
+
+			/* convert symbolic keys? */
+			len = guikeylabel(toCHAR(value), len, NULL, &rawin);
+
+			/* store it */
+			tool->vicmd = CHARdup(rawin);
+		}
+		else
+		{
+			/* use the button label, with brackets */
+			tool->vicmd = (CHAR *)safealloc((strlen(label) + 3), sizeof(CHAR));
+			tool->vicmd[0] = '[';
+			CHARcpy(tool->vicmd+1, toCHAR(label));
+			CHARcat(tool->vicmd, toCHAR("]"));
+		}
+		break;
+
 	  case ':':
 		if (tool->excmd) safefree(tool->excmd);
 		tool->excmd = (value ? safedup(value) : NULL);

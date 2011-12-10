@@ -22,7 +22,7 @@
 
 #include "elvis.h"
 #ifdef FEATURE_RCSID
-char id_tinytcap[] = "$Id: tinytcap.c,v 2.26 2001/10/23 01:37:09 steve Exp $";
+char id_tinytcap[] = "$Id: tinytcap.c,v 2.27 2004/01/30 23:53:18 steve Exp $";
 #endif
 #ifdef NEED_TGETENT
 # include <stdlib.h>
@@ -110,7 +110,7 @@ static char *termcap[] =
 "nansi",
 ":al=\033[L:dl=\033[M:AL=\033[%dL:DL=\033[%dM:am:bs:ce=\033[K:cl=\033[2J:\
 :cm=\033[%i%d;%dH:co#80:\
-:k1=#;:k2=#<:k3=#=:k4=#>:k5=#?:k6=#@:k7=#A:k8=#B:k9=#C:k0=#D:\
+:k1=#;:k2=#<:k3=#=:k4=#>:k5=#?:k6=#@:k7=#A:k8=#B:k9=#C:k0=#D:F1=#W:F2=#X:\
 :s1=#T:s2=#U:s3=#V:s4=#W:s5=#X:s6=#Y:s7=#Z:s8=#[:s9=#\\:s0=#]:\
 :c1=#^:c2=#_:c3=#`:c4=#a:c5=#b:c6=#c:c7=#d:c8=#e:c9=#f:c0=#g:\
 :a1=#h:a2=#i:a3=#j:a4=#k:a5=#l:a6=#m:a7=#n:a8=#o:a9=#p:a0=#q:\
@@ -123,7 +123,7 @@ static char *termcap[] =
 "pcbios",
 ":al=\033[L:dl=\033[M:AL=\033[%dL:DL=\033[%dM:am:bs:ce=\033[K:cl=\033[2J:\
 :cm=\033[%i%d;%dH:co#80:\
-:k1=#;:k2=#<:k3=#=:k4=#>:k5=#?:k6=#@:k7=#A:k8=#B:k9=#C:k0=#D:\
+:k1=#;:k2=#<:k3=#=:k4=#>:k5=#?:k6=#@:k7=#A:k8=#B:k9=#C:k0=#D:F1=#W:F2=#X:\
 :s1=#T:s2=#U:s3=#V:s4=#W:s5=#X:s6=#Y:s7=#Z:s8=#[:s9=#\\:s0=#]:\
 :c1=#^:c2=#_:c3=#`:c4=#a:c5=#b:c6=#c:c7=#d:c8=#e:c9=#f:c0=#g:\
 :a1=#h:a2=#i:a3=#j:a4=#k:a5=#l:a6=#m:a7=#n:a8=#o:a9=#p:a0=#q:\
@@ -139,7 +139,7 @@ static char *termcap[] =
 "cygwin",
 ":al=\033[L:dl=\033[M:AL=\033[%dL:DL=\033[%dM:am:xn:bs:ce=\033[K:cl=\033[2J:\
 :cm=\033[%i%d;%dH:co#80:\
-:k1=#;:k2=#<:k3=#=:k4=#>:k5=#?:k6=#@:k7=#A:k8=#B:k9=#C:k0=#D:\
+:k1=#;:k2=#<:k3=#=:k4=#>:k5=#?:k6=#@:k7=#A:k8=#B:k9=#C:k0=#D:F1=#W:F2=#X:\
 :s1=#T:s2=#U:s3=#V:s4=#W:s5=#X:s6=#Y:s7=#Z:s8=#[:s9=#\\:s0=#]:\
 :c1=#^:c2=#_:c3=#`:c4=#a:c5=#b:c6=#c:c7=#d:c8=#e:c9=#f:c0=#g:\
 :a1=#h:a2=#i:a3=#j:a4=#k:a5=#l:a6=#m:a7=#n:a8=#o:a9=#p:a0=#q:\
@@ -155,7 +155,7 @@ static char *termcap[] =
 "dosansi",
 ":am:bs:ce=\033[K:cl=\033[2J:\
 :cm=\033[%i%d;%dH:co#80:do=\033[B:\
-:k1=#;:k2=#<:k3=#=:k4=#>:k5=#?:k6=#@:k7=#A:k8=#B:k9=#C:k0=#D:\
+:k1=#;:k2=#<:k3=#=:k4=#>:k5=#?:k6=#@:k7=#A:k8=#B:k9=#C:k0=#D:F1=#W:F2=#X:\
 :s1=#T:s2=#U:s3=#V:s4=#W:s5=#X:s6=#Y:s7=#Z:s8=#[:s9=#\\:s0=#]:\
 :c1=#^:c2=#_:c3=#`:c4=#a:c5=#b:c6=#c:c7=#d:c8=#e:c9=#f:c0=#g:\
 :a1=#h:a2=#i:a3=#j:a4=#k:a5=#l:a6=#m:a7=#n:a8=#o:a9=#p:a0=#q:\

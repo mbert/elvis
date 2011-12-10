@@ -13,7 +13,7 @@ case x11 {
   color hlsearch boxed
   color keyword bold
   color libt like keyword italic
-  color linenumber gray
+  color lnum gray
   color link like formatted underlined blue or light blue
   color number Blue4 or light blue
   color other like keyword
@@ -41,7 +41,7 @@ case termcap {
   color hlsearch bold
   color keyword bold white or black
   color libt like keyword
-  color linenumber gray
+  color lnum gray
   color link underlined blue or light cyan
   color number light cyan or blue
   color other like keyword

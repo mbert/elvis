@@ -4,7 +4,7 @@
 
 #include "elvis.h"
 #ifdef FEATURE_RCSID
-char id_autocmd[] = "$Id: autocmd.c,v 1.30 2003/10/19 23:13:33 steve Exp $";
+char id_autocmd[] = "$Id: autocmd.c,v 1.32 2004/03/21 23:24:41 steve Exp $";
 #endif
 
 #ifdef FEATURE_AUTOCMD
@@ -55,7 +55,7 @@ static struct {
 } nametbl[] =
 {
   { toCHAR("*"),			{0x7fffffff, 0x3fffffff, 0x3fffffff}},
-  { toCHAR("*"),/* without OPTBITS */	{0x7fffffff, 0x3ffff9ff, 0x3fffffff}},
+  { toCHAR("*"),/* without OPTBITS */	{0x7fffffff, 0x3fff3fff, 0x3fffffff}},
 
   /* file events */
   { toCHAR("BufCreate"),		{0x00000001, 0x00000000, 0x00000000}},
@@ -147,7 +147,9 @@ static struct {
   { NULL,	/* AU_USER29 */		{0x00000000, 0x00000000, 0x10000000}},
   { NULL,	/* AU_USER30 */		{0x00000000, 0x00000000, 0x20000000}},
 };
-#define OPTBITS 0x00003000
+#define OPTBITS 0x0000c000	/* aubits.otherevents, OptSet and OptChanged */
+#define UGLYBIT 0x40000000	/* aubits.otherevents, marks old synonym */
+#define BANGBIT	0x40000000	/* aubits.userevents, marks :auevent! names */
 
 #ifdef USE_PROTOTYPES
 static ELVBOOL wildmatch(char *fname, char *wildlist);
@@ -341,10 +343,10 @@ static aubits_t *nametobits(name)
 	}
 
 	/* strip off the "ugly" bit */
-	bits.otherevents &= ~0x40000000;
+	bits.otherevents &= ~UGLYBIT;
 
 	/* strip off the "internal" bit */
-	bits.userevents &= ~0x40000000;
+	bits.userevents &= ~BANGBIT;
 
 	/* return the combined bits */
 	return &bits;
@@ -368,7 +370,7 @@ static CHAR *bitstoname(aubits)
 		nbits = &nametbl[i].bits;
 		if ((bits.fileevents & nbits->fileevents) != nbits->fileevents
 		 || (bits.otherevents & nbits->otherevents) != nbits->otherevents
-		 || (bits.userevents & nbits->userevents) != (nbits->userevents & ~0x40000000))
+		 || (bits.userevents & nbits->userevents) != (nbits->userevents & ~BANGBIT))
 			continue;
 
 		/* add this event to the name */
@@ -437,8 +439,8 @@ RESULT ex_auevent(xinf)
 				continue;
 
 			/* skip if is/isn't set up using standard scripts */
-			if ((nametbl[i].bits.userevents & 0x40000000) !=
-			    (long)(xinf->bang ? 0x40000000 : 0x0))
+			if ((nametbl[i].bits.userevents & BANGBIT) !=
+			    (long)(xinf->bang ? BANGBIT : 0x0))
 				continue;
 
 			/* output a space or newline, if necessary */
@@ -490,7 +492,7 @@ RESULT ex_auevent(xinf)
 
 		/* also mark it as being "internal" if ! flag */
 		if (xinf->bang)
-			nametbl[i].bits.userevents |= 0x40000000;
+			nametbl[i].bits.userevents |= BANGBIT;
 ContinueContinue:
 		;
 	}
@@ -977,7 +979,7 @@ RESULT auperform(win, bang, groupname, event, filename)
 	}
 
 	/* if requested group not found, fail */
-	if (!anygrp)
+	if (groupname && !anygrp)
 	{
 		msg(MSG_ERROR, "no such augroup");
 		goto Error;
@@ -1044,29 +1046,23 @@ void ausave(custom)
 	BUFFER	custom;	/* the buffer to which the :au commands are added */
 {
 	ELVBOOL anygrp;	/* any groups output yet? */
-	MARKBUF	end;
 	aug_t	*group;
 	au_t	*au;
 	CHAR	*cmd, *word;
 	int	i;
-
-	end.buffer = custom;
 
 	/* for each event... */
 	for (i = 2; i < QTY(nametbl) && nametbl[i].name; i++)
 	{
 		/* skip if built-in, or defined in a standard script */
 		if (nametbl[i].bits.userevents == 0
-		 || (nametbl[i].bits.userevents & 0x40000000) != 0)
+		 || (nametbl[i].bits.userevents & BANGBIT) != 0)
 			continue;
 
 		/* output a command to recreate this event type */
-		end.offset = o_bufchars(custom);
-		bufreplace(&end, &end, toCHAR("try aue "), 8L);
-		end.offset = o_bufchars(custom);
-		bufreplace(&end, &end, nametbl[i].name, (long)CHARlen(nametbl[i].name));
-		end.offset = o_bufchars(custom);
-		bufreplace(&end, &end, toCHAR("\n"), 1L);
+		bufappend(custom, toCHAR("try aue "), 8L);
+		bufappend(custom, nametbl[i].name, 0);
+		bufappend(custom, toCHAR("\n"), 1L);
 	}
 
 	/* for each group... */
@@ -1080,12 +1076,9 @@ void ausave(custom)
 		anygrp = ElvTrue;
 
 		/* start this group */
-		end.offset = o_bufchars(custom);
-		bufreplace(&end, &end, toCHAR("try aug "), 8L);
-		end.offset = o_bufchars(custom);
-		bufreplace(&end, &end, group->group, (long)CHARlen(group->group));
-		end.offset = o_bufchars(custom);
-		bufreplace(&end, &end, toCHAR("\nthen {\n au!\n"), 13L);
+		bufappend(custom, toCHAR("try aug "), 8L);
+		bufappend(custom, group->group, 0);
+		bufappend(custom, toCHAR("\nthen {\n au!\n"), 13L);
 
 		/* for each au in this group... */
 		for (au = group->au; au; au = au->next)
@@ -1126,8 +1119,7 @@ void ausave(custom)
 			}
 
 			/* add the command to the buffer */
-			end.offset = o_bufchars(custom);
-			bufreplace(&end, &end, cmd, CHARlen(cmd));
+			bufappend(custom, cmd, CHARlen(cmd));
 
 			/* free the string form of the command */
 			safefree(cmd);
@@ -1135,16 +1127,14 @@ void ausave(custom)
 		} /* for au */
 
 		/* mark the end of this group */
-		end.offset = o_bufchars(custom);
-		bufreplace(&end, &end, toCHAR("}\n"), 2);
+		bufappend(custom, toCHAR("}\n"), 2);
 
 	} /* for group */
 
 	/* if any groups were output, then we need to end "if feature(...)" */
 	if (anygrp)
 	{
-		end.offset = o_bufchars(custom);
-		bufreplace(&end, &end, toCHAR("try aug END\n"), 12L);
+		bufappend(custom, toCHAR("try aug END\n"), 12L);
 	}
 }
 # endif /* FEATURE_MKEXRC */

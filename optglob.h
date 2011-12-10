@@ -119,12 +119,16 @@ extern OPTVAL lpval[];
 #define o_listchars		optglob[107].value.string
 #define o_cleantext		optglob[108].value.string
 #define o_filenamerules		optglob[109].value.string
+#define o_state			optglob[110].value.string
+#define o_initializing		optglob[111].value.boolean
+#define o_persistfile		optglob[112].value.string
+#define o_persist		optglob[113].value.string
 
 /* For backward compatibility with older releases of elvis : */
-#define o_more    		optglob[110].value.boolean
-#define o_hardtabs		optglob[111].value.number
-#define o_redraw		optglob[112].value.boolean
-#define QTY_GLOBAL_OPTS			113
+#define o_more    		optglob[114].value.boolean
+#define o_hardtabs		optglob[115].value.number
+#define o_redraw		optglob[116].value.boolean
+#define QTY_GLOBAL_OPTS			117
 
 #ifdef FEATURE_LPR
 # define o_lptype		lpval[0].value.string

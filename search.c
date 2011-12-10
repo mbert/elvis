@@ -4,7 +4,7 @@
 
 #include "elvis.h"
 #ifdef FEATURE_RCSID
-char id_search[] = "$Id: search.c,v 2.56 2003/10/17 17:41:23 steve Exp $";
+char id_search[] = "$Id: search.c,v 2.57 2004/03/21 23:23:01 steve Exp $";
 #endif
 
 static RESULT searchenter P_((WINDOW win));
@@ -742,6 +742,10 @@ typedef struct
 	ELVBOOL	success;	/* did the search succeed? */
 	CHAR	dir;		/* '/' for forward, or '?' for backward */
 	CHAR	text[115];	/* the search regexp so far, as text */
+#ifdef FEATURE_MISC
+	ELVBOOL	edit;		/* in the middle of an edit command? */
+	long	line;		/* line number in history */
+#endif
 } INCINFO;
 
 
@@ -755,6 +759,7 @@ static RESULT incparse(key, info)
 	ELVBOOL	oldhide;
 	RESULT	rc;
 	CHAR	*cp, *retext, *build, *scan;
+	BUFFER	history;
 
 	/* add this keystroke into the regexp string */
 	if (ii->quote)
@@ -768,6 +773,57 @@ static RESULT incparse(key, info)
 		else
 			guibeep(ii->win);
 	}
+#ifdef FEATURE_MISC
+	else if (ii->edit)
+	{
+		MARK	mark;
+		CHAR	*scan;
+		int	i;
+
+		ii->edit = ElvFalse;
+		switch (key)
+		{
+		  case 'k':
+		  case 'j':
+			history = bufalloc(toCHAR(REGEXP_BUF), 0, ElvTrue);
+			if ((key == 'k' && ii->line <= 1) || (key == 'j' && ii->line >= o_buflines(history)))
+			{
+				guibeep(ii->win);
+				return RESULT_MORE;
+			}
+
+			/* adjust the line number */
+			if (key == 'k')
+				ii->line--;
+			else
+				ii->line++;
+
+			/* copy that line into text[] */
+			mark = markalloc(history, 0);
+			marksetline(mark, ii->line);
+			scanalloc(&scan, mark);
+			if (*scan == '/' || *scan == '?')
+			{
+				ii->dir = *scan;
+				scannext(&scan);
+			}
+			for (i = 0;
+			     i < QTY(ii->text) - 2 && scan && *scan != '\n';
+			     i++, scannext(&scan))
+			{
+				ii->text[i] = *scan;
+			}
+			ii->text[i] = '\0';
+			scanfree(&scan);
+			markfree(mark);
+			break;
+
+		  default:
+			/* other commands aren't supported */
+			guibeep(ii->win);
+		}
+	}
+#endif
 	else
 	{
 		switch (key)
@@ -783,7 +839,14 @@ static RESULT incparse(key, info)
 				break;
 			}
 
-			/* Otherwise we've already searched */
+			/* Otherwise we've already searched; the cursor is
+			 * where it belongs.  All we need to do now is save
+			 * the search expression in the history.
+			 */
+			history = bufalloc(toCHAR(REGEXP_BUF), 0, ElvTrue);
+			bufappend(history, &ii->dir, 1);
+			bufappend(history, ii->text, len);
+			bufappend(history, toCHAR("\n"), 1);
 			return RESULT_COMPLETE;
 
 		  case '\177':
@@ -807,6 +870,10 @@ static RESULT incparse(key, info)
 				ii->dir, ii->text);
 			return RESULT_MORE;
 
+		  case ELVCTRL('O'):
+			ii->edit = ElvTrue;
+			return RESULT_MORE;
+			
 		  default:
 			if (len < QTY(ii->text) - 2)
 				ii->text[len] = key;
@@ -1091,17 +1158,21 @@ static RESULT incsearch(win, vinf)
 	win->state->perform = incperform;
 	win->state->shape = incshape;
 	win->state->info = ii = safealloc(1, sizeof (INCINFO));
-	win->state->mapflags = (MAPFLAGS)0;
+	win->state->mapflags = MAP_HISTORY;
 	win->state->modename = "IncSrch";
 
 	/* initialize the INCINFO */
 	ii->win = win;
 	ii->from = markdup(win->cursor);
-	ii->quote = ElvFalse;
 	ii->rightward = 0L;
+	ii->quote = ElvFalse;
 	ii->success = ElvFalse;
 	ii->dir = vinf->command;
 	ii->text[0] = '\0';
+#ifdef FEATURE_MISC
+	ii->edit = ElvFalse;
+	ii->line = o_buflines(bufalloc(toCHAR(REGEXP_BUF), 0, ElvTrue)) + 1;
+#endif
 
 	/* show the prompt as a status message */
 	msg(MSG_STATUS, "[CS]$1$2", ii->dir, ii->text);

@@ -4,7 +4,7 @@
 
 #include "elvis.h"
 #ifdef FEATURE_RCSID
-char id_dmnormal[] = "$Id: dmnormal.c,v 2.63 2003/10/17 17:41:23 steve Exp $";
+char id_dmnormal[] = "$Id: dmnormal.c,v 2.64 2004/03/19 16:21:25 steve Exp $";
 #endif
 #include <time.h>
 
@@ -843,7 +843,7 @@ static MARK image(w, line, info, draw)
 	}
 
 	/* end the line */
-	if (o_list(w) && !w->state->acton && *cp == '\n')
+	if (o_list(w) && !w->state->acton && (!cp || *cp == '\n'))
 	{
 		col += dmnlistchars(*cp, offset, col, o_tabstop(markbuffer(w->cursor)), draw);
 	}

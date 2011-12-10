@@ -1,5 +1,5 @@
 <html><head>
-<title>Elvis-2.2_0 Ex Mode</title>
+<title>Elvis-2.2_1 Ex Mode</title>
 </head><body>
 
 <h1>4. EX COMMAND MODE</h1>
@@ -61,7 +61,7 @@ Suppose you enter the command...
 	:e ~/proj1/src/header.h
 </pre>
 ...and then realize that you really wanted "header2.h" instead of "header.h".
-You simplest way to get "header2.h" is to...
+The simplest way to get "header2.h" is to...
 <ol>
 <li>Hit the <kbd>:</kbd> key to start a new ex command line.
 <li>Hit the <kbd>Up</kbd> arrow key, or <kbd>^O k</kbd> to move back to the
@@ -90,9 +90,11 @@ The steps are:
 <li>Hit the <kbd>Left</kbd> arrow key five times, or <kbd>^O 5 h</kbd>, to move
     the cursor back to the last 'e' character in "header2.h".
 <li>Hit the <kbd>Backspace</kbd> key four times to delete the word "head".
-    It will still show on the screen, but Elvis will know that it has been
-    deleted.  This is the same sort of behavior that Elvis (and vi) exhibits
-    when you backspace over newly entered text in input mode.
+    If you didn't change the default value of the <a href="elvisopt.html#cleantext">
+    cleantext</a> option, the word will still show on the screen, but
+    Elvis will know that it has been deleted.  This is the same sort
+    of behavior that Elvis (and vi) exhibits when you backspace over
+    newly entered text in input mode.
 <li>Type <kbd>f o o t</kbd> to insert "foot" where "head" used to be.  At this
     point, the line should look like "<code>:e ~/proj1/src/footer2.h</code>".
 <li>Hit <kbd>Enter</kbd> to submit the revised command line.
@@ -222,10 +224,14 @@ be the visibly marked text.
 
 <p><a name="address">Line addresses</a> consist of an absolute part and
 a relative part.
-The <em>absolute part</em> of a line specifier may be either an
-explicit line number, a mark, a dot to denote the current line,
-a dollar sign to denote the last line of the file, or a
-forward or backward search.
+The <em>absolute part</em> of a line specifier may be either
+an explicit line number,
+a mark,
+a dot to denote the current line,
+a dollar sign to denote the last line of the file,
+a forward or backward search, or
+an expression.
+
 
 An <em>explicit line number</em> is  simply a decimal number,
 expressed as a string of digits.
@@ -240,6 +246,11 @@ slash characters; searching begins at the default line.
 A <em>backward search</em> is typed in as a  regular  expression
 surrounded by question marks;
 searching begins at the line before the default line.
+
+An <em>expression</em> is a <strong>=</strong> followed by either
+the name of an option, or
+a <strong>()</strong> pair containing a more complex
+<a href="elvisexp.html">expression</a>.
 
 <p>If you omit the <em>absolute part,</em> then the default line is used.
 
@@ -275,7 +286,9 @@ This can be a handy shortcut.
    :1,$p        | print all lines of the buffer
    :%p          | print all lines of the buffer
    :(zot)%p     | print all lines of the "zot" buffer
-   :/foo/-2,+4p | print 5 lines around the next "foo"</pre>
+   :/foo/-2,+4p | print 5 lines around the next "foo"
+   :=x p        | print the line whose line number is in <a href="elvisopt.html#x">x</a>
+   :(=b)=n p    | print computed line <a href="elvisopt.html#n">n</a> from computed buffer <a href="elvisopt.html#b">b</a></pre>
 
 <p>The optional addresses are followed by the command name.
 Command names may be abbreviated.
@@ -304,7 +317,7 @@ is the most commonly used.
 
 <dt>/regexp/newtext/
 <dd>This is a <a href="elvisre.html">regular expression</a>
-followed by replacement text.
+followed by <a href="elvisre.html#subst">substitution text</a>.
 
 <dt>count
 <dd>This is a number - a string of digits.
@@ -373,40 +386,52 @@ using the normal syntax.
 
 <dt>shellcmd
 <dd>This is a command line which is passed to the system's command interpreter.
-Within the command line, the following character substitutions take place,
-unless preceded by a backslash:
+Within the command line, the following symbol substitutions take place,
+unless preceded by a backslash (or you've removed "<code>special</code>" from
+the <a href="elvisopt.html#filenamerules">filenamerules</a> option):
 <pre graphic>
-	.-----------.----------------------------.
-	| CHARACTER | REPLACED BY                |
-	|-----------|----------------------------|
-	|     %     | Name of current file       |
-	|     #     | Name of alternate file     |
-	|     #<var>n</var>    | Name of file whose <a href="elvisopt.html#bufid">bufid</a>=<var>n</var> |
-	|     !     | Previous command line      |
-	|     \@    | Word at cursor location    |
-	^-----------^----------------------------^
-</pre>
-Note that the <code>\@</code> substitution <em>requires</em> a backslash.
+    .--------.-----------------------------------------------.
+    | SYMBOL | REPLACED BY                                   |
+    |--------|-----------------------------------------------|
+    |   %    | Name of current file                          |
+    |   %&lt;   | Name of current file, with extension removed  |
+    |   #    | Name of alternate file                        |
+    |   #&lt;   | Name of alternate file, with extension removed|
+    |   #<var>n</var>   | Name of file whose <a href="elvisopt.html#bufid">bufid</a>=<var>n</var>                    |
+    |   #<var>n</var>&lt;  | Name of file whose <a href="elvisopt.html#bufid">bufid</a>=<var>n</var>, with ext. removed |
+    |   !    | Previous command line                         |
+    |   \@   | Word at cursor location                       |
+    ^--------^-----------------------------------------------^</pre>
+
+<p>Note that the <code>\@</code> substitution <em>requires</em> a backslash.
 This quirk exists for the sake of backward compatibility -
 the real vi doesn't perform any substitutions for just plain @,
 and neither does Elvis.
 
 <dt><a name="FILES">file or files</a>
 <dd>This is one or more file names, or a "wildcard" pattern which matches
-the names of zero or more files.  File names are subjected to three levels
-of processing.  First, leading ~ characters and certain other characters
-are replaced with text, as follows:
+the names of zero or more files.
+The handling of filename arguments is controlled by the
+<a href="elvisopt.html#filenamerules">filenamerules</a> option).
+The default behavior is as follows.
+<p>
+File names are subjected to three levels of processing.
+First, leading ~ characters and certain other symbols are replaced with text,
+unless preceded by a backslash:
 <pre graphic>
     .-----------.------------------------------------------------.
     | SYMBOL    | REPLACED BY                                    |
     |-----------|------------------------------------------------|
-    | ~<var>user</var>     | (Unix only) Replaced by home directory of <var>user</var> |
-    | ~+        | Replaced by current working directory          |
-    | ~-        | Replaced by previous directory (<a href="elvisopt.html#previousdir">previousdir</a>)   |
-    | ~         | Replaced by home directory (<a href="elvisopt.html#home">home</a>)              |
-    | %         | Replaced by the name of the current file       |
-    | #         | Replaced by the name of the alternate file     |
-    | #<var>n</var>        | Replaced by the filename of buffer with <a href="elvisopt.html#bufid">bufid</a>=<var>n</var>|
+    | ~<var>user</var>     | (Unix only) Home directory of <var>user</var>             |
+    | ~+        | Current working directory                      |
+    | ~-        | Previous directory (<a href="elvisopt.html#previousdir">previousdir</a>)               |
+    | ~         | Home directory (<a href="elvisopt.html#home">home</a>)                          |
+    | %         | Name of the current file                       |
+    | %&lt;        | Name of current file, with extension removed   |
+    | #         | Name of the alternate file                     |
+    | #&lt;        | Name of alternate file, with extension removed |
+    | #<var>n</var>        | Name of file with <a href="elvisopt.html#bufid">bufid</a>=<var>n</var>                      |
+    | #<var>n</var>&lt;       | Name of file whose <a href="elvisopt.html#bufid">bufid</a>=<var>n</var>, with ext. removed  |
     | (space)   | Delimits one file name from another            |
     | `program` | Run program, interpret its output as filenames |
     ^-----------^------------------------------------------------^
@@ -435,13 +460,13 @@ and if there are any then the whole name is replaced by the name of each
 matching file.  The exact list of supported wildcards will vary from one
 operating system to another, but the following are typical:
 <pre graphic>
-	.--------.----------------------------------------------.
-	| SYMBOL | MATCHES                                      |
-	|--------|----------------------------------------------|
-	| *      | Any string of characters, of any length      |
-	| ?      | Any single character                         |
-	| [A-Z]  | (Unix only) Any single character from A to Z |
-	^--------^----------------------------------------------^
+	.--------.-----------------------------------------.
+	| SYMBOL | MATCHES                                 |
+	|--------|-----------------------------------------|
+	| *      | Any string of characters, of any length |
+	| ?      | Any single character                    |
+	| [A-Z]  | Any single character from A to Z        |
+	^--------^-----------------------------------------^
 </pre>
 In most operating systems, wildcards are only recognized when they occur
 in the last file name part of a longer pathname.  In other words, you can
@@ -493,20 +518,26 @@ by preceding it with a backslash or ^V, depending on the command.
 |ADDRESS| COMMAND           | ARGUMENTS                         |
 |-------|-------------------|-----------------------------------|
 |       | <a href="#help">h[elp]</a>            | topic                             |
+|       | <a href="#phelp">ph[elp]</a>           | topic                             |
 ^-------^-------------------^-----------------------------------^
 </pre>
 
 <dl>
 
 <dt><a name="help">h[elp]</a> <var>topic</var>
-<dd>The <code>:help</code> command loads and displays a
+<br><a name="phelp">ph[elp]</a> <var>topic</var>
+<dd>The <code>:help</code> and <code>:phelp</code> commands load and display a
 help file for a given topic.
-There are several help files, covering a wide variety of topics.
+The difference between the two commands is that <code>:help</code> splits
+a new window, and <code>:phelp</code> displays it in your current window
+after pushing your old location onto the tag stack so
+<a href="elvisvi.html#^T">^T</a> (Control-T) will bring you back.
 
-<p>Elvis looks at the topic you supply, and tries to determine whether
+<p>There are several help files, covering a wide variety of topics.
+Elvis looks at the topic you supply, and tries to determine whether
 it is an ex command name, vi keystroke, option name, or something else.
 Based on this, it generates a hypertext link to the topic in the appropriate
-help file, and shows the topic in a separate window.
+help file, and shows the topic.
 Elvis uses the following rules to convert your requested topic into
 a hypertext reference:
 <pre graphic>
@@ -776,7 +807,7 @@ The interpretation of <var>new</var> text is described in
 |  g   | replace every instance in each line                   | 
 |  .<var>n</var>  | (n is a number) replace the <var>n</var>'th instance in each line|
 |  c   | ask for confirmation before making the change         |
-|  x   | execute the <var>newtext</var> as an ex command; don't subsitute |
+|  x   | execute the <var>newtext</var> as an ex command; don't substitute|
 |  e   | don't treat "no match" as an error                    |
 |  p   | print the changed line like <a href="#print">:p</a>                        |
 |  l   | print the changed line like <a href="#list">:l</a>                        |
@@ -989,8 +1020,9 @@ Each window has an independent stack.
 <dd>
 The <code>:pop</code> command pops a cursor position off the stack, restoring
 the cursor to its previous position.
-When you're browsing though source code, you will typically use <code>:tag</code>
-to go deeper into the call tree, and <code>:pop</code> to come back out again.
+When you're browsing through source code,
+you will typically use <code>:tag</code> to go deeper into the call tree,
+and <code>:pop</code> to come back out again.
 
 <p>In HTML mode, these all work the same except that <code>:tag</code> expects to
 be given an URL instead of a tag name.
@@ -1078,7 +1110,7 @@ specified by the <a href="elvisopt.html#lpout">lpout</a> option.
 |       | <a href="#rewind">rew[ind]</a>[!]       |                                   |
 |       | <a href="#last">la[st]</a>            |                                   |
 |       | <a href="#wnext">wn[ext]</a>[!]        |                                   |
-|       | <a href="#file">f[ile]</a>            | [file]                            |
+|       | <a href="#file">f[ile]</a>[!]         | [file]                            |
 |       | <a href="#edit">e[dit]</a>[!]         | [+line] [file]                    |
 |       | <a href="#ex">ex</a>[!]             | [+line] [file]                    |
 |       | <a href="#visual">vi[sual]</a>[!]       | [+line] [file]                    |
@@ -1132,10 +1164,12 @@ file.
 (The <a href="elvisopt.html#autowrite">autowrite</a> option offers a better
 alternative.)
 
-<dt><a name="file">f[ile]</a> <code>[</code><var>file</var><code>]</code>
+<dt><a name="file">f[ile]</a><code>[</code>!<code>]</code> <code>[</code><var>file</var><code>]</code>
 <dd>
 The <code>:file</code> command displays information about the current buffer.
 It can also be used to change the filename associated with this buffer.
+When invoked with a "!" suffix, it does not display information about the
+current buffer; you can use this to change the filename silently.
 
 <dt><a name="edit">e[dit]</a><code>[</code>!<code>]</code> <code>[</code>+<var>line</var><code>]</code> <code>[</code><var>file</var><code>]</code>
 <br><a name="ex">ex</a><code>[</code>!<code>]</code> <code>[</code>+<var>line</var><code>]</code> <code>[</code><var>file</var><code>]</code>
@@ -1219,7 +1253,7 @@ modified, and then closes the window.
 The <code>:qall</code> command tries to close all of the windows at once.
 It is equivalent to giving the <code>:quit</code> command in each window.
 
-<dt><a name="preserve">pre[serve]</a>
+<dt><a name="preserve">pres[erve]</a>
 <dd>
 The <code>:preserve</code> command closes all windows and exits, but it doesn't
 delete the session file.
@@ -1239,10 +1273,8 @@ You may want to check the value of the
 |ADDRESS| COMMAND           | ARGUMENTS                         |
 |-------|-------------------|-----------------------------------|
 |       | <a href="#AT">@</a>                 | cutbuf                            |
-|       | <a href="#source">so[urce]</a>[!]       | file                              |
+|       | <a href="#source">so[urce]</a>[!]       | file | !shellcmd                  |
 |       | <a href="#safely">safel[y]</a>          | excmds                            |
-|       | <a href="#alias">al[ias]</a>[!]        | [name [excmds]]                   |
-|       | <a href="#unalias">unal[ias]</a>[!]      | name                              |
 ^-------^-------------------^-----------------------------------^
 </pre>
 
@@ -1253,7 +1285,7 @@ You may want to check the value of the
 The <code>:@</code> command executes the contents of a cut buffer as a series
 of ex command lines.
 
-<dt><a name="source">so[urce]</a><code>[</code>!<code>]</code> <var>file</var>
+<dt><a name="source">so[urce]</a><code>[</code>!<code>]</code> <var>file</var> <code>|</code> !<var>shellcmd
 <dd>
 The <code>:source</code> command reads a file, and executes its contents as a
 series of ex commands.
@@ -1269,26 +1301,6 @@ the <a href="elvisopt.html#security">security</a> option is temporarily set
 to "safer" so most dangerous commands (security holes) are blocked.
 In particular, "<code>:safely source</code> <var>filename</var>"
 is a good way to run untrusted scripts.
-
-<dt><a name="alias">al[ias]</a><code>[</code>!<code>]</code> <code>[</code><var>name</var> <code>[</code><var>excmds</var><code>]]</code>
-<dd>The <code>:alias</code> command manipulates the alias list.
-(See the <a href="elvistip.html#ALIAS">Tips</a> section of the manual for
-a discussion of aliases.)
-With no arguments, <code>:alias</code> lists all user-defined aliases,
-and <code>:alias!</code> lists all system-defined aliases.
-
-<p>When given a name but no commands, <code>:alias</code> displays the
-complete definition of the named alias.
-
-<p>When given a name and commands, <code>:alias</code> defines (or redefines)
-an alias.
-Adding a "!" suffix (<code>:alias!</code>) will cause the alias to be marked
-as a system alias, which is only significant because the
-<a href="#mkexrc">:mkexrc</a> command doesn't save system aliases.
-
-<dt><a name="unalias">unal[ias]</a> <var>name</var>
-<dd>
-The <code>:unalias</code> command deletes the alias with a given name.
 
 </dl>
 
@@ -1573,6 +1585,8 @@ the file name's extension.
 |       | <a href="#set">se[t]</a>[!]          | [option=value | option? | all]    |
 |       | <a href="#local">lo[cal]</a>           | [option=value | option ]          |
 |       | <a href="#let">le[t]</a>[!]          | option=expr                       |
+|       | <a href="#alias">al[ias]</a>[!]        | [name [excmds]]                   |
+|       | <a href="#unalias">unal[ias]</a>[!]      | name                              |
 |       | <a href="#if">if</a>                | expr                              |
 |       | <a href="#then">th[en]</a>            | excmds                            |
 |       | <a href="#else">el[se]</a>            | excmds                            |
@@ -1638,14 +1652,13 @@ Also, function keys can usually be denoted by #1 for the &lt;F1&gt; key,
 <p>The second text argument is character sequence that Elvis should pretend you
 typed whenever the raw characters are received.
 
-<p>Elvis allows you to use symbolic names for some keys and characters.
+<p>Elvis allows you to use <a name="KEYS">symbolic names</a> for some keys and characters.
 The following symbols represent individual characters, and are case-insensitive:
 <strong>&lt;Nul&gt;, &lt;BS&gt;, &lt;Tab&gt;, &lt;FF&gt;, &lt;NL&gt;,
 &lt;LF&gt;, &lt;EOL&gt;, &lt;CR&gt;, &lt;Return&gt;, &lt;Enter&gt;,
 &lt;Esc&gt;, &lt;CSI&gt;, &lt;Del&gt;, &lt;Nul&gt;, &lt;Space&gt;, &lt;lt&gt;,
-&lt;gt&gt;, &lt;Bar&gt;,</strong> and <strong>&lt;Bslash&gt;</strong>
-
-<p>In addition, each user interface may add its own symbols for cursor keys
+&lt;gt&gt;, &lt;Bar&gt;,</strong> and <strong>&lt;Bslash&gt;</strong>.
+In addition, each user interface may add its own symbols for cursor keys
 and function keys.  The exact list of symbols will vary.
 Typically, these names will be case-sensitive.
 See the <a href="elvisgui.html#x11.keys">X11 Keys</a>,
@@ -1660,12 +1673,13 @@ the way the second argument's text is used.
 .----------.------------------------------------------------------.
 |  FLAG    | WHAT IT MEANS                                        |
 |----------|------------------------------------------------------|
-| command  | works in the normal "Command" mode                   |
+| select   | works when text is selected via <a href="elvisvi.html#V">V</a>, <a href="elvisvi.html#v">v</a>, <a href="elvisvi.html#^V">^V</a>, or mouse   |
+| command  | works in the normal "Command" mode, if no selection  |
 | motion   | works when used as the target of an <a href="elvisvi.html#OPER">operator</a>         |
-| select   | works while text is selected via <a href="elvisvi.html#V">V</a>, <a href="elvisvi.html#v">v</a>, or <a href="elvisvi.html#^V">^V</a>         |
+| noselect | synonym for command states other than "select"       |
 | input    | works in "Input" or "Replace" mode on main buffer    |
 | history  | works when typing an ex command or search expression |
-| mode=<var>name</var>| works only if the <a href="elvisopt.html#mapmode">mapmode</a> option is set to <var>name</var>      |
+| mode=<var>name</var>| ignore unless the <a href="elvisopt.html#mapmode">mapmode</a> option is set to <var>name</var>      |
 | visual   | always interpret second argument text as vi commands |
 | noremap  | never check second text for maps, regardless of <a href="elvisopt.html#remap">remap</a>|
 | nosave   | prevent <a href="#mkexrc">mkexrc</a> from saving this map                  |
@@ -1730,8 +1744,7 @@ The <code>:color</code> command is used for configuring the colors and other
 attributes of text.
 If invoked without arguments, then it lists any colors/attributes you've set
 (or for all faces if invoked with a ! suffix).
-If invoked with the name of a face
-(see <a href="#colortype">below</a>)
+If invoked with the name of a face (see below)
 then it lists the colors/attributes for that single face.
 If invoked with both a face name and new colors/attributes
 then it changes the colors/attributes for that face.
@@ -1997,7 +2010,9 @@ Currently, the only user interface which uses this is the "x11" interface,
 which uses it mostly to
 <a href="elvisgui.html#x11.toolbar">configure the toolbar.</a>
 
-<dt><a name="set">se[t]</a><code>[</code>!<code>]</code> <code>[</code><var>option</var>=<var>value</var><code>... |</code> <var>option</var>?<code>... |</code> all <code>|</code> everything<code>]</code>
+<dt><a name="set">se[t]</a><code>[</code>!<code>]</code> <code>[</code><var>option</var>=<var>value</var> <code>|</code> <var>option</var> <code>|</code> no<var>option</var> <code>|</code> <var>option</var>? <code>]...</code>
+<br>se[t]<code>[</code>!<code>]</code> all <code>|</code> everything
+<br>se[t] <var>gui</var>.<code>[</code><var>option</var>=<var>value</var> <code>|</code> <var>option</var> <code>|</code> no<var>option</var> <code>]...</code>
 <dd>
 The <code>:set</code> command allows you to examine or change the values of
 <a href="elvisopt.html">options.</a>
@@ -2049,6 +2064,17 @@ value in addition to its current value, and then marks the option as having
 <em>not</em> been changed.
 This is used mostly in Elvis' initialization scripts.
 
+<p>The special "<var>gui</var>." notation is used mostly by the
+<a href="#mkexrc">:mkexrc</a> command to store
+<a href="elvisgui.html">GUI</a>-dependent options.
+If the <var>gui</var> happens to match the name of the current user interface
+(as stored in the <a href="elvisopt.html#gui">gui</a> option), then the rest
+of the line is processed as usual.
+For any other <var>gui</var> name, the command line is stored internally,
+and incorporated into the file generated by <code>:mkexrc</code>.
+This way, a single ".exrc" file (or "elvis.rc" or ".elvisrc") can store
+settings for multiple GUIs.
+
 <dt><a name="local">lo[cal]</a> <var>option</var>=<var>value</var><code>... |</code> <var>option</var><code>...</code>
 <dd>The <code>:local</code> command is similar to <a href="#set">:set</a>, and is
 intended to be used in <a href="elvistip.html#ALIAS">aliases</a> and scripts.
@@ -2094,7 +2120,8 @@ expression as the right-hand operand.
 
 <p>Note that even Boolean options use the "=" notation here.
 You <em>can not</em> say ":let nowrap" to turn off the
-<a href="elvisopt.html#wrap">wrap</a> option, for example.
+<a href="elvisopt.html#wrap">wrap</a> option, for example,
+but ":let wrap=false" works.
 
 <p>The "=~ <var>excmds</var>" form is only available if Elvis is compiled
 with FEATURE_EQUALTILDE defined (i.e., if <code>:calc&nbsp;feature("equaltilde")</code> returns <code>True</code>).
@@ -2117,6 +2144,26 @@ For more information about subscripts, see the discussion in the
 Elvis will set both the current and default values of the option,
 and mark the option has having <em>not</em> been changed.
 This is used in some of Elvis' initialization scripts.
+
+<dt><a name="alias">al[ias]</a><code>[</code>!<code>]</code> <code>[</code><var>name</var> <code>[</code><var>excmds</var><code>]]</code>
+<dd>The <code>:alias</code> command manipulates the alias list.
+(See the <a href="elvistip.html#ALIAS">Tips</a> section of the manual for
+a discussion of aliases.)
+With no arguments, <code>:alias</code> lists all user-defined aliases,
+and <code>:alias!</code> lists all system-defined aliases.
+
+<p>When given a name but no commands, <code>:alias</code> displays the
+complete definition of the named alias.
+
+<p>When given a name and commands, <code>:alias</code> defines (or redefines)
+an alias.
+Adding a "!" suffix (<code>:alias!</code>) will cause the alias to be marked
+as a system alias, which is only significant because the
+<a href="#mkexrc">:mkexrc</a> command doesn't save system aliases.
+
+<dt><a name="unalias">unal[ias]</a> <var>name</var>
+<dd>
+The <code>:unalias</code> command deletes the alias with a given name.
 
 <dt><a name="if">if</a> <var>expr</var>
 <br><a name="then">th[en]</a> <var>excmds</var>
@@ -2475,6 +2522,7 @@ in Elvis by running "<code>:all doau</code>".
 |-------|-------------------|-----------------------------------|
 | range | <a href="#fold">fo[ld]</a>[!]         | [name]                            |
 | range | <a href="#unfold">unf[old]</a>[!]       | [name]                            |
+| range | <a href="#nofold">nof[old]</a>[!]       |                                   |
 ^-------^-------------------^-----------------------------------^
 </pre>
 
@@ -2553,6 +2601,19 @@ and give the folds the same name as their function.
 containing "tag" in it somewhere.)
 <pre>
 	:g/^{/,/^}/fold {(current("tag"))(":" $1 "lines")}</pre>
+
+<dt><var>range</var> <a name="nofold">nof[old]</a><code>[</code>!<code>]</code>
+<dd>This causes Elvis to forget any folds that are wholly or partially contained
+within the given address range (or the current line if you omit the range).
+This differs from the <a href="#unfold">:unfold</a> command in that after
+<code>:nofold</code>, you can't easily refold a region.
+
+<p>Normally it only forgets one layer of nested folds, but the "!" suffix
+makes it forget all layers of nested folds within the address range.
+In particular,
+the command "<code>:%nofold!</code>" wipes out all previous folds.
+</dl>
+
 <p>
 There are also <a href="elvisexp.html#folded">folded()</a> and
 <a href="elvisexp.html#unfolded">unfolded()</a> functions.
@@ -2568,10 +2629,13 @@ This allows you to do things like the following, which toggles folding.
 		else fold
 	}</pre>
 
+<p>The <a href="elvisvi.html#^I">&lt;Tab&gt;</a> visual command toggles
+a FOLD between its folded and unfolded states.
+The above alias give ex commands a way to do the same thing.
+
 <p>Also, see the <a href="elvisopt.html#folding">folding</a> option
 for a way to enable folding in one window but disable it in another.
 
-</dl>
 
 <h2><a name="REGION">4.20 Regions</a></h2>
 <pre graphic>.-------.-------------------.-----------------------------------.
@@ -2645,6 +2709,8 @@ regions unchanged:
 <dt><var>range</var> <a name="chregion">chr[egion]</a> <var>face</var> <var>newface</var> <code>[</code><var>newcomment</var><code>]</code>
 <dd>The <code>:chregion</code> command changes one type of region into
 another type, based on the face.
+If you supply a new comment, it will change that too.
+<p>
 The following is a nifty trick which
 automatically marks changed lines as "unsaved" while you're editing,
 and then converts those to "saved" when you write the file.
@@ -2815,7 +2881,7 @@ Elvis' initialization scripts invoke it this way.
 | range | <a href="#normal">norm[al]</a>[!]       | [keystrokes]                      |
 |       | <a href="#shell">sh[ell]</a>           |                                   |
 |       | <a href="#stop">st[op]</a>[!]         |                                   |
-|       | <a href="#suspend">sus[pend]</a>[!]      |                                   |
+|       | <a href="#suspend">su[spend]</a>[!]      |                                   |
 |       | <a href="#version">ve[rsion]</a>         |                                   |
 | line  | <a href="#goto">go[to]</a>            |                                   |
 | line  | <a href="#mark">ma[rk]</a>            | mark                              |
@@ -2894,7 +2960,7 @@ Elvis will be suspended while the shell executes.
 Then Elvis and the shell can then run simultaneously.)
 
 <dt><a name="stop">st[op]</a><code>[</code>!<code>]</code>
-<br><a name="suspend">sus[pend]</a><code>[</code>!<code>]</code>
+<br><a name="suspend">su[spend]</a><code>[</code>!<code>]</code>
 <dd>The <code>:stop</code> and <code>:suspend</code> commands are identical to each other.
 If the operating system and user interface support it, they will suspend
 Elvis and resume the shell that started Elvis.
@@ -2970,11 +3036,12 @@ by a '}' on a line by itself.
 |       | <a href="#echo">ec[ho]</a>            | text                              |
 |       | <a href="#edit">e[dit]</a>[!]         | [+line] [file]                    |
 |       | <a href="#else">el[se]</a>            | excmds                            |
+| range | <a href="#nofold">nof[old]</a>[!]       |                                   |
 |       | <a href="#errlist">er[rlist]</a>[!]      | [file]                            |
 |       | <a href="#error">erro[r]</a>           | text                              |
 |       | <a href="#eval">ev[al]</a>            | expr                              |
 |       | <a href="#ex">ex</a>[!]             | [+line] [file]                    |
-|       | <a href="#file">f[ile]</a>            | [file]                            |
+|       | <a href="#file">f[ile]</a>[!]         | [file]                            |
 | range | <a href="#fold">fo[ld]</a>[!]         | [name]                            |
 |       | <a href="#foreach">for[each]</a>         | option ["in"] expression          |
 | range | <a href="#global">g[lobal]</a>[!]       | /regexp/ excmds                   |
@@ -3004,6 +3071,7 @@ by a '}' on a line by itself.
 | range | <a href="#number">nu[mber]</a>          | [count]                           |
 |       | <a href="#only">on[ly]</a>            |                                   |
 |       | <a href="#open">o[pen]</a>[!]         | [+line] [file]                    |
+|       | <a href="#phelp">ph[elp]</a>           | topic                             |
 |       | <a href="#pop">po[p]</a>[!]          |                                   |
 |       | <a href="#preserve">pres[erve]</a>        |                                   |
 |       | <a href="#previous">pre[vious]</a>[!]     |                                   |
@@ -3026,14 +3094,14 @@ by a '}' on a line by itself.
 |       | <a href="#slast">sl[ast]</a>           |                                   |
 |       | <a href="#snew">sne[w]</a>            |                                   |
 |       | <a href="#snext">sn[ext]</a>           | [file...]                         |
-|       | <a href="#source">so[urce]</a>[!]       | file                              |
+|       | <a href="#source">so[urce]</a>[!]       | file | !shellcmd                  |
 |       | <a href="#split">sp[lit]</a>           | [+line] [file | !shellcmd]        |
 |       | <a href="#srewind">sre[wind]</a>[!]      |                                   |
 |       | <a href="#stack">stac[k]</a>           |                                   |
 |       | <a href="#stag">sta[g]</a>            | [tag]                             |
 |       | <a href="#stop">st[op]</a>[!]         |                                   |
 | range | <a href="#substitute">s[ubstitute]</a>      | /regexp/newtext/[g][p][x][count]  |
-|       | <a href="#suspend">sus[pend]</a>[!]      |                                   |
+|       | <a href="#suspend">su[spend]</a>[!]      |                                   |
 |       | <a href="#switch">sw[itch]</a>          | expr                              |
 |       | <a href="#tag">ta[g]</a>[!]          | [tag]                             |
 |       | <a href="#then">th[en]</a>            | excmds                            |

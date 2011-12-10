@@ -6,6 +6,14 @@
  * adapted to Elvis 2.2 by Herbert.
  *
  * $Log: guivio.c,v $
+ * Revision 1.11  2004/02/06 01:13:19  steve
+ * Made maps use the "nosave" attribute to distinguish automatically mapped
+ *   keys from user-defined keys.  This affects both saving via :mkexrc, and
+ *   listing via :map.
+ *
+ * Revision 1.10  2003/10/23 23:35:45  steve
+ * Herbert's latest changes.
+ *
  * Revision 1.9  2003/10/17 17:41:23  steve
  * Renamed the BOOLEAN data type to ELVBOOL to avoid name clashes with
  *   types defined other headers.
@@ -31,9 +39,21 @@
  *
  */
 
+#define CHAR ELVCHAR
 #include "elvis.h"
 #ifdef GUI_VIO
 #include "guivio.h"
+#ifdef CHAR
+# undef CHAR
+#endif
+#define INCL_VIO
+#define INCL_KBD
+#define INCL_DOSPROCESS
+#define INCL_DOSERRORS
+#include <os2.h>
+
+#include <string.h>
+
 /*#undef NDEBUG*/
 #include "debug.h"
 #include <signal.h>
@@ -56,33 +76,33 @@ struct
 } keys[] =
   {
     /* Grey keys. */
-    { "<Up>",    "\013e048",    "k",    MAP_ALL },
-    { "<Down>",    "\013e050",    "j",    MAP_ALL },
-    { "<Left>",    "\013e04b",    "h",    MAP_ALL },
-    { "<Right>",  "\013e04d",    "l",    MAP_ALL },
-    { "<PgUp>",    "\013e049",    "\002",   MAP_ALL },
-    { "<PgDn>",    "\013e051",    "\006",   MAP_ALL },
-    { "<Home>",    "\013e047",    "^",    MAP_ALL },
-    { "<End>",    "\013e04f",    "$",    MAP_ALL },
-    { "<Insert>",  "\013e052",    "i",    MAP_ALL },
-    { "<Delete>",  "\013e053",    "x",    MAP_ALL },
+    { "<Up>",      "\013e048",    "k",    MAP_NOSAVE|MAP_ALL },
+    { "<Down>",    "\013e050",    "j",    MAP_NOSAVE|MAP_ALL },
+    { "<Left>",    "\013e04b",    "h",    MAP_NOSAVE|MAP_ALL },
+    { "<Right>",   "\013e04d",    "l",    MAP_NOSAVE|MAP_ALL },
+    { "<PgUp>",    "\013e049",    "\002", MAP_NOSAVE|MAP_ALL },
+    { "<PgDn>",    "\013e051",    "\006", MAP_NOSAVE|MAP_ALL },
+    { "<Home>",    "\013e047",    "^",    MAP_NOSAVE|MAP_ALL },
+    { "<End>",     "\013e04f",    "$",    MAP_NOSAVE|MAP_ALL },
+    { "<Insert>",  "\013e052",    "i",    MAP_NOSAVE|MAP_ALL },
+    { "<Delete>",  "\013e053",    "x",    MAP_NOSAVE|MAP_ALL },
 
     /* Numeric keypad keys (with Num Lock off.) */
-    { "<kpUp>",    "\0130048",    "k",    MAP_ALL },
-    { "<kpDown>",  "\0130050",    "j",    MAP_ALL },
-    { "<kpLeft>",  "\013004b",    "h",    MAP_ALL },
-    { "<kpRight>",  "\013004d",    "l",    MAP_ALL },
-    { "<kpPgUp>",  "\0130049",    "\002",   MAP_ALL },
-    { "<kpPgDn>",  "\0130051",    "\006",   MAP_ALL },
-    { "<kpHome>",  "\0130047",    "^",    MAP_ALL },
-    { "<kpEnd>",  "\013004f",    "$",    MAP_ALL },
-    { "<kpInsert>",  "\0130052",    "i",    MAP_ALL },
-    { "<kpDelete>",  "\0130053",    "x",    MAP_ALL },
-    { "<kp/>",    "\0132fe0",    "/",    MAP_ALL },
-    { "<kpEnter>",  "\0130de0",    "\r",    MAP_ALL },
+    { "<kpUp>",    "\0130048",    "k",    MAP_NOSAVE|MAP_ALL },
+    { "<kpDown>",  "\0130050",    "j",    MAP_NOSAVE|MAP_ALL },
+    { "<kpLeft>",  "\013004b",    "h",    MAP_NOSAVE|MAP_ALL },
+    { "<kpRight>", "\013004d",    "l",    MAP_NOSAVE|MAP_ALL },
+    { "<kpPgUp>",  "\0130049",    "\002", MAP_NOSAVE|MAP_ALL },
+    { "<kpPgDn>",  "\0130051",    "\006", MAP_NOSAVE|MAP_ALL },
+    { "<kpHome>",  "\0130047",    "^",    MAP_NOSAVE|MAP_ALL },
+    { "<kpEnd>",   "\013004f",    "$",    MAP_NOSAVE|MAP_ALL },
+    { "<kpInsert>","\0130052",    "i",    MAP_NOSAVE|MAP_ALL },
+    { "<kpDelete>","\0130053",    "x",    MAP_NOSAVE|MAP_ALL },
+    { "<kp/>",     "\0132fe0",    "/",    MAP_NOSAVE|MAP_ALL },
+    { "<kpEnter>", "\0130de0",    "\r",   MAP_NOSAVE|MAP_ALL },
 
   /* Unshifted function keys. */
-    { "#1",      "\013003b",    ":help\r",  MAP_ALL },
+    { "#1",      "\013003b",    ":help\r",MAP_NOSAVE|MAP_ALL },
     { "#2",      "\013003c" },
     { "#3",      "\013003d" },
     { "#4",      "\013003e" },
@@ -91,48 +111,48 @@ struct
     { "#7",      "\0130041" },
     { "#8",      "\0130042" },
     { "#9",      "\0130043" },
-    { "#10",    "\0130044" },
-    { "#11",    "\0130085" },
-    { "#12",    "\0130086" },
+    { "#10",     "\0130044" },
+    { "#11",     "\0130085" },
+    { "#12",     "\0130086" },
 
   /* Shift-function keys. */
-    { "#1s",    "\0130054" },
-    { "#2s",    "\0130055" },
-    { "#3s",    "\0130056" },
-    { "#4s",    "\0130057" },
-    { "#5s",    "\0130058" },
-    { "#6s",    "\0130059" },
-    { "#7s",    "\013005a" },
-    { "#8s",    "\013005b" },
-    { "#9s",    "\013005c" },
+    { "#1s",     "\0130054" },
+    { "#2s",     "\0130055" },
+    { "#3s",     "\0130056" },
+    { "#4s",     "\0130057" },
+    { "#5s",     "\0130058" },
+    { "#6s",     "\0130059" },
+    { "#7s",     "\013005a" },
+    { "#8s",     "\013005b" },
+    { "#9s",     "\013005c" },
     { "#10s",    "\013005d" },
     { "#11s",    "\0130087" },
     { "#12s",    "\0130088" },
 
   /* Ctrl-function keys. */
-    { "#1c",    "\013005e" },
-    { "#2c",    "\013005f" },
-    { "#3c",    "\0130060" },
-    { "#4c",    "\0130061" },
-    { "#5c",    "\0130062" },
-    { "#6c",    "\0130063" },
-    { "#7c",    "\0130064" },
-    { "#8c",    "\0130065" },
-    { "#9c",    "\0130066" },
+    { "#1c",     "\013005e" },
+    { "#2c",     "\013005f" },
+    { "#3c",     "\0130060" },
+    { "#4c",     "\0130061" },
+    { "#5c",     "\0130062" },
+    { "#6c",     "\0130063" },
+    { "#7c",     "\0130064" },
+    { "#8c",     "\0130065" },
+    { "#9c",     "\0130066" },
     { "#10c",    "\0130067" },
     { "#11c",    "\0130089" },
     { "#12c",    "\013008a" },
 
   /* Alt-function keys. */
-    { "#1a",    "\0130068" },
-    { "#2a",    "\0130069" },
-    { "#3a",    "\013006a" },
-    { "#4a",    "\013006b" },
-    { "#5a",    "\013006c" },
-    { "#6a",    "\013006d" },
-    { "#7a",    "\013006e" },
-    { "#8a",    "\013006f" },
-    { "#9a",    "\0130070" },
+    { "#1a",     "\0130068" },
+    { "#2a",     "\0130069" },
+    { "#3a",     "\013006a" },
+    { "#4a",     "\013006b" },
+    { "#5a",     "\013006c" },
+    { "#6a",     "\013006d" },
+    { "#7a",     "\013006e" },
+    { "#8a",     "\013006f" },
+    { "#9a",     "\0130070" },
     { "#10a",    "\0130071" },
     { "#11a",    "\013008b" },
     { "#12a",    "\013008c" }
@@ -445,7 +465,8 @@ DPRINTF (("fg: %d, newfg: %d, bg: %d, newbg: %d\n", fg, newfg, bg, newbg));
   /* Boxing is simulated as color swapping. This has to be done on
    * the final color, so we don't care about this now.
    */
-  if (resetting & COLOR_BOXED|COLOR_LEFTBOX|COLOR_RIGHTBOX) 
+  /*if (resetting & COLOR_BOXED|COLOR_LEFTBOX|COLOR_RIGHTBOX) */
+  if (resetting & (COLOR_BOXED|COLOR_LEFTBOX|COLOR_RIGHTBOX))
     {
       currentbits &= ~COLOR_BOXED;
     }
@@ -852,7 +873,7 @@ vio_draw (GUIWIN  *gw,  /* window where text should be drawn */
           long  fg,     /* foreground color */
           long  bg,     /* background color */
           int bits,     /* other attributes */
-          CHAR  *text,  /* text to draw */
+          ELVCHAR  *text,  /* text to draw */
           int    len)   /* length of text */
 {
   VWIN  *vw = (GUIWIN *)gw;
@@ -1554,10 +1575,10 @@ vio_beep (GUIWIN *gw)  /* window that generated the beep */
 
 /* This function converts key labels to raw codes */
 static int 
-keylabel (CHAR  *given,   /* what the user typed in as the key name */
+keylabel (ELVCHAR  *given,   /* what the user typed in as the key name */
           int  givenlen,  /* length of the "given" string */
-          CHAR  **label,  /* standard name for that key */
-          CHAR  **rawptr) /* control code sent by that key */
+          ELVCHAR  **label,  /* standard name for that key */
+          ELVCHAR  **rawptr) /* control code sent by that key */
 {
   int  i;
 
@@ -1591,7 +1612,7 @@ keylabel (CHAR  *given,   /* what the user typed in as the key name */
 /* This function defines colors for fonts */
 static ELVBOOL 
 vio_color(int  fontcode,        /* name of font being changed */
-          CHAR  *name,          /* name of new color */
+          ELVCHAR  *name,       /* name of new color */
           ELVBOOL  isfg,        /* ElvTrue for foreground, ElvFalse for background */
           long  *colorptr,      /* where to store the color number */
           unsigned char rgb[3]) /* color broken down into RGB components */

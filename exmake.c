@@ -4,7 +4,7 @@
 
 #include "elvis.h"
 #ifdef FEATURE_RCSID
-char id_make[] = "$Id: exmake.c,v 2.43 2003/10/18 04:47:18 steve Exp $";
+char id_make[] = "$Id: exmake.c,v 2.44 2004/03/14 23:18:24 steve Exp $";
 #endif
 
 #ifdef FEATURE_MAKE
@@ -45,9 +45,9 @@ static MARK	errnext;	/* used for stepping through the error list */
  * discarded.  Usually, this discarded text consists simply of a colon and some
  * whitespace.
  *
- * Returns ElvTrue normally, or ElvFalse at the end of the list.  If it returns ElvTrue,
- * then the errfile, errline, and errdesc variables will have been set to
- * reflect anything that was found in the line; if all three are non-NULL
+ * Returns ElvTrue normally, or ElvFalse at the end of the list.  If it returns
+ * ElvTrue, then the errfile, errline, and errdesc variables will have been set
+ * to reflect anything that was found in the line; if all three are non-NULL
  * then the line contained an error message.
  */
 static ELVBOOL parse_errmsg()

@@ -143,7 +143,7 @@ extern MSGIMP bufmsgtype;
 BEGIN_EXTERNC
 extern void bufinit P_((void));
 extern BUFFER bufalloc P_((CHAR *name, _BLKNO_ bufinfo, ELVBOOL internal));
-extern CHAR *buffilenumber P_((CHAR **refp));
+extern CHAR *buffilenumber P_((BUFFER curbuf, CHAR **refp, CHAR **endptr));
 extern BUFFER buffind P_((CHAR *name));
 extern BUFFER bufload P_((CHAR *bufname, char *filename, ELVBOOL reload));
 extern BUFFER bufpath P_((CHAR *path, char *filename, CHAR *bufname));
@@ -152,4 +152,9 @@ extern ELVBOOL bufsave P_((BUFFER buf, ELVBOOL force, ELVBOOL mustwr));
 extern void bufoptions P_((BUFFER buffer));
 extern void buffree P_((BUFFER buffer));
 extern void buftitle P_((BUFFER buffer, CHAR *title));
+extern void bufappend P_((BUFFER buf, CHAR *str, int len));
+#ifdef FEATURE_PERSIST
+extern void bufpersistinit P_((void));
+extern void bufpersistsave P_((BUFFER buf));
+#endif
 END_EXTERNC

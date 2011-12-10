@@ -4,7 +4,7 @@
 
 #include "elvis.h"
 #ifdef FEATURE_RCSID
-char id_digraph[] = "$Id: digraph.c,v 2.12 2003/10/17 17:41:23 steve Exp $";
+char id_digraph[] = "$Id: digraph.c,v 2.13 2004/03/21 23:24:41 steve Exp $";
 #endif
 #ifndef NO_DIGRAPH
 
@@ -326,9 +326,7 @@ void digsave(buf)
 {
 	static CHAR	text[] = "digraph! XX Y\n";
 	DIGRAPH		*dp;
-	MARK		append;
 
-	append = markalloc(buf, o_bufchars(buf));
 	for (dp = digs; dp; dp = dp->next)
 	{
 		if (dp->save)
@@ -336,11 +334,9 @@ void digsave(buf)
 			text[9] = dp->in1;
 			text[10] = dp->in2;
 			text[12] = dp->out;
-			bufreplace(append, append, text, QTY(text) - 1);
-			markaddoffset(append, QTY(text) - 1);
+			bufappend(buf, text, QTY(text) - 1);
 		}
 	}
-	markfree(append);
 }
 # endif /* FEATURE_MKEXRC */
 #endif

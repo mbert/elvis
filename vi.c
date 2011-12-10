@@ -4,7 +4,7 @@
 
 #include "elvis.h"
 #ifdef FEATURE_RCSID
-char id_vi[] = "$Id: vi.c,v 2.94 2003/10/17 17:41:23 steve Exp $";
+char id_vi[] = "$Id: vi.c,v 2.96 2004/03/07 21:38:21 steve Exp $";
 #endif
 
 #if USE_PROTOTYPES
@@ -325,7 +325,6 @@ vikeys[] =
 /* g{   not defined	 */	{ NULL,		WHEN_NEVER,			TWEAK_NONE			},
 /* g|   not defined	 */	{ NULL,		WHEN_NEVER,			TWEAK_NONE			},
 /* g}   not defined	 */	{ NULL,		WHEN_NEVER,			TWEAK_NONE			},
-/* g~   not defined	 */	{ NULL,		WHEN_NEVER,			TWEAK_NONE			},
 /* g~  toggle case op	 */	{ NULL,		WHEN_OPEN,			TWEAK_DOT_OPER_UNDO		},
 /* gDEL not defined	 */	{ NULL,		WHEN_NEVER,			TWEAK_NONE			}
 };
@@ -411,7 +410,7 @@ static RESULT vixmlobj(win, vinf, from, to)
 		scanprev(&scan);
 
 	/* scan forward for the count'th unmatched "</".  This is tricky!
-	 * Not all XML tags come in pairs, so can't simply count tags with
+	 * Not all XML tags come in pairs, so we can't simply count tags with
 	 * and without slashes.  We must push <tag> names onto a stack, and
 	 * pop them when we get a </tag>.  To handle unpaired tags, </tag>
 	 * should always pop back to the matching name; or, if there is no
@@ -444,8 +443,20 @@ static RESULT vixmlobj(win, vinf, from, to)
 
 			/* collect chars of the name */
 			assert(name == NULL);
-			for (; scan && elvalnum(*scan); scannext(&scan))
+			for (;
+			     scan && (elvalnum(*scan) ||
+				      *scan == ':' ||
+				      (*scan == '-' && prev != '-'));
+			     scannext(&scan))
+			{
 				buildCHAR(&name, vinf->key2 == 'X' ? elvtolower(*scan) : *scan);
+				prev = *scan;
+			}
+			if (scan && *scan == '-')
+			{
+				scanprev(&scan);
+				name[CHARlen(name) - 1] = '\0';
+			}
 			if (!scan || !name)
 				goto Fail;
 
@@ -525,12 +536,17 @@ static RESULT vixmlobj(win, vinf, from, to)
 		/* does the name match? */
 		inname = name;
 		if (vinf->key2 == 'X')
-			while (*inname && elvalnum(*intag) && *inname++ == elvtolower(*intag))
+			while (*inname && *inname++ == elvtolower(*intag))
 				scannext(&intag);
 		else
-			while (*inname && elvalnum(*intag) && *inname++ == *intag)
+			while (*inname && *inname++ == *intag)
 				scannext(&intag);
-		if (!*inname && (!intag || !elvalnum(*intag)))
+		/* !!! Note: the following if() statement isn't quite right.
+		 * It doesn't handle - correctly.  Consequently </tag> may
+		 * be paired up with <tag-long-name>, provided there is no
+		 * </tag-long-name> between them.
+		 */
+		if (!*inname && (!intag || !(elvalnum(*intag)||*intag == ':')))
 		{
 			/* yes, the name matches -- adjust nest */
 			if (slash)

@@ -48,7 +48,7 @@
 
 #include "elvis.h"
 #ifdef FEATURE_RCSID
-char id_osnet[] = "$Id: osnet.c,v 2.22 2003/10/17 17:41:23 steve Exp $";
+char id_osnet[] = "$Id: osnet.c,v 2.23 2004/02/25 19:20:14 steve Exp $";
 #endif
 #if defined(PROTOCOL_HTTP) || defined(PROTOCOL_FTP)
 
@@ -84,7 +84,7 @@ static ELVBOOL site2addr(char *site, struct in_addr *address);
 #ifdef NEED_INET_ATON
 
 /* This is to avoid clashes with declarations in libraries.  You might think
- * that no compiler would declare this in a function without providing it in
+ * that no compiler would declare this in a header without providing it in
  * a library, but in fact that is the case in Cygwin, and probably others.
  */
 # define inet_aton elvis_iten_aton

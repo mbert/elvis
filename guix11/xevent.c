@@ -2,7 +2,7 @@
 
 #include "elvis.h"
 #ifdef FEATURE_RCSID
-char id_xevent[] = "$Id: xevent.c,v 2.30 2003/10/17 17:41:23 steve Exp $";
+char id_xevent[] = "$Id: xevent.c,v 2.33 2004/02/12 17:57:34 steve Exp $";
 #endif
 #ifdef GUI_X11
 
@@ -185,7 +185,7 @@ void x_ev_process(event)
 	KeySym	mykey;
 	ELVISSTATE state;
 	Atom	gottype;
-	char	*excmd;
+	char	*excmd, *scan;
 	unsigned long	exlen, ldummy;
 	int	i, j;
 	XEvent	event2;
@@ -388,8 +388,8 @@ void x_ev_process(event)
 		/* if notification of timeout, then just send 0 keystrokes */
 		if (!event->xkey.display)
 		{
-			eventkeys((GUIWIN *)w, NULL, 0);
-			xw->state = eventkeys((GUIWIN *)xw, toCHAR(text), 0);
+			xw->state = eventkeys((GUIWIN *)xw, NULL, 0);
+			x_didcmd = ElvTrue;
 			break;
 		}
 
@@ -455,6 +455,29 @@ void x_ev_process(event)
 			text[1] = '\0';
 			i = 1;
 		}
+#endif
+#if 1
+		/* THIS IS A HACK!  The XK_ISO_Left_Tab and XK_3270_Back_Tab
+		 * keys are unreliable, and usually involve shifting.  For the
+		 * sake of uniformity, we'll convert them into Shift+Tab
+		 * combinations.
+		 */
+# ifdef XK_ISO_Left_Tab
+		if (mykey == XK_ISO_Left_Tab)
+		{
+			prefix = ELVCTRL('S');
+			mykey = XK_Tab;
+			i = 0;
+		}
+# endif
+# ifdef XK_3270_BackTab
+		if (mykey == XK_3270 BackTab)
+		{
+			prefix = ELVCTRL('S');
+			mykey = XK_Tab;
+			i = 0;
+		}
+# endif
 #endif
 		if (i == 0)
 		{
@@ -623,7 +646,33 @@ void x_ev_process(event)
 				if (gottype == XA_STRING && i == 8)
 				{
 					excmd[exlen] = '\0';
-					eventex((GUIWIN *)xw, excmd, ElvTrue);
+
+					/* look for secret key */
+					if (o_secret != 0 && *excmd == '"')
+					{
+						sprintf(text, "\"%ld\"", o_secret);
+						i = strlen(text);
+						if (!strncmp(excmd, text, i))
+						{
+							/* delete every "secret" prefix */
+							for (scan = excmd;
+							     *scan;
+							     scan++)
+							{
+								if (!strncmp(scan, text, i))
+									memmove(scan, scan + i, strlen(scan + i) + 1);
+							}
+
+							/* run the command with security=normal */
+							eventex((GUIWIN *)xw, excmd, ElvFalse);
+						}
+						/* else wrong security -- ignore */
+					}
+					else
+					{
+						/* run the command with security=safer */
+						eventex((GUIWIN *)xw, excmd, ElvTrue);
+					}
 					x_didcmd = ElvTrue;
 				}
 				XFree(excmd);

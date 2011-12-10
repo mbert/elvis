@@ -224,6 +224,6 @@ x11def
 set nostatusbar
 set nofocusnew
 " for now no toolbar, it will show once you have more than one buffer
-" and you can toogle it with 
+" and you can toogle it with <Control-Q>
 set notoolbar 
 

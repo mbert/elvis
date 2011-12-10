@@ -1,5 +1,5 @@
 <html><head>
-<title>Elvis-2.2_0 Display Modes</title>
+<title>Elvis-2.2_1 Display Modes</title>
 </head><body>
 
 <h1>7. DISPLAY MODES</h1>
@@ -1089,6 +1089,22 @@ The remainder of the line is used as arguments to the command.
 Commands which start with a "\" are recognized anywhere.
 
 <dl>
+
+<dt>'\" <var>letters</var>
+<dd>On some Unix variants (but not Linux), if the first line of a man page
+begins with apostrophe-backslash-doublequote, then the rest of the line is
+interpreted as a list of letters indicating which preprocessors the page
+should be filtered through before being passed to <strong>troff</strong>.
+The most common letter is "<code>t</code>" for the <strong>tbl</strong> filter.
+Other letters may include
+"<code>e</code>" for <strong>eqn</strong>,
+"<code>p</code>" for <strong>pic</strong>,
+"<code>r</code>" for <strong>refer</strong>, and
+"<code>v</code>" for <strong>vgrind</strong>.
+
+<p>Elvis doesn't use any of  this because its table commands
+(<code>.TS</code> and <code>.TE</code>) are built in,
+and it doesn't support filtering while you edit anyway.
 
 <dt>.\" <var>comment</var>
 <dd>Elvis ignores any text on a .\" command line.

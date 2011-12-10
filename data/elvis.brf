@@ -1,4 +1,4 @@
 """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 " TAKE A GUESS AT THE BUFFER'S TYPE (unless already known)
-if readeol == "text"
+if readeol == "text" && security != "restricted"
 then let! readeol=fileeol(filename)

@@ -1,5 +1,5 @@
 <html><head>
-<title>Elvis-2.2_0 Arithmetic Expressions</title>
+<title>Elvis-2.2_1 Arithmetic Expressions</title>
 </head><body>
 <h1><a name="CONTENTS"></a>13. ARITHMETIC EXPRESSIONS</h1>
 <menu>
@@ -541,6 +541,7 @@ any of the following which are supported by Elvis' configuration:
 <tr><td>"mapdb"</td><td>map debugger, via <a href="elvisopt.html#maptrace">maptrace</a> and <a href="elvisopt.html#maplog">maplog</a> options.</td></tr>
 <tr><td>"mkexrc"</td><td><a href="elvisex.html#mkexrc">:mkexrc</a> command</td></tr>
 <tr><td>"normal"</td><td>Vim's <a href="elvisex.html#normal">:normal</a> command</td></tr>
+<tr><td>"persist"</td><td>Behavior related to the <a href="elvisopt.html#persistfile">persistfile</a> option</td></tr>
 <tr><td>"proto"</td><td><a href="elvistip.html#PROTO">add new protocols</a> via aliases</td></tr>
 <tr><td>"ram"</td><td><a href="elvistip.html#FEATURE_RAM">-f ram</a> command-line option (mostly for MS-DOS)</td></tr>
 <tr><td>"region"</td><td><a href="elvisex.html#region">:region</a> and related commands</td></tr>
@@ -775,7 +776,7 @@ you can extract the indexed words.
 	:calc a[2 3 4]
 	is a test</pre>
 
-<p>Note that subscripts start 1, not 0 as in C.
+<p>Note that subscripts start with 1, not 0 as in C.
 Positive subscripts count from the left edge of the string, and
 negative subscripts count from the right edge.
 Zero returns the number of items in the string.
@@ -898,7 +899,7 @@ if the <var>option</var> doesn't already contain a field with the given
 <a href="elvisopt.html#listchars">listchars</a> option uses this format.
 Consequently, you can use named subscripts to access its fields.
 <pre>
-	:let listchars.esc="<Esc>"</pre>
+	:let listchars.esc="&lt;Esc&gt;"</pre>
 
 <h3>13.3.4 Subscript idioms</h3>
 
@@ -1018,10 +1019,10 @@ the <var>value</var> components from <var>rightset</var> are kept.
 	a,b,c,e
 	:calc "a:1,b:2,c:3" | "b:two,d:four"
 	a:1,b:two,c:3,d:four
-	:calc listchars?
+	:set listchars?
 	listchars=tab:&gt;-
 	:let listchars |= "trail:_"
-	:calc listchars?
+	:set listchars?
 	listchars=tab:&gt;-,trail:_</pre>
 </dl>
 Notice that set operators can be handy for manipulating the

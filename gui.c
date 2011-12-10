@@ -4,7 +4,7 @@
 
 #include "elvis.h"
 #ifdef FEATURE_RCSID
-char id_gui[] = "$Id: gui.c,v 2.32 2003/10/19 19:19:53 steve Exp $";
+char id_gui[] = "$Id: gui.c,v 2.33 2004/02/12 17:57:34 steve Exp $";
 #endif
 
 /* This is a pointer to the chosen GUI. */
@@ -287,7 +287,8 @@ void guibeep(win)
 /* Translate a key name or raw key sequence into both an official key name
  * and rawin sequence, and return the length of the rawin sequence.  This is
  * a wrapper around the (*gui->keylabel)() function, and it adds support for
- * some standard keys.
+ * some standard keys.  It also adds the intelligence needed to handle a series
+ * of keys, as opposed to a single key that sends multiple characters.
  */
 int guikeylabel(given, givenlen, label, rawptr)
 	CHAR	*given;	/* what the user typed in as a key code */
@@ -302,6 +303,7 @@ int guikeylabel(given, givenlen, label, rawptr)
 	CHAR	ch[1];
 	CHAR	first;
 	CHAR	hashnotation[30];
+	int	keystrokes;
 	static struct {
 		CHAR	*label;
 		int	len;
@@ -343,7 +345,10 @@ int guikeylabel(given, givenlen, label, rawptr)
 		return givenlen;
 	}
 
-	/* Allow the GUI to translate "#number" function keys */
+	/* Allow the GUI to translate "#number" function keys.  (The "#number"
+	 * notation isn't allowed to be mixed with other characters, so the
+	 * <key> conversion loop below doesn't handle it.  So we do it here.)
+	 */
 	if (gui->keylabel && given[0] == '#')
 	{
 		rawlen = (*gui->keylabel)(given, givenlen, label, rawptr);
@@ -356,12 +361,15 @@ int guikeylabel(given, givenlen, label, rawptr)
 		safefree(build);
 
 	/* else we'll build a string by looking for <key> names */
+	keystrokes = 0;
+	symlabel = NULL;
 	for (build = NULL, scan = given; scan < &given[givenlen]; scan++)
 	{
 		/* anything other than '<' is added literally */
 		if (*scan != '<')
 		{
 			buildCHAR(&build, *scan);
+			keystrokes++;
 			continue;
 		}
 
@@ -465,6 +473,7 @@ int guikeylabel(given, givenlen, label, rawptr)
 		/* add the symbol's raw chars to the buffer */
 		while (rawlen-- > 0)
 			buildCHAR(&build, *symraw++);
+		keystrokes++;
 
 		/* move the scan variable past the symbolic name */
 		scan += labellen - 1;
@@ -473,6 +482,8 @@ int guikeylabel(given, givenlen, label, rawptr)
 	/* stick a <nul> on the end, and return the length without the null */
 	rawlen = buildCHAR(&build, '\0') - 1;
 	*rawptr = build;
-		/* ...but leave (*label) unchanged */
+	if (keystrokes == 1 && label && symlabel)
+		*label = symlabel;
+	/* ...else leave (*label) unchanged */
 	return rawlen;
 }

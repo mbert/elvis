@@ -4,7 +4,7 @@
 
 #include "elvis.h"
 #ifdef FEATURE_RCSID
-char id_operator[] = "$Id: operator.c,v 2.47 2003/10/17 17:41:23 steve Exp $";
+char id_operator[] = "$Id: operator.c,v 2.48 2004/03/14 03:35:56 steve Exp $";
 #endif
 
 
@@ -102,6 +102,7 @@ static RESULT	filterenter(win)
 	CHAR	*cmd;	/* used for collecting the characters of the command line */
 	CHAR	*cp;	/* used for scanning the command-line buffer */
 	CHAR	*sub;	/* used for scanning a substitution value (for ! % #) */
+	CHAR	*subend;/* end of substitution string */
 	char	err;	/* error message (if this is an error) */
 	long	i;
 
@@ -131,14 +132,12 @@ static RESULT	filterenter(win)
 		{
 		  case '!':
 			sub = o_previouscommand;
+			subend = sub + CHARlen(sub);
 			break;
 
 		  case '%':
-			sub = o_filename(markbuffer(win->cursor));
-			break;
-
 		  case '#':
-			sub = buffilenumber(&cp);
+			sub = buffilenumber(markbuffer(win->cursor), &cp, &subend);
 			break;
 
 		  case '\\':
@@ -165,7 +164,7 @@ static RESULT	filterenter(win)
 		}
 		else
 		{
-			for (; *sub; sub++)
+			for (; sub != subend; sub++)
 			{
 				buildCHAR(&cmd, *sub);
 			}

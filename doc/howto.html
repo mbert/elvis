@@ -1,6 +1,6 @@
 <html>
 <head>
-<title>Elvis-2.2_0 How To</title>
+<title>Elvis-2.2_1 How To</title>
 </head>
 <body>
 <h1>C. How to...</h1>
@@ -76,7 +76,7 @@ your type of file, and set the <code>bufdisplay</code> option appropriately.
 For example, adding the following line into <code>elvis.arf</code> would
 cause any file that looks like a patch to be displayed using "syntax cdiff"
 <pre>
-	1s/---\|***/set bufdisplay="syntax cdiff"/g</pre>
+	1s/---\|\*\*\*/set bufdisplay="syntax cdiff"/x</pre>
 <p>If you don't want to modify <code>elvis.arf</code>, you could achieve
 a similar effect via the <a href="elvistip.html#BufReadPost">BufReadPost</a>
 autocmd event.
@@ -103,7 +103,7 @@ the <a href="elvisex.html#substitute">:s</a> command.
 
 <dt><strong>Change <!-- change set --> the default <!-- initial startup --> settings <!-- configuration colors options macros --></strong>
 <dd>Before the first buffer is loaded or the first window is created,
-and buffer/window options you set will be used as the defaults for
+any buffer/window options you set will be used as the defaults for
 the buffers/windows that are created later.
 In other words, although setting a buffer-specific option like 
 <a href="elvisopt.html#equalprg">equalprg</a> or a window-specific option
@@ -287,12 +287,17 @@ later in the line (unless you type ^V before it).
 This is one good reason to skip the map, and get in the habit of using
 <kbd>^T</kbd> to increase indentation.
 The <a href="elvisopt.html#autotab">autotab</a> option helps here, too.
+
+<dt>Erase <!-- erase clear wipe out --> text immediately when backspacing <!-- backspace back space arrow change -->
+<dd>The <a href="elvisopt.html#cleantext">cleantext</a> option tells Elvis
+when to delete text that you've backspaced over.
+Try "<code>:set cleantext=long,bs,ex</code>".
 </dl>
 
 <h2>C.4 <a name="Buffers">Buffers</a></h2>
 <dl>
 <dt><strong>Switch <!-- switch goto --> to a different buffer in the same window</strong>
-<dd>This is easier that you might think.
+<dd>This is easier than you might think.
 On an ex command line, if you give an address but no command then Elvis
 will move the cursor to there.
 So to switch buffers all you need to do is give an address that's in
@@ -381,6 +386,11 @@ Here's an example of shell script:
 	#!/bin/sh
 	exec elvis -Gtermcap "$@"</pre>
 
+<p>A more elegant solution uses the $ELVISGUI environment variable:
+<pre>
+	#!/bin/sh
+	ELVISGUI=termcap exec elvis "$@"</pre>
+
 <p>If you <em>never</em> want to use the "x11" user interface, then you should
 probably reconfigure Elvis to leave it out.
 This will make Elvis considerably smaller.
@@ -388,7 +398,7 @@ To do this, go into the directory where Elvis' source code resides and
 execute the following shell commands:
 <pre>
 	make clean
-	configure --with-x=no
+	./configure --with-x=no
 	make</pre>
 
 <dt><strong>Run <!--start run invoke put add--> Elvis <!--elvis in on to--> from a [Start]<!--start kde KDE gnome wm root window manager--> menu <!--button icon--></strong>
@@ -493,7 +503,7 @@ the temporary file, like this:
 I plan to clean that up some day, by making Elvis smart enough to avoid
 reading stdout/stderr when the command line ends with a '&amp;' character.
 
-<dt><strong>Run<!--run fork execute spawn--> an interactive program under X11</strong>
+<dt><strong>Run<!--run fork execute spawn--> an interactive program in an Elvis window under X11</strong>
 <dd>Sadly, this can't be done with Elvis' "x11" user interface
 because Elvis' windows don't have a built-in terminal emulator.
 This is expected to be added for Elvis 2.3, but that doesn't help you
@@ -852,8 +862,8 @@ Here's an example of a fairly simple alias that converts plain text to HTML.
 	}
 </pre>
 
-<p>The other way is simpler and more versatile, but it requires the use of
-an external file.
+<p>The other way is simpler and more versatile,
+though it does require the use of an external file.
 It uses the <a href="elvisex.html#lpr">:lpr</a> command with
 <a href="elvisopt.html#lptype">lptype=html</a>.
 Since Elvis' print mechanism supports all of Elvis' display modes,
@@ -884,7 +894,7 @@ and <strong>&lt;/strong&gt; </strong>tags around the highlighted text.
 &lt;Ctrl-V&gt;&lt;Esc&gt; to get the <kbd>^[</kbd> character.)
 <dd>
 
-<dt><strong>Display <!--display show--> the size <!--number of lines columns--> in a <!--resized-->window when it is resized<!--size changes resize--></strong>
+<dt><strong>Display <!--display show--> the size <!--number of lines columns--> of a <!--resized-->window when it is resized<!--size changes resize--></strong>
 <dd>You can use the <a href="elvisex.html#autocmd">:au</a>
 <a href="elvistip.html#OptChanged">OptChanged</a> command to detect when the
 lines or columns options change, and display a message showing the new values.

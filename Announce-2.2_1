@@ -1,0 +1,321 @@
+I almost have version 2.1.1 ready.  I'm probably about 4 weekends away.
+You can download a copy of the source code from...
+
+	ftp://ftp.cs.pdx.edu/pub/elvis/unreleased/almost-2.2_1.tar.gz
+
+
+The following bugs have been fixed:
+
+    :andale was using Luxi Mono fonts
+	The :andale alias (used in the "x11" user interface) was
+	actually using Luxi Mono fonts instead of Andale fonts.
+
+    filenamerules broke newline handling
+	When I implemented the filenamerules option in 2.2.0, I
+	accidentally broke the way it parses newlines. This is important
+	if you remove the spaces keyword from filenamerules, and then do
+	something like ":n `grep foo *.txt`" to sets the args list to
+	all files containing "foo".
+
+    HTTP User-agent: header line
+	When sending HTTP requests, Elvis should send a User-agent:
+	header line. Some web sites demand this.
+
+    Default button names
+	In the "html" display mode, the <input type=submit> and <input
+	type=reset> tags should have the default values "Submit" and
+	"Reset" respectively. In 2.2.0, they have no default.
+
+    <hr/> shows ------------>
+	The "html" display mode had trouble with tags that end with
+	"/>". Elvis would display the > on the screen instead of hiding
+	it.
+
+    <Esc>
+	The <Esc> key should beep when pressed in visual command mode.
+
+    Delayed screen updates in "x11" user interface
+	When a map times out, Elvis wasn't updating the screens
+	immediately in the "x11" user interface, which made it hard to
+	detect that the map had indeed timed out.
+
+    "d)" could crash
+	In a file full of blank lines, "d)" caused 2.2.0 to dump core.
+
+    :put from a cut buffer
+	The :put command wasn't accepting a cut buffer name argument.
+
+    :dict didn't handle single words
+	The :dict alias (after ":load dict") didn't handle single-word
+	queries correctly.
+
+    The directory editor's links were relative to the wrong directory.
+	If you used ":e dirname" to edit the directory "dirname", then
+	the links in the generated HTML weren't interpreted as being
+	relative to "dirname". They were treated as being relative to
+	the current directory.
+
+    "x11" converts <b> to ^K0062.
+	The "x11" user interface is too aggressive when trying to
+	convert key names from angle-bracket notation to raw characters.
+	If a map contains an HTML tag such as <b>, and the tag name
+	happens to match the name of a key such as the "b" key, then
+	Elvis was trying to convert that keystroke into a raw control
+	sequence.
+
+    ":normal cwFOO^[" didn't work
+	The c operator was implemented in a way that didn't work in the
+	:normal command.
+
+    ".IP \(bu 4" had too large of an indent.
+	This is apparently due to the fact that "4" has no explicit
+	scaling suffix, and .IP was using the wrong default scaling
+	factor.
+
+    Hard to enter ^ in WinElvis on a Norwegian keyboard
+	WinElvis has always had a hard time with "dead keys", but now
+	I'm hopeful that it should work. The ^ key works in Norway now,
+	at least.
+
+    ":e +cmd file" didn't work
+	For the :e command and a few others, the "+" flag could only
+	handle a line number parameter, not a full ex command line.
+
+    Typos in manual.
+	Many found and fixed. Still many more to be found, I'm sure.
+
+    :chregion always changes the comment
+	The :chregion shouldn't change the comment of an existing region
+	unless you give a new comment explicitly, or the old comment was
+	merely the old font name.
+
+    ":set show=spell" doesn't work very well.
+	You need to load the whole dictionary to get good suggestions
+	from the spell checker. In 2.2.0 you had to turn on the
+	"spellautoload" option, but in 2.2.1 that option is on by
+	default.
+
+    :map doesn't list all user-defined maps.
+	2.2.0 assumed that any map tied to a symbolic key was defined by
+	the system, so it wouldn't list it unless you said ":map all".
+	This means you couldn't see actions mapped to function keys.
+	2.2.1 is smarter about this -- it adds a flag to indicate
+	whether the map was added by the user or created automatically
+	by the GUI.
+
+    Command names were truncated in error messages.
+	When displaying a "bad command name" error message, 2.2.0 would
+	truncate the name at the first character that prevented it from
+	being recognized as a command. 2.2.1 displays the full name of
+	the bad command, exactly as you typed it.
+
+    :man doesn't display backslashes correctly
+	The :man alias didn't handle backslashes very well, so pages
+	which use a lot of backslashes such as ":man groff_man" looked
+	bad.
+
+    :%unr doesn't always remove all regions.
+	This mostly occured when running autocmds. It also affected the
+	:chregion command.
+
+    :%j only joined two lines
+	The command ":1,%j" joins all lines but ":%j" only joined two.
+
+    elvis.ini maps too much
+	The default "elvis.ini" file contained maps without the nosave
+	flag, so if you ran :mkexrc in an xterm, your ~/.elvisrc file
+	would contain maps that are present in all user interfaces and
+	for all termcap terminal types.
+
+    :mkexrc can lose GUI-specific options
+	The :mkexrc command only saved GUI-specific options for the
+	current GUI. This means that running :mkexrc in the "termcap"
+	interface could clobber your default font for the "x11"
+	interface. 2.2.1 gets around this by storing all GUI-specific
+	options, even those for other GUIs or unknown GUIs, just so it
+	can save them in the ~/.elvisrc file.
+
+    <li><p> looks ugly
+	Many HTML documents use this sequence of tags to generate lists
+	that have a bit of vertical whitespace between items. But 2.2.0
+	was drawing the list item marker (bullet or number) on the blank
+	line, instead of the line where the paragraph's text starts.
+	2.2.1 treats this as a special case -- it ignores the <p> in
+	this context.
+
+    security=safer is too strict
+	The "security=safer" setting didn't allow some command that it
+	should have allowed. This prevented some harmless and useful
+	commands such as "elvis -client foo" from working. To get this
+	working right, I had to overhaul the behavior of
+	"security=safer". It is no longer a more lenient superset of
+	"security=restricted". See ":help set security" for details.
+
+	One consequence of this is that the "-S" flag now sets
+	security=restricted.
+
+    :wq didn't work when security=safer or security=restricted.
+	The manual said it should. The new version of security=safer
+	doesn't allow any writing, but you can now :wq when
+	security=restricted.
+
+    The "ax" text object didn't support tag names with hyphens
+	I've extended it to allow single hyphens but not double hyphens
+	(since double hyphens mark comments). It also allows colons, for
+	namespace control.
+
+    dirperm(".") returns readonly
+	The dirperm() function didn't recognize directories correctly.
+	This was a bug in the way the "dir:" pseudo-protocol was
+	implemented.
+
+    hlobject didn't allow commas
+	An increasing number of options in elvis store multiple values
+	in comma-delimited lists. The "hlobject" option can store
+	multiple values, but required them to be either crammed together
+	or delimited by spaces. Now it supports commas.
+
+    rcssince didn't work
+	The rcssince alias (part of ":load since") is supposed to be
+	executed when a buffer is loaded, but it used some commands
+	which are illegal during initialization. Most of the commands
+	that are illegal during initialization are only illegal because
+	they're useless until the first file is loaded into a buffer.
+	The rcssince alias was actually running after the file was
+	loaded, so it should be allowed, but Elvis had a rather weak
+	idea of when "initialization" ends.
+
+    :suspend didn't work
+	It wasn't in Elvis' internal command list correctly. The :stop
+	equivalent has always worked though.
+
+    Backslashes aren't handled right in "simpler syntax"
+	If a "simpler syntax" expression started with \( or \$ then
+	Elvis should convert that to a literal ( or $ character.
+	Instead, 2.2.0 was leaving it as a literal \ followed by an
+	parenthesized subexpression, or $ variable substitution. (This
+	arose from trying to make an initial \\ remain unchanged so
+	Windows users could five UNC names such as \\machine\dir\file.)
+
+    AliasLeave events
+	At the end of an alias, 2.2.0 generated an AliasEnter event when
+	it should have generated an AliasLeave event.
+
+    :eval does not compute
+	The :eval command could get confused if the command that it runs
+	needs to evaluate an expression. This was because a static
+	buffer is used to return the results of evaluations, and :eval
+	didn't copy the result into a local buffer before trying to
+	execute it.
+
+    Trouble with gzipped files
+	The ":load gzip" command (formerly ":load augz") sets up elvis
+	to automatically handle gzipped files. It has some problems, but
+	the two biggest problems are now fixed.
+
+	One problem was that filtering commands always wrote out the
+	final newline to gunzip, even though that newline wasn't part of
+	the gzipped data. This caused gunzip to output an error message.
+	2.2.1 doesn't write out the final newline when the
+	"partiallastline" option is set.
+
+	The other main problem was that the file was initially displayed
+	in hex mode, even after the file had been gunzipped into text.
+	To get around this, elvis will now temporarily remove ".gz" from
+	the end of the file name, then rerun the "elvis.arf" script, and
+	then slap the ".gz" back on the file name again so the file can
+	be saved correctly.
+
+    "x11" could generate a BadMatch error while exiting
+	This would occur if you start Elvis from an xterm, and then
+	exited the xterm before Elvis. Elvis will now ignore that
+	particular error.
+
+
+
+The following new features have been added:
+
+    :nofold
+	Wipes out folds. This differs from :unfold in that :unfold
+	leaves some information behind to allow the region to be easily
+	refolded. :nofold leaves nothing behind.
+
+    Persistent information
+	Elvis can store cursor positions and some other things between
+	invocations. See the "persistfile" and "persist" options.
+
+    %< and #< in filenames
+	When giving file name arguments, you can use %< and #< to get
+	the name of the current or alternate file, with its extension
+	removed. For example, if you're editing "database_interface.c",
+	then you can get to "database_interface.h" by typing ":e %<.h".
+
+    :phelp command
+	Like :help except that :phelp doesn't split the screen. Instead,
+	it saves your old cursor position on the tag stack and then
+	shows the help page in your current screen.
+
+    X11 buttons can simulate keystrokes
+	The :gui command accepts a new notation for defining toolbar
+	buttons that simulate keystrokes instead of invoking an ex
+	command. This is useful when you want to do something with a
+	character selection; ex commands treat all selections as line
+	selections.
+
+	The notation uses square brackets around the name. You can put
+	the characters to simulate after the closing square bracket. If
+	you omit those characters, then Elvis will simulate keystrokes
+	that spell out the button name, with the brackets included. You
+	can then set up a :map to convert that to something else. That
+	can be nice because elvis allows maps to be somewhat context
+	sensitive.
+
+    Computed line addresses
+	In ex command lines, you can now use =option to pull a line
+	address from an option, or =(expression) for more complex
+	expressions. This is often handy in aliases.
+
+    GDB interface
+	The core of a simple GDB interface is provided, to allow Elvis
+	and GDB to work together. This depends on Elvis' "x11" user
+	interface; you can't use it with the termcap interface. It is
+	implemented partly as a C program that acts as a "wrapper"
+	around GDB and parses its output for things that Elvis needs to
+	know, and partly as a set of aliases which receive that
+	information and act on it (e.g., by moving the cursor, or
+	changing the highlight of breakpoint lines).
+
+    Generic "state" display
+	A new "state" option has been created. If the "show" option
+	contains the keyword "state", then the value of the "state"
+	option will be displayed at the bottom of the window. This can
+	be handy in complex alias packages. The GDB interface uses it to
+	indicate the debugged program's status.
+
+    More function keys
+	The <F11> and <F12> function keys are now supported on most
+	platforms. I also tried to support shift and control function
+	keys, with some success on Linux.
+
+    :map noselect ...
+	The :map command now supports a noselect flag. This is short for
+	"every context except select".
+
+    :load scripts described
+	I've added a section to the "Tips" chapter describing the
+	scripts in Elvis' library. (These may be loaded via the :load
+	alias.)
+
+    :source can read from a program
+	The :source command has been extended to allow it to read the
+	output of a program, and interpret that output as a series of ex
+	commands. For example, you could create a program that scans an
+	HTML document and outputs a series of :fold commands to allow
+	you to selective hide sections of it.
+
+    incsearch partially supports history
+	When using incremental search, the final search expression is
+	stored in the search history. You can use arrow keys or ^Ok and
+	^Oj to retrieve a previous search. Full editing is still only
+	supported for non-incremental searches, though.
+

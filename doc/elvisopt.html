@@ -1,5 +1,5 @@
 <html><head>
-<title>Elvis-2.2_0 Options</title>
+<title>Elvis-2.2_1 Options</title>
 </head><body>
 
 <h1>6. OPTIONS</h1>
@@ -38,7 +38,7 @@ number represents the width of a column; for long lines, Elvis assumes the
 last number should be repeated.
 
 <p>Each option serves as an attribute of something.
-The <em><a name="GRP">group</a></em> of an option designates what it is an attribute of.
+The <a name="GRP"><em>group</em></a> of an option designates what it is an attribute of.
 For example, the "filename" option is an attribute of buffers; when you
 switch to a different buffer, it will have a different value for the
 "filename" option.
@@ -48,17 +48,19 @@ Here's a complete list:
 .---------.-------------------------------------------------------.
 |  GROUP  |  DESCRIPTION                                          |
 |---------|-------------------------------------------------------|
-| buf     | Attributes of buffers                                 |
-| win     | Attributes of windows                                 |
-| syntax  | Attributes of the "syntax" display mode               |
-| x11     | Attributes of the "x11" user interface                |
-| tcap    | Attributes of the "termcap" user interface            |
-| windows | Attributes of the "windows" user interface            |
-| win32   | User interface attributes for the Win32 port          |
 | global  | Global options                                        |
+| user    | <a href="#USER">User variables a - z</a> (Global, useful in ex scripts)   |
 | lp      | <a href="#LPR">Printing options</a>                                      |
+| buf     | Attributes of each buffer                             |
+| win     | Attributes of each window                             |
+| syntax  | Attributes of the "syntax" display mode               |
+| x11     | Attributes of the "<a href="elvisgui.html#x11">x11</a>" user interface                |
+| windows | Attributes of the "<a href="elvisgui.html#windows">windows</a>" user interface            |
+| termcap | Attributes of the "<a href="elvisgui.html#termcap">termcap</a>" user interface            |
+| vio     | Attributes of the "<a href="elvisgui.html#vio">vio</a>" user interface (OS/2 console) |
+| win32   | Attributes of the text-mode Win32 port                |
+| au      | Used only when executing an autocmd                   |
 | bang    | Used only when writing a file                         |
-| user    | User variables a - z (Global, useful in ex scripts)   |
 ^---------^-------------------------------------------------------^
 </pre>
 You don't need to know an option's group to set that option.
@@ -161,6 +163,10 @@ this buffer hasn't been saved since its last change.
 When you restart the session, the buffer will still exist with all its changed
 text intact.  By default, the retain option is false (":set noretain") because
 that mimics traditional vi behavior.
+
+<p>It also prevents Elvis from destoying the buffer during an edit session.
+Normally, Elvis will destroy buffers if they aren't shown in any window, and
+their contents haven't been modified since they were loaded or written.
  
 <dt><a name="modified">modified, mod <em>(Boolean, buf)</em></a>
 <dd>The <em>modified</em> option indicates whether the
@@ -753,7 +759,7 @@ list.
 The default value includes all of these keywords.
 Users of Microsoft Windows may want to remove "space" from the value,
 so that spaces can be used in filenames more easily.
-You can still give multiple file names by separating then with &lt;Tab&gt;.
+You can still give multiple file names by separating them with &lt;Tab&gt;.
 </dl>
 
 <h2><a name="WINDOW">6.7 Window statistics</a></h2>
@@ -807,12 +813,13 @@ between them.
 | <a href="#display">display, mode</a>       | String  | win    | name of current display mode|
 | <a href="#number">number, nu</a>          | Boolean | win    | display line numbers        |
 | <a href="#ruler">ruler, ru</a>           | Boolean | win    | display cursor's line/column|
-| <a href="#guidewidth">guidewidth, gw</a>      | Tab-list| buf    | draw vertial lines on screen|
+| <a href="#guidewidth">guidewidth, gw</a>      | Tab-list| buf    | draw vertical guide lines   |
 | <a href="#hlobject">hlobject, hlo</a>       | String  | buf    | type of object to highlight |
 | <a href="#hllayers">hllayers, hll</a>       | Number  | win    | how many layers to highlight|
 | <a href="#background">background, bg</a>      | One-of  | global | assumed background color    |
 | <a href="#folding">folding, fold</a>       | Boolean | win    | enable folding              |
 | <a href="#show">show</a>                | String  | global | what to show on bottom row  |
+| <a href="#state">state</a>               | String  | global | may be shown via <a href="#show">show</a> option|
 | <a href="#showmatch">showmatch, sm</a>       | Boolean | win    | highlight matching parens   |
 | <a href="#showmode">showmode, smd</a>       | Boolean | win    | display the command state   |
 | <a href="#nonascii">nonascii, asc</a>       | One-Of  | global | how to display non-ascii    |
@@ -1049,17 +1056,28 @@ at the cursor column:
 that you want Elvis to highlight around the cursor.
 Its value will usually be the two-character name of a single type of
 <a href="elvisvi.html#textobject">text object</a>, but you can also
-set it to a whole list of objects to use for different layers of highlighting.
+set it to a whole list of objects
+(optionally delimited via whitespace or commas)
+to use for different layers of highlighting.
 To highlight whole lines, instead of the exact extent of the text object,
 you can put a "V" before the text object's name.
-(For example, <code>hlobject="Va{"</code> will highlight whole lines
-via brace-delimited blocks.)
 If you set <a href="#hllayers">hllayers</a> to more layers than you've defined
 in this option, then the last object type will be repeated with increasing
 counts.
 The default value is "" which inhibits highlighting.
 For highlighting to occur, you must set both <code>hlobject</code> to a valid
 object name, and <a href="#hllayers">hllayers</a> to a non-zero value.
+Examples:
+<pre graphic>
+.-------------------.---------------------------------------.
+| Object list       | What it highlights                    |
+|-------------------|---------------------------------------|
+| hll=1 hlo="al"    | the line containing the cursor        |
+| hll=1 hlo="Va{"   | whole lines via brace-delimited blocks|
+| hll=2 hlo="ix,ax" | XML tags and their contents           |
+^-------------------^---------------------------------------^</pre>
+(Larger values of <a href="#hllayers">hll (hllayers)</a> will do interesting
+and useful things.)
 
 <p><strong>NOTE:</strong>
 I recommend that you get in the habit of enclosing the value in quotes.
@@ -1078,6 +1096,11 @@ Larger values will cause more objects around the cursor to be highlighted.
 The outermost layer will use the highlighting defined by the font "hlobject1",
 the next layer will use "hlobject2", and so on; you can use the
 <a href="elvisex.html#color">:color</a> command to set these up.
+Also, for the <a href="elvisgui.html#x11">x11</a> and
+<a href="elvisgui.html#windows">windows</a> user interfaces you can run
+"<a href="elvistip.html#load">:load</a> <tt>shade</tt>"
+to set up all of the "hlobject<var>n</var>" faces with
+shades of gray background.
 
 <dt><a name="background">background, bg <em>(One of, global)</em></a>
 <dd>The <em>background</em> option does not change the background color!
@@ -1139,6 +1162,7 @@ The keywords and their meanings are:
 | link    | destination of an <a href="elvisdm.html#html">HTML</a> link at the cursor position  |
 | spell   | suggested corrections for a <a href="elvistip.html#SPELL">misspelled word</a>         |
 | region  | comment of current region (as used by <a href="elvisex.html#region">:region</a>)      |
+| state   | value of the <a href="#state">state</a> option                           |
 ^---------^-----------------------------------------------------^</pre>
 
 <p>Many of the above keywords won't always generate output.
@@ -1178,6 +1202,11 @@ something to show you.
 This causes Elvis to display spelling suggestions if the cursor is on a
 misspelled word, or the tag name and region comment otherwise.
 
+<dt><a name="state">state <em>(String, global)</em></a>
+<dd>The value of the <em>state</em> option may be shown at the bottom of the
+screen if the <a href="#show">show</a> option contains the keyword "state".
+This is the only thing that <code>state</code> is used for.
+Its default value is "".
 <dt><a name="showmatch">showmatch, sm <em>(Boolean, win)</em></a>
 <dd>The <em>showmatch</em> option helps you locate
 matching parentheses.
@@ -1303,10 +1332,13 @@ or move the cursor onto a misspelled word while the
 This is desirable because Elvis will only suggest words that have been loaded,
 so if you haven't loaded the whole dictionary then it won't be able to make
 very many suggestions.
-However, loading the whole dictionary takes some time (usually about 1 second)
-and memory (about 1 megabyte) so you may prefer to load the dictionary
-explicitly ahead of time via the <a href="elvisex.html#wordfile">:wordfile</a>
-command.
+The <code>spellautoload</code> option is on by default.
+
+<p>Loading the whole dictionary takes some time (usually about 1 second)
+and memory (about 1 megabyte) so you may prefer to
+turn off <code>spellautoload</code> to avoid this.
+You could then explicitly load it via the
+<a href="elvisex.html#wordfile">:wordfile</a> command, if you want.
 
 <dt><a name="spellsuffix">spellsuffix, sps <em>(String, global)</em></a>
 <dd>This stores a list of possible suffixes for natural-language words.
@@ -1445,12 +1477,12 @@ the <code>help</code> option will allow Elvis to recognize the "Help" menu.
 <pre graphic>.---------------------.---------.--------.-----------------------------.
 | OPTION NAMES        | TYPE    | GROUP  | DESCRIPTION                 |
 |---------------------|---------|--------|-----------------------------|
-| <a href="#term">term, ttytype</a>       | String  | tcap   | terminal's termcap entry    |
-| <a href="#ttyrows">ttyrows, ttylines</a>   | Number  | tcap   | height of screen            |
-| <a href="#ttycolumns">ttycolumns, ttycols</a> | Number  | tcap   | width of screen             |
-| <a href="#ttyunderline">ttyunderline, ttyu</a>  | Boolean | tcap   | okay to mix color &amp; underln |
-| <a href="#ttyitalic">ttyitalic, ttyi</a>     | Boolean | tcap   | okay to use "dim" for italic|
-| <a href="#ttyunderline">ttywrap, ttyw</a>       | Boolean | tcap   | trust termcap's line wrap   |
+| <a href="#term">term, ttytype</a>       | String  | termcap| terminal's termcap entry    |
+| <a href="#ttyrows">ttyrows, ttylines</a>   | Number  | termcap| height of screen            |
+| <a href="#ttycolumns">ttycolumns, ttycols</a> | Number  | termcap| width of screen             |
+| <a href="#ttyunderline">ttyunderline, ttyu</a>  | Boolean | termcap| okay to mix color &amp; underln |
+| <a href="#ttyitalic">ttyitalic, ttyi</a>     | Boolean | termcap| okay to use "dim" for italic|
+| <a href="#ttyunderline">ttywrap, ttyw</a>       | Boolean | termcap| trust termcap's line wrap   |
 | <a href="#codepage">codepage, cp</a>        | Number  | win32  | console character set       |
 |---------------------|---------|--------|-----------------------------|
 | <a href="#scrollbar">scrollbar, sb</a>       | Boolean | (gui)  | enable the scrollbar        |
@@ -1492,6 +1524,7 @@ the <code>help</code> option will allow Elvis to recognize the "Help" menu.
 | <a href="#outlinemono">outlinemono, om</a>     | Number  | x11    | char outlining for X11-mono |
 | <a href="#antialias">antialias, aa</a>       | Boolean | x11    | use antialiased fonts       |
 | <a href="#aasqueeze">aasqueeze, aas</a>      | Boolean | x11    | reduce the gap between lines|
+| <a href="#secret">secret</a>              | Number  | x11    | identifies trusted clients  |
 ^---------------------^---------^--------^-----------------------------^
 </pre>
 
@@ -1499,9 +1532,9 @@ the <code>help</code> option will allow Elvis to recognize the "Help" menu.
 
 <dl>
 
-<dt><a name="term">term, ttytype <em>(String, tcap)</em></a>
-<br><a name="ttyrows">ttyrows, ttylines <em>(Number, tcap)</em></a>
-<br><a name="ttycolumns">ttycolumns, ttycols <em>(Number, tcap)</em></a>
+<dt><a name="term">term, ttytype <em>(String, termcap)</em></a>
+<br><a name="ttyrows">ttyrows, ttylines <em>(Number, termcap)</em></a>
+<br><a name="ttycolumns">ttycolumns, ttycols <em>(Number, termcap)</em></a>
 <dd>The <em>term, ttyrows,</em> and <em>ttycolumns</em> options are only present
 if you're using the <a href="elvisgui.html#termcap">termcap</a> user interface.
 They indicate the name of the termcap entry being used and the size of the screen.
@@ -1514,7 +1547,7 @@ or from the stty "rows" and "columns" settings (or other OS-specific
 configuration settings), or, as a last resort, from the termcap/terminfo
 entry.
 
-<dt><a name="ttyunderline">ttyunderline, ttyu <em>(Boolean, tcap)</em></a>
+<dt><a name="ttyunderline">ttyunderline, ttyu <em>(Boolean, termcap)</em></a>
 <dd>The <em>ttyunderline</em> option is only present if you're using the
 <a href="elvisgui.html#termcap">termcap</a> interface.
 It indicates whether it is safe to try underlining text when colors
@@ -1546,7 +1579,7 @@ without setting a background color, you can simply set the background to
 	:set nottyunderline
 	:color normal on transparent</pre>
 
-<dt><a name="ttyitalic">ttyitalic, ttyi <em>(Boolean, tcap)</em></a>
+<dt><a name="ttyitalic">ttyitalic, ttyi <em>(Boolean, termcap)</em></a>
 <dd>Elvis normally displays italic text using the "dim" attribute, but
 standard PC VGA hardware can't do that very well.
 The Linux console driver implements it by using gray, which is unfortunate
@@ -1564,7 +1597,7 @@ uses underlining to represent italics.
 Underlining is influenced by the <a href="#ttyunderline">ttyunderline</a>
 option.
 
-<dt><a name="ttywrap">ttywrap, ttyw <em>(Boolean, tcap)</em></a>
+<dt><a name="ttywrap">ttywrap, ttyw <em>(Boolean, termcap)</em></a>
 <dd>Elvis normally tries to be smart about line-wrap, more so than most
 programs.
 But this only works right if the terminal's termcap/terminfo description is
@@ -1679,7 +1712,7 @@ immediate effect on the window's title.
 If you set a <code>titleformat</code> in your elvis.rc file, then its
 value will affect all windows that are created later.
 This is the most useful place to change <code>titleformat</code>.
-See the <a href="elvisex.html#mkexrc">:mkexrc</code> command.
+See the <a href="elvisex.html#mkexrc">:mkexrc</a> command.
 
 </dl>
 
@@ -1927,6 +1960,26 @@ Elvis can draw a white outline around the black characters.  The value of
 <code>outlinemono</code> is a number that indicates how thick the outline
 should be.  3 is the thickest supported outline, and 0 is no outline at all.
 The default is 2.
+
+<dt><a name="secret">secret <em>(Number, x11)</em></a>
+<dd>Normally, when any clients sends ex commands to a server elvis
+(via "elvis -client -c <var>excmd</var>", for example),
+those commands are executed with
+<a href="#security">security</a>=<code>safer</code>.
+The <em>secret</em> option provides a way to recognize trusted clients
+which are not forced into this high-security mode.
+If <code>secret</code> is non-zero, and
+a command is received which begins with the <code>secret</code> value
+enclosed in double-quote characters, then elvis will run the command without
+forcing <code>security=safer</code>.
+<p>
+Initally <code>secret</code> is 0, which will disable this feature so that all
+clients' requests are run in <code>security=safer</code> mode.
+If you set <code>secret</code> to a random value,
+and then pass that value to a program started by elvis,
+then elvis will be able to recognize that program's requests as coming from
+a client that it trusts.
+This mechanism is used by the <a href="elvistip.html#gdb">gdb</a> interface.
 
 </dl>
 
@@ -2596,7 +2649,8 @@ Elvis had an error.
 
 <dt><a name="ccprg">ccprg, cp <em>(String, buf)</em></a>
 <br><a name="makeprg">makeprg, mp <em>(String, buf)</em></a>
-<dd>The <em>ccprg</em> and <em>makeprg</em> are the programs used by the
+<dd>The <em>ccprg</em> and <em>makeprg</em> options store the shell commands
+that are used by the
 <a href="elvisex.html#cc">:cc</a> and <a href="elvisex.html#make">:make</a>
 commands.
 Before the program strings are executed, they are subjected to the same
@@ -2713,7 +2767,7 @@ can't be found then it will use "C:\" as the default home directory.</td>
 
 <tr>
 <th>For MS-DOS:</th>
-<td>The default home directory is the one containing ELVIS-2.2_0</td>
+<td>The default home directory is the one containing ELVIS-2.2_1</td>
 </tr>
 </table>
 
@@ -2775,17 +2829,33 @@ the <a href="#session">session</a> option gives the name of the session file.
 <pre graphic>.---------------------.---------.--------.-----------------------------.
 | OPTION NAMES        | TYPE    | GROUP  | DESCRIPTION                 |
 |---------------------|---------|--------|-----------------------------|
+| <a href="#initializing">initializing, ing</a>   | Boolean | global | has first file been loaded? |
 | <a href="#exrc">exrc, ex</a>            | Boolean | global | interpret ./.exrc file      |
 | <a href="#modeline">modeline, ml</a>        | Boolean | global | interpret modelines         |
 | <a href="#modelines">modelines, mls</a>      | Number  | global | positions of modelines      |
 | <a href="#security">security, sec</a>       | One-of  | global | normal, safer,or restricted |
 | <a href="#initialstate">initialstate, init</a>  | One-Of  | global | command mode of new windows |
 | <a href="#mkexrcfile">mkexrcfile, rc</a>      | String  | global | name of user's init script  |
+| <a href="#persistfile">persistfile, perf</a>   | String  | global | file that remembers cursors |
+| <a href="#persist">persist, pers</a>       | Packed  | global | what to store in persistfile|
 ^---------------------^---------^--------^-----------------------------^
 </pre>
 
 <dl>
 
+<dt><a name="initializing">initializing, ing <em>(Boolean, global)</em></a>
+<dd>The <em>initializing</em> option indicates whether Elvis is currently
+in the early stages of its initialization, before an edit buffer has been
+created for first file.
+You can't modify this option yourself;
+Elvis changes it when appropriate.
+It will be set while running the <a href="elvisses.html#elvis.ini">elvis.ini</a>
+script (which runs your <code>~/.elvisrc</code> or <code>~/elvis.rc</code> file).
+It is cleared while running the <a href="elvisses.html#elvis.brf">elvis.brf</a>
+script, and for <a href="elvistip.html#BufReadPre">BufReadPre</a> and
+<a href="elvistip.html#BufReadPost">BufReadPost</a> events.
+This is significant because commands that access the edit buffer are disabled
+while <code>intializing</code> is true.
 <dt><a name="exrc">exrc, ex <em>(Boolean, global)</em></a>
 <dd>The <em>exrc</em> option has no built-in meaning to Elvis,
 however the default <a href="elvisses.html#elvis.ini">elvis.ini</a> file uses this option to determine whether
@@ -2819,6 +2889,26 @@ Basically,
 "normal" has no security rules,
 "safer" tries to protect the user against writing by malicious scripts, and
 "restricted" tries to protect the system against reading by a malicious user.
+<p>
+There are four things that must be avoided to maintain security:
+<ol>
+  <li>You shouldn't be able to run external programs.
+  <li>You shouldn't be able to write over any arbitrary file.
+  <li>You shouldn't be able to load any arbitrary file, modify it, and
+	write it.
+  <li>You shouldn't be able to create maps or aliases which trick the
+	user into doing any of the above.
+</ol>
+<p>
+Items 1, 2, and 4 are pretty easy.
+Item 3 requires some compromise and that's
+why there are two different secure modes.
+"safer" allows you to load any file, and modify it, but not write it;
+this makes "safer" useless for interactive work.
+"restricted" only allows you to load files named on the command line, but
+you can modify them and write them (back over the old version of the file,
+not out to any random file).
+<p>
 Specifically...
 
 <table>
@@ -2830,54 +2920,32 @@ You will normally want to run in "normal" mode as much as possible.
 <br>
 </td></tr>
 <tr><th valign=top align=left>safer</th><td>
-This is an intermediate level of protection.
-It is intended to make modelines and a .exrc file in the current directory
+This is intended to make modelines and a .exrc file in the current directory
 safe to use, but I'm not making any promises.
-When security=safer, certain commands are disabled, wildcard
-expansion in filenames is disabled, and certain options are locked (including
-the <code>security</code> option itself).
+When security=safer, certain commands are disabled,
+wildcard expansion in filenames is disabled, and
+certain options are locked (including the <code>security</code> option itself).
 Typically you will use the ex command
-<a href="elvisex.html#safely">:safely source</a> to execute an untrusted script,
+"<a href="elvisex.html#safely">:safely source <em>filename</em></a>"
+to execute an untrusted script,
 rather than futz with the value of the safer option directly.
 
 <p>The disabled ex commands are
 <a href="elvisex.html#BANG">:!</a>,
 <a href="elvisex.html#abbreviate">:abbreviate</a>,
 <a href="elvisex.html#alias">:alias</a>,
-<a href="elvisex.html#args">:args</a>,
-<a href="elvisex.html#augroup">:augroup</a>,
 <a href="elvisex.html#autocmd">:autocmd</a>,
 <a href="elvisex.html#cc">:cc</a>,
 <a href="elvisex.html#cd">:cd</a>,
 <a href="elvisex.html#chdir">:chdir</a>,
-<a href="elvisex.html#last">:last</a>,
 <a href="elvisex.html#lpr">:lpr</a>,
 <a href="elvisex.html#make">:make</a>,
 <a href="elvisex.html#map">:map</a>,
 <a href="elvisex.html#mkexrc">:mkexrc</a>,
-<a href="elvisex.html#next">:next</a>,
-<a href="elvisex.html#Next">:Next</a>,
-<a href="elvisex.html#previous">:previous</a>,
-<a href="elvisex.html#rewind">:rewind</a>,
 <a href="elvisex.html#shell">:shell</a>,
-<a href="elvisex.html#slast">:slast</a>,
-<a href="elvisex.html#snew">:snew</a>,
-<a href="elvisex.html#snext">:snext</a>,
-<a href="elvisex.html#sNext">:sNext</a>,
-<a href="elvisex.html#srewind">:srewind</a>, and
-<a href="elvisex.html#write">:write</a>.
-
-<p>Some commands are allowed only when invoked without a filename argument.
-These are
-<a href="elvisex.html#edit">:edit</a>,
-<a href="elvisex.html#ex">:ex</a>,
-<a href="elvisex.html#file">:file</a>,
-<a href="elvisex.html#open">:open</a>,
-<a href="elvisex.html#push">:push</a>,
-<a href="elvisex.html#split">:split</a>,
-<a href="elvisex.html#visual">:visual</a>,
-<a href="elvisex.html#wquit">:wquit</a>, and
-<a href="elvisex.html#xit">:xit</a>.
+<a href="elvisex.html#write">:write</a>,
+<a href="elvisex.html#write">:wquit</a>, and
+<a href="elvisex.html#write">:xit</a>.
 
 <p>The locked options are
 <a href="#ccprg">ccprg</a>,
@@ -2888,29 +2956,73 @@ These are
 <a href="#lpout">lpout</a>,
 <a href="#makeprg">makeprg</a>,
 <a href="#modeline">modeline</a>,
+<a href="#persistfile">persistfile</a>,
+<a href="#secret">secret</a>,
 <a href="#security">security</a>,
 <a href="#shell">shell</a>,
-<a href="#spelldict">spelldict</a>, and
+<a href="#spelldict">spelldict</a>,
+<a href="#stopshell">stopshell</a>, and
 <a href="#tagprg">tagprg</a>.
 
 <p>In expressions, the <a href="elvisexp#shell">shell</a>() function will fail.
 <br>
 </td></tr>
 <tr><th valign=top align=left>restricted</th><td>
-This is the most secure setting.
-It is intended to make Elvis safe for use as a restricted editor,
-e.g. to be invoked on a specific file via the <b>sudo</b>(8) program.
+This is intended to make Elvis safe for use as a restricted editor.
+Although "restricted" is generally stricter than "safer", it does allow
+you to save your files while "safer" does not.
 <p>
-In addition to all of the rules implied by "safer" level,
-"restricted" disables the
-<a href="elvisex.html#stop">:stop</a>,
-<a href="elvisex.html#source">:source</a>,
-<a href="elvisex.html#suspend">:suspend</a> commands.
-Also, the
+The disabled ex commands are:
+<a href="elvisex.html#BANG">:!</a>,
+<a href="elvisex.html#abbreviate">:abbreviate</a>,
+<a href="elvisex.html#alias">:alias</a>,
+<a href="elvisex.html#autocmd">:autocmd</a>,
+<a href="elvisex.html#cc">:cc</a>,
+<a href="elvisex.html#cd">:cd</a>,
+<a href="elvisex.html#chdir">:chdir</a>,
 <a href="elvisex.html#errlist">:errlist</a>,
-<a href="elvisex.html#read">:read</a>, and
-<a href="elvisex.html#wordfile">:wordfile</a>
-commands won't allow filename arguments.
+<a href="elvisex.html#lpr">:lpr</a>,
+<a href="elvisex.html#make">:make</a>,
+<a href="elvisex.html#map">:map</a>,
+<a href="elvisex.html#mkexrc">:mkexrc</a>,
+<a href="elvisex.html#read">:read</a>,
+<a href="elvisex.html#shell">:shell</a>,
+<a href="elvisex.html#source">:source</a>,
+<a href="elvisex.html#stop">:stop</a>, and
+<a href="elvisex.html#suspend">:suspend</a>.
+<p>
+Also, the following ex commands can only be invoked without any arguments:
+<a href="elvisex.html#args">:args</a>,
+<a href="elvisex.html#edit">:edit</a>,
+<a href="elvisex.html#ex">:ex</a>,
+<a href="elvisex.html#file">:file</a>,
+<a href="elvisex.html#next">:next</a>,
+<a href="elvisex.html#open">:open</a>,
+<a href="elvisex.html#push">:push</a>,
+<a href="elvisex.html#snext">:snext</a>,
+<a href="elvisex.html#split">:split</a>,
+<a href="elvisex.html#visual">:visual</a>,
+<a href="elvisex.html#wordfile">:wordfile</a>,
+<a href="elvisex.html#write">:write</a>,
+<a href="elvisex.html#wquit">:wquit</a>, and
+<a href="elvisex.html#xit">:xit</a>.
+<p>
+"restricted" locks the same options as "safer":
+<a href="#ccprg">ccprg</a>,
+<a href="#elvispath">elvispath</a>,
+<a href="#equalprg">equalprg</a>,
+<a href="#home">home</a>,
+<a href="#keywordprg">keywordprg</a>,
+<a href="#lpout">lpout</a>,
+<a href="#makeprg">makeprg</a>,
+<a href="#modeline">modeline</a>,
+<a href="#persistfile">persistfile</a>,
+<a href="#secret">secret</a>,
+<a href="#security">security</a>,
+<a href="#shell">shell</a>,
+<a href="#spelldict">spelldict</a>,
+<a href="#stopshell">stopshell</a>, and
+<a href="#tagprg">tagprg</a>.
 <p>
 The "restricted" level also
 inhibits filename completion via the <kbd>&lt;Tab&gt;</kbd> key.
@@ -2918,8 +3030,12 @@ In expressions, the
 <a href="elvisexp#time">time</a>(<var>filename</var>) function will fail if
 invoked with a <var>filename</var> parameter, and the
 <a href="elvisexp#exists">exists</a>(),
-<a href="elvisexp#dirperm">dirperm</a>(), and
-<a href="elvisexp#fileeol">fileeol</a>() functions always fail.
+<a href="elvisexp#dirperm">dirperm</a>(),
+<a href="elvisexp#fileeol">fileeol</a>(), and
+<a href="elvisexp#shell">shell</a>() functions always fail.
+</td>
+</tr>
+</table>
 
 <dt><a name="initialstate">initialstate, init <em>(One-Of, global)</em></a>
 <dd>The <em>initialstate</em> option determines
@@ -2934,6 +3050,130 @@ It is used by the <a href="elvisex.html#mkexrc">:mkexrc</a> command.
 It has no default value, but scripts generated by <code>:mkexrc</code>
 always set this option to the name of that script file.
 
+<dt><a name="persistfile">persistfile, perf <em>(String, global)</em></a>
+<br><a name="persist">persist, pers <em>(Packed, global)</em></a>
+<dd>Elvis can store some information about buffers between invocations.
+This resembles Vim's 'viminfo' option.
+For example, it can save your cursor location in each buffer so that the
+next time you edit the same file, your cursor can start in the same place.
+This only works if Elvis was compiled with FEATURE_PERSIST
+(i.e., if "<code>:calc feature("persist")</code>" returns True.)
+
+<p>The <em>persistfile</em> option tells Elvis where to save these things,
+and the <em>persist</em> option controls what gets saved and restored.
+
+<p>The default value of <code>persistfile</code> is an empty string,
+which disables persistent information.
+This behavior is more compatible with vi.
+You must set it to some other value to enable the "persist" feature.
+You can set it to either a relative file such as "elvisinfo" to give
+each directory its own list of current positions, or an absolute file
+such as ~/elvisinfo to use a single file for all of your persistent
+information.
+
+<p>The <code>persist</code> option's value is a comma-delimited list of
+keywords identifying the things that should be saved and restored.
+The list of keywords includes:
+<table>
+  <tr>
+    <th align=left>SYMBOL</th>
+    <th align=left>MEANING</th>
+  </tr>
+  <tr>
+    <td valign=top>cursor</td>
+    <td>Restore the cursor location.</td>
+  </tr>
+  <tr>
+    <td valign=top>change</td>
+    <td>Start with the cursor at the location of the last change, except that if <strong>cursor</strong> is also given then set the '' mark to the change position.</td>
+  </tr>
+  <tr>
+    <td valign=top>hours:<var>hours</var></td>
+    <td>If the last change was at least <var>hours</var> hours ago then don't move cursor; set the '' mark instead.</td>
+  </tr>
+  <tr>
+    <td valign=top>marks</td>
+    <td>Save &amp; restore the named marks, 'a - 'z.</td>
+  </tr>
+  <tr>
+    <td valign=top>regions</td>
+    <td>Save &amp; restore any highlighting <a href="elvisex.html#REGION">regions</a>.</td>
+  </tr>
+  <tr>
+    <td valign=top>folds</td>
+    <td>Save &amp; restore any folds (both folded &amp; unfolded)</td>
+  </tr>
+  <tr>
+    <td valign=top>external:<var>adjust</var></td>
+    <td>How to deal with changes made by other programs.
+	<strong>external:top</strong> tells Elvis to expect changes at the
+	top of the file, and <strong>external:skip</strong> tells Elvis to
+	avoid loading the persistent information if there's a change.
+	Else expect changes at the bottom of the file.</td>
+  <tr>
+    <td valign=top>ex:<var>lines</var></td>
+    <td>Save the last <var>lines</var> lines of ex history</td>
+  </tr>
+  <tr>
+    <td valign=top>search:<var>lines</var></td>
+    <td>Save the last <var>lines</var> lines of search history</td>
+  </tr>
+  <tr>
+    <td valign=top>args</td>
+    <td>Save the current <a href="elvisex.html#args">args</a> list as the default</td>
+  </tr>
+  <tr>
+    <td valign=top>max:<var>bytes</var></td>
+    <td>Impose a size limit on the persistfile</td>
+  </tr>
+</table>
+
+<p>Note that setting <strong>hours:0</strong> never allows the cursor to move,
+but you can still use <strong>cursor</strong> or <strong>change</strong> to set
+the '' mark.
+To completely disable timeouts,
+simply omit the <strong>hours:</strong><var>hours</var> item from the value
+of <code>persist</code>.
+
+<p>The <strong>external:</strong><var>adjust</var> field is intended to help
+Elvis deal with changes made to the file by other programs.
+For example, the RCS <strong>ci</strong> program could alter RCS keywords
+such as <code>$</code><code>Id$</code> in your file.
+If such changes usually occur near the bottoms of your files, then the change
+won't affect any stored cursors, marks, folds, or regions so you won't need
+an <strong>external:</strong><var>adjust</var> field.
+If the changes usually occur near the tops of your files, then you should
+use <strong>external:top</strong> which tells Elvis to adjust the character
+offsets and line numbers to be relative to the end of the file.
+If the changes are likely to be scattered throughout the file, then you can
+use <strong>external:skip</strong> to avoid reloading the persistent information
+when the file changes.
+
+<p>The <strong>ex:</strong><var>lines</var>,
+<strong>search:</strong><var>lines</var>, and <strong>args</strong>
+symbols are global; i.e., they aren't associated with any specific buffer.
+
+<p>The <strong>max:</strong><var>bytes</var> field can be used to impose an
+overall size limit on the persist file.
+The <var>bytes</var> is a number, optionally followed by "K" or "M" to scale
+it to be kilobytes or megabytes.
+The limit causes less recently accessed files to be removed from the
+persist file.
+If omitted, then the size is unlimited.
+
+<p>The format of the <code>persist</code> option is compatible with
+<a href="elvisexp.html#fields">field notation</a> and
+<a href="elvisexp.html#sets">set notation</a>,
+so you can do things such as...
+<pre>
+	:let persist.max="32K"
+	:let persist|="args"
+	:set persist^="change"</pre>
+
+<p>The default value of <code>persistfile</code> is any empty string which
+disabled persistent information.
+The default value of <code>persist</code> is
+<strong>cursor,change,hours:8,marks,regions,folds,ex:50,search:20,args</strong>.
 </dl>
 
 <h2><a name="MAP">6.22 Keyboard map options</a></h2>
@@ -3070,7 +3310,7 @@ configuration, you might want to turn it on.
 <p>You can also selectively turn off error messages by running the command via
 <a href="elvisex.html#try">:try</a>, like this...
 <pre>
-	:au BufNew *.html try r skeleton.html</pre>
+	:au BufNewFile *.html try r skeleton.html</pre>
 
 <dt><a name="aufilename">aufilename, afile <em>(String, au)</em></a>
 <dd>While an auto command is running, the <em>aufilename</em> option is set to
@@ -3574,7 +3814,7 @@ multiple values into a single option.
 | <a href="#g">g</a>                   | String  | user   | user variable               |
 | <a href="#gdefault">gdefault, gd</a>        | Boolean | global | default change all instances|
 | <a href="#gui">gui</a>                 | String  | global | name of user interface      |
-| <a href="#guidewidth">guidewidth, gw</a>      | Tab-list| buf    | draw vertial lines on screen|
+| <a href="#guidewidth">guidewidth, gw</a>      | Tab-list| buf    | draw vertical guide lines   |
 | <a href="#h">h</a>                   | String  | user   | user variable               |
 | <a href="#hardtabs">hardtabs, ht</a>        | Number  | global | width of terminal's tabs    |
 | <a href="#help">help, Help</a>          | String  | x11    | locale's Help label         |
@@ -3589,6 +3829,7 @@ multiple values into a single option.
 | <a href="#ignorecase">ignorecase, ic</a>      | Boolean | global | uppercase matches lowercase |
 | <a href="#includepath">includepath, inc</a>    | String  | syntax | where to find #include files|
 | <a href="#incsearch">incsearch, is</a>       | Boolean | global | <a href="elvisvi.html#slash">/</a> and <a href="elvisvi.html#quest">?</a> search incrementally|
+| <a href="#initializing">initializing, ing</a>   | Boolean | global | has first file been loaded? |
 | <a href="#initialstate">initialstate, init</a>  | One-Of  | global | command mode of new windows |
 | <a href="#initialsyntax">initialsyntax, isyn</a> | Boolean | buf    | start in "syntax" mode?     |
 | <a href="#inputtab">inputtab, it</a>        | One-Of  | buf    | input mode's (Tab) key      |
@@ -3648,6 +3889,8 @@ multiple values into a single option.
 | <a href="#p">p</a>                   | String  | user   | user variable               |
 | <a href="#paragraphs">paragraphs, para</a>    | String  | buf    | nroff paragraph commands    |
 | <a href="#partiallastline">partiallastline, pll</a>| Boolean | buf    | file didn't end with newline|
+| <a href="#persist">persist, pers</a>       | Packed  | global | what to store in persistfile|
+| <a href="#persistfile">persistfile, perf</a>   | String  | global | file that remembers cursors |
 | <a href="#pollfrequency">pollfrequency, pf</a>   | Number  | global | rate of testing for ^C      |
 | <a href="#prefersyntax">prefersyntax, psyn</a>  | String  | global | when to set initialsyntax   |
 | <a href="#previouscommand">previouscommand</a>     | String  | global | previous shell command line |
@@ -3677,6 +3920,7 @@ multiple values into a single option.
 | <a href="#scrollbarwidth">scrollbarwidth, xsw</a> | Number  | x11    | size of scrollbar, in pixels|
 | <a href="#scrollbgimage">scrollbgimage, sbi</a>  | Boolean | (gui)  | scroll background image     |
 | <a href="#scrollwheelspeed">scrollwheelspeed,sws</a>| Number  | (gui)  | adjust speed of scroll wheel|
+| <a href="#secret">secret</a>              | Number  | x11    | identifies trusted clients  |
 | <a href="#sections">sections, sect</a>      | String  | buf    | nroff section commands      |
 | <a href="#security">security, sec</a>       | One-of  | global | normal, safer,or restricted |
 | <a href="#sentenceend">sentenceend, se</a>     | String  | global | punct at end of sentence    |
@@ -3698,6 +3942,7 @@ multiple values into a single option.
 | <a href="#spelldict">spelldict, spd</a>      | String  | global | name of dictionary file     |
 | <a href="#spellsuffix">spellsuffix, sps</a>    | String  | global | list of suffixes            |
 | <a href="#stagger">stagger</a>             | Number  | x11    | offset for next new window  |
+| <a href="#state">state</a>               | String  | global | may be shown via <a href="#show">show</a> option|
 | <a href="#statusbar">statusbar, stb</a>      | Boolean | (gui)  | enable the statusbar        |
 | <a href="#stopshell">stopshell, ssh</a>      | String  | x11    | interactive shell command   |
 | <a href="#submit">submit, Submit</a>      | String  | x11    | locale's Submit label       |
@@ -3709,7 +3954,7 @@ multiple values into a single option.
 | <a href="#tags">tags, tagpath</a>       | String  | global | list of possible tag files  |
 | <a href="#tagstack">tagstack, tsk</a>       | Boolean | global | remember origin of tag srch |
 | <a href="#tempsession">tempsession, temp</a>   | Boolean | global | delete session file on exit |
-| <a href="#term">term, ttytype</a>       | String  | tcap   | terminal's termcap entry    |
+| <a href="#term">term, ttytype</a>       | String  | termcap| terminal's termcap entry    |
 | <a href="#terse">terse, te</a>           | Boolean | global | don't translate messages    |
 | <a href="#textcursor">textcursor, tc</a>      | Number  | x11    | one of hollow, opaque, xor  |
 | <a href="#textwidth">textwidth, tw</a>       | Number  | buf    | width for word-wrap, or 0   |
@@ -3717,11 +3962,11 @@ multiple values into a single option.
 | <a href="#timestamp">timestamp, time</a>     | String  | buf    | time when file was modified |
 | <a href="#toolbar">toolbar, tb</a>         | Boolean | (gui)  | enable the toolbar          |
 | <a href="#true">true, True</a>          | String  | global | locale's True value         |
-| <a href="#ttycolumns">ttycolumns, ttycols</a> | Number  | tcap   | width of screen             |
-| <a href="#ttyrows">ttyrows, ttylines</a>   | Number  | tcap   | height of screen            |
-| <a href="#ttyitalic">ttyitalic, ttyi</a>     | Boolean | tcap   | okay to use "dim" for italic|
-| <a href="#ttyunderline">ttyunderline, ttyu</a>  | Boolean | tcap   | okay to mix color &amp; underln |
-| <a href="#ttyunderline">ttywrap, ttyw</a>       | Boolean | tcap   | trust termcap's line wrap   |
+| <a href="#ttycolumns">ttycolumns, ttycols</a> | Number  | termcap| width of screen             |
+| <a href="#ttyrows">ttyrows, ttylines</a>   | Number  | termcap| height of screen            |
+| <a href="#ttyitalic">ttyitalic, ttyi</a>     | Boolean | termcap| okay to use "dim" for italic|
+| <a href="#ttyunderline">ttyunderline, ttyu</a>  | Boolean | termcap| okay to mix color &amp; underln |
+| <a href="#ttyunderline">ttywrap, ttyw</a>       | Boolean | termcap| trust termcap's line wrap   |
 | <a href="#tweaksection">tweaksection, twks</a>  | Boolean | global | allow text before { section?|
 | <a href="#u">u</a>                   | String  | user   | user variable               |
 | <a href="#undolevels">undolevels, ul</a>      | Number  | buf    | number of undoable commands |

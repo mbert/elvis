@@ -1,5 +1,5 @@
 <html><head>
-<title>Elvis-2.2_0 Tips</title>
+<title>Elvis-2.2_1 Tips</title>
 </head><body>
 
 <h1>16. TIPS</h1>
@@ -23,7 +23,8 @@ The following subjects are discussed:
 <li><a href="#EVENTS">16.8.3 Events</a>
 <li><a href="#PATTERNS">16.8.4 Patterns</a>
 </menu>
-<li><a href="#FASTER">16.9 How to make Elvis run faster</a>
+<li><a href="#SCRIPTS">16.9 Script library</a>
+<li><a href="#FASTER">16.10 How to make Elvis run faster</a>
 </menu>
 
 <h2><a name="URLS"></a>16.1 Information via the Web</h2>
@@ -854,7 +855,7 @@ If you want to search all lines (not just topic lines) then run
 <code>:howto!</code> (with a ! suffix).
 
 <dt>:<a name="kwic">kwic</a> <var>word</var>
-<dd>Build a table showing all occurrences of <var>word</var> in the online manual.
+<dd>Build a table showing all occurrences of <var>word</var> in Elvis' online manual.
 This macro depends on the "grep" program to do the actual searching; if your
 system lacks "grep" then this won't work correctly.
 (Windows users should consider using the <a href="#cygwin">CygWin</a> tools.)
@@ -874,7 +875,7 @@ operation on that file by running "<code>!co -l</code> <var>filename</var>".
 <dt>:<a name="courier">courier</a> <code>[</code><var>size</var><code>]</code> <code>["</code><b>bold</b><code>"]</code>
 <br>:<a name="luxi">luxi</a> <code>[</code><var>size</var><code>]</code> <code>["</code><b>bold</b><code>"]</code>
 <br>:<a name="andale">andale</a> <code>[</code><var>size</var><code>]</code>
-<dd>X11 only.  Select the Courier or Luxi mono fonts of the given size.
+<dd>X11 only.  Select the Courier, Luxi mono, or Andale fonts of the given size.
 If no size is specified, then it uses the default size, which is 14-point.
 
 <dt>:<a name="fork">fork</a> <var>program</var>
@@ -947,6 +948,16 @@ listed in <a href="elvisopt.html#elvispath">elvispath</a>.
 Elvis comes with a variety of scripts to configure Elvis for various purposes.
 In most cases, if you run <a href="elvisex.html#mkexrc">:mkexrc</a> after
 running a script, then the effects of the script become permanent.
+The scripts are described in the <a href="#SCRIPTS">Script Library</a>
+section, below.
+
+<dt>:<a name="gdb">gdb</a> <code>[</code><var>gdboptions</var><code>]</code> <var>program</var> <code>[</code><var>core</var><code>|</code><var>pid</var><code>]</code>
+<dd>For "<a href="elvisgui.html#x11">x11</a>" only.
+This starts the <strong>gdb</strong> debugger inside an <strong>xterm</strong>
+window, and connects it to elvis via the <a href="elvgdb.man">elvgdb</a>
+program.
+It also uses the <a href="#load">:load</a> alias to load some other GDB-related
+toolbar buttons and aliases.
 
 <dt>:<a name="theme">theme</a> <code>[</code><var>name</var><code>]</code>
 <dd>List all installed themes, or load the theme with a given <var>name</var>.
@@ -1265,7 +1276,7 @@ it will try to find the word in the
 <a href="elvisopt.html#spelldict">spelldict</a> file.
 If Elvis finds it, great!
 Elvis will add it to its dictionary as a correct word.
-Otherwise, Elvis will will try suffix substitution, as specified via the
+Otherwise, Elvis will try suffix substitution, as specified via the
 <a href="elvisopt.html#spellsuffix">spellsuffix</a> option, and check the
 resulting word against the 
 <a href="elvisopt.html#spelldict">spelldict</a> file again.
@@ -1582,7 +1593,7 @@ the map table.
 <em>A window's display mode is about to change.</em>
 This is useful for reverting options that were changed via a
 <a href="#DisplayEnter">DisplayEnter</a> event.
-The pattern is compared to the name of the new display mode, not the
+The pattern is compared to the name of the old display mode, not the
 file name.
 
 <dt><strong><a name="DispMapEnter">DispMapEnter</a></strong> <em>(not in vim)</em><dd>
@@ -1646,7 +1657,7 @@ then the text will not be written.
 This is different from <a href="#BufReadPost">BufReadPost</a>,
 which loads a file into a buffer.
 <code>FileReadPost</code> is triggered by the <a href="elvisex.html#read">:r</a>
-command, but not the <a href="elvisex.html#edit">:e</code> command.
+command, but not the <a href="elvisex.html#edit">:e</a> command.
 The auto command can use <code>'[</code> and <code>']</code> marks to
 determine which lines are new.
 See also <a href="#FileReadPre">FileReadPre</a> for before the text has been
@@ -1658,7 +1669,7 @@ filter program.
 This is different from <a href="#BufReadPre">BufReadPre</a>,
 which loads a file into a buffer.
 <code>FileReadPre</code> is triggered by the <a href="elvisex.html#read">:r</a>
-command, but not the <a href="elvisex.html#edit">:e</code> command.
+command, but not the <a href="elvisex.html#edit">:e</a> command.
 See also <a href="#FileReadPost">FileReadPost</a> for after the text has been
 inserted, and <a href="#FilterReadPre">FilterReadPre</a> for reading from a
 filter program.
@@ -1722,7 +1733,15 @@ then the text will not be written.
 <em>Not implemented.</em>
 
 <dt><strong><a name="GUIEnter">GUIEnter</a></strong><dd>
-<em>Not implemented.</em>
+<em>A graphical user interface is started.</em>
+This event is
+generated after the first file is loaded the first window is created,
+but only for true graphical user interfaces such as
+<a href="elvisgui.html#x11">x11</a> and
+<a href="elvisgui.html#windows">windows</a>.
+It is <strong>not</strong> generated for the
+<a href="elvisgui.html#termcap">termcap</a> interface.
+Note that there is no "GuiLeave" event.
 
 <dt><strong><a name="OptChanged">OptChanged</a></strong> <em>(not in vim)</em><dd>
 <em>A particular option's value is changed.</em>
@@ -1888,11 +1907,252 @@ matches an underscore or a letter.
 <p>Although the syntax for <code>[]</code> wildcards is similar to the
 syntax for the <a href="elvisre.html#charlist">[]</a> metacharacter in regular expressions,
 the two are not the same.
-For example, you <strong>cannot</code> use <code>[[:alpha:]]</code> to match
+For example, you <strong>cannot</strong> use <code>[[:alpha:]]</code> to match
 any locale-dependent letter in a filename wildcard, though you can in
 regular expressions.
 
-<h2><a name="FASTER"></a>16.9 How to make Elvis run faster</h2>
+<h2><a name="SCRIPTS"></a>16.9 Script Library</h2>
+The <a href="#load">:load</a> alias can load a variety of scripts,
+stored in a standard directory.
+This section describes those scripts.
+
+<p>Most of the scripts set up <a href="elvisex.html#alias>aliases</a>,
+<a href="elvisex.htmL#map">maps</a>,
+<a href="elvisex.html#autocmd">autocmds</a>, or other aspects of
+Elvis' configuration.
+So running the script doesn't change your text, it changes Elvis.
+The effects of these changes disappear when you exit Elvis, unless you
+run the <a href="elvisex.html#mkexrc">:mkexrc</a> command to save the
+altered configuration.
+
+<p>Not all of these scripts do practical things.
+Some are intended to serve merely as demonstrations of some of Elvis' features.
+
+<p>Even the practical scripts may not be exactly what you want.
+If that's the case, then you have a choice:
+Either create a custom version of the script by running
+"<code>:customize scripts/</code><var>scriptname</var><code>.ex</code>";
+or load the normal version, alter its effects via Elvis'
+<a href="elvisex.html#SETUP">configuration commands</a>, and save the
+altered version via <a href="elvisex.html#mkexrc>:mkexrc</a>.
+
+<p>Running "<code>:load</code>" without any arguments will list the available
+scripts.
+This should include the following:
+<dl>
+<dt>align
+<dd>Defines an <code>:align</code> alias which aligns = signs (or any
+other delimiter that you supply as an argument) within a given range of lines.
+This can be handy when you're trying to make a Makefile look pretty.
+
+<dt>gzip
+<dd>Sets up some autocmd sequences for handling files that are compressed with
+gzip.
+
+<dt>cb
+<dd>Defines some aliases for managing cut buffers.
+<code>:cbsave</code> and <code>:cbload</code> save your cut buffers to a file,
+and load them again, respectively.
+<code>:cbshow</code> lists the current contents and
+<a href="elvisopt.html#putstyle">putstyle</a> of each cut buffer.
+
+<dt>cursor
+<dd>Defines a <code>:cursor</code> alias which moves the cursor to a given
+line of a given file.
+If the file isn't loaded into a buffer already, then this alias will load it.
+
+<dt>decode
+<dd>Defines a <code>:decode</code> alias, is sort of a "secret decoder ring".
+Each letter is assigned a number.
+You invoke this alias on a range of lines containing a series of numbers,
+and pass it the number corresponding to 'a', and it converts the message's
+numbers back into letters.
+
+<dt>define
+<dd>Defines a "define:<var>word</var>" protocol which looks up <var>word</var>
+in TechWeb.com's online technical encyclopedia.
+Also defines a <code>:define</code> alias which uses this protocol.
+
+<dt>dict
+<dd>Defines a "dict:<var>word</var>" protocol which uses the
+<strong>dict</strong> program to look up <var>word</var> in a variety of
+online dictionaries.
+Also defines a <code>:dict</code> alias which uses this protocol.
+
+<dt>ellipse
+<dd>Defines an <code>:ellipse</code> alias which inserts an ellipse into your
+text.  The parameters are width and height.
+If you omit the height, then it is assumed to be half the width;
+for most fonts, this makes the ellipse be roughly circular.
+If you omit the width, then it is assumed to be either
+<a href="elvisopt.html#textwidth">textwidth</a> or
+(if <code>textwidth</code> isn't set)
+<a href="elvisopt.html#columns">columns</a>.
+
+<dt>find
+<dd>Defines a <code>:find</code> alias which repeats the previous search,
+like the <a href="elvisvi.html#n">n</a> command, except that if no match is
+found in the current file then it performs a
+<a href="elvisopt.html#next">:next</a> command and tries again.
+If you like this, you might want to map a key to invoke :find...
+<pre>
+	:map &lt;C-N&gt; :find&lt;Enter&gt;</pre>
+
+<dt>fontsize
+<dd>For the <a href="elvisgui.html#x11">x11</a> interface only,
+this adds a toolbar button that lets you choose a font size.
+It also defines a <code>:fontsize</code> alias.
+
+<dt>gdb
+<dd>This is used by the <a href="#gdb">:gdb</a> alias.
+You should never need to load this one manually.
+It contains a variety of aliases and other settings that are used
+by the GDB interface.
+
+<dt>herefile
+<dd>Sets up <a href="elvisex.html#autocmd">:au</a> events that attempt to
+use regions to highlight "herefiles" in shell scripts.
+A herefile is text embedded in a shell script between
+<code>&lt;&lt;</code><var>SYMBOL</var> and the following line containing just
+<var>SYMBOL</var>.
+The normal syntax coloring doesn't do herefiles properly,
+so this workaround may be useful if you edit a lot of shell scripts.
+
+<dt>html
+<dd>Sets up a lot of things that might be handy if you're editing HTML.
+Honestly, I don't expect anybody to like everything in here.
+You'll probably want to run "<code>:customize scripts/html.ex</code>" and
+edit out big chunks of this.
+
+<dt>info
+<br>info2
+<dd>These are two slightly different attempts to make elvis use Gnu "info"
+pages.
+After loading one of these scripts, you should be able to run ":info gcc"
+to see the info pages for the GCC compiler.
+
+<dt>inregion
+<dd>Defines an <code>:inregion</code> alias for applying an ex command to
+each line in a given type of <a href="elvisex.html#region">region</a>.
+The first argument is a face name identifying the region,
+and the remaining arguments are an ex command line to execute on each such line.
+
+<dt>isearch
+<dd>Defines vim-compatible <code>:isearch</code> and <code>:ilist</code>
+aliases, and some maps that use those aliases.
+(See "likevim", below, for more vim-compatibility tricks.)
+
+<dt>life
+<dd>Adjusts elvis for maximum speed while running the vi macro package that
+implement's Conway's "life".
+This also includes a copy of the "life" macros.
+
+<dt>likevim
+<dd>Defines <em>many</em> aliases and maps to allow elvis to emulate some
+of vim's commands.
+
+<dt>mail
+<dd>Defines a <code>:Mail</code> alias.
+This alias sets up elvis for editing mail messages.
+If your email client can be configured to use an external editor,
+then you might want to load this alias, run "<code>:mkexrc</code>" to store
+the <code>:Mail</code> alias in your ~/.elvisrc file, and then tell your
+email client to run "<code>elvis -cMail</code>" as the external editor.
+
+<dt>mailto
+<dd>Defines a "mailto:" protocol.
+This can be handy if you're using Elvis as a lightweight web browser, and
+click on a "writeto:" link.
+It uses the system's <strong>mail</strong> command to actually send the mail.
+
+<dt>makehtml
+<dd>Defines a <code>:makehtml</code> alias, which converts plain text into HTML.
+This does a pretty good job!
+It can convert the whole file, or just a given range of lines.
+
+<dt>match
+<dd>Defines a <code>:match</code> alias, which jumps between matching pairs
+of keywords.
+This is sort of like the <a href="elvisvi.html#pct">%</a> command,
+but for keywords instead of single punctuation characters.
+The list of keywords is easily adjustable by editing the script.
+
+<dt>note
+<dd>Defines a simple <code>:note</code> alias for adding a note to a
+given line, and <code>:nextnote</code> and <code>:prevnote</code> aliases
+for searching the next/previous note.
+It also sets up <strong>gn</strong> and <strong>gN</strong> maps for searching.
+
+<p>I expect to add a "real" note facility to Elvis eventually.
+This script uses <a href="elvisex.html#region">regions</code>, which can be
+dangerous because if you're using regions for anything else then you could
+easily lose your notes accidentally.
+
+<dt>pig
+<dd>Defines a <code>:piglatin</code> alias which converts text to Pig Latin.
+Finally something practical!
+
+<dt>reverse
+<dd>Defines a <code>:reverse</code> alias which reverses characters in each
+line.
+
+<dt>rot13
+<dd>Defines a <code>:rot13</code> alias, which performs Rot13 encoding/decoding
+for a range of lines.
+Rot13 is a simple character substitution cipher in which the first 13 letters
+in the alphabet are swapped with the last 13 letters.
+Rot13 is sometimes used in Usenet news posts to protect unsuspecting readers
+from potentially offensive jokes.
+
+<dt>sfb
+<dd>Defines an <code>:sfb</code> alias for browsing directories.
+The standard Elvis configuration includes a <code>:readDIR</code> alias 
+which loads this script and runs <code>:sfb</code> if you attempt to
+edit a directory.
+
+<dt>shade
+<dd>Sets up shades of gray for the <a href="elvisopt.html#hllayers">hllayers</a>
+option.
+If the background is light, then it will use light gray shades;
+if dark, it will use dark shades.
+
+<dt>show
+<dd>Defines a simple <code>:show</code> alias which displays the values
+of various alias symbols such as <code>!?</code> and <code>!1</code>.
+
+<dt>shuffle
+<dd>Defines a <code>:shuffle</code> alias, which randomly unsorts a range of
+lines, or an entire buffer.
+
+<dt>since
+<dd>Defines <code>:since</code> and <code>:rcssince</code> aliases.
+These use <a href="elvisex.html#region">:region</code> to highlight changes
+since the last write, or the last RCS checkin.
+It also sets up some autocmds to run <code>:rcssince</code> automatically
+when a file is loaded or saved, and to highlight changes.
+
+<dt>tags
+<dd>This configures Elvis to automatically convert the value of the
+<a href="elvisopt.html#tags">tags</a> option.
+Traditionally, this option's value has been a space-delimited path,
+but Elvis uses the operating system's path delimiter (colon or semicolon).
+After loading this script, any time you change the "tags" value, Elvis
+will go in and change any spaces to colons or semicolons as appropriate.
+
+<dt>wc
+<dd>Defines <code>:wc</code>, a simple word counter.
+
+<dt>whois
+<dd>Defines a "whois:" protocol, and a <code>:whois</code> command that uses it.
+This is used to fetch information about an IP address or domain name.
+
+<dt>xbuf
+<dd>For the "<a href="elvisgui.html#x11">x11</a>" interface only,
+this reconfigures the toolbar to act like tabs for switching between buffers.
+
+</dl>
+
+<h2><a name="FASTER"></a>16.10 How to make Elvis run faster</h2>
 This section describes some ways you can "tune" Elvis to run faster.
 None of these suggestions require recompiling Elvis.
 

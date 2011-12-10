@@ -10,7 +10,7 @@
 
 #include "elvis.h"
 #ifdef FEATURE_RCSID
-char id_dmmarkup[] = "$Id: dmmarkup.c,v 2.136 2003/10/19 23:13:33 steve Exp $";
+char id_dmmarkup[] = "$Id: dmmarkup.c,v 2.140 2004/03/21 19:30:12 steve Exp $";
 #endif
 #ifdef DISPLAY_ANYMARKUP
 
@@ -688,6 +688,15 @@ static twrap_t htmlinput(token)
 				/* not TEXT, probably SUBMIT or RESET button */
 				button = ElvTrue;
 				font = fontcode['\b'];
+
+				/* SUBMIT/RESET buttons have default values*/
+				if (validx == 0)
+				{
+					validx = i;
+					for (vallen = 1; elvalnum(token->text[i + vallen]); vallen++)
+					{
+					}
+				}
 			}
 		}
 		else if (!CHARncmp(&token->text[i], toCHAR("checked"), 7))
@@ -983,10 +992,10 @@ static TOKEN *htmlget(refp)
 	scannext(refp);
 
 #ifdef SGML_HACK
-	/* If '/' and we were expecting '/' to be interpreted as an SGML-style
-	 * terminator, then do that.
+	/* If '/' or '>' and we were expecting an SGML-style terminator,
+	 * then do that.
 	 */
-	if (rettok.text[0] == '/' && *sgmltag)
+	if ((rettok.text[0] == '/' || rettok.text[0] == '>') && *sgmltag)
 	{
 		/* replace the '/' with the SGML terminator tag name */
 		CHARcpy(rettok.text, sgmltag);
@@ -1103,6 +1112,54 @@ static TOKEN *htmlget(refp)
 
 		/* when computing line breaks, assume this markup is hidden */
 		rettok.width = 0;
+
+#ifdef FEATURE_MISC
+		/* Many HTML documents use <li><p> to make a list with vertical
+		 * gaps between items.  This looks ugly in elvis, and there is
+		 * no really good fix, so we use a hack here: If this is <li>
+		 * tag, then look ahead to see if it is followed by <p>, and
+		 * if so then include the <p> as part of this tag's text.
+		 */
+		if (rettok.markup && rettok.markup->fn == htmlli && *refp)
+		{
+			CHAR	*peek;
+			MARK	mark;
+
+			/* skip whitespace between <li> and possible <p> */
+			scandup(&peek, refp);
+			while (peek && elvspace(*peek))
+			{
+				scannext(&peek);
+				offset++;
+			}
+
+			/* is next text <p>? */
+			if (peek && *peek == '<'
+			 && scannext(&peek) && elvtolower(*peek) == 'p'
+			 && scannext(&peek) && elvtolower(*peek) == '>'
+			 && scannext(&peek))
+			{
+				/* stuff <p> into token's chars */
+				i = rettok.nchars;
+				rettok.text[i] = '<';
+				rettok.offset[i++] = offset++;
+				rettok.text[i] = 'p';
+				rettok.offset[i++] = offset++;
+				rettok.text[i] = '>';
+				rettok.offset[i++] = offset++;
+				rettok.nchars = i;
+
+				/* move *refp past the <p> */
+				mark = scanmark(&peek);
+				scanfree(&peek);
+				scanseek(refp, mark);
+			}
+			else
+			{
+				scanfree(&peek);
+			}
+		}
+#endif
 	}
 	else if (rettok.text[0] <= ' ')
 	{
@@ -1126,7 +1183,7 @@ static TOKEN *htmlget(refp)
 			&& rettok.nchars < QTY(rettok.text) - 1
 			&& **refp > ' ' /* !elvspace(**refp) */
 #ifdef SGML_HACK
-			&& !(**refp == '/' && *sgmltag)
+			&& !((**refp == '/' || **refp == '>') && *sgmltag)
 #endif
 			&& **refp != '<';
 		     offset++, scannext(refp))
@@ -2289,10 +2346,9 @@ static twrap_t manIP(token)
 				start++;
 			switch (token->text[start])
 			{
-			  case 'n':	i = (int)f;		break;
 			  case 'i':	i = (int)(f * 10);	break;
 			  case 'p':	i = (int)(f / 7.2);	break;
-			  default:	i = 0;
+			  default:	i = (int)f;
 			}
 			if (i > 0 && indent + i < 40)
 				moreindent = i;

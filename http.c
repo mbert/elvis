@@ -2,7 +2,7 @@
 
 #include "elvis.h"
 #ifdef FEATURE_RCSID
-char id_http[] = "$Id: http.c,v 2.11 2003/10/17 17:41:23 steve Exp $";
+char id_http[] = "$Id: http.c,v 2.12 2003/12/28 20:29:02 steve Exp $";
 #endif
 #ifdef PROTOCOL_HTTP
 
@@ -35,6 +35,7 @@ ELVBOOL httpopen(site_port, resource)
 	msg(MSG_STATUS, "[s]requesting $1", resource);
 	if (!netputline(sb, "GET", resource, "HTTP/1.0")
 	 || !netputline(sb, "Host:", site_port, NULL)
+	 || !netputline(sb, "User-Agent:", "Elvis", VERSION)
 	 || !netputline(sb, "", NULL, NULL))
 	{
 		/* error message already given */

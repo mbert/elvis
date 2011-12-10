@@ -1,3 +1,4 @@
 """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 " Update the timestamp
-let timestamp = time(filename)
+if security != "restricted"
+then let timestamp = time(filename)

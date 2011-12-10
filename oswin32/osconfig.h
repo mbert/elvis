@@ -30,6 +30,7 @@
 #define	FEATURE_CACHEDESC /* store syntax/markup descriptions in RAM */
 #define FEATURE_CALC	/* the calculator, and all cmds that use it */
 #define	FEATURE_COMPLETE /* filename completion */
+#define	FEATURE_EQUALTILDE /* :let option =~ excmdline */
 #define	FEATURE_FOLD	/* the :fold and :unfold commands */
 #define	FEATURE_G	/* most of the visual 'g' commands */
 #define	FEATURE_HLOBJECT /* the hlobject and hllayers options */
@@ -38,6 +39,7 @@
 #define FEATURE_IMAGE	/* gui can use background image */
 #endif
 #define	FEATURE_INCSEARCH /* the incsearch option */
+#define FEATURE_LISTCHARS /* the listchars option */
 #define	FEATURE_LITRE	/* faster searches for literal strings */
 #define	FEATURE_LPR	/* the ":lpr" command */
 #define	FEATURE_MAKE	/* the :make and :cc commands */
@@ -45,6 +47,7 @@
 #define	FEATURE_MISC	/* lots of little things */
 #define	FEATURE_MKEXRC	/* the ":mkexrc" command */
 #define	FEATURE_NORMAL	/* vim-style :normal command */
+#define	FEATURE_PERSIST	/* the persistfile option */
 #define	FEATURE_PROTO	/* using aliases to add new protocols */
 #undef	FEATURE_RAM	/* store edit buffers in RAM if "-f ram" */
 #undef	FEATURE_RCSID	/* include RCS Id strings for all source files */
@@ -58,8 +61,6 @@
 #define	FEATURE_TEXTOBJ	/* text objects */
 #define	FEATURE_V	/* the v/V/^V marking commands */
 #undef	FEATURE_XFT	/* antialiased fonts in X11 -- not useful for Windows */
-#define FEATURE_LISTCHARS /* the listchars option */
-#define	FEATURE_EQUALTILDE /* :let option =~ excmdline */
 
 /* The following provide custom implementation of some common functions which
  * are either missing or poorly implemented on some systems.

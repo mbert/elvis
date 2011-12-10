@@ -4,7 +4,7 @@
 
 #include "elvis.h"
 #ifdef FEATURE_RCSID
-char id_main[] = "$Id: main.c,v 2.74 2003/10/18 04:47:18 steve Exp $";
+char id_main[] = "$Id: main.c,v 2.77 2004/03/19 23:10:12 steve Exp $";
 #endif
 #include <time.h> /* for time(), used to seed the random number generator */
 
@@ -93,8 +93,7 @@ static void usage(hint)
 	msg(MSG_INFO, "       -b          Mark new buffers as \"readeol=binary\"");
 	msg(MSG_INFO, "       -e          Start in ex mode instead of vi mode");
 	msg(MSG_INFO, "       -i          Start in input mode instead of vi mode");
-	msg(MSG_INFO, "       -S          Set security=safer, to protect against Trojan horses");
-	msg(MSG_INFO, "       -SS         Set security=restricted, for maximum security");
+	msg(MSG_INFO, "       -S          Set security=restricted, for maximum security");
 	msg(MSG_INFO, "       -w lines    Set scroll amount to \"lines\"");
 	msg(MSG_INFO, "       -f session  Use \"session\" as the session file");
 	msg(MSG_INFO, "       -G gui      Use the \"gui\" user interface \\(see below\\)");
@@ -344,10 +343,7 @@ static int parseflags(argc, argv)
 					break;
 
 				  case 'S':
-					if (o_security == 'n' /* normal */)
-						o_security = 's'; /* safer */
-					else
-						o_security = 'r'; /*restricted*/
+					o_security = 'r'; /*restricted*/
 					del = 1;
 					break;
 
@@ -673,6 +669,12 @@ static void startfirst()
 {
 	BUFFER	buf;
 
+	/* Initialization is done.  Any autocmd events generated while loading
+	 * the first buffer should be allowed to do things like alter the
+	 * edit buffer or write it out.
+	 */
+	o_initializing = ElvFalse;
+
 	/* If "Elvis args" is empty */
 	if (!arglist[0])
 	{
@@ -836,12 +838,23 @@ static void init(argc, argv)
 	/* Store the filename arguments in a list */
 	buildargs(argc, argv);
 
+#ifdef FEATURE_PERSIST
+	bufpersistinit();
+#endif
+
 	/* start the first file (i.e., make sure we have at least 1 window) */
 	startfirst();
 
 #ifdef FEATURE_AUTOCMD
-	/* do a BgChanged event, so highlight colors can be chosen relative
-	 * the current background color.
+	/* if the user interface appears to be graphical, then do a GuiEnter
+	 * event.
+	 */
+	if (gui->movecost == 0 && gui->retitle)
+		auperform(windefault, ElvFalse, NULL, AU_GUIENTER, NULL);
+
+	/* if the normal background color has been set, then do a BgChanged
+	 * event so highlight colors can be chosen relative the current
+	 * background color.
 	 */
 	if (colorinfo[COLOR_FONT_NORMAL].da.bits & COLOR_BG)
 		(void)auperform(windefault, ElvFalse, NULL, AU_BGCHANGED,
@@ -850,11 +863,6 @@ static void init(argc, argv)
 			       colorinfo[COLOR_FONT_NORMAL].da.bg_rgb[2]>=384
 					? "light" 
 					: "dark"));
-# if 0
-	else
-		(void)auperform(windefault, ElvFalse, NULL, AU_BGCHANGED,
-				o_background == 'l' ? "light" : "dark");
-# endif
 #endif
 }
 
@@ -871,6 +879,8 @@ void term()
 	/* Call the GUI's term() function */
 	gui->term();
 	gui = NULL;
+
+	bufpersistsave(NULL);
 
 	/* Flush any final messages */
 	msgflush();

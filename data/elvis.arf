@@ -70,7 +70,8 @@ case man
 case tex let! mapmode=bufdisplay
 """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 " Store the file's timestamp
-let timestamp = time(filename)
+if security != "restricted"
+then let timestamp = time(filename)
 """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 " EXECUTE MODELINES, IF "modeline" OPTION IS SET
 if modeline && buflines >= 1 && buflines <= modelines * 2

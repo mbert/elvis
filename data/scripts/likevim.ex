@@ -39,6 +39,7 @@ map noremap select U	noremap gU
 map noremap select u	noremap gu
 map noremap select ~	noremap g~
 map noremap select J	:j
+map noremap select gJ	:j!
 map noremap select 	y:ta 
 map noremap select o	g%
 map noremap select O	g

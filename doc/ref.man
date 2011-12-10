@@ -7,7 +7,7 @@ ref - Display a C function header
 .RI [ restrictions ]...
 .SH VERSION
 This page describes the
-.B Elvis 2.2_0
+.B Elvis 2.2_1
 version of
 .BR ref .
 See

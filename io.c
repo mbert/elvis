@@ -4,7 +4,7 @@
 
 #include "elvis.h"
 #ifdef FEATURE_RCSID
-char id_io[] = "$Id: io.c,v 2.62 2003/10/18 04:47:18 steve Exp $";
+char id_io[] = "$Id: io.c,v 2.63 2004/03/20 23:00:10 steve Exp $";
 #endif
 
 #if USE_PROTOTYPES
@@ -664,8 +664,11 @@ static int ustrncmp(s1, s2, len)
 
 /* This function implements filename completion.  You pass it a partial
  * filename and it uses dirfirst()/dirnext() to extend the name.  If you've
- * given enough to uniquely identify a file, then it will also append a
- * tab after the filename.
+ * given enough to uniquely identify a file, then it will also append an
+ * endchar after the filename.
+ *
+ * As a special case, if endchar='\0' then it simply performs tilde-expansion
+ * and returns that, without attempting to complete the filename.
  */
 char *iofilename(partial, endchar)
 	char	*partial;	/* a partial filenam to expand */
@@ -728,6 +731,13 @@ char *iofilename(partial, endchar)
 	}
 	partial = homed;
 	safefree(str);
+
+	/* if endchar='\0' then simply return the tilde-expanded name */
+	if (endchar == '\0')
+	{
+		strcpy(match, homed);
+		return match;
+	}
 
 	/* count the matching filenames */
 	for (nmatches = matchlen = 0, fname = dirfirst(partial, ElvTrue);

@@ -1,5 +1,3 @@
-################################################################################
-# Herbert 1998:
 # Makefile for building and installing elvis under OS/2,
 # derived from Makefile created by configure for linux.
 # Works with GNU make and nmake.
@@ -10,7 +8,26 @@
 # both for compiling and for linking.  Typical values are "cc -g" or "cc -O".
 # If you're compiling with X-windows support, you may need to add a
 # "-I/usr/X11/include" flag or something similar.
-CC=icc -O -Q -DOS2 -I/work/ibmcpp/include -I/usr/include -I/tcpip/include
+
+#
+# IBM VisualAge C++ 3.0 Compiler:
+#
+#  This used to be the default, but since I've experienced some problems 
+#  with its optimization and due to the lack of further maintenance by 
+#  IBM I now recommend the OpenWatcom compiler which is now the default 
+#  choice if Elvis is built from the `..\makos2.cmd' batch file.
+#
+CC=icc -O -Q -D__SPC__ -DOS2 -I/Software/ibmcpp/include -I/Software/toolkit/h -I/tcpip/include 
+
+#
+# Other Compilers:
+#
+#  - OpenWatcom works fine, but for TCP/IP support you will need to create
+#    import library for `so32dll.dll' and `tcp32dll.dll'. It is now the 
+#    default.
+#  - gcc is fine with versions prior to 3.2.2 (innotek builds). The latest
+#    versions still don't work with the X11 interface.
+# 
 
 ################################################################################
 # This should be "unix" for all UNIX variants.  It causes the compiler to use
@@ -172,7 +189,7 @@ OBJ3=	$(OSOBJS2) cut$(OBJ) draw$(OBJ) event$(OBJ) ex$(OBJ) exaction$(OBJ)\
 	move$(OBJ) more$(OBJ) need$(OBJ) operator$(OBJ) regexp$(OBJ)\
 	region$(OBJ) regsub$(OBJ) search$(OBJ) spell$(OBJ) state$(OBJ)\
 	tinytcap$(OBJ) tag$(OBJ) tagsrch$(OBJ) tagelvis$(OBJ) url$(OBJ)\
-	vi$(OBJ) vicmd$(OBJ) window$(OBJ)
+	vi$(OBJ) vicmd$(OBJ) window$(OBJ) autocmd$(OBJ)
 OBJS=	$(OBJ1) $(OBJ2) $(OBJ3)
 REFOBJS=ref$(OBJ) tag$(OBJ) tagsrch$(OBJ) safe$(OBJ)
 CTOBJS=	ctags$(OBJ) tag$(OBJ) safe$(OBJ)
@@ -182,7 +199,7 @@ CFLAGS=	$(FLAGI)os$(OS)
 EVERY=	$(ALL) elvdump$(EXE) calc$(EXE) verify$(EXE) 
 # Herbert 1998: SHELL needs to be blanked out under OS/2 if using GNU make.
 #SHELL=	/bin/sh
-VERSION=2.2
+VERSION=2.2_0
 DISTRIB=elvis-$(VERSION)
 DOSEXE=exedos
 WIN32EXE=exewin32
@@ -204,26 +221,36 @@ emx: ; $(MAKE) elvisemx.exe -f osos2\\Makefile.os2 "OBJ=.o" "EXE=emx.exe" \
                     "CC=gcc -Wall -DOS2 -D__WITH_TERMCAP -O3 \
                     -I/emx/include -I/software/ibmcpp/include \
                     -I/software/ibmcpp/include/os2" \
-                    "LIBFILES=-lsocket -ltermcap" "FLAGO=-o "
+                    "LIBFILES=-L/usr/lib/tcpipv4 -lsocket -ltermcap" \
+                    "FLAGO=-o "
 
 # Elvis compiled for a.out format and linked against emx.dll with x11...
 debug: ; $(MAKE) -f osos2\\Makefile.os2 "OBJ=.o" "EXE=x11.exe" \
                     "CC=gcc -g -Wall -DOS2 -D__WITH_TERMCAP -O3 \
                     -Zmtd -D__D_ST_MT_ERRNO__ -D__WITH_X11"   \
-                    "FLAGO=-o " \
-                    "LIBFILES=-L/usr/lib/x11 -lsocket -ltermcap -lx11"
+                    "FLAGO=-o " "LIBFILES=-L/usr/lib/x11 \
+                     -L/usr/lib/tcpipv4 -lsocket -ltermcap -lx11"
 
 # Elvis compiled for a.out format and linked against emx.dll with x11...
 x11: ; $(MAKE) elvisx11.exe -f osos2\\Makefile.os2 "OBJ=.o" "EXE=x11.exe" \
                     "CC=gcc -Wall -DOS2 -D__WITH_TERMCAP -O3 \
                     -Zmtd -D__D_ST_MT_ERRNO__ -D__WITH_X11   \
                     -I/usr/include -I/emx/include" "FLAGO=-o " \
-                    "LIBFILES=-L/usr/lib/x11 -lsocket -ltermcap -lx11"
+                    "LIBFILES=-L/usr/lib/x11 -L/usr/lib/tcpipv4 \
+                     -lsocket -ltermcap -lx11"
 
-gcc: ; $(MAKE) -f osos2\\Makefile.os2 "EXE=gcc.exe" "FLAGO=-o " \
-                    "CC=gcc -Wall -DOS2 -Zsys -Zomf -O3 -I/emx/include" \
-                    "LIBFILES="
-                    
+gcc: ; $(MAKE) -f osos2\\Makefile.os2 "EXE=gcc.exe" "FLAGO=-o " "OBJ=.o" \
+                    "CC=gcc -Wall -DOS2 -Zomf -O3 -I/emx/include" \
+                    "LIBFILES=-L/usr/lib/x11 -L/usr/lib/tcpipv4 -lsocket"
+
+wcc: ; $(MAKE) -f osos2\\Makefile.os2 "FLAGO=-fe=" "OBJ=.obj" \
+                    "CC=wcl386 -zq -otexan -I\\tcpip\\include -dexplicit=expl"\
+                    "LIBFILES=so32dll.lib tcp32dll.lib" DEFFILE=""
+
+wcc-no-tcp: ; $(MAKE) elvis-no-tcp$(EXE) -f osos2\\Makefile.os2 "FLAGO=-fe=" \
+                    "CC=wcl386 -zq -otexan -I\\tcpip\\include -dexplicit=expl"\
+                    LIBFILES="" DEFFILE=""
+
 
 elvis$(EXE): $(HDRS) main$(OBJ) $(OBJS) $(GUIOBJS) $(LPOBJS)
 	$(CC) $(CFLAGS) $(LDFLAGS) main$(OBJ) $(OBJS) $(GUIOBJS) $(LPOBJS) $(LIBFILES) $(DEFFILE) $(FLAGO)elvis$(EXE)
@@ -310,31 +337,31 @@ debug$(OBJ): os$(OS)$(SLASH)debug.c
 # broken down differently.
 
 guix11$(OBJ): guix11/guix11.c $(XBM)
-	$(OSCC) guix11/guix11.c
+	$(OSCC) guix11$(SLASH)guix11.c
 
 xclip$(OBJ): guix11/xclip.c
-	$(OSCC) guix11/xclip.c
+	$(OSCC) guix11$(SLASH)xclip.c
 
 xevent$(OBJ): guix11/xevent.c
-	$(OSCC) guix11/xevent.c
+	$(OSCC) guix11$(SLASH)xevent.c
 
 xmisc$(OBJ): guix11/xmisc.c
-	$(OSCC) guix11/xmisc.c
+	$(OSCC) guix11$(SLASH)xmisc.c
 
 xscroll$(OBJ): guix11/xscroll.c
-	$(OSCC) guix11/xscroll.c
+	$(OSCC) guix11$(SLASH)xscroll.c
 
 xstatus$(OBJ): guix11/xstatus.c
-	$(OSCC) guix11/xstatus.c
+	$(OSCC) guix11$(SLASH)xstatus.c
 
 xtext$(OBJ): guix11/xtext.c
-	$(OSCC) guix11/xtext.c
+	$(OSCC) guix11$(SLASH)xtext.c
 
 xtool$(OBJ): guix11/xtool.c
-	$(OSCC) guix11/xtool.c
+	$(OSCC) guix11$(SLASH)xtool.c
 
 xdialog$(OBJ): guix11/xdialog.c
-	$(OSCC) guix11/xdialog.c
+	$(OSCC) guix11$(SLASH)xdialog.c
 
 ###############################################################################
 # Handy commands
