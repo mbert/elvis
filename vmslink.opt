@@ -1,0 +1,36 @@
+ blk.obj, -
+ cmd1.obj, -
+ cmd2.obj, -
+ ctype.obj, -
+ curses.obj, -
+ cut.obj, -
+ ex.obj, -
+ input.obj,-
+ misc.obj, -
+ modify.obj, -
+ move1.obj, -
+ move2.obj, -
+ move3.obj, -
+ move4.obj,-
+ move5.obj, -
+ opts.obj, -
+ recycle.obj, -
+ redraw.obj, -
+ regexp.obj, -
+ regsub.obj,-
+ system.obj, -
+ tio.obj, -
+ tmp.obj, -
+ vars.obj, -
+ vcmd.obj, -
+ vi.obj,-
+ tinytcap.obj, -
+ vmsio.obj, -
+sys$share:vaxcrtl.exe/share
+psect_attr=curscr,noshr
+psect_attr=stdscr,noshr
+psect_attr=lines,noshr
+psect_attr=cols,noshr
+psect_attr=endwin,noshr
+psect_attr=initscr,noshr
+psect_attr=environ,noshr

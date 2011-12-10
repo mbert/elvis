@@ -1,0 +1,37 @@
+Elvis may be distributed in either source form or executable form.
+For executables, the exact list of files will vary.
+
+Source Files:
+	Elvis.lnk	 curses.c	  doc/title.ms	   prsvunix.c
+	Elvis.mak	 curses.h	  doc/ver.ms	   recycle.c
+	Elvis.prj	 cut.c		  doc/versions.ms  redraw.c
+	INSTALL		 doc/Makefile	  doc/visual.ms	   ref.c
+	MANIFEST	 doc/cflags.ms	  elvprsv.c	   regexp.c
+	Makefile.mix	 doc/ctags.man	  elvrec.c	   regexp.h
+	Pkgfile		 doc/cutbufs.ms	  ex.c		   regsub.c
+	README		 doc/differ.ms	  fmt.c		   shell.c
+	SourceFiles	 doc/elvcol	  input.c	   sysdos.c
+	alias.c		 doc/elvis.man	  instman.sh	   system.c
+	amiga.c		 doc/elvprsv.man  main.c	   tinyprnt.c
+	amiprsv.c	 doc/elvrec.man	  misc.c	   tinytcap.c
+	amistat.h	 doc/environ.ms	  modify.c	   tio.c
+	amisysio.c	 doc/ex.ms	  move1.c	   tmp.c
+	amitty.c	 doc/fmt.man	  move2.c	   unix.c
+	amiwild.c	 doc/index.ms	  move3.c	   vars.c
+	atari.c		 doc/init.ms	  move4.c	   vcmd.c
+	blk.c		 doc/internal.ms  move5.c	   vi.c
+	borland.h	 doc/intro.ms	  novice.rc	   vi.h
+	cmd1.c		 doc/makefile.ms  opts.c	   vmsbuild.com
+	cmd2.c		 doc/options.ms	  osk.c		   vmsio.c
+	config.h	 doc/question.ms  osk.h		   vmslink.opt
+	ctags.c		 doc/ref.man	  pc.c		   vmssetup.com
+	ctype.c		 doc/regexp.ms	  profile.sh	   vmswild.c
+	ctype.h		 doc/termcap.ms	  prsvdos.c	   wildcard.c
+
+MS-DOS executables:
+	CHANGES	      README	    elvis.man	  elvrec.man	ref.exe
+	Elvisman.txt  ctags.doc	    elvprsv.doc	  ex.exe	ref.man
+	INSTALL	      ctags.exe	    elvprsv.exe	  fmt.doc	vi.exe
+	MANIFEST      ctags.man	    elvprsv.man	  fmt.exe	view.exe
+	PATCHES	      elvis.doc	    elvrec.doc	  fmt.man	wildcard.exe
+	Pkgfile	      elvis.exe	    elvrec.exe	  ref.doc

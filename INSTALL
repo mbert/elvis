@@ -1,0 +1,71 @@
+Installation varies from one Operating System to another.  For complete
+instructions, see the appropriate subsection in the "Versions" section
+of the manual.  Basically, though, it goes like this:
+
+	VMS:	There is a batch file called "vmsbuild.com" which compiles
+		elvis and the related utilities.  You just need to say
+		"@vmsbuild" and wait a while.  (On a little old VAX with
+		heavy load, elvis can take up to half an hour to compile!)
+
+		After that, the programs need to be set up as foreign
+		commands.  A batch file called "vmssetup.com" does this.
+
+	DOS:	If you're using MS-C 5.x (for a fairly recent x), then
+		you can compile elvis and the related programs by saying
+		"make elvis.mak" and waiting a while.
+
+		If you're using Turbo-C or Borland C, then you will probably
+		want to copy "Makefile.mix" to "Makefile", and then edit
+		"Makefile" to select the Turbo-C group of settings.  Then run
+		"make".
+
+		Regardless of how you compile elvis, you must make a directory
+		called "C:\TMP" before elvis will run correctly.
+
+	EVERYTHING ELSE:
+		Copy "Makefile.mix" to "Makefile", and then edit "Makefile"
+		to select the proper group of settings.  Then run "make".
+
+		When its done, run "make install" to copy the executables
+		to /usr/local/bin (or whatever -- check the Makefile) and
+		change their permissions.  On UNIX systems, you'll need to
+		do this as "root".
+
+That's the gist of it.  For complete instructions, you should look in the
+"Versions" section of the manual.  You may also wish to browse through the
+"CFLAGS" and "Makefile" sections of the manual.
+
+The manual resides in a subdirectory called "doc".  Each section of the
+manual is in a separate file, so it could be split across several shar
+archives.  On a UNIX system, you can go into the "doc" directory and say
+"make" to have these parts be appended to form a single file called
+"Elvisman.txt".  On other systems, your best bet is probably to just
+print out all of the "*.doc" files, and then append them in the following
+order:
+	title.doc	title page
+	index.doc	index page
+	intro.doc	introductory fluff
+	visual.doc	visual commands and input mode
+	ex.doc		table of ex commands, and descriptions
+	regexp.doc	description of regular expressions and substitutions
+	options.doc	detailed description of ":set" command
+	cutbufs.doc	short discussion of cut-buffers and @ macros
+	differ.doc	list of (known) differences between elvis and vi
+	internal.doc	implementation details
+	cflags.doc	compile-time options
+	makefile.doc	description of the Makefile.mix file
+	termcap.doc	how elvis uses termcap fields -- terminal descriptions
+	environ.doc	environment variables that affect elvis
+	versions.doc	OS-dependent information
+	question.doc	some frquently asked questions & answers
+	ctags.doc	man-page for "ctags" program
+	elvis.doc	man-page for "elvis" program
+	elvprsv.doc	man-page for "elvprsv" program
+	elvrec.doc	man-page for "elvrec" program
+	fmt.doc		man-page for "fmt" program
+	ref.doc		man-page for "ref" program
+
+NOTE: The manual pages are formatted for 66-line pages.  The last 6 lines of
+each page are blank, for skipping page breaks.  Many laser printers default
+to 60 lines per page, so you may have to delete those extra blank lines, or
+replace them by formfeeds or something.

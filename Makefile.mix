@@ -1,0 +1,748 @@
+# combined Makefile for ELVIS - a clone of `vi`
+#
+# After editing this Makefile as described below, you should...
+#
+# Use `make` to compile all programs
+# Use `make install` to copy the programs to the BIN directory
+# Use `make clean` to remove all object files
+# Use `make clobber` to remove everything except source & documentation
+# Use `make uue` to produce uuencoded compressed tar archives of the source
+# Use `make sh` to produce shar archives of the source
+#
+# Several groups of Makefile settings are included below.  Choose *ONE* group
+# of settings for your particular system, and leave the others commented out.
+# The meanings of these settings are:
+#	OBJ	filename extension for unlinked object files -- usually .o
+#	EXE	filename extension for elvis executable file -- .exe, .tpp or null
+#	COM	filename extension for executable support files -- .com, .tpp or null
+#	EXTRA	version-specific object files used in elvis
+#	EXTRA2	version-specific object files used in elvis & elvrec
+#	LIBS	any special libraries, such as "-ltermcap"
+#	BIN	directory where executables should be installed
+#	CC	the C compiler command, possibly with "memory model" flags
+#	CFLAGS	compiler flags used to select compile-time options
+#	LNK	the linker command needed to link OBJ files (if not cc)
+#	LFLAGS	linker flags used to select link-time options
+#	SMALL	flag for special small memory model compilation -- usually null
+#	LARGE	flag for special large memory model compilation -- usually null
+#	OF	link flag to control the output file's name -- usually -o<space>
+#	RF	flag used to denote "compile but don't link" -- usually -c
+#	PROGS	the list of all programs
+#	CHMEM	any extra commands to be run after ELVIS is linked
+#	SORT	if the "tags" file must be sorted, then SORT=-DSORT
+#	RM	the name of a program that deletes files
+#	CP	name of a program that copies files -- copy or cp, usually
+#	LN	name of a program that "links" files -- copy or ln, usually
+#	SYS	type of system & compiler: unx/tos/os9/dos (maybe vms?)
+#	DUMMY	usually nothing, but OS9 needs "dummy"
+#	CFG	name of compiler configuration file -- usually null
+
+#---- These settings are recommended for Linux
+#OBJ=	.o
+#EXE=
+#COM=
+#EXTRA=	unix$(OBJ)
+#EXTRA2=
+#LIBS=	-ltermcap
+#BIN=	/usr/bin
+#CC=	gcc
+#CFLAGS=	-DNO_SHIFT_FKEYS -O2
+#SMALL=	-s -N
+#LARGE=	-s
+#OF=	-o ""
+#RF=	-c
+#PROGS=	elvis$(EXE) ctags$(COM) ref$(COM) elvrec$(COM) fmt$(COM) \
+#	elvprsv$(COM)
+#CHMEM=
+#SORT=	-DSORT
+#RM=	rm -f
+#CP=	cp
+#LN=	ln -f
+#SYS=	unx
+#DUMMY=
+#CFG=
+
+#---- These settings are recommended for System-V UNIX and SCO XENIX-386 ----
+#---- For AIX, add "-D_POSIX_SOURCE -DAIX -DTERMIOS" to CFLAGS.
+#---- For SCO (and maybe others) add "-DNEED_PTEM" to CFLAGS.
+#---- For HPUX add "-DTERMIOS" to CFLAGS and set LIBS=-lcurses.  [sdw]
+#OBJ=	.o
+#EXE=
+#COM=
+#EXTRA=	unix$(OBJ)
+#EXTRA2=
+#LIBS=	-ltermcap
+#BIN=	/usr/local/bin
+#CC=	cc
+#CFLAGS=	-DM_SYSV -O -DNO_SHIFT_FKEYS
+#SMALL=
+#LARGE=
+#OF=	-o ""
+#RF=	-c
+#PROGS=	elvis$(EXE) ctags$(COM) ref$(COM) elvrec$(COM) fmt$(COM) \
+#	elvprsv$(COM)
+#CHMEM=
+#SORT=	-DSORT
+#RM=	rm -f
+#CP=	cp
+#LN=	ln
+#SYS=	unx
+#DUMMY=
+#CFG=
+
+#---- These settings are recommended for SCO XENIX-286 ----
+#OBJ=	.o
+#EXE=
+#COM=
+#EXTRA=	unix$(OBJ)
+#EXTRA2=
+#LIBS=	-ltcap
+#BIN=	/usr/local/bin
+#CC=	cc
+#CFLAGS=	-Ox -DCS_IBMPC
+#SMALL=
+#LARGE=	-M2m
+#OF=	-o ""
+#RF=	-c
+#PROGS=	elvis$(EXE) ctags$(COM) ref$(COM) elvrec$(COM) fmt$(COM) \
+#	elvprsv$(COM)
+#CHMEM=
+#SORT=	-DSORT
+#RM=	rm -f
+#CP=	cp
+#LN=	ln
+#SYS=	unx
+#DUMMY=
+#CFG=	
+###### compilation rule for Xenix-286
+#.c.o:
+#	$(CC) $(LARGE) $(CFLAGS) $(RF) $<
+
+#---- These settings are recommended for BSD 4.3 UNIX and SunOS ----
+#---- For BSD386, add "-DTERMIOS" to CFLAGS
+#OBJ=	.o
+#EXE=	
+#COM=	
+#EXTRA=	unix$(OBJ)
+#EXTRA2=
+#LIBS=	-ltermcap
+#BIN=	/usr/local/bin
+#CC=	cc
+#CFLAGS=	-Dbsd -O
+#SMALL=
+#LARGE=
+#OF=	-o ""
+#RF=	-c
+#PROGS=	elvis$(EXE) ctags$(COM) ref$(COM) elvrec$(COM) elvprsv$(COM)
+#CHMEM=
+#SORT=	-DSORT
+#RM=	rm -f
+#CP=	cp
+#LN=	ln
+#SYS=	unx
+#DUMMY=
+#CFG=
+
+#---- These settings are recommended for Coherent 4.0 ----
+#OBJ=.o
+#EXE=
+#COM=
+#EXTRA=	unix$(OBJ) tinyprnt$(OBJ)
+#EXTRA2=
+#LIBS=	-ltermcap
+#BIN=	/usr/bin
+#CC=	cc
+#CFLAGS=	-O -VSUVAR -DNO_S5WINSIZE
+#SMALL=
+#LARGE=
+#OF=	-o ""
+#RF=	-c
+#PROGS=	elvis$(EXE) ctags$(COM) ref$(COM) elvrec$(COM) fmt$(COM) \
+#	elvprsv$(COM)
+#CHMEM=
+#SORT=
+#RM=	rm -f
+#CP=	cp
+#LN=	ln
+#SYS=	unx
+#DUMMY=
+#CFG=
+
+#---- These settings are recommended for Coherent 3.x ----
+#OBJ=.o
+#EXE=
+#COM=
+#EXTRA=	unix$(OBJ) tinyprnt$(OBJ)
+#EXTRA2=
+#LIBS=	-lterm
+#BIN=	/usr/bin
+#CC=	cc
+#CFLAGS=	-O -DCOHERENT -VSUVAR -DCRUNCH -DNO_CHARATTR -DNO_CURSORSHAPE \
+#	-DNO_DIGRAPH -DNO_MKEXRC -DNO_POPUP -DNO_FKEYS -DNO_ABBR -DNO_TAGSTACK
+#SMALL=
+#LARGE=
+#OF=	-o ""
+#RF=	-c
+#EVAL=	eval
+#PROGS=	elvis$(EXE) ctags$(COM) ref$(COM) elvrec$(COM) fmt$(COM) \
+#	elvprsv$(COM)
+#CHMEM=	fixstack 2000 elvis$(EXE)
+#SORT=
+#RM=	rm -f
+#CP=	cp
+#LN=	ln
+#SYS=	unx
+#DUMMY=
+#CFG=
+
+#---- These settings are recommended for Minix-ST ----
+#OBJ=	.o
+#EXE=
+#COM=
+#EXTRA=	unix$(OBJ)
+#EXTRA2=
+#LIBS=
+#BIN=	/usr/bin
+#CC=	cc
+##CC=	gcc -s
+#CFLAGS=
+#SMALL=
+#LARGE=
+#OF=	-o ""
+#RF=	-c
+#PROGS=	elvis$(EXE) ctags$(COM) ref$(COM) elvrec$(COM) fmt$(COM) \
+#	elvprsv$(COM)
+#CHMEM=	chmem =18000 elvis$(EXE)
+#SORT=
+#RM=	rm -f
+#CP=	cp
+#LN=	ln
+#SYS=	unx
+#DUMMY=
+#CFG=
+
+#---- These settings are recommended for Minix-PC ----
+#OBJ=	.o
+#EXE=
+#COM=
+#EXTRA=	tinytcap$(OBJ) unix$(OBJ) tinyprnt$(OBJ)
+#EXTRA2=
+#LIBS=
+#BIN=	/usr/bin
+#CC=	cc
+#CFLAGS=	-O -m -w -DCRUNCH \
+#	-DNO_MKEXRC -DNO_CURSORSHAPE -DNO_CHARATTR -DNO_SHOWMODE \
+#	-DNO_MODELINE -DNO_OPTCOLS -DNO_DIGRAPH -DNO_EXTENSIONS \
+#	-DNO_ERRLIST -DNO_FKEY -DNO_VISIBLE -DNO_COLOR -DNO_POPUP \
+#	-DNO_TAGSTACK
+###(not -NO_AT -DNO_SENTENCE -DNO_ABBR -DNO_RECYCLE -DNO_MAGIC -DNO_CHARSEARCH)
+#SMALL=
+#LARGE=
+#OF=	-o ""
+#RF=	-c
+#PROGS=	elvis$(EXE) ctags$(COM) ref$(COM) elvrec$(COM) fmt$(COM) \
+#	elvprsv$(COM)
+#CHMEM=
+#SORT=
+#RM=	rm -f
+#CP=	cp
+#LN=	ln
+#SYS=	unx
+#DUMMY=
+#CFG=
+
+#---- These settings are recommended for Amiga port done using Aztec 5.2b ----
+#	For AmigaDOS 2.04, you're all set! Its the default target!
+#OBJ=	.o
+#EXE=
+#COM=
+#EXTRA=	amiga$(OBJ) amitty$(OBJ) amisysio$(OBJ)
+#EXTRA2= tinytcap$(OBJ)
+#LIBS=	-lc
+#BIN=	sys:utilities
+#CC=	cc
+#CFLAGS=	-sob -Damiga
+#LNK=	ln
+#LFLAGS=
+#SMALL=
+#LARGE=
+#OF=	-o 
+#RF=
+#PROGS1=	elvis$(EXE) ctags$(COM) ref$(COM) elvrec$(COM) fmt$(COM) 
+#PROGS2=	elvprsv$(COM) ex$(COM) vi$(COM) view$(COM) input$(COM)
+#PROGS=	$(PROGS1) $(PROGS2)
+#CHMEM=
+#SORT=
+#RM=	delete
+#CP=	copy
+#LN=	copy
+#SYS=	ami
+#DUMMY=
+#CFG=
+
+#---- These settings are recommended for MS-DOS + MS-C + NDMAKE ----
+#OBJ=	.obj
+#EXE=	.exe
+#COM=	.exe	# .com might work, try it
+#EXTRA=	pc$(OBJ) sysdos$(OBJ) tinytcap$(OBJ)
+#EXTRA2=
+#LIBS=
+#BIN=	c:\dos
+#CC=	cl
+#CFLAGS=	-O -DCS_IBMPC -DCS_SPECIAL -DINTERNAL_TAGS
+#SMALL= /AC
+#LARGE=	/AL
+#OF=	-o 
+#RF=	-c
+#PROGS1=	elvis$(EXE) ex$(COM) ctags$(COM) ref$(COM) elvrec$(COM)
+#PROGS2=	wildcard$(COM) fmt$(COM) elvprsv$(COM)
+#PROGS=	$(PROGS1) $(PROGS2)
+#CHMEM=	exehdr /stack:0x4000 elvis.exe
+#SORT=
+#RM=	del
+#CP=	copy
+#LN=	copy
+#SYS=	dos
+#DUMMY=
+#CFG=
+###### compilation rule for MS-C
+#.c.obj:
+#	$(CC) $(LARGE) $(CFLAGS) $(RF) $<
+
+##---- These settings are recommended for MS-DOS + TURBO/BORLAND C ----
+## CFG: name of the compiler config and response files
+## TC_LIB & TC_INC: location of standard libraries and header files.
+#OBJ=	.obj
+#EXE=	.exe
+#COM=	.exe
+#EXTRA=	pc$(OBJ) sysdos$(OBJ) tinytcap$(OBJ)
+#EXTRA2=
+#LIBS=@borland.rsp
+#BIN=	c:\bin
+#CFG=	borland.cfg borland.rsp
+#CC=	bcc
+#TC_LIB=	c:\bcc\lib
+#TC_INC=	c:\bcc\include
+#CFLAGS=	+borland.cfg
+## uncomment next line iff using bcc, and you want to use pre-compiled headers
+#HDRS=	-H -H=borland.hdr
+## uncomment next line to use med memory model for elvis
+##CRNCH=	-DCRUNCH -mm
+#TC_CFLAGS1=	-ml -O -f- -w- -v -vi- -G- -DCS_IBMPC -DCS_SPECIAL -DINTERNAL_TAGS
+#TC_CFLAGS2=	$(HDRS) $(CRNCH) -I$(TC_INC) -L$(TC_LIB)
+## extra flags for compiling support programs
+#SMALL=	-ms -lt -H- -v-
+#LARGE=
+## extra flags for linking elvis (strip symbols)
+#EFLAGS=	-v-
+#OF=	-e
+#RF=	-c
+#PROGS1=	elvis$(EXE) ex$(COM) ctags$(COM) ref$(COM) elvrec$(COM)
+#PROGS2=	wildcard$(COM) fmt$(COM) elvprsv$(COM)
+#PROGS=	$(PROGS1) $(PROGS2)
+#CHMEM=
+#SORT=
+#RM=	del
+#CP=	copy
+#LN=	copy
+#SYS=	dos
+#DUMMY=
+##source file compilation rule:
+#.c.obj:
+#	$(CC) $(CFLAGS) $(RF) {$< }
+
+#---- These settings can make DOS executables using the SCO UNIX compiler
+#OBJ=	.o
+#EXE=	.exe
+#COM=	.exe
+#EXTRA=	pc$(OBJ) sysdos$(OBJ) tinytcap$(OBJ)
+#EXTRA2=
+#LIBS=
+#BIN=	a:
+#CC=	cc -dos -F 4000
+#CFLAGS=	-DXDOS -O -DCS_IBMPC -DCS_SPECIAL -DINTERNAL_TAGS
+#SMALL=	-M0s
+#LARGE=	-M0l
+#OF=	-o ""
+#RF=	-c
+#PROGS1=	elvis$(EXE) ex$(COM) ctags$(COM) ref$(COM) elvrec$(COM)
+#PROGS2=	wildcard$(COM) fmt$(COM) elvprsv$(COM)
+#PROGS=	$(PROGS1) $(PROGS2)
+#CHMEM=
+#SORT=
+#RM=	rm -f
+#CP=	doscp -r
+#LN=	doscp -r
+#SYS=	xdos
+#DUMMY=
+#CFG=
+###### compilation rule for UNIX->DOS cross compiler
+#.c.o:
+#	$(CC) $(LARGE) $(CFLAGS) -c $<
+
+#--- These settings are recommended for Atari TOS + Mark Williams C or Gnu C ----
+#OBJ=	.o
+#EXE=	.ttp
+#COM=	.ttp
+#EXTRA=	sysdos$(OBJ) tinytcap$(OBJ)
+#EXTRA2=	atari$(OBJ)
+#LIBS=
+#BIN=	c:\ #
+#CC=	cc -VPEEP
+##CC=	gcc -s
+#CFLAGS=	-O -DCS_IBMPC -DCS_SPECIAL
+#SMALL=
+#LARGE=
+#OF=	-o 
+#RF=	-c
+#PROGS=	elvis$(EXE) ctags$(COM) ref$(COM) elvrec$(COM) wildcard$(COM) \
+#	shell$(COM) fmt$(COM) elvprsv$(COM)
+#CHMEM=	@echo -n
+#SORT=
+#RM=	rm -f
+#CP=	copy
+#LN=	copy
+#SYS=	tos
+#DUMMY=
+#CFG=
+
+#---- These settings are recommended for OS-9/68K V2.3 ----
+#OBJ=	.r
+#EXE=
+#COM=
+#EXTRA=	tinyprnt$(OBJ)
+#EXTRA2=	osk$(OBJ)
+#LIBS=	-l=/dd/lib/termlib.l
+#BIN=	/dd/usr/cmds
+#CC=	cc
+#ODIR=	/dd/usr/src/elvis
+#CFLAGS=	-gq -m=2 -DNO_CURSORSHAPE
+#SMALL=
+#LARGE=
+#OF=	-f=$(ODIR)/
+#RF=	-r
+#PROGS=	elvis$(EXE) vi$(COM) view$(COM) input$(COM) ctags$(COM) ref$(COM) \
+#	elvrec$(COM) fmt$(COM) elvprsv$(COM)
+#PROGS1=
+#PROGS2=
+#CHMEM=	touch elvis$(EXE)
+#SORT=
+#RM=	del *.stb *.dbg
+#CP=	copy
+#LN=	copy
+#SYS=	os9
+#DUMMY=	dummy
+#CFG=
+#TC_CFLAGS1=
+#TC_CFLAGS2=
+#EFLAGS=
+#LNK=
+#LFLAGS=
+
+##---- These settings probably won't work for VAX/VMS, but they might ----
+#OBJ=	.obj
+#EXE=	.exe
+#COM=	.exe
+#EXTRA=	tinytcap$(OBJ)
+#EXTRA2=	vmsio$(OBJ)
+#LIBS=
+#BIN
+#CC=	cc
+#CFLAGS=	/define=NO_CURSORSHAPE /define=INTERNAL_TAGS
+#SMALL=
+#LARGE=
+#OF=	/exe=
+#RF=
+#PROGS=	elvis.exe elvprsv.exe elvrec.exe ctags.exe ref.exe
+#CHMEM=
+#SORT=
+#RM=	del
+#CP=	copy
+#LN=	copy
+#SYS=	vms
+#DUMMY=	
+#CFG=	vmsopt.opt
+#
+##compilation rules
+#.exe.c:
+#	$(CC) $<.c
+#	link $(OF)$<.exe,vmslink/opt
+#.obj.c:
+#	$(CC) $(CFLAGS) $<.c
+
+##---- These settings pretty much work for OS/2 and emx+gcc 0.8g ----
+#OBJ=	.obj
+#EXE=	.exe
+#COM=	.exe
+#EXTRA=	unix$(OBJ) sysos2$(OBJ)
+#EXTRA2=
+#LIBS=	elvis.def -ltermcap
+#BIN=	/usr/local/bin
+## for emx 0.8f and earlier, change -Zmtd to -Zmt
+#CC=	gcc -Zomf -Zmtd -s -O
+#CFLAGS=	-DOS2
+#SMALL=	elvis.def
+#LARGE=
+#OF=	-o 
+#RF=	-c
+#PROGS=	elvis$(EXE) ctags$(COM) ref$(COM) elvrec$(COM) fmt$(COM) \
+#	elvprsv$(COM) wildcard$(COM) ex$(COM) vi$(COM) view$(COM)
+#CHMEM=
+#SORT=	-DSORT
+#RM=	del
+#CP=	copy
+#SYS=	unx
+#DUMMY=
+#CFG=
+###### compilation rule for emx
+#.SUFFIXES: .c $(OBJ)
+#.c$(OBJ):
+#	$(CC) $(LARGE) $(CFLAGS) $(RF) $<
+
+#---- Settings for QNX 4.2 (Watcom 9.5) ----
+#OBJ=	.o
+#EXE=
+#COM=
+#EXTRA=	unix$(OBJ)
+#EXTRA2=
+#LIBS=	-ltermcap -lunix
+#BIN=	/usr/bin
+#CC+=	-ml
+#CFLAGS+= -DCS_IBMPC -DCS_SPECIAL -D_POSIX_SOURCE -DTERMIOS -DM_SYSV
+#SMALL=
+#LARGE=
+#OF=	-o
+#RF=	-c
+#PROGS=	elvis$(EXE) ctags$(COM) ref$(COM) elvrec$(COM) fmt$(COM) \
+#	elvprsv$(COM)
+#CHMEM=
+#SORT=	-DSORT
+#RM=	rm -f
+#CP=	cp
+#SYS=	unx
+#DUMMY=
+#CFG=
+
+
+###########################################################################
+###########################################################################
+###                                                                     ###
+###     The rest of this Makefile contains no user-serviceable parts    ###
+###                                                                     ###
+###########################################################################
+###########################################################################
+
+OBJS1=	blk$(OBJ) cmd1$(OBJ) cmd2$(OBJ) ctype$(OBJ) curses$(OBJ) cut$(OBJ)
+OBJS2=	ex$(OBJ) input$(OBJ) main$(OBJ) misc$(OBJ) modify$(OBJ) move1$(OBJ)
+OBJS3=	move2$(OBJ) move3$(OBJ) move4$(OBJ) move5$(OBJ) opts$(OBJ) recycle$(OBJ)
+OBJS4=	redraw$(OBJ) regexp$(OBJ) regsub$(OBJ) system$(OBJ) tio$(OBJ) tmp$(OBJ)
+OBJS5=	vars$(OBJ) vcmd$(OBJ) vi$(OBJ)
+OBJS=	$(OBJS1) $(OBJS2) $(OBJS3) $(OBJS4) $(OBJS5)
+
+ALIAS=	alias$(OBJ)
+
+###########################################################################
+
+all: $(PROGS)
+	@echo done.
+
+elvis$(EXE): linkelv.$(SYS)
+	@echo "elvis linked."
+
+ctags$(COM): $(CFG) ctags.c wildcard.c
+	$(CC) $(CFLAGS) $(SMALL) $(SORT) $(OF)ctags$(COM) ctags.c $(EXTRA2)
+
+ref$(COM): $(CFG) ref.c
+	$(CC) $(CFLAGS) $(SMALL) $(OF)ref$(COM) ref.c
+
+elvrec$(COM): $(CFG) elvrec.c
+	$(CC) $(CFLAGS) $(SMALL) $(OF)elvrec$(COM) elvrec.c $(EXTRA2)
+
+ex$(COM): linkex.$(SYS)
+	@echo "ex done."
+
+vi$(COM): linkvi.$(SYS)
+	@echo "vi done."
+
+view$(COM): linkview.$(SYS)
+	@echo "view done."
+
+input$(COM): linkinput.$(SYS)
+	@echo "input done."
+
+shell$(COM): $(CFG) shell.c
+	$(CC) $(CFLAGS) $(SMALL) $(OF)shell$(COM) shell.c
+
+wildcard$(COM): $(CFG) wildcard.c ctype.c
+	$(CC) $(CFLAGS) $(SMALL) $(OF)wildcard$(COM) wildcard.c
+
+fmt$(COM): $(CFG) fmt.c
+	$(CC) $(CFLAGS) $(SMALL) $(OF)fmt$(COM) fmt.c $(EXTRA2)
+
+elvprsv$(COM): $(CFG) elvprsv.c amiprsv.c prsvunix.c prsvdos.c wildcard.c ctype.c
+	$(CC) $(CFLAGS) $(SMALL) $(OF)elvprsv$(COM) elvprsv.c
+
+##############################################################################
+# "It all depends..."
+
+$(OBJS): vi.h curses.h config.h regexp.h ctype.h
+
+##############################################################################
+# The way to link elvis is system dependent, and maybe compiler dependent too.
+
+# elvis executable compilation rule for: AmigaDOS
+linkelv.ami: $(OBJS) $(EXTRA) $(EXTRA2)
+	$(LNK) $(LFLAGS) $(OF)elvis$(EXE) $(OBJS) $(EXTRA) $(EXTRA2) $(LIBS)
+	$(CHMEM)
+	@touch $@
+
+# elvis executable compilation rule for: all unix, os9, tos, msc dos
+linkelv.unx linkelv.tos linkelv.os9 linkelv.cl linkelv.xdos: \
+		$(OBJS) $(EXTRA) $(EXTRA2)
+	$(CC) $(LARGE) $(CFLAGS) $(OF)elvis$(EXE) $(OBJS) $(EXTRA) $(EXTRA2) $(LIBS)
+	$(CHMEM)
+	@touch $@
+
+linkelv.dos: linkelv.$(CC)
+
+# elvis executable compilation rule for: borland tcc, bcc
+linkelv.bcc linkelv.tcc: $(CFG) $(OBJS) $(EXTRA) $(EXTRA2)
+	$(CC) $(CFLAGS) $(LIBS)
+	@echo done > linkelv.$(CC)
+
+linkelv.vms: $(OBJS) $(EXTRA) $(EXTRA2)
+	link$(OF)elvis.exe main,$(CFG)/opt
+
+##############################################################################
+
+# borland/turbo c config files
+borland.cfg: $(DUMMY)
+	echo $(TC_CFLAGS1)> borland.cfg
+	echo $(TC_CFLAGS2)>> borland.cfg
+
+borland.rsp: $(DUMMY)
+	echo $(EFLAGS) $(OF)elvis$(EXE) > borland.rsp
+	echo $(OBJS1)>> borland.rsp
+	echo $(OBJS2)>> borland.rsp
+	echo $(OBJS3)>> borland.rsp
+	echo $(OBJS4)>> borland.rsp
+	echo $(OBJS5)>> borland.rsp
+	echo $(EXTRA)>> borland.rsp
+
+##############################################################################
+# elvis executable compilation rule for: AmigaDOS
+linkex.ami: alias.o
+	$(LNK) $(LFLAGS) $(OF)ex$(EXE) alias.o $(LIBS)
+
+linkex.unx linkex.tos linkex.xdos linkex.dos linkex.vms: $(CFG) alias.c
+	$(CC) $(CFLAGS) $(SMALL) $(OF)ex$(COM) alias.c
+
+linkex.os9: $(DUMMY)
+	@echo done >/nil
+
+linkvi.ami linkvi.unx linkvi.tos linkvi.xdos linkvi.dos linkvi.vms: ex$(COM)
+	$(CP) ex$(COM) vi$(COM)
+
+linkvi.os9: alias.r
+	$(CC) $(CFLAGS) $(OF)vi$(COM) alias.r
+	@touch $@
+
+linkview.ami linkview.unx linkview.tos linkview.xdos linkview.dos linkview.vms: ex$(COM)
+	$(CP) ex$(COM) view$(COM)
+
+linkview.os9: alias.r
+	$(CC) $(CFLAGS) $(OF)view$(COM) alias.r
+	@touch $@
+
+linkinput.ami linkinput.unx linkinput.tos linkinput.xdos linkinput.dos linkinput.vms: ex$(COM)
+	$(CP) ex$(COM) input$(COM)
+
+linkinput.os9: alias.r
+	$(CC) $(CFLAGS) $(OF)input$(COM) alias.r
+	@touch $@
+
+##############################################################################
+# installation is system-dependent
+
+install: $(PROGS) inst.$(SYS)
+	@echo Installation complete.
+
+inst.ami: $(DUMMY)
+	MakeDir $(BIN)/Elvis
+	Assign Elvis: $(BIN)/Elvis
+	$(CP) $(PROGS) Elvis:
+	@echo ::: YOU STILL NEED TO EDIT THE S:STARTUP-SEQUENCE FILE,
+	@echo ::: TO HAVE TEMP FILES PRESERVED AFTER A SYSTEM CRASH.
+
+
+inst.unx: $(DUMMY)
+	$(CP) $(PROGS) $(BIN)
+	(cd $(BIN); chmod 755 $(PROGS))
+	(cd $(BIN); chown bin $(PROGS))
+	(cd $(BIN); chown root elvprsv$(COM) elvrec$(COM))
+	(cd $(BIN); chmod 4755 elvprsv$(COM) elvrec$(COM))
+	-$(LN) $(BIN)/elvis $(BIN)/vi
+	-$(LN) $(BIN)/elvis $(BIN)/ex
+	-$(LN) $(BIN)/elvis $(BIN)/view
+	-$(LN) $(BIN)/elvis $(BIN)/input
+	test -d /usr/preserve || (mkdir /usr/preserve; chmod 755 /usr/preserve)
+	@if test -d /etc/rc2.d; then \
+		echo $(BIN)/elvprsv /tmp/elv* >/etc/rc2.d/S03elvis; \
+	else \
+		echo "::: YOU STILL NEED TO EDIT THE /ETC/RC FILE, OR WHATEVER,"; \
+		echo "::: TO HAVE TEMP FILES BE PRESERVED AFTER A SYSTEM CRASH."; \
+	fi
+	sh instman.sh $(PROGS)
+
+inst.dos: $(DUMMY)
+	for %a in ($(PROGS1)) do copy %a $(BIN)
+	for %a in ($(PROGS2)) do copy %a $(BIN)
+	$(CP) $(BIN)\ex$(COM) $(BIN)\vi$(COM)
+	$(CP) $(BIN)\ex$(COM) $(BIN)\view$(COM)
+	$(CP) $(BIN)\ex$(COM) $(BIN)\input$(COM)
+	-mkdir c:\preserve
+	-mkdir c:\tmp
+	@echo ::: YOU STILL NEED TO EDIT YOUR AUTOEXEC.BAT FILE TO
+	@echo ::: HAVE TEMP FILES BE PRESERVED AFTER A SYSTEM CRASH.
+
+inst.xdos: $(DUMMY)
+	$(CP) $(PROGS) $(BIN)
+	$(CP) ex$(COM) $(BIN)/vi$(COM)
+	$(CP) ex$(COM) $(BIN)/view$(COM)
+	$(CP) ex$(COM) $(BIN)/input$(COM)
+	@echo ::: YOU WILL NEED TO EDIT THE AUTOEXEC.BAT FILE TO
+	@echo ::: HAVE TEMP FILES BE PRESERVED AFTER A SYSTEM CRASH.
+
+inst.tos: $(DUMMY)
+	$(CP) $(PROGS) $(BIN)
+
+inst.os9: $(DUMMY)
+	$(CP) $(PROGS) -rw=$(BIN)
+	chd $(BIN); attr -epenprnpw $(PROGS)
+	@echo ::: YOU STILL NEED TO EDIT THE /DD/STARTUP FILE, OR WHATEVER,
+	@echo ::: TO HAVE TEMP FILES BE PRESERVED AFTER A SYSTEM CRASH.
+
+inst.vms: $(DUMMY)
+	@echo how?
+
+##############################################################################
+# clobbering is system dependent, because DOS's "copy" can't handle multiple
+# filenames
+
+clobber: clean clob.$(SYS)
+	@echo -n
+
+clean: $(DUMMY)
+	$(RM) *$(OBJ) 
+	$(RM) elvis?.uue 
+	$(RM) elvis?.sh 
+	$(RM) core
+	$(RM) linkelv.$(SYS)
+
+clob.unx clob.tos clob.os9 clob.xdos clob.vms: $(DUMMY)
+	$(RM) tags refs $(PROGS)
+
+clob.dos : $(DUMMY)
+	for %a in ($(PROGS1)) do $(RM) %a
+	for %a in ($(PROGS2)) do $(RM) %a
+	for %a in (tags refs) do $(RM) %a
