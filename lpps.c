@@ -1,7 +1,6 @@
 /* lpps.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_lpps[] = "$Id: lpps.c,v 2.13 1997/10/05 19:06:12 steve Exp $";
 
 
 /* This file contains a driver for Adobe PostScript.  The driver supports
@@ -10,14 +9,20 @@ char id_lpps[] = "$Id: lpps.c,v 2.13 1997/10/05 19:06:12 steve Exp $";
 
 
 #include "elvis.h"
+#ifdef FEATURE_RCSID
+char id_lpps[] = "$Id: lpps.c,v 2.31 2003/10/17 17:41:23 steve Exp $";
+#endif
 #ifdef FEATURE_LPR
 
 #if USE_PROTOTYPES
 static void out(char *str, char *param);
+static void outdef(char *name, char *value);
 static void psmove(int newrow, int newcol);
+static void pscenter(int newrow, int newcol, char *cmd);
+static void pscolor(_char_ newfont);
 static void psstring(_char_ newfont);
 static void pagestart(void);
-static void pageend(BOOLEAN final);
+static void pageend(ELVBOOL final);
 static void before(int minorno, void (*draw)(_CHAR_));
 static void fontch(_char_ font, _CHAR_ ch);
 static void page(int linesleft);
@@ -25,16 +30,17 @@ static void after(int linesleft);
 #endif
 
 /* These variables store the current state of the driver */
-static int	elvrow;	/* Row where elvis thinks cursor is */
-static int	elvcol;	/* Column where elvis thinks cursor is */
-static char	elvfont;/* Current elvis font - one of n/b/i/u/g */
-static int	psrow;	/* Row where cursor is located */
-static int	pscol;	/* Column where cursor is located */
-static char	psfont;	/* Current PS font - one of n/b/i */
-static BOOLEAN	instr;	/* Are we in the middle of outputting a string? */
+static int	elvrow;		/* Row where elvis thinks cursor is */
+static int	elvcol;		/* Column where elvis thinks cursor is */
+static int	elvfont;	/* Current elvis font */
+static unsigned char elvrgb[3];	/* Current color */
+static int	psrow;		/* Row where cursor is located */
+static int	pscol;		/* Column where cursor is located */
+static char	psfont;		/* Current PS font - one of n/b/i */
+static ELVBOOL	instr;	/* Are we in the middle of outputting a string? */
 static int	width;	/* width of current string, measured in characters */
-static BOOLEAN	twoup;	/* Print two logical pages on each piece of paper? */
-static BOOLEAN	even;	/* True during printing of second logical page */
+static ELVBOOL	twoup;	/* Print two logical pages on each piece of paper? */
+static ELVBOOL	even;	/* ElvTrue during printing of second logical page */
 static long	pagenum;/* Physical page number */
 
 
@@ -62,6 +68,19 @@ static void out(str, param)
 		(*prtchar)((_CHAR_)*param++);
 	}
 	(*prtchar)((_CHAR_)'\n');
+}
+
+/* output a PostScript def command */
+static void outdef(name, value)
+	char	*name;	/* string to be output */
+	char	*value;	/* optional second string */
+{
+	while (*name)
+	{
+		(*prtchar)((_CHAR_)*name++);
+	}
+	(*prtchar)((_CHAR_)' ');
+	out(value, " def");
 }
 
 
@@ -94,13 +113,65 @@ static void psmove(newrow, newcol)
 	pscol = newcol;
 }
 
+/* This function moves the PostScript cursor to the *CENTER* of a the
+ * character cell for a given row/column, and then optionally outputs some
+ * other command.
+ */
+static void pscenter(newrow, newcol, cmd)
+	int	newrow;	/* new row number, with 0 being the top of the page */
+	int	newcol;	/* column number, with 0 being the leftmost column */
+	char	*cmd;	/* command to execute at the center */
+{
+	char	buf[100];
+	int	psx, psy;	/* PostScript coordinates for position */
+
+	/* Convert row/column position to PostScript coordinates.  Here, we
+	 * assume that each character is 1/10 of an inch wide and 1/6 of an
+	 * inch high.  We also assume that the font's baseline is about 1/6
+	 * of the way up the character cell.
+	 */
+	psx = newcol * 72 + 36;
+	psy = (o_lplines - newrow) * 120 - 60;
+
+	/* Output the coordinates and the command */
+	sprintf(buf, "%d.%d %d.%d %s", psx/10, psx%10, psy/10, psy%10, cmd);
+	out(buf, NULL);
+	pscol = -1;
+}
+
+static void pscolor(newfont)
+	_char_	newfont;	/* font whose colors to use */
+{
+	char	str[100];
+	unsigned char rgb[3];
+
+	/* if "lpcolor" is unset, then do nothing */
+	if (!o_lpcolor)
+		return;
+
+	/* find the color of this font */
+	memcpy(rgb, lpfg(newfont), 3);
+
+	/* if same as previous color, then do nothing */
+	if (!memcmp(rgb, elvrgb, 3))
+		return;
+
+	/* output a color change command */
+	sprintf(str, "%d 255.0 div %d 255.0 div %d 255.0 div setrgbcolor",
+		rgb[0], rgb[1], rgb[2]);
+	out(str, NULL);
+
+	/* remember the color */
+	memcpy(elvrgb, rgb, 3);
+}
 
 /* This function starts and/or ends a string.  It also handles font changes */
 static void psstring(newfont)
-	_char_	newfont;	/* font character of font to load */
+	_char_	newfont;	/* font to load */
 {
 	char	newps;		/* new postscript font */
 	int	oldcol;
+	int	bits;
 
 	/* If fonts haven't changed, we don't need to do anything */
 	if (newfont == elvfont && instr)
@@ -113,17 +184,35 @@ static void psstring(newfont)
 		(*prtchar)(')');
 
 		/* drawing underlined strings requires extra work */
-		if (elvfont == 'u')
+		bits = colorinfo[elvfont].da.bits;
+		if (bits & (COLOR_BOXED | COLOR_UNDERLINED))
 		{
 			/* Output the string, and also find its width */
-			out(" dup show stringwidth pop", NULL);
+			out(" dup ElvisShow ElvisStringWidth", NULL);
 
-			/* Draw a horizontal line as wide as the string */
+			/* Begin drawing a new path. */
 			out(" newpath", NULL);
 			oldcol = pscol;
 			pscol = -1;
 			psmove(elvrow, oldcol);
-			out(" 0 -1 rmoveto dup 0 rlineto neg 1 rmoveto stroke", NULL);
+
+			/* BOXED or UNDERLINED? */
+			if (bits & COLOR_BOXED)
+			{
+				/* Draw all four sides of a box */
+				out(" 0 -3 rmoveto dup 0 rlineto", NULL);
+				out(" 0 12 rlineto", NULL);
+				out(" neg 0 rlineto", NULL);
+				out(" closepath", NULL);
+			}
+			else
+			{
+				/* Just draw an underline */
+				out(" 0 -1 rmoveto 0 rlineto", NULL);
+			}
+
+			/* Draw it */
+			out(" stroke", NULL);
 
 			/* That leaves the PS cursor position undefined */
 			pscol = psrow = -1;
@@ -131,12 +220,12 @@ static void psstring(newfont)
 		else
 		{
 			/* output the string */
-			out(" show", NULL);
+			out(" ElvisShow", NULL);
 			pscol += width;
 		}
 
 		/* we are no longer in a string */
-		instr = False;
+		instr = ElvFalse;
 		width = 0;
 	}
 
@@ -144,16 +233,22 @@ static void psstring(newfont)
 	if (!newfont)
 		return;
 
+	/* Adjust colors */
+	pscolor(newfont);
+
 	/* Move the cursor to where the new string will be output */
 	psmove(elvrow, elvcol);
 
 	/* If necessary, switch postscript fonts */
-	if (newfont == 'b' || newfont == 'e')
+	bits = colorinfo[newfont].da.bits;
+	if (bits & COLOR_BOLD)
 		newps = 'b';
-	else if (newfont == 'i')
+	else if (bits & COLOR_ITALIC)
 		newps = 'i';
 	else
 		newps = 'n';
+	if (bits & COLOR_PROP)
+		newps = elvtoupper(newps);
 	if (newps != psfont)
 	{
 		switch (newps)
@@ -161,6 +256,9 @@ static void psstring(newfont)
 		  case 'n':	out("ElvisN", " setfont");	break;
 		  case 'b':	out("ElvisB", " setfont");	break;
 		  case 'i':	out("ElvisI", " setfont");	break;
+		  case 'N':	out("ElvisPN", " setfont");	break;
+		  case 'B':	out("ElvisPB", " setfont");	break;
+		  case 'I':	out("ElvisPI", " setfont");	break;
 		}
 		psfont = newps;
 	}
@@ -170,7 +268,7 @@ static void psstring(newfont)
 	(*prtchar)('(');
 
 	/* we are now in a string */
-	instr = True;
+	instr = ElvTrue;
 }
 
 
@@ -183,10 +281,11 @@ static void pagestart()
 	char	buf[12];
 
 	/* reset variables */
-	elvrow = elvcol = 0;
-	elvfont = psfont = '\0';
+	elvrow = elvcol = elvfont = 0;
+	memset(elvrgb, 0, 3);
+	psfont = '\0';
 	psrow = psfont = -1; /* to force movement the first time */
-	instr = False;
+	instr = ElvFalse;
 	width = 0;
 
 	/* output a comment, if at the top of a physical page */
@@ -214,41 +313,41 @@ static void pagestart()
 
 /* This function ends a logical page */
 static void pageend(final)
-	BOOLEAN	final;	/* is this the last page of the print job? */
+	ELVBOOL	final;	/* is this the last page of the print job? */
 {
 	/* end the current string, if any */
-	psstring('\0');
+	psstring(0);
 
 	out("grestore", NULL);
 	if (!twoup || even || final)
 	{
 		out("showpage", NULL);
 	}
-	even = (BOOLEAN)!even;
+	even = (ELVBOOL)!even;
 }
-
 
 
 /* This is the before() function.  It sets the prtchar variable, and outputs
  * the PostScript header.
  */
 static void before(minorno, draw)
-	int	minorno;		/* ignored */
+	int	minorno;		/* logical pages per sheet */
 	void	(*draw) P_((_CHAR_));	/* function for sending single char to printer */
 {
-	char	*pathname;
+	char	*tmp;
 	FILE	*fp;
 	int	ch;
 	char	paper[20];
-	int	i, j;
+	int	j;
 
 	/* Set the ptype and out function */
-	twoup = (BOOLEAN)(minorno == 2);
+	twoup = (ELVBOOL)(minorno == 2);
 	prtchar = draw;
 
 	/* Output the basic header */
 	out("%!PS-Adobe-2.0", NULL);
-	out("%%Creator: Elvis 2.0", NULL);
+	out("%%Creator: Elvis ", VERSION);
+	out("%%Orientation:", twoup ? "Landscape" : "Portrait");
 	out("%%EndComments", "\n");
 
 	out("%%BeginProlog", NULL);
@@ -256,28 +355,23 @@ static void before(minorno, draw)
 	/* output the paper size.  This can be used by the lib/elvis.ps file
 	 * to adjust its size and positions.
 	 */
-	if (!o_lppaper || !*o_lppaper)
+	tmp = lpoptfield("paper", "default");
+	paper[0] = '(';
+	for (j = 1; *tmp; tmp++)
 	{
-		strcpy(paper, "(letter) def");
+		if (elvalnum(*tmp))
+			paper[j++] = *tmp;
 	}
-	else
-	{
-		paper[0] = '(';
-		for (i = 0, j = 1; o_lppaper[i]; i++)
-		{
-			if (isupper(o_lppaper[i]))
-				paper[j++] = tolower(o_lppaper[i]);
-			else if (isalnum(o_lppaper[i]))
-				paper[j++] = o_lppaper[i];
-		}
-		paper[j] = '\0';
-		strcat(paper, ") def");
-	}
-	out("/ElvisPaper ", paper);
-	sprintf(paper, "%ld def", o_lplines);
-	out("/ElvisLines ", paper);
-	sprintf(paper, "%ld def", o_lpcolumns);
-	out("/ElvisColumns ", paper);
+	strcpy(&paper[j], ")");
+	outdef("/ElvisPaper", paper);
+	outdef("/ElvisBar", lpoptfield("bar", "false"));
+	outdef("/ElvisFrame", lpoptfield("frame", "true"));
+	outdef("/ElvisPunch", lpoptfield("punch", "false"));
+	outdef("/ElvisClip", lpoptfield("clip", "false"));
+	sprintf(paper, "%ld", o_lplines);
+	outdef("/ElvisLines", paper);
+	sprintf(paper, "%ld", o_lpcolumns);
+	outdef("/ElvisColumns", paper);
 
 	/* Define the fonts that we'll be using.  Note that we don't define
 	 * fonts for 'g' and 'u' because they're done using graphics and the
@@ -285,8 +379,8 @@ static void before(minorno, draw)
 	 *
 	 * Also define some page positioning macros.
 	 */
-	pathname = iopath(tochar8(o_elvispath), "elvis.ps", False);
-	if (pathname && (fp = fopen(pathname, "r")) != NULL)
+	tmp = iopath(tochar8(o_elvispath), "elvis.ps", ElvFalse);
+	if (tmp && (fp = fopen(tmp, "r")) != NULL)
 	{
 		/* Copy definitions from the "lib/elvis.ps" file */
 		while ((ch = getc(fp)) != EOF)
@@ -298,19 +392,24 @@ static void before(minorno, draw)
 	else
 	{
 		/* Use default definitions. These are not sensitive to the
-		 * lppaper option.
+		 * lpcolumns, lprows, and lpoptions options.
 		 */
 		out("/ElvisN /Courier findfont 12 scalefont def", NULL);
 		out("/ElvisB /Courier-Bold findfont 12 scalefont def", NULL);
 		out("/ElvisI /Courier-Oblique findfont 12 scalefont def", NULL);
+		out("/ElvisPN /Courier findfont 12 scalefont def", NULL);
+		out("/ElvisPB /Courier-Bold findfont 12 scalefont def", NULL);
+		out("/ElvisPI /Courier-Oblique findfont 12 scalefont def", NULL);
 		out("/ElvisPage { 12 36 translate } def", NULL);
 		out("/ElvisLeftPage { 12 750 translate -90 rotate 0.58 0.75 scale } def", NULL);
 		out("/ElvisRightPage { newpath 12 394 moveto 576 0 rlineto stroke 12 366 translate -90 rotate 0.58 0.75 scale } def", NULL);
+		out("/ElvisStringWidth { stringwidth pop } def", NULL);
+		out("/ElvisShow { show } def", NULL);
 	}
 	out("%%EndProlog", "\n");
 
 	/* Prepare for first page */
-	even = False;
+	even = ElvFalse;
 	pagenum = 1;
 	pagestart();
 }
@@ -326,47 +425,83 @@ static void fontch(font, ch)
 {
 	char	buf[10];
 
+	if (font == 0)
+		font = 1;
+
 	if (ch == '\n')
 	{
 		/* end the current string, if any */
-		psstring('\0');
+		psstring(0);
+
+		/* add a line break in the PostScipt code */
 		(*prtchar)('\n');
 
 		/* move to the start of the next line */
 		elvcol = 0;
 		elvrow++;
 	}
-	else if (font == 'g' && strchr("123456789|-", (_char_)ch))
+	else if ((colorinfo[font].da.bits & COLOR_GRAPHIC)
+		&& strchr("123456789|-", (_char_)ch))
 	{
 		/* End any current string. */
-		psstring('\0');
+		psstring(0);
 
 		/* Move to the center of the character cell */
+		pscolor(font);
 		out("newpath", NULL);
-		pscol = -1;
-		psmove(elvrow, elvcol);
-		out("3.6 4.0 rmoveto", NULL);
+		pscenter(elvrow, elvcol, "moveto");
 
 		/* Maybe draw an uptick */
 		if (strchr("123456|", (_char_)ch))
-			out(" 0 6.0 rlineto 0 -6.0 rmoveto", NULL);
+			out(" 0 6.1 rlineto 0 -6.1 rmoveto", NULL);
 
 		/* Maybe draw a downtick */
 		if (strchr("456789|", (_char_)ch))
-			out(" 0 -6.0 rlineto 0 6.0 rmoveto", NULL);
+			out(" 0 -6.1 rlineto 0 6.1 rmoveto", NULL);
 
 		/* Maybe draw a lefttick */
 		if (strchr("235689-", (_char_)ch))
-			out(" -3.6 0 rlineto 3.6 0 rmoveto", NULL);
+			out(" -3.7 0 rlineto 3.7 0 rmoveto", NULL);
 
 		/* Maybe draw a righttick */
 		if (strchr("124578-", (_char_)ch))
-			out(" 3.6 0 rlineto -3.6 0 rmoveto", NULL);
+			out(" 3.7 0 rlineto -3.7 0 rmoveto", NULL);
 
 		/* Draw those lines, and move to next character cell */
 		out(" stroke", NULL);
 		elvcol++;
 		pscol = -1;
+	}
+	else if ((colorinfo[font].da.bits & COLOR_GRAPHIC)
+		&& (ch == 'o' || ch == '*'))
+	{
+		/* End any current string. */
+		psstring(0);
+
+		/* Stroke a complete circle at center of character cell */
+		pscolor(font);
+		out("newpath", NULL);
+		pscenter(elvrow, elvcol, "3 0 360 arc");
+
+		/* Either fill or draw the stroke */
+		if (ch == 'o')
+			out(" stroke", NULL);
+		else
+			out(" fill", NULL);
+		elvcol++;
+		pscol = -1;
+	}
+	else if (!instr && ch == ' '
+		&& (colorinfo[font].da.bits & COLOR_GRAPHIC) != COLOR_GRAPHIC
+		&& (colorinfo[font].da.bits & COLOR_UNDERLINED) == 0)
+	{
+		/* Skip leading spaces because they make the left margin
+		 * be ragged, since variable-pitch fonts are output with a
+		 * varying horizontal scale factor to make their overall
+		 * width be the same as fixed-pitch.  We do need to count
+		 * its width though.
+		 */
+		elvcol++;
 	}
 	else
 	{
@@ -401,7 +536,7 @@ static void page(linesleft)
 	int	linesleft;	/* lines remaining on page */
 {
 	/* end the page */
-	pageend(False);
+	pageend(ElvFalse);
 
 	/* start the next page */
 	pagestart();
@@ -415,7 +550,7 @@ static void after(linesleft)
 	int	linesleft;	/* lines remaining on final page */
 {
 	/* print the last page */
-	pageend(True);
+	pageend(ElvTrue);
 
 	/* output a trailer */
 	out("%%Trailer", NULL);
@@ -423,7 +558,7 @@ static void after(linesleft)
 
 
 /* These describe the printer types supported by these functions */
-LPTYPE lpps =	{"ps", 1, True, before, fontch, page, after};
-LPTYPE lpps2 =	{"ps2", 2, True, before, fontch, page, after};
+LPTYPE lpps =	{"ps", 1, ElvTrue, before, fontch, page, after};
+LPTYPE lpps2 =	{"ps2", 2, ElvTrue, before, fontch, page, after};
 
 #endif /* FEATURE_LPR */

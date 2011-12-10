@@ -1,9 +1,11 @@
 /* io.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_io[] = "$Id: io.c,v 2.45 1999/10/12 21:33:09 steve Exp $";
 
 #include "elvis.h"
+#ifdef FEATURE_RCSID
+char id_io[] = "$Id: io.c,v 2.62 2003/10/18 04:47:18 steve Exp $";
+#endif
 
 #if USE_PROTOTYPES
 extern char *parseurl(char *url);
@@ -20,19 +22,19 @@ extern char *parseurl(char *url);
 static CHAR dangerous[] = {' ', '#', '%', '*', '?', '[', '{', '\0'};
 #endif
 
-static BOOLEAN	reading;  /* True if file/program open for reading */
-static BOOLEAN	writing;  /* True if file/program open for writing */
-static BOOLEAN	forfile;  /* True if I/O to file; False for program */
-static BOOLEAN	forstdio; /* True if using stdin/stdout; False otherwise */
-static BOOLEAN	beautify; /* True if we're supposed to strip control chars */
+static ELVBOOL	reading;  /* ElvTrue if file/program open for reading */
+static ELVBOOL	writing;  /* ElvTrue if file/program open for writing */
+static ELVBOOL	forfile;  /* ElvTrue if I/O to file; ElvFalse for program */
+static ELVBOOL	forstdio; /* ElvTrue if using stdin/stdout; ElvFalse otherwise */
+static ELVBOOL	beautify; /* ElvTrue if we're supposed to strip control chars */
 static char	convert;  /* One of {unix, dos, mac} else no conversion */
-static BOOLEAN	cvtcr;	  /* did last DOS read end with a CR, before LF? */
+static ELVBOOL	cvtcr;	  /* did last DOS read end with a CR, before LF? */
 static CHAR	tinybuf[100];
 static int	tinyqty;
 static int	tinyused;
 
 #if defined(PROTOCOL_HTTP) || defined(PROTOCOL_FTP)
-static BOOLEAN	forurl;   /* True if I/O via HTTP; false otherwise */
+static ELVBOOL	forurl;   /* ElvTrue if I/O via HTTP; false otherwise */
 #endif
 
 #ifdef DEBUG_ALLOC
@@ -41,8 +43,8 @@ static int	openline; /* line number within source file */
 #endif
 
 /* This function opens a file or program for either input or output.
- * It returns True if successful.  If there are any errors, it issues an
- * error message and returns False.
+ * It returns ElvTrue if successful.  If there are any errors, it issues an
+ * error message and returns ElvFalse.
  *
  * "name" is the name of the file to open.  If the name begins with a '!'
  * then the rest of the name is interpretted as a program to be executed
@@ -52,24 +54,23 @@ static int	openline; /* line number within source file */
  * file/program for writing, or 'a' to open a file for appending.  'a' can't
  * be used with programs.
  *
- * "prgsafe" is only significant if the "safer" option is set.  When "safer"
- * is set and "prgsafe" is False, this function will fail if "name" refers
- * to a program.
+ * "prgsafe" is only significant if security!=normal, in which case this
+ * function will fail if "name" refers to a program and prgsafe is ElvFalse.
  *
  * "force" can cause a file to be overwritten even if "name" and "oldname"
  * don't match.
  */
 #ifdef DEBUG_ALLOC
-BOOLEAN	_ioopen(file, line, name, rwa, prgsafe, force, eol)
+ELVBOOL	_ioopen(file, line, name, rwa, prgsafe, force, eol)
 	char	*file;	/* name of caller's source file */
 	int	line;	/* line number within caller's source file */
 #else
-BOOLEAN	ioopen(name, rwa, prgsafe, force, eol)
+ELVBOOL	ioopen(name, rwa, prgsafe, force, eol)
 #endif
 	char	*name;	/* name of file, or "!program" */
 	_char_	rwa;	/* one of {read, write, append} */
-	BOOLEAN	prgsafe;/* If True, allow "!program"; else refuse */
-	BOOLEAN	force;	/* if True, allow files to be clobbered */
+	ELVBOOL	prgsafe;/* If ElvTrue, allow "!program"; else refuse */
+	ELVBOOL	force;	/* if ElvTrue, allow files to be clobbered */
 	_char_	eol;	/* one of {unix, dos, mac, text, binary} */
 {
 	DIRPERM perms;
@@ -83,9 +84,9 @@ BOOLEAN	ioopen(name, rwa, prgsafe, force, eol)
 	assert(!reading && !writing);
 
 	/* are we going to beautify this text? */
-	beautify = (BOOLEAN)(o_beautify && eol != 'b');
+	beautify = (ELVBOOL)(o_beautify && eol != 'b');
 
-	/* if conversion is equivelent to binary, then use binary */
+	/* if conversion is equivalent to binary, then use binary */
 	if ((eol == 'm' && '\n' == 015)
 	 || (eol == 'u' && '\n' == 012))
 	{
@@ -95,29 +96,42 @@ BOOLEAN	ioopen(name, rwa, prgsafe, force, eol)
 	/* nothing in the tiny buffer */
 	tinyqty = tinyused = 0;
 
-	/* Is this stdin/stdout? */
+	/* If no file name, then fail */
 	if (!name || !*name)
 	{
-		forstdio = True;
-		reading = (BOOLEAN)(rwa == 'r');
-		writing = (BOOLEAN)!reading;
-		return True;
+		msg(MSG_WARNING, "missing file name");
+		return ElvFalse;
+	}
+
+	/* Is this stdin/stdout? */
+	if (!strcmp(name, "-"))
+	{
+#ifdef FEATURE_STDIN
+		reading = (ELVBOOL)(rwa == 'r');
+#else
+		if (rwa == 'r')
+			return ElvFalse;
+		reading = ElvFalse;
+#endif
+		writing = (ELVBOOL)!reading;
+		forstdio = ElvTrue;
+		return ElvTrue;
 	}
   	/* Is this a program? */
 	else if (*name == '!')
 	{
 		/* check safety */
-		if (o_safer && !prgsafe)
+		if (o_security != 'n' /* normal */ && !prgsafe)
 		{
 			msg(MSG_ERROR, "unsafe filter");
 #ifdef DEBUG_ALLOC
 			openfile = NULL;
 #endif
-			return False;
+			return ElvFalse;
 		}
 
 		/* will we be reading or writing? */
-		forfile = forstdio = False;
+		forfile = forstdio = ElvFalse;
 		switch (rwa)
 		{
 		  case 'r':
@@ -127,13 +141,13 @@ BOOLEAN	ioopen(name, rwa, prgsafe, force, eol)
 			 * to be calling prgwrite().
 			 */
 		  	if ((gui->prgopen
-		  		? (*gui->prgopen)(name + 1, False, True)
-				: prgopen(name + 1, False, True))
+		  		? (*gui->prgopen)(name + 1, ElvFalse, ElvTrue)
+				: prgopen(name + 1, ElvFalse, ElvTrue))
 			    && prggo())
 			{
 				/* success! */
-				reading = True;
-				return True;
+				reading = ElvTrue;
+				return ElvTrue;
 			}
 			else
 			{
@@ -142,7 +156,7 @@ BOOLEAN	ioopen(name, rwa, prgsafe, force, eol)
 #ifdef DEBUG_ALLOC
 			openfile = NULL;
 #endif
-			return False;
+			return ElvFalse;
 
 		  case 'w':
 			/* Open the program.  Note that if there is no GUI-
@@ -152,24 +166,24 @@ BOOLEAN	ioopen(name, rwa, prgsafe, force, eol)
 			 * for both writing and reading.
 			 */
 		  	if (gui->prgopen
-		  		? (*gui->prgopen)(name + 1, True, False)
-				: prgopen(name + 1, True, True))
+		  		? (*gui->prgopen)(name + 1, ElvTrue, ElvFalse)
+				: prgopen(name + 1, ElvTrue, ElvTrue))
 		  	{
-				writing = True;
-				return True;
+				writing = ElvTrue;
+				return ElvTrue;
 			}
 			msg(MSG_ERROR, "[s]can't run $1", name + 1);
 #ifdef DEBUG_ALLOC
 			openfile = NULL;
 #endif
-			return False;
+			return ElvFalse;
 
 		  default:
 			msg(MSG_ERROR, "can't append to filter");
 #ifdef DEBUG_ALLOC
 			openfile = NULL;
 #endif
-			return False;
+			return ElvFalse;
 		}
 	}
 
@@ -184,15 +198,15 @@ BOOLEAN	ioopen(name, rwa, prgsafe, force, eol)
 #ifdef DEBUG_ALLOC
 			openfile = NULL;
 #endif
-			return False;
+			return ElvFalse;
 		}
 
 		/* remember that we're using an URL */
-		forurl = True;
-		forstdio = forfile = False;
-		reading = (BOOLEAN)(rwa == 'r');
-		writing = (BOOLEAN)!reading;
-		return True;
+		forurl = ElvTrue;
+		forstdio = forfile = ElvFalse;
+		reading = (ELVBOOL)(rwa == 'r');
+		writing = (ELVBOOL)!reading;
+		return ElvTrue;
 	}
 #endif
 
@@ -204,42 +218,42 @@ BOOLEAN	ioopen(name, rwa, prgsafe, force, eol)
 #ifdef DEBUG_ALLOC
 			openfile = NULL;
 #endif
-		return False;
+		return ElvFalse;
 	}
 
 	/* try to open the file */
-	forstdio = False;
-	forfile = True;
+	forstdio = ElvFalse;
+	forfile = ElvTrue;
 	convert = eol;
-	cvtcr = False;
+	cvtcr = ElvFalse;
 	perms = urlperm(name);
 	switch (rwa)
 	{
 	  case 'r':
 		if ((perms == DIR_READONLY || perms == DIR_READWRITE)
-			&& txtopen(name, 'r', (BOOLEAN)(convert != 't')) == 0)
+			&& txtopen(name, 'r', (ELVBOOL)(convert != 't')) == 0)
 		{
-			reading = True;
-			return True;
+			reading = ElvTrue;
+			return ElvTrue;
 		}
 		break;
 
 	  case 'a':
 		if (perms == DIR_READWRITE
-		     && txtopen(name, 'a', (BOOLEAN)(convert != 't')) == 0)
+		     && txtopen(name, 'a', (ELVBOOL)(convert != 't')) == 0)
 		{
-			writing = True;
-			return True;
+			writing = ElvTrue;
+			return ElvTrue;
 		}
 		/* else fall through to the 'w' case */
 
 	  case 'w':
 		if ((perms == DIR_NEW || perms == DIR_NOTFILE ||
 			(perms == DIR_READWRITE && (force || o_writeany)))
-		     && txtopen(name, 'w', (BOOLEAN)(convert != 't')) == 0)
+		     && txtopen(name, 'w', (ELVBOOL)(convert != 't')) == 0)
 		{
-			writing = True;
-			return True;
+			writing = ElvTrue;
+			return ElvTrue;
 		}
 		break;
 
@@ -251,6 +265,7 @@ BOOLEAN	ioopen(name, rwa, prgsafe, force, eol)
 	  case DIR_INVALID:	msg(MSG_ERROR, "[s]malformed file name $1", name);	break;
 	  case DIR_BADPATH:	msg(MSG_ERROR, "[s]bad path $1", name);			break;
 	  case DIR_NOTFILE:	msg(MSG_ERROR, "[s]$1 is not a file", name);		break;
+	  case DIR_DIRECTORY:	msg(MSG_ERROR, "[s]$1 is a directory", name);		break;
 	  case DIR_NEW:		msg(MSG_ERROR, "[s]$1 doesn't exist", name);		break;
 	  case DIR_UNREADABLE:	msg(MSG_ERROR, "[s]$1 unreadable", name);		break;
 	  case DIR_READONLY:	msg(MSG_ERROR, "[s]$1 unwritable", name);		break;
@@ -259,7 +274,7 @@ BOOLEAN	ioopen(name, rwa, prgsafe, force, eol)
 #ifdef DEBUG_ALLOC
 	openfile = NULL;
 #endif
-	return False;
+	return ElvFalse;
 }
 
 /* This function writes the contents of a given I/O buffer.  "iobuf" points
@@ -326,7 +341,7 @@ int iowrite(iobuf, len)
 /* This function fills a given I/O buffer with text read from the file/program.
  * "iobuf" points to the buffer, and "len" is the maximum number of CHARs that
  * it can hold.  This function returns the number of CHARs actually read, or
- * 0 at the end of the file.  If the "beautify" option is True, it strips
+ * 0 at the end of the file.  If the "beautify" option is ElvTrue, it strips
  * control characters.
  */
 int ioread(iobuf, len)
@@ -360,7 +375,11 @@ int ioread(iobuf, len)
 	/* read from the file/program */
 	if (forstdio)
 	{
-		nread = fread(iobuf, sizeof(CHAR), (size_t)len, stdin);
+#ifdef FEATURE_STDIN
+		nread = fread(iobuf, sizeof(CHAR), (size_t)len, origstdin);
+#else
+		nread = 0;
+#endif
 	}
 	else if (forfile)
 	{
@@ -368,7 +387,7 @@ int ioread(iobuf, len)
 		{
 			iobuf[0] = 015;
 			nread = 1 + txtread(iobuf + 1, len - 1);
-			cvtcr = False;
+			cvtcr = ElvFalse;
 		}
 		else
 			nread = txtread(iobuf, len);
@@ -392,7 +411,7 @@ int ioread(iobuf, len)
 				if (iobuf[i] == 015 && nread > 1)
 				{
 					if (i + 1 >= nread)
-						cvtcr = True, j--;
+						cvtcr = ElvTrue, j--;
 					else if (iobuf[i + 1] == 012)
 						iobuf[j] = '\n', i++;
 					else
@@ -441,12 +460,15 @@ int ioread(iobuf, len)
 	return nread;
 }
 
-/* Close a file that was opened via ioopen() */
-BOOLEAN	ioclose()
+/* Close a file that was opened via ioopen().  Return TRUE if successful, or
+ * FALSE if something went wrong.  Generally, the only way something could go
+ * wrong is if you're writing to a program, and the program's exit code != 0
+ */
+ELVBOOL	ioclose()
 {
 	CHAR	*rdbuf;
 	int	nbytes;
-	BOOLEAN	origrefresh;
+	ELVBOOL	origrefresh;
 
 	assert(reading || writing);
 #ifdef DEBUG_ALLOC
@@ -456,16 +478,18 @@ BOOLEAN	ioclose()
 	/* don't really close stdin/stdout; just reset variables */
 	if (forstdio)
 	{
-		forstdio = reading = writing = False;
-		return True;
+		if (writing)
+			fflush(stdout);
+		forstdio = reading = writing = ElvFalse;
+		return ElvTrue;
 	}
 
 	/* completing I/O for a file is easy */
 	if (forfile)
 	{
 		txtclose();
-		reading = writing = False;
-		return True;
+		reading = writing = ElvFalse;
+		return ElvTrue;
 	}
 
 #if defined(PROTOCOL_HTTP) || defined(PROTOCOL_FTP)
@@ -473,8 +497,8 @@ BOOLEAN	ioclose()
 	if (forurl)
 	{
 		urlclose();
-		reading = writing = forurl = False;
-		return True;
+		reading = writing = forurl = ElvFalse;
+		return ElvTrue;
 	}
 #endif
 
@@ -487,7 +511,7 @@ BOOLEAN	ioclose()
 	{
 		drawopencomplete(windefault);
 		origrefresh = o_exrefresh;
-		o_exrefresh = True;
+		o_exrefresh = ElvTrue;
 		rdbuf = (CHAR *)safealloc(1024, sizeof(CHAR));
 		while ((nbytes = prgread(rdbuf, 1024)) > 0)
 		{
@@ -508,15 +532,15 @@ BOOLEAN	ioclose()
 	}
 
 	/* wait for the program to exit.  Succeed only if its exit code is 0 */
-	reading = writing = False;
-	return (BOOLEAN)((gui->prgclose ? (*gui->prgclose)() : prgclose()) == 0);
+	reading = writing = ElvFalse;
+	return (ELVBOOL)((gui->prgclose ? (*gui->prgclose)() : prgclose()) == 0);
 }
 
 
 
 /* This function parses a "path" string into directory names, and checks each
  * directory until finds a readable file named "filename".  If the "usefile"
- * flag is True, then if an element of the path happens to be a file name
+ * flag is ElvTrue, then if an element of the path happens to be a file name
  * instead of a directory name, then it will also use that as the file name.
  *
  * If NULL is passed instead of a "path" string, then this function will
@@ -528,7 +552,7 @@ BOOLEAN	ioclose()
 char *iopath(path, filename, usefile)
 	char	    *path;	/* list of directories to search */
 	char	    *filename;	/* name of file to look for in each directory */
-	BOOLEAN	    usefile;	/* allow path to contain filenames */
+	ELVBOOL	    usefile;	/* allow path to contain filenames */
 {
 	static char *next;	/* the directory after this one */
 	static char name[256];	/* full pathname, possibly of a readable file */
@@ -551,7 +575,7 @@ char *iopath(path, filename, usefile)
 		}
 
 		/* if next path element starts with ~, then use HOME instead */
-		if (next[0] == '~' && !isalnum(next[1]))
+		if (next[0] == '~' && !elvalnum(next[1]))
 		{
 			/* copy HOME into name buffer */
 			strcpy(name, tochar8(o_home));
@@ -629,7 +653,7 @@ static int ustrncmp(s1, s2, len)
 {
 	while (--len >= 0 && (*s1 || *s2))
 	{
-		if (toupper(*s1) != toupper(*s2))
+		if (elvtoupper(*s1) != elvtoupper(*s2))
 			return 1;
 		s1++;
 		s2++;
@@ -653,12 +677,17 @@ char *iofilename(partial, endchar)
 	int		nmatches;	/* number of matches */
 	char		*fname;		/* name of a matching file */
 	char		*bname;		/* basename (fname without path) */
-	CHAR		slash[1];	/* this system's directory separator */
 	CHAR		*str;		/* name with/without quotes */
 	int		col;		/* width of directory listing */
+	ELVFNR		rules;		/* file name parsing rules */
+	CHAR		slashstr[1];
 
-	/* Find the directory separator character */
-	slash[0] = dirpath("a", "b")[1];
+	/* If paranoid, then don't allow filename completion either */
+	if (o_security == 'r' /* restricted */)
+		return NULL;
+
+	/* parse the rules */
+	rules = exfilenamerules(o_filenamerules);
 
 	/* remove quotes (backslashes) from before certain characters */
 	str = removequotes(dangerous, toCHAR(partial));
@@ -667,24 +696,31 @@ char *iofilename(partial, endchar)
 	 * ~- with previous directory name, or (for Unix only) ~user with the
 	 * home directory of the named user.
 	 */
-#if ANY_UNIX
-	if (str[0] == '~' && isalpha(str[1]))
+	if (rules & ELVFNR_TILDE)
 	{
-		expanduserhome(tochar8(str), homed);
-	}
-	else
-#endif /*ANY_UNIX*/
-	if (str[0] == '~' && str[1] == (char)slash[0])
-	{
-		strcpy(homed, dirpath(tochar8(o_home), tochar8(str + 2)));
-	}
-	else if (str[0] == '~' && str[1] == '+' && str[2] == (char)slash[0])
-	{
-		strcpy(homed, dirpath(dircwd(), tochar8(str + 3)));
-	}
-	else if (str[0] == '~' && str[1] == '-' && str[2] == (char)slash[0])
-	{
-		strcpy(homed, dirpath(tochar8(o_previousdir), tochar8(str + 3)));
+#if defined(ANY_UNIX) && defined(FEATURE_MISC)
+		if (str[0] == '~' && elvalpha(str[1]))
+		{
+			expanduserhome(tochar8(str), homed);
+		}
+		else
+#endif /* ANY_UNIX && FEATURE_MISC */
+		if (str[0] == '~' && str[1] == OSDIRDELIM)
+		{
+			strcpy(homed, dirpath(tochar8(o_home), tochar8(str + 2)));
+		}
+		else if (str[0] == '~' && str[1] == '+' && str[2] == OSDIRDELIM)
+		{
+			strcpy(homed, dirpath(dircwd(), tochar8(str + 3)));
+		}
+		else if (str[0] == '~' && str[1] == '-' && str[2] == OSDIRDELIM)
+		{
+			strcpy(homed, dirpath(tochar8(o_previousdir), tochar8(str + 3)));
+		}
+		else
+		{
+			strcpy(homed, tochar8(str));
+		}
 	}
 	else
 	{
@@ -694,14 +730,14 @@ char *iofilename(partial, endchar)
 	safefree(str);
 
 	/* count the matching filenames */
-	for (nmatches = matchlen = 0, fname = dirfirst(partial, True);
+	for (nmatches = matchlen = 0, fname = dirfirst(partial, ElvTrue);
 	     fname;
 	     nmatches++, fname = dirnext())
 	{
 		/* skip if binary.  Keep directories, though */
-		if (!o_completebinary		  /* we want to skip binaries */
-		 && dirperm(fname) != DIR_NOTFILE /* but not directories */
-		 && *ioeol(fname) == 'b')	  /* and this is a binary */
+		if (!o_completebinary		    /* we want to skip binaries */
+		 && dirperm(fname) != DIR_DIRECTORY /* but not directories */
+		 && *ioeol(fname) == 'b')	    /* and this is a binary */
 		{
 			nmatches--;
 			continue;
@@ -739,8 +775,8 @@ char *iofilename(partial, endchar)
 		/* unique match... */
 
 		/* decide whether to append a slash or tab */
-		if (dirperm(match) == DIR_NOTFILE)
-			endchar = (char)*slash;
+		if (dirperm(match) == DIR_DIRECTORY)
+			endchar = OSDIRDELIM;
 		
 		/* append a tab or slash, and return it */
 		match[matchlen] = endchar;
@@ -755,13 +791,13 @@ char *iofilename(partial, endchar)
 		if ((unsigned)matchlen <= strlen(partial) && !strncmp(partial, match, matchlen))
 		{
 			/* No - list all matches */
-			for (fname = dirfirst(partial, True), col = 0;
+			for (fname = dirfirst(partial, ElvTrue), col = 0;
 			     fname;
 			     fname = dirnext())
 			{
 				/* skip binary files */
 				if (!o_completebinary
-				 && dirperm(fname) != DIR_NOTFILE
+				 && dirperm(fname) != DIR_DIRECTORY
 				 && *ioeol(fname) == 'b')
 					continue;
 
@@ -783,9 +819,10 @@ char *iofilename(partial, endchar)
 				col += strlen(bname);
 
 				/* if directory, then append a slash */
-				if (dirperm(fname) == DIR_NOTFILE)
+				if (dirperm(fname) == DIR_DIRECTORY)
 				{
-					drawextext(windefault, slash, 1);
+					slashstr[0] = OSDIRDELIM;
+					drawextext(windefault, slashstr, 1);
 					col++;
 				}
 			}
@@ -823,7 +860,7 @@ char *ioeol(filename)
 
 #ifdef PROTOCOL_HTTP
 	/* check for a protocol */
-	for (i = 0; isalpha(filename[i]); i++)
+	for (i = 0; elvalpha(filename[i]); i++)
 	{
 	}
 	if (i < 2 || filename[i] != ':')
@@ -836,9 +873,15 @@ char *ioeol(filename)
 		return "binary";
 #endif
 
+#ifdef FEATURE_STDIN
+	/* we don't dare read from stdin to check */
+	if (!strcmp(filename, "-"))
+		return "text";
+#endif
+
 	/* fill tinybuf with bytes from the beginning of the file */
 	nbytes = 0;
-	if (txtopen(filename, 'r', True) == 0)
+	if (txtopen(filename, 'r', ElvTrue) == 0)
 	{
 		nbytes = txtread(tinybuf, QTY(tinybuf));
 		txtclose();
@@ -873,4 +916,79 @@ char *ioeol(filename)
 
 	/* if all else fails, assume "text" */
 	return "text";
+}
+
+/* return an absolute version of a filename */
+char *ioabsolute(filename)
+	char	*filename;
+{
+	char	*c, *dir;
+
+	/* If not a local URL then just return it unchanged */
+	c = urllocal(filename);
+	if (!c)
+		return filename;
+
+#ifdef FEATURE_STDIN
+	/* if "-" (meaning stdin/stdout) then leave it unchanged */
+	if (!strcmp(filename, "-"))
+		return filename;
+#endif
+
+	/* Combine the given filename and the current working directory.
+	 * Note that dirpath() is smart enough to leave names that are already
+	 * absolute unchanged.
+	 */
+	filename = dirpath(dircwd(), c);
+
+	/* Now we need to eliminate "dir/.." from the name, if it occurs */
+	for (c = filename; *c; c++)
+	{
+		/* skip if not "/../" */
+		if (c[0] != OSDIRDELIM
+		 || c[1] != '.'
+		 || c[2] != '.'
+		 || (c[3] != OSDIRDELIM && c[3] != '\0'))
+			continue;
+
+		/* search backward for the previous directory */
+		c[0] = '\0';
+		dir = strrchr(filename, OSDIRDELIM);
+		if (!dir)
+			dir = c;
+		c += 3;
+		memmove(dir, c, strlen(c)+1);
+		c = dir - 1; /* plus 1, in the for-loop reinitializer */
+	}
+
+	/* We also want to eliminate "/./" from the name, if it occurs */
+	for (c = filename; *c; c++)
+	{
+		/* skip if not "/./" */
+		if (c[0] != OSDIRDELIM
+		 || c[1] != '.'
+		 || c[2] != OSDIRDELIM)
+			continue;
+
+		/* eliminate it */
+		memmove(c, c+2, strlen(c+2) + 1);
+
+		/* decrement c to counteract the "c++" in the for loop,
+		 * because we want to recheck this char to detect consecutive
+		 * instances of "/./"
+		 */
+		c--;
+	}
+
+	/* If the name was reduced to "" (which can only happen if we're given
+	 * a directory name ending with "/..", by the way) then use "/" instead.
+	 */
+	if (!*filename)
+	{
+		filename[0] = OSDIRDELIM;
+		filename[1] = '\0';
+	}
+
+	/* return the name */
+	return filename;
 }

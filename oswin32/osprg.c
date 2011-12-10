@@ -1,13 +1,14 @@
 /* oswin32/osprg.c */
 
-char id_osprg[] = "$Id: osprg.c,v 2.15 1999/10/20 17:35:06 steve Exp $";
 
 #include <windows.h>
 #include <wtypes.h>
 #include <io.h>
 #define CHAR ElvisCHAR
-#define BOOLEAN ElvisBOOLEAN
 #include "elvis.h"
+#ifdef FEATURE_RCSID
+char id_osprg[] = "$Id: osprg.c,v 2.19 2003/10/17 17:41:23 steve Exp $";
+#endif
 
 
 #undef DEBUGGING
@@ -16,7 +17,7 @@ char id_osprg[] = "$Id: osprg.c,v 2.15 1999/10/20 17:35:06 steve Exp $";
 #define TMPDIR	(o_directory ? tochar8(o_directory) : ".")
 
 static char	*command;	/* the command to run */
-static ElvisBOOLEAN filter;	/* redirecting both stdin and stdout? */
+static ELVBOOL	filter;		/* redirecting both stdin and stdout? */
 static char	tempfname[MAX_PATH];	/* name of temp file */
 static HANDLE	writefd;	/* handle used for writing to program's stdin */
 static HANDLE	readfd;		/* handle used for reading program's stdout */
@@ -32,7 +33,7 @@ static DWORD	status;		/* exit status of program */
 
 
 static BOOL classifyprog(char *prog);
-static BOOL runcmd(char *cmd, ElvisBOOLEAN detached);
+static BOOL runcmd(char *cmd, BOOL detached);
 static BOOL MaybeCreatePipe(PHANDLE r, PHANDLE w);
 
 #ifdef DEBUGGING
@@ -699,7 +700,7 @@ void ElvisError(where)
 # define TRACE(stmt)
 #endif
 
-/* Returns True if a program uses Win32 format, and false otherwise.
+/* Returns ElvTrue if a program uses Win32 format, and false otherwise.
  * This is significant because only Win32 programs support real pipes.
  */
 static BOOL classifyprog(prog)
@@ -724,11 +725,11 @@ static BOOL classifyprog(prog)
 	 * Note that the copy has 5 extra chars, so we can append ".exe" and
 	 * a NUL character.
 	 */
-	while (isspace(*prog))
+	while (elvspace(*prog))
 		prog++;
 	freethis = name = safealloc(strlen(prog) + 5, sizeof(char));
 	strcpy(name, prog);
-	for (cp = name; *cp && !isspace(*cp) && *cp != '/'; cp++)
+	for (cp = name; *cp && !elvspace(*cp) && *cp != '/'; cp++)
 	{
 	}
 	*cp = '\0';
@@ -745,7 +746,7 @@ static BOOL classifyprog(prog)
 		cp = getenv("PATH");
 		if (!cp)
 			goto NotWin32;
-		name = iopath(cp, name, False);
+		name = iopath(cp, name, ElvFalse);
 		if (!name)
 			name = tochar8(o_shell);
 		if (!name)
@@ -764,25 +765,25 @@ TRACE(fprintf(tracelog, "GetBinaryType() succeeded, exetype=%d\n", exetype);)
 		if (exetype == SCS_32BIT_BINARY || exetype == SCS_POSIX_BINARY)
 		{
 			safefree(freethis);
-TRACE(fprintf(tracelog, "...classifyprog()returning True\n", prog, name);)
-			return True;
+TRACE(fprintf(tracelog, "...classifyprog()returning ElvTrue\n", prog, name);)
+			return ElvTrue;
 		}
 	}
 TRACE(else fprintf(tracelog, "GetBinaryType() failed\n");)
 
 #ifndef GUI_WIN32
 	/* Windows95 apparently doesn't support GetBinaryType, but it *does*
-	 * support pipes.  Since GetBinaryType() failed, return True.
+	 * support pipes.  Since GetBinaryType() failed, return ElvTrue.
 	 */
 	safefree(freethis);
-	return True;
+	return ElvTrue;
 #endif
 
 NotWin32:
 	if (freethis != NULL)
 		safefree(freethis);
-TRACE(fprintf(tracelog, "...classifyprog()returning False\n", prog, name);)
-	return False;
+TRACE(fprintf(tracelog, "...classifyprog()returning ElvFalse\n", prog, name);)
+	return ElvFalse;
 }
 
 /* This function either creates a pipe, or creates a temp file and opens
@@ -841,22 +842,21 @@ TRACE(fprintf(tracelog, "MaybeCreatePipe() using file \"%s\"\n", pipefname));
 
 /* Run a command via the shell.  If the command contains "$1", then replace
  * $1 with the name of the temp file (if any).  Uses the "start" variable.
- * Returns TRUE if successful, or FALSE if error.  (Note that these are the
- * values of the Windows BOOLEAN data type, not elvis' BOOLEAN data type.)
+ * Returns TRUE if successful, or FALSE if error.
  *
  * Note: We try to avoid using the shell to start the command.  This is
  * partly for the sake of efficiency, but mostly it is because the shell
  * sometimes creates a console window when run from the MFC elvis and I'm
  * trying to avoid that.
  */
-static BOOLEAN runcmd(cmd, detached)
+static BOOL runcmd(cmd, detached)
 	char		*cmd;		/* the command to run */
-	ElvisBOOLEAN	detached;	/* doesn't use the console */
+	BOOL		detached;	/* doesn't use the console */
 {
 	ElvisCHAR	*scansh;
 	char		*scan;
 	ElvisCHAR	*cmdline;
-	BOOLEAN		result;
+	BOOL		result;
 	PROCESS_INFORMATION proc;	/* info about started process */
 	int		shlen;		/* length of shell command */
 
@@ -954,8 +954,8 @@ TRACE(fprintf(tracelog, "CreateProcess(\"%s\") returned %s\n", cmdline, result?"
 
 
 /* Declares which program we'll run, and what we'll be doing with it.
- * This function should return True if successful.  If there is an error,
- * it should issue an error message via msg(), and return False.
+ * This function should return ElvTrue if successful.  If there is an error,
+ * it should issue an error message via msg(), and return ElvFalse.
  *
  * For Win32, the behavior of this function depends on willwrite.
  * If willwrite, then the command is saved and a temporary file is
@@ -965,10 +965,10 @@ TRACE(fprintf(tracelog, "CreateProcess(\"%s\") returned %s\n", cmdline, result?"
  * if willread) and the function succedes if pipe() and fork()
  * succeed.
  */
-ElvisBOOLEAN prgopen(cmd, willwrite, willread)
+ELVBOOL prgopen(cmd, willwrite, willread)
 	char		*cmd;		/* command string */
-	ElvisBOOLEAN	willwrite;	/* if True, redirect command's stdin */
-	ElvisBOOLEAN	willread;	/* if True, redirect command's stdout */
+	ELVBOOL	willwrite;	/* if ElvTrue, redirect command's stdin */
+	ELVBOOL	willread;	/* if ElvTrue, redirect command's stdout */
 {
 	HANDLE	piper, pipew;	/* read and write ends of pipe */
 	HANDLE	handle;		/* temporary variable */
@@ -988,7 +988,7 @@ TRACE(fprintf(tracelog, "supports_detach=%s, supports_pipes=%s\n", supports_deta
 
 	/* Mark both fd's as being unused */
 	writefd = readfd = pid = tid = INVALID_HANDLE_VALUE;
-	filter = (ElvisBOOLEAN)(willwrite && willread);
+	filter = (ELVBOOL)(willwrite && willread);
 	command = NULL;
 
 	/* Next step depends on what I/O we expect to do with this program */
@@ -1024,7 +1024,7 @@ TRACE(fprintf(tracelog, "supports_detach=%s, supports_pipes=%s\n", supports_deta
 			ElvisError("CreateFile[3]");
 			*tempfname = '\0';
 			free(command);
-			return False;
+			return ElvFalse;
 		}
 TRACE(fprintf(tracelog, "%s(%d) tmpfile=0x%lx\n", __FILE__, __LINE__, (long)writefd);)
 	}
@@ -1037,7 +1037,7 @@ TRACE(fprintf(tracelog, "%s(%d) tmpfile=0x%lx\n", __FILE__, __LINE__, (long)writ
 		/* create a pipe */
 		if (!MaybeCreatePipe(&piper, &pipew))
 		{
-			return False;
+			return ElvFalse;
 		}
 TRACE(fprintf(tracelog, "%s(%d) piper=0x%lx, pipew=0x%lx\n", __FILE__, __LINE__, (long)piper, (long)pipew);)
 
@@ -1058,7 +1058,7 @@ TRACE(fprintf(tracelog, "%s(%d) piper=0x%lx, pipew=0x%lx\n", __FILE__, __LINE__,
 			CloseHandle(pipew);
 			if (*pipefname)
 				(void)DeleteFile(pipefname);
-			return False;
+			return ElvFalse;
 		}
 TRACE(fprintf(tracelog, "%s(%d) piper=0x%lx (was 0x%lx)\n", __FILE__, __LINE__, (long)handle, (long)piper);)
 		CloseHandle(piper);
@@ -1066,14 +1066,14 @@ TRACE(fprintf(tracelog, "%s(%d) piper=0x%lx (was 0x%lx)\n", __FILE__, __LINE__, 
 
 		/* fork off the external program */
 		start.dwFlags = STARTF_USESTDHANDLES;
-		if (!runcmd(cmd, True))
+		if (!runcmd(cmd, TRUE))
 		{
 			ElvisError("runcmd[1]");
 			CloseHandle(piper);
 			CloseHandle(pipew);
 			if (*pipefname)
 				(void)DeleteFile(pipefname);
-			return False;
+			return ElvFalse;
 		}
 
 		CloseHandle(pipew);
@@ -1082,15 +1082,15 @@ TRACE(fprintf(tracelog, "%s(%d) piper=0x%lx (was 0x%lx)\n", __FILE__, __LINE__, 
 	{
 		/* fork off the external program */
 		start.dwFlags = 0;
-		if (!runcmd(cmd, False))
+		if (!runcmd(cmd, FALSE))
 		{
 			ElvisError("runcmd[2]");
-			return False;
+			return ElvFalse;
 		}
 	}
 
 	/* if we get here, we must have succeeded */
-	return True;
+	return ElvTrue;
 }
 
 /* Write the contents of buf to the program's stdin, and return nbytes
@@ -1113,13 +1113,13 @@ TRACE(if ((DWORD)nbytes!=written)msg(MSG_INFO, "[dd]prgwrite(..., $1) returning 
 	return written;
 }
 
-/* Marks the end of writing.  Returns True if all is okay, or False if
+/* Marks the end of writing.  Returns ElvTrue if all is okay, or ElvFalse if
  * error.
  *
  * For Win32, the temp file is closed, and the program is forked.
- * Returns True if the fork was successful, or False if it failed.
+ * Returns ElvTrue if the fork was successful, or ElvFalse if it failed.
  */
-ElvisBOOLEAN prggo()
+ELVBOOL prggo()
 {
 	HANDLE	piper, pipew;	/* read & write ends of a pipe */
 	HANDLE	handle;		/* temporary variable */
@@ -1145,7 +1145,7 @@ TRACE(fprintf(tracelog, "prggo(), readfd=%x, writefd=%x\n", readfd, writefd));
 				/* make a pipe to use for reading stdout/stderr */
 				if (!MaybeCreatePipe(&piper, &pipew))
 				{
-					return False;
+					return ElvFalse;
 				}
 	TRACE(fprintf(tracelog, "%s(%d) piper=0x%lx, pipew=0x%lx\n", __FILE__, __LINE__, (long)piper, (long)pipew);)
 
@@ -1157,7 +1157,7 @@ TRACE(fprintf(tracelog, "prggo(), readfd=%x, writefd=%x\n", readfd, writefd));
 					CloseHandle(pipew);
 					if (*pipefname)
 						(void)DeleteFile(pipefname);
-					return False;
+					return ElvFalse;
 				}
 	TRACE(fprintf(tracelog, "%s(%d) piper=0x%lx (was 0x%lx)\n", __FILE__, __LINE__, (long)handle, (long)piper);)
 				CloseHandle(piper);
@@ -1175,10 +1175,10 @@ TRACE(fprintf(tracelog, "prggo(), readfd=%x, writefd=%x\n", readfd, writefd));
 
 			/* start the process */
 			start.dwFlags = STARTF_USESTDHANDLES;
-			if (!runcmd(command, True))
+			if (!runcmd(command, TRUE))
 			{
 				ElvisError("runcmd[3]");
-				return False;
+				return ElvFalse;
 			}
 
 			/* close the write-end of the pipe */
@@ -1214,7 +1214,7 @@ TRACE(fprintf(tracelog, "pipefname=\"%s\", bytes=%ld\n", pipefname, *pipefname ?
 		}
 	}
 
-	return True;
+	return ElvTrue;
 }
 
 

@@ -1,13 +1,18 @@
 /* xevent.c */
 
 #include "elvis.h"
+#ifdef FEATURE_RCSID
+char id_xevent[] = "$Id: xevent.c,v 2.30 2003/10/17 17:41:23 steve Exp $";
+#endif
 #ifdef GUI_X11
 
 # include "guix11.h"
 
-BOOLEAN		x_didcmd;
-BOOLEAN		x_repeating;
+ELVBOOL		x_didcmd;
+ELVBOOL		x_repeating;
 
+static long	keytime;
+static X11WIN	*keyxw;
 static long	rpttime;
 static XEvent	rptevent;
 
@@ -25,25 +30,54 @@ void x_ev_repeat(event, timeout)
 	{
 		rptevent = *event;
 		rpttime = timeout;
-		x_repeating = True;
+		x_repeating = ElvTrue;
 	}
 	else
 	{
 		rpttime = 0L;
-		x_repeating = False;
+		x_repeating = ElvFalse;
 	}
 }
+
 
 /* Read the next event.  This is complicated by the need to autorepeat some
  * scrollbar events, and the need to make the cursor blink.
  */
-XEvent *x_ev_wait P_((void))
+XEvent *x_ev_wait()
 {
 	static XEvent	event;
 	XEvent		notify;
 	fd_set		rfds, wfds, efds;
 	struct timeval	timeout;
 	int		i;
+
+	/* If there's a key timeout pending, then wait for it to expire or for
+	 * an event.  If it expires, then alert elvis of that fact.  If an event
+	 * arrives, then process it normally in the remainder of this function.
+	 */
+	if (keytime > 0 && XPending(x_display) == 0)
+	{
+		/* wait for timeout to elapse, or for an event to arrive */
+		FD_ZERO(&rfds);
+		FD_ZERO(&wfds);
+		FD_ZERO(&efds);
+		FD_SET(ConnectionNumber(x_display), &rfds);
+		timeout.tv_sec = keytime / 10;
+		timeout.tv_usec = (keytime % 10) * 100000;
+		i = select(ConnectionNumber(x_display) + 1,
+				&rfds, &wfds, &efds, &timeout);
+
+		/* if timeout, then simulate a special KeyPress event. */
+		if (i == 0)
+		{
+			memset(&event, 0, sizeof event);
+			event.type = KeyPress;
+			event.xkey.window = keyxw->win;
+			event.xkey.time = x_now;
+			keytime = 0;
+			goto End;
+		}
+	}
 
 	if (x_repeating && XPending(x_display) <= 0)
 	{
@@ -122,6 +156,19 @@ XEvent *x_ev_wait P_((void))
 		}
 	}
 
+
+	/* any user event other than KeyRelease turns off timeout */
+End:
+	switch (event.type)
+	{
+	  case DestroyNotify:
+	  case MotionNotify:
+	  case ButtonPress:
+	  case ButtonRelease:
+	  case KeyPress:
+		keytime = 0;
+	}
+
 	return &event;
 }
 
@@ -133,6 +180,7 @@ void x_ev_process(event)
 	X11WIN	*xw;
 	Window	w;	/* widget window which received requested */
 	CHAR	modifier;/* behavior of the <Alt> key */
+	char	prefix;	/* char to use as prefix for keys -- usually ^K */
 	char	text[20];
 	KeySym	mykey;
 	ELVISSTATE state;
@@ -140,6 +188,7 @@ void x_ev_process(event)
 	char	*excmd;
 	unsigned long	exlen, ldummy;
 	int	i, j;
+	XEvent	event2;
  static XComposeStatus compose;
  static long	delayresize = 0L;
 
@@ -150,6 +199,40 @@ void x_ev_process(event)
 	switch (event->type)
 	{
 	  case Expose:
+		w = event->xexpose.window;
+
+#if 1
+		/* compress Expose events for this window */
+		while (XPending(x_display) > 0
+		    && XCheckTypedWindowEvent(x_display, w, Expose, &event2))
+		{
+			if (event2.xexpose.x < event->xexpose.x)
+			{
+				event->xexpose.width += (event->xexpose.x - event2.xexpose.x);
+				event->xexpose.x = event2.xexpose.x;
+			}
+			if (event2.xexpose.x + event2.xexpose.width > event->xexpose.x + event->xexpose.width)
+			{
+				event->xexpose.width = event2.xexpose.x + event2.xexpose.width - event->xexpose.x;
+			}
+			if (event2.xexpose.y < event->xexpose.y)
+			{
+				event->xexpose.height += (event->xexpose.y - event2.xexpose.y);
+				event->xexpose.y = event2.xexpose.y;
+			}
+			if (event2.xexpose.y + event2.xexpose.height > event->xexpose.y + event->xexpose.height)
+			{
+				event->xexpose.height = event2.xexpose.y + event2.xexpose.height - event->xexpose.y;
+			}
+		}
+
+		/* After compression, this *MUST* be the last Expose event
+		 * for the queue.  Compression does that.
+		 */
+		event->xexpose.count = 0;
+#endif
+		break;
+
 	  case GraphicsExpose:
 	  case MapNotify:
 	  case UnmapNotify:
@@ -186,8 +269,8 @@ void x_ev_process(event)
 
 	  case KeyPress:
 		w = event->xkey.window;
-		x_now = event->xkey.time;
 		delayresize = 0L;
+		x_now = event->xkey.time;
 		break;
 
 	  case ConfigureNotify:
@@ -217,6 +300,17 @@ void x_ev_process(event)
 	 */
 	for (xw = x_winlist; xw; xw = xw->next)
 	{
+		/* Scrollwheel events are always treated as though they were
+		 * in the text window, regardless of the mouse position.
+		 * However, the statusbar and top-level window don't receive
+		 * any mouse events so we can ignore them.
+		 */
+		if ((event->type == ButtonPress || event->type == ButtonRelease)
+		 && (event->xbutton.button == 4 || event->xbutton.button == 5)
+		 && (xw->tb.win == w || xw->sb.win == w))
+			w = xw->ta.win;
+
+		/* let each window handle its events */
 		if (xw->ta.win == w)
 		{
 			x_ta_event(xw, event);
@@ -238,6 +332,9 @@ void x_ev_process(event)
 			return;
 		}
 		else if (xw->win == w)
+			/* whole-window events are handled below, after we give
+			 * dialogs a chance to handle their own events.
+			 */
 			break;
 	}
 	if (!xw)
@@ -251,14 +348,15 @@ void x_ev_process(event)
 	switch (event->type)
 	{
 	  case MapNotify:
-		xw->ismapped = True;
+		xw->ismapped = ElvTrue;
 		if (o_focusnew)
 			(void)(*guix11.focusgw)((GUIWIN *)xw);
 		x_sb_setstate(xw, X_SB_REDRAW);
 		break;
 
 	  case UnmapNotify:
-		xw->ismapped = False;
+		xw->ismapped = ElvFalse;
+		xw->willraise = ElvFalse;
 		break;
 
 	  case FocusIn:
@@ -269,6 +367,7 @@ void x_ev_process(event)
 		if (xw->ic)
 			XSetICFocus(xw->ic);
 #endif
+		x_didcmd = ElvTrue;
 		break;
 
 	  case FocusOut:
@@ -277,6 +376,7 @@ void x_ev_process(event)
 			x_hasfocus = NULL;
 			x_ta_erasecursor(xw);
 			x_ta_drawcursor(xw);
+			x_didcmd = ElvTrue;
 		}
 #ifndef NO_XLOCALE
 		if (xw->ic)
@@ -285,6 +385,14 @@ void x_ev_process(event)
 		break;
 
 	  case KeyPress:
+		/* if notification of timeout, then just send 0 keystrokes */
+		if (!event->xkey.display)
+		{
+			eventkeys((GUIWIN *)w, NULL, 0);
+			xw->state = eventkeys((GUIWIN *)xw, toCHAR(text), 0);
+			break;
+		}
+
 		/* get some standard info from the event */
 		xw->x = event->xkey.x_root - event->xkey.x;
 		xw->y = event->xkey.y_root - event->xkey.y;
@@ -292,8 +400,18 @@ void x_ev_process(event)
 		/* check for modifier keys */
 		if (event->xkey.state & Mod1Mask)
 			modifier = o_altkey;
+		else if (event->xkey.state & ShiftMask)
+			modifier = 'v';
 		else
 			modifier = '\0';
+
+		/* modifiers also affect the keys */
+		if (event->xkey.state & ControlMask)
+			prefix = ELVCTRL('C');
+		else if (event->xkey.state & ShiftMask)
+			prefix = ELVCTRL('S');
+		else
+			prefix = ELVCTRL('K');
 
 		/* convert the keypress to a KeySym and string */
 #ifndef NO_XLOCALE
@@ -343,8 +461,8 @@ void x_ev_process(event)
 			if (!IsModifierKey(mykey) && mykey != XK_Mode_switch)
 			{
 				/* function keys become a control sequence */
-				sprintf(text, "%c%04x", ELVCTRL('K'),
-					mykey ? (int)mykey : event->xkey.keycode);
+				sprintf(text, "%c%04x", prefix,
+					mykey ? (unsigned)mykey : event->xkey.keycode);
 				i = strlen(text);
 			}
 		}
@@ -360,6 +478,40 @@ void x_ev_process(event)
 				if (i == 1) text[0] |= 0x80;
 				break;
 
+			  case 'v':
+				if (i > 1)
+				{
+					switch ((int)mykey)
+					{
+					  case XK_Up:
+					  case XK_Down:
+						eventclick((GUIWIN *)xw,
+							   0, 0, CLICK_SSLINE);
+						text[0] = ELVCTRL('K');
+						break;
+
+					  case XK_Left:
+					  case XK_Right:
+					  case XK_Home:
+					  case XK_End:
+						eventclick((GUIWIN *)xw,
+							   0, 0, CLICK_SSCHAR);
+						text[0] = ELVCTRL('K');
+						break;
+
+					  case XK_Insert:
+					  case XK_KP_Insert:
+						eventclick((GUIWIN *)xw,
+							  0, 0, CLICK_PASTE);
+						i = 0;
+						break;
+
+					  default:
+						;/* do nothing for other keys */
+					}
+
+				}
+
 			  default: ;/* do nothing */
 			}
 			state = eventkeys((GUIWIN *)xw, toCHAR(text), i);
@@ -373,15 +525,16 @@ void x_ev_process(event)
 			}
 			if (xw)
 			{
-				/* user maps never time out (Darn!) but
-				 * key maps timeout immediately.
+				/* User maps are handled elsewhere; we just set
+				 * the "keytime" variable to the timeout value.
+				 * Key maps timeout immediately, right here.
 				 */
 				xw->state = state;
 				if (xw->state == MAP_KEY)
-				{
 					xw->state = eventkeys((GUIWIN *)xw, toCHAR(text), 0);
-				}
-				x_didcmd = True;
+				else if (xw->state == MAP_USER)
+					keytime = o_usertime, keyxw = xw;
+				x_didcmd = ElvTrue;
 			}
 		}
 		break;
@@ -406,11 +559,13 @@ void x_ev_process(event)
 		{
 		}
 
-		if (event->xconfigure.width != xw->w || event->xconfigure.height != xw->h)
+		if ((unsigned)event->xconfigure.width != xw->w
+		 || (unsigned)event->xconfigure.height != xw->h)
 		{
 			i = (event->xconfigure.width - xw->sb.w - 2 * o_borderwidth) / xw->ta.cellw;
 			j = (event->xconfigure.height - xw->tb.h - xw->st.h - 2 * o_borderwidth) / xw->ta.cellh;
-			if (i != xw->ta.columns || j != xw->ta.rows)
+			if ((unsigned)i != xw->ta.columns
+			 || (unsigned)j != xw->ta.rows)
 			{
 				/* reconfigure the window */
 				x_reconfig(xw, i, j);
@@ -432,13 +587,13 @@ void x_ev_process(event)
 		 */
 		if (event->xclient.message_type == x_wm_protocols
 		 && event->xclient.format == 32
-		 && event->xclient.data.l[0] == x_wm_delete_window)
+		 && (Atom)event->xclient.data.l[0] == x_wm_delete_window)
 		{
 			if (x_winlist->next)
 				excmd = "close";
 			else
 				excmd = "quit";
-			eventex((GUIWIN *)xw, excmd, False);
+			eventex((GUIWIN *)xw, excmd, ElvFalse);
 		}
 		break;
 
@@ -450,7 +605,7 @@ void x_ev_process(event)
 		xw->ta.win = None;
 
 		/* other stuff still needs to be taken care of */
-		(*guix11.destroygw)((GUIWIN *)xw, True);
+		(*guix11.destroygw)((GUIWIN *)xw, ElvTrue);
 		break;
 
 	  case PropertyNotify:
@@ -459,7 +614,7 @@ void x_ev_process(event)
 		{
 			XGetWindowProperty(x_display,
 				xw->win, x_elvis_server, 0L, 8192,
-				True, XA_STRING, &gottype,
+				ElvTrue, XA_STRING, &gottype,
 				&i, (unsigned long *)&exlen,
 				(unsigned long *)&ldummy,
 				(unsigned char **)&excmd);
@@ -468,8 +623,8 @@ void x_ev_process(event)
 				if (gottype == XA_STRING && i == 8)
 				{
 					excmd[exlen] = '\0';
-					eventex((GUIWIN *)xw, excmd, True);
-					x_didcmd = True;
+					eventex((GUIWIN *)xw, excmd, ElvTrue);
+					x_didcmd = ElvTrue;
 				}
 				XFree(excmd);
 			}
@@ -488,21 +643,21 @@ void x_ev_process(event)
 /* Test for signs of boredom from the user, so we can cancel long operations.
  * Here, we check to see if user has clicked on the window.
  */
-BOOLEAN x_ev_poll(reset)
-	BOOLEAN reset;
+ELVBOOL x_ev_poll(reset)
+	ELVBOOL reset;
 {
 	XEvent	event;
 	X11WIN	*scan;
 
 	/* ignore if simply trying to reset */
 	if (reset)
-		return False;
+		return ElvFalse;
 
 	/* Check every window to see if it has a ButtonPress event pending */
 	if (XPending(x_display) > 0
 	 && XCheckTypedEvent(x_display, ButtonPress, &event))
 	{
-		return True;
+		return ElvTrue;
 	}
 
 	/* Handle any Expose events now */
@@ -520,6 +675,6 @@ BOOLEAN x_ev_poll(reset)
 		x_sb_setstate(scan, X_SB_STOP);
 	}
 
-	return False;
+	return ElvFalse;
 }
 #endif

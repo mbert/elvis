@@ -1,5 +1,13 @@
 #!/bin/sh
 
+# TEMPORARY: There is a problem with the Gnome interface.  Gnome should be
+# omitted by default until this is resolved.  Giving an explicit "--with-gnome"
+# flag should still enable it, though.  The bug that I'm encountering is that
+# the -lgnorba library contains unresolved references to "gnome_init" and
+# "gnome_init_with_popt_table".  This started showing up after I upgraded my
+# computer from SuSE 6.3 to SuSE 7.0.
+GUI_GNOME=bug
+
 # This is a UNIX shell script that generates a custom "Makefile" file and
 # a "config.h" file.
 #
@@ -7,6 +15,10 @@
 #
 # flags: --with-x[=no]		enable/disable support for X-windows interface
 #	 --without-x		disable support for X-windows interface
+#	 --with-xft[=no]	enable/disable support for Xft under "x11" intf.
+#	 --without-xft		disable support for Xft under "x11" interface
+#	 --with-gnome[=no]	enable/disable support for GNOME interface
+#	 --without-gnome	disable support for GNOME interface
 #	 --with-gcc[=no]	enable/disable use of GCC
 #	 --without-gcc		disable use of GCC
 #	 --x-includes=DIR	add DIR to path for X-windows include files
@@ -14,6 +26,8 @@
 #        --libs=STRING		define the non-X11 part of the LIBS= line
 #	 --bindir=DIR		where to install the executables
 #	 --datadir=DIR		where to install the supporting data files
+#	 --docdir=DIR		where to install the :help files & other docs
+#	 --prefix=DIR		like --bindir=DIR/bin --datadir=DIR/lib/elvis
 #	 --ioctl=VARIETY	type of tty ioctl to use: termios, termio, sgtty
 #	 --verbose		explain each decision
 #
@@ -26,13 +40,15 @@
 #	 osf-1			DEC's variant of POSIX
 #	 ultrix			DEC's variant of BSD
 #	 hp-ux			HP's variant of POSIX
-#	 qnx			QNX's POSIXish real-time operating system
+#	 qnx4			QNX's POSIXish real-time operating system
+#	 qnx6			QNX's neutrino, variant of POSIXish real-time OS
 #	 irix			SGI's variant of POSIX
 #	 xenix			ancient SCO Xenix-386 systems
 #	 sco			SCO UNIX or Open Desktop systems
 #	 bsd			typical BSD implementations
 #	 freebsd		FreeBSD is a specific BSD implementation
 #	 openbsd		OpenBSD is a specific BSD implementation
+#	 netbsd			NetBSD is a specific BSD implementation
 #	 posix			generic POSIX implementations
 #	 cygwin			GNU utilities under Windows95/98/NT
 #        (anything else)	generic UNIX, including SysV
@@ -43,11 +59,13 @@
 # work okay, usually.
 
 # Set some defaults
-XINCPATH="/usr/include /usr/include/X11 /usr/X11/include /usr/local/X11/include /usr/openwin/include /usr/X11R6/include"
+XINCPATH="/usr/X11R6/include /usr/X11/include /usr/include /usr/include/X11 /usr/local/X11/include /usr/openwin/include"
 XLIBPATH="/lib /usr/lib /usr/X11/lib /usr/local/X11/lib /usr/openwin/lib /usr/X11R6/lib /usr/ucblib /usr/ccs/lib /usr/local/lib "`echo "$LD_LIBRARY_PATH" | tr ':' ' '`
 GNUPATH=`echo "$PATH" | tr ':' ' '`
-BINDIR=/usr/local/bin
-LIBDIR=/usr/local/lib/elvis
+PREFIX=/usr
+BINDIR='$(PREFIX)/bin'
+DATADIR='$(PREFIX)/share/elvis/'
+DOCDIR='$(PREFIX)/share/elvis/doc/'
 SYS=""
 DEFAULT_CC="cc -O"
 IOCTL=""
@@ -102,18 +120,24 @@ usage()
 	echo "usage: configure [[flags] system]"
 	echo "flags: --with-x[=no]      enable/disable support for X-windows interface"
 	echo "       --without-x        disable support for X-windows interface"
+	echo "       --with-xft[=no]    enable/disable support for Xft under 'x11' intf."
+	echo "       --without-xft      disable support for Xft under 'x11' interface"
+	echo "       --with-gnome[=no]  enable/disable support for GNOME interface"
+	echo "       --without-gnome    disable support for GNOME interface"
 	echo "       --with-gcc[=no]    enable/disable use of GCC"
 	echo "       --without-gcc      disable use of GCC"
 	echo "       --x-includes=DIR   add DIR to path for X-windows include files"
 	echo "       --x-libraries=DIR  add DIR to path for X-windows libraries"
 	echo "       --bindir=DIR       where to install the executables"
 	echo "       --datadir=DIR      where to install the supporting data files"
+	echo "       --prefix=DIR       like --bindir=DIR/bin --datadir=DIR/share/elvis"
 	echo "       --libs=STRING      non-X11 part of the LIBS= string in Makefile"
 	echo "       --ioctl=VARIETY    type of tty ioctl to use: termios, termio, or sgtty"
 	echo "       --verbose          explain any decisions made during configuration"
-	echo "system: linux, sunos, solaris, solaris2, freebsd, openbsd, bsd, posix,"
-	echo "        aix, osf-1, hp-ux, ultrix, qnx, irix, cygwin, xenix,"
+	echo "system: linux, sunos, solaris, solaris2, freebsd, openbsd, netbsd, bsd,"
+	echo "        posix, aix, osf-1, hp-ux, ultrix, qnx, irix, cygwin, xenix,"
 	echo "        sco (meaning SCO Unix or OpenDesktop)"
+	echo "The default prefix is --prefix=$PREFIX"
 	if [ "$*" ]
 	then
 		echo "$*"
@@ -125,6 +149,14 @@ usage()
 for i
 do
 	case "$i" in
+	  --with-gnome=no|--without-gnome)
+		GUI_GNOME=undef
+		args="$args --with-gnome=no"
+		;;
+	  --with-gnome*)
+		GUI_GNOME=define
+		args="$args --with-gnome"
+		;;
 	  --with-x=no|--without-x)
 		GUI_X11=undef
 		args="$args --with-x=no"
@@ -132,6 +164,14 @@ do
 	  --with-x*)
 		GUI_X11=define
 		args="$args --with-x"
+		;;
+	  --with-xft=no|--without-xft)
+		FEATURE_XFT=undef
+		args="$args --with-xft=no"
+		;;
+	  --with-xft*)
+		FEATURE_XFT=define
+		args="$args --with-xft"
 		;;
 	  --with-gcc=no|--without-gcc)
 		gnu=n
@@ -156,7 +196,15 @@ do
 		args="$args $i"
 		;;
 	  --datadir=*)
-		LIBDIR=`echo "$i"|sed 's/^--datadir=//'`
+		DATADIR=`echo "$i"|sed 's/^--datadir=//'`
+		args="$args $i"
+		;;
+	  --docdir=*)
+		DOCDIR=`echo "$i"|sed 's/^--docdir=//'`
+		args="$args $i"
+		;;
+	  --prefix=*)
+		PREFIX=`echo "$i"|sed 's/^--prefix=//'`
 		args="$args $i"
 		;;
 	  --libs=*)
@@ -213,7 +261,16 @@ then
 		why "   This is really '$SYS'"
 		;;
 
-	  linux|solaris|solaris2|aix|osf-1|ultrix|hp-ux|qnx|irix*|xenix|sco|bsd|freebsd|openbsd|posix|cygwin*)
+	  qnx*)
+		case `uname -r` in
+		  6*)	why "   QNX Neutrino -- QNX's multiplatform POSIX Realtime platform"
+			SYS=qnx6 ;;
+		  *)	why "   QNX 4.?? -- QNX's X86 almost POSIX Realtime OS"
+			SYS=qnx4 ;;
+		esac
+		;;
+
+	  linux|solaris|solaris2|aix|osf-1|ultrix|hp-ux|irix*|xenix|sco|bsd|freebsd|openbsd|netbsd|posix|cygwin*)
 		why "   I know '$SYS' -- This should be easy!"
 		;;
 
@@ -240,9 +297,58 @@ fi
 why "Looking for some compiler files..."
 inet=`searchpath netinet/in.h $XINCPATH`
 case "$inet" in
-	"") why "   Internet headers not found - maybe need '--x-includes=...' argument?" ;;
-	*) why "   Internet headers found" ;;
+  "") why "   Internet headers not found - maybe need '--x-includes=...' argument?" ;;
+  *) why "   Internet headers found" ;;
 esac
+
+# Find Gnome files, unless gnome is specifically omitted
+case "$GUI_GNOME" in
+  undef)
+	why "   Skipping GNOME tests since you specified --with-gnome=no"
+	;;
+  bug)
+	why "   Skipping GNOME due to a temporary configuration bug.  (For more information,"
+	why "      see the comment at the top of the 'configure' script)"
+	GUI_GNOME=undef
+	;;
+  *)
+	GNOMELIBSSEARCH="gnomeui zvt gnome libglade gnorba"
+	for LIBSEARCHTMP in $GNOMELIBSSEARCH
+	do
+		res=`gnome-config --libs $LIBSEARCHTMP`
+		retcode=$?
+		if [ $retcode -ne 0 ]
+		then
+			why "  gnome-config failed to find $LIBSEARCHTMP"
+			why "  You should be able to get it from www.gnome.org"
+			break
+		fi
+	done
+
+	gnomelibs=`gnome-config --libs $GNOMELIBSSEARCH 2>/dev/null`
+	gnomeres1=$?
+	gnomecflags=`gnome-config --cflags $GNOMELIBSSEARCH 2>/dev/null`
+	gnomeres2=$?
+
+	if [ $gnomeres1 -ne 0 -o $gnomeres2 -ne 0 -o $retcode -ne 0 -o "$gnomelibs" = "" -o "$gnomecflags" = "" ]
+	then
+		why "   gnome-config not happy - perhaps you are missing some gnomes?"
+		why "   ($gnomeres1 / $gnomeres2 / $retcode / $gnomelibs / $gnomecflags )"
+		gnomelibs=""
+		gnomecflags=""
+	else
+		why "   GNOME found -- omitting gdk_imlib; it causes more trouble that it's worth"
+		gnomelibs="`echo $gnomelibs | sed 's/ -lgdk_imlib / /'`"
+		gnomecflags="$gnomecflags -I."
+		echo '#ifndef GDK_IMLIB_H' >gdk_imlib.h
+		echo '# define GDK_IMLIB_H' >>gdk_imlib.h
+		echo 'typedef char GdkImlibColor;' >>gdk_imlib.h
+		echo 'typedef char GdkImlibImage;' >>gdk_imlib.h
+		echo '#endif' >>gdk_imlib.h
+	fi
+
+esac
+
 case "$GUI_X11" in
   undef)
 	why "   Skipping X11 tests since you specified --with-x=no"
@@ -270,7 +376,7 @@ case "$CC" in
 	case "$gnu" in
 	  y|"")
 		gnu=`searchpath gcc $GNUPATH`
-		case "$inet" in
+		case "$gnu" in
 			"") why "   GCC not found" ;;
 			*) why "   GCC found" ;;
 		esac
@@ -285,6 +391,19 @@ case "$gnu" in
  y|n)	gnu="" ;;
 esac
 
+# If GNOME is unspecified, and the GNOME check was OK then assume with-gnome
+if [ "$GUI_GNOME" = "" -a "$gnomelibs" ]
+then
+  why "Assuming --with-gnome because you have GNOME installed"
+  GUI_GNOME=define
+  args="$args --with-gnome"
+elif [ "$GUI_GNOME" = "" ]
+then
+  why "Assuming --with-gnome=no because GNOME was not found"
+  GUI_GNOME=undef
+  args="$args --with-gnome=no"
+fi
+
 # If X-windows is unspecified, and the X files are present, then assume with-x
 if [ "$GUI_X11" = "" -a "$xinc" ]
 then
@@ -297,6 +416,52 @@ then
 	GUI_X11=undef
 	args="$args --with-x=no"
 fi
+
+# If X-windows is used, then check for the -lXpm library, need for FEATURE_IMAGE
+if [ "$GUI_X11" = "define" -a "$FEATURE_IMAGE" = "" ]
+then
+	if [ "`searchpath libXpm.a $XLIBPATH`" = "" ]
+	then
+		why "   Disabling the use of background images since -lXpm wasn't found"
+		FEATURE_IMAGE=undef
+	elif [ "`searchpath X11/xpm.h $XINCPATH`" = "" ]
+	then
+		why "   Disabling the use of background images since <X11/xpm.h> wasn't found"
+		FEATURE_IMAGE=undef
+	else
+		why "   Enabling the use of background images since -lXpm and <X11/xpm.h> were found"
+		FEATURE_IMAGE=define
+	fi
+fi
+# If X-windows is *NOT* used, then force off FEATURE_IMAGE
+if [ "$GUI_X11" \!= "define" ]
+then
+	FEATURE_IMAGE=undef
+fi
+
+case "$FEATURE_XFT" in
+  undef)
+	why "   Skipping Xft tests since you specified --with-xft=no"
+	;;
+
+  *)
+	if [ "$GUI_X11" = "define" ]
+	then
+		xft_h=`searchpath X11/Xft/Xft.h $XINCPATH`
+		libxft=`searchpath libXft.a $XLIBPATH`
+		if [ "$xft_h" = "" -o "$libxft" = "" ]
+		then
+			why "   Xft not found"
+			FEATURE_XFT=undef
+		else
+			why "   Xft found -- elvis will use it"
+			FEATURE_XFT=define
+		fi
+	else
+		why "   Skipping Xft tests since X11 isn't configured"
+	fi
+	;;
+esac
 
 # if network protocols are unspecified, and the network header files are
 # present, then assume they should be used.
@@ -391,6 +556,15 @@ else
 	why "   Assuming no, because it isn't declared in <unistd.h>"
 	NEED_SETPGID=define
 fi
+why "Does this system support freopen()?"
+if fgrep freopen /usr/include/stdio.h >/dev/null 2>/dev/null
+then
+	why "   Assuming yes, because it is declared in <stdio.h>"
+	NEED_FREOPEN=undef
+else
+	why "   Assuming no, because it isn't declared in <stdio.h>"
+	NEED_FREOPEN=define
+fi
 if [ -s "$xinc" ]
 then 
 	why "Does this system support XrmCombineFileDatabase()?"
@@ -403,7 +577,7 @@ then
 		NEED_XRMCOMBINEFILEDATABASE=define
 	fi
 fi
-if [ $PROTOCOL_HTTP = define -o $PROTOCOL_FTP = define ]
+if [ "$PROTOCOL_HTTP" = define -o "$PROTOCOL_FTP" = define ]
 then
 	why "Does this system support inet_aton()?"
 	if [ "$SYS" = sunos -o "$SYS" = solaris -o "$SYS" = solaris2 ]
@@ -419,7 +593,7 @@ then
 		NEED_INET_ATON=define
 	fi
 fi
-if [ $NEED_INET_ATON = undef ]
+if [ "$NEED_INET_ATON" = undef ]
 then
 	why "Does this system require -lresolv to use inet_aton()?"
 	if [ "`searchpath libresolv.a $XLIBPATH`" = "" ]
@@ -469,6 +643,7 @@ case "$SYS" in
 	why "AIX always uses curses because the termcap database has no entry for xterm"
 	TLIBS="-lcurses"
 	;;
+
   *linux*)
 	if [ ! -f /usr/lib/libtermcap.a -a ! -f /lib/libtermcap.a ]
 	then
@@ -489,6 +664,19 @@ case "$SYS" in
 		NEED_SELECT_H=undef
 	fi
 	;;
+
+  *qnx4*)
+	CC="cc -D_POSIX_SOURCE"
+	gnu=""
+	TLIBS="-ltermcap -lsocket"
+	;;
+
+  *qnx6*)
+	CC="qcc"
+	gnu=""
+	TLIBS="-ltermcap -lsocket"
+	;;
+
   *osf*)
 	why "OSF is configured to use the bogus 'tinytcap.c' file instead of a real termcap"
 	why "    or terminfo library.  I don't know why.   It also tries to use -ltermcap"
@@ -497,6 +685,7 @@ case "$SYS" in
 	#TLIBS="-lucb -lcurses"
 	TLIBS="-ltermcap"
 	;;
+
   *ultrix*)
 	why "Ultrix needs -ldnet to support X11.  Also, it uses both -lcurses and -ltermcap"
 	why "   though I can't imagine why it would need both; elvis doesn't use any fancy"
@@ -509,6 +698,7 @@ case "$SYS" in
 		XLIBS=" -ldnet"
 	fi
 	;;
+
   *hp-ux*)
 	why "HP-UX must use its own compiler even if GCC is available, apparently because"
 	why "   GCC doesn't support shared libraries.  Also, it uses both -lcurses and"
@@ -517,12 +707,13 @@ case "$SYS" in
 	then
 		why "... but since you used an explicit -with-gcc flag, I'll do that"
 	else
-		CC="cc -Ae"
+		CC="cc -Ae +O2"
 		gnu=""
 	fi
 	NEED_OSPEED=define
 	TLIBS="-lcurses -ltermcap"
 	;;
+
   *solaris2*)
 	why "For Solaris2, the standard system C compiler chokes on some standard system"
 	why "   header files because of an unchecked 'const' keyword, so we add '-Dconst='"
@@ -531,9 +722,9 @@ case "$SYS" in
 	why "   shared libraries can be found at run time."
 	CC="cc -O -Dconst="
 	TLIBS="-lcurses"
+	NLIBS="$NLIBS -lsocket -lnsl"
 	if [ "$GUI_X11" = "define" ]
 	then
-		XLIBS=" -lsocket -lnsl"
 		xlibdir=`dirname "$xlib"`
 		XLIBS=" -R$xlibdir$XLIBS"
 	fi
@@ -544,20 +735,23 @@ case "$SYS" in
 		TLIBS="$TLIBS -ltermcap"
 	fi
 	;;
+
   *solaris*)
 	why "For Solaris 1, no really wacky tricks are needed.  A -Dconst= flag is added"
-	why "   to the compiler command to allow it to work around a `const' keyword in a"
+	why "   to the compiler command to allow it to work around a 'const' keyword in a"
 	why "   standard system header."
 	CC="cc -O -Dconst="
 	TLIBS="-L/usr/ucblib -lucb -lcurses -ltermcap"
 	;;
+
   *sunos*)
 	why "For ancient SunOS, no really wacky tricks are needed.  A -Dconst= flag is added"
-	why "   to the compiler command to allow it to work around a `const' keyword in a"
+	why "   to the compiler command to allow it to work around a 'const' keyword in a"
 	why "   standard system header."
 	CC="cc -O -Dconst="
 	TLIBS="-ltermcap"
 	;;
+
   *sco*)
 	TLIBS="-lx -ltermcap"
 	tmp=`searchpath icc $GNUPATH`
@@ -579,6 +773,7 @@ case "$SYS" in
 		TLIBS="$TLIBS -lsocket"
 	fi
 	;;
+
   *xenix*)
 	TLIBS="-lx -ltermcap"
 	if [ "$GUI_X11" = "define" ]
@@ -587,15 +782,32 @@ case "$SYS" in
 		XLIBS=" -lsocket"
 	fi
 	;;
+
   *freebsd*)
 	why "For FreeBSD, we ignore the <sys/select.h> file"
 	NEED_SELECT_H="undef"
+	who "   To support X11, it also requires -lipc"
+	XLIBS=" -lipc"
 	;;
+
   *openbsd*)
 	why "For OpenBSD, we ignore the <sys/select.h> file"
 	NEED_SELECT_H="undef"
 	TLIBS="-lcurses"
+	who "   To support X11, it also requires -lipc"
+	XLIBS=" -lipc"
 	;;
+
+  *netbsd*)
+	why "For NetBSD, we need to specify the -R flag for X11."
+	why "   The use of LD_LIBRARY_PATH is not encouraged unless it is really necessary."
+	if [ "$GUI_X11" = "define" ]
+	then
+		xlibdir=`dirname "$xlib"`
+		XLIBS=" -R$xlibdir$XLIBS"
+	fi
+	;;
+
   *bsd*)
 	why "For BSD we like to use shlicc2 because it supports shared libraries"
 	tmp=`searchpath shlicc2 $GNUPATH`
@@ -609,12 +821,20 @@ case "$SYS" in
 	fi
 	if [ "$GUI_X11" = "define" ]
 	then
-		why "   To support X11, it also requires -lipc"
-		XLIBS=" -lipc"
+		why "Some BSD versions require -lipc with X11, but some don't allow it.  Checking..."
+		tmp=`searchpath libipc.a $XLIBPATH`
+		if [ "$tmp" ]
+		then
+			why "   This BSD has a -lipc library, so I'll use it"
+			XLIBS=" -lipc"
+		else
+			why "   Couldn't find -lipc library.  Hopefully that means it isn't needed"
+		fi
 		why "FreeBSD requires -I/usr/X11R6/include.  Should be harmless for other BSDs"
 		CC="$CC -I/usr/X11R6/include"
 	fi
 	;;
+
   *irix*)
   	# If "cc" in installed, use it in preference to "gcc"
 	why "For IRIX, the standard CC is preferable to GCC"
@@ -660,22 +880,51 @@ fi
 echo exec configure $args $SYS >config.stat
 
 # Tell the user what we discovered
-echo "System:   $SYS"
 echo "Options: $args"
+echo "System:   $SYS"
 echo "Compiler: $CC"
+echo "Bin dir:  "`echo "$BINDIR" |sed s,'$(PREFIX)',"$PREFIX",`
+echo "Data dir: "`echo "$DATADIR"|sed s,'$(PREFIX)',"$PREFIX",`
+echo "Doc dir:  "`echo "$DOCDIR" |sed s,'$(PREFIX)',"$PREFIX",`
+echo "Man dir:  "`sh instman.sh -d -p"${PREFIX}"`
+[ "$WHY" ] || echo "To see details, run \"configure --verbose\""
 
 ################################################################################
 
 #Set some options that'll be used in the here-files below
 CC="$CC$USE"
+if [ "$GUI_GNOME" = "define" ]
+then
+  GNOMELIBS="$gnomelibs"
+  GNOMECFLAGS="$gnomecflags"
+
+  CC="$CC $GNOMECFLAGS"
+fi
+
 if [ "$GUI_X11" = "define" ]
 then
+	case "$FEATURE_XFT" in
+	  define)
+		xft="-lXft "
+		if [ -d /usr/include/freetype2 ]
+		then
+			CC="$CC -I/usr/include/freetype2"
+		fi
+		;;
+	  *)	
+		xft=""
+		;;
+	esac
+	case "$FEATURE_IMAGE" in
+	  define)	xpm="-lXpm "	;;
+	  *)		xpm=""		;;
+	esac
 	case "$xlib" in
 	  /lib/libX11.*|/usr/lib/libX11.*|"")
-		XLIBS="-lX11$XLIBS"
+		XLIBS="$xft$xpm-lX11$XLIBS"
 		;;
 	  *)
-		XLIBS="-L`dirname $xlib` -lX11$XLIBS"
+		XLIBS="-L`dirname $xlib` $xft$xpm-lX11$XLIBS"
 		;;
 	esac
 	case "$xinc" in
@@ -701,6 +950,7 @@ esac
 
 
 # Generate the "config.h" file
+ELVISPATH=`echo "~/.elvis:/etc/elvis:$DATADIR:$DOCDIR" | sed s,'$(DATADIR)',"$DATADIR",g\;s,'$(PREFIX)',"$PREFIX",g`
 cat >config.h <<eof-config
 /* config.h */
 
@@ -715,6 +965,7 @@ cat >config.h <<eof-config
 
 
 /* The following determine which user interfaces are to be supported */
+#${GUI_GNOME:-undef}	GUI_GNOME	/* Pretty GNOME user interface */
 #${GUI_X11:-undef}	GUI_X11		/* simple X-windows interface */
 #undef	GUI_CURSES	/* curses interface */
 #define	GUI_TERMCAP	/* termcap interface */
@@ -733,17 +984,70 @@ cat >config.h <<eof-config
 #define	DISPLAY_SYNTAX	/* syntax	generic syntax coloring */
 #${PROTOCOL_HTTP}	PROTOCOL_HTTP	/* define to enable HTTP; undef to disable */
 #${PROTOCOL_FTP}	PROTOCOL_FTP	/* define to enable FTP; undef to disable */
-#define	FEATURE_SHOWTAG	/* the showtag option */
-#define	FEATURE_LPR	/* the :lpr command */
 #define	FEATURE_ALIAS	/* the :alias command */
-#define	FEATURE_MKEXRC	/* the :mkexrc command */
-#define	FEATURE_COMPLETE /* filename completion */
-#define	FEATURE_LITRE	/* accelerate searches for literal strings */
-#undef	FEATURE_RAM	/* store edit buffer in RAM if "-f ram" */
+#define	FEATURE_ARRAY	/* arrays in :calc expressions */
+#define	FEATURE_AUTOCMD	/* the :autocmd command */
 #define	FEATURE_BACKTICK /* the \`program\` notation in file names */
+#define	FEATURE_BROWSE	/* the :browse and :sbrowse commands */
+#define	FEATURE_CACHEDESC /* store syntax/markup descriptions in RAM */
+#define	FEATURE_CALC	/* built-in calculator -- see command below */
+#define	FEATURE_COMPLETE /* filename completion */
+#define	FEATURE_EQUALTILDE /* :let option =~ excmdline */
+#define	FEATURE_FOLD	/* the :fold and :unfold commands */
+#define	FEATURE_G	/* most of the visual 'g' commands */
+#define	FEATURE_HLOBJECT /* the hlobject and hllayers options */
+#define	FEATURE_HLSEARCH  /* the hlsearch option */
+#${FEATURE_IMAGE:-undef}	FEATURE_IMAGE	/* background images in x11 */
+#define	FEATURE_INCSEARCH /* the incsearch option */
+#define	FEATURE_LISTCHARS /* the "listchars" option */
+#define	FEATURE_LITRE	/* accelerate searches for literal strings */
+#define	FEATURE_LPR	/* the :lpr command */
+#define	FEATURE_MAKE	/* the :make and :cc commands */
+#define	FEATURE_MAPDB	/* the map debugger */
+#define	FEATURE_MISC	/* lots of little things -- see comment below */
+#define	FEATURE_MKEXRC	/* the :mkexrc command */
+#define	FEATURE_NORMAL	/* vim-style :normal command */
+#define	FEATURE_PROTO	/* using aliases to add new protocols */
+#undef	FEATURE_RAM	/* store edit buffer in RAM if "-f ram" */
+#define	FEATURE_RCSID	/* include RCS Id strings for all source files */
+#define FEATURE_REGION	/* the :region and :unregion commands */
+#define	FEATURE_SHOWTAG	/* the showtag option */
+#define	FEATURE_SMARTARGS /* the smartargs option */
+#define	FEATURE_SPELL	/* spell-checker */
+#define	FEATURE_SPLIT	/* :split and friends */
+#define	FEATURE_STDIN	/* ability to read from stdin for "-" filename */
+#define	FEATURE_TAGS	/* :tag command -- undef'ing will break ref & ctags */
+#define	FEATURE_TEXTOBJ	/* text objects */
+#define	FEATURE_V	/* the v/V/^V marking commands */
+#${FEATURE_XFT:-undef}	FEATURE_XFT	/* support antialiased fonts in "x11" */
 
+/* The FEATURE_CALC option, above, controls whether the calculator and all of
+ * the features that depend on it should be included in elvis.  You almost
+ * certainly want to leave it defined, except on a tiny "rescue" system,
+ * since undef'ing it will disable the following features:
+ *  o The :calc, :case, :default, :do, :eval, :for, :if, :let, :switch, and
+ *    :while commands.  (But :then and :else are still supported for :try)
+ *  o The elvis.ini, elvis.brf, elvis.arf, elvis.bwf, elvis.awf initialization
+ *    scripts (though ~/.exrc will still be sourced, and elvis will use some
+ *    hardcoded rules to guess an appropriate bufdisplay setting.)
+ *  o The ability to compute buffer names via :(=expression)
+ *  o Expansion of environment variables in file names.
+ *  o Some parts of messages and browser headers.
+ *  o Ability to use \$1 and \$2 in keywordprg, makeprg, and ccprg options.
+ */
 
-/* The following provide custom implementation of some common functions which
+/* The FEATURE_MISC option, above, controls a large number of features which
+ * are handy in normal daily use, but might not be needed on a tiny "rescue"
+ * system.  Undef'ing FEATURE misc will disable the following features:
+ *  o The :@, :all, :bb, :bu, :help, :local, :stack, :window, and :z commands
+ *  o Session recovery after elvis crashes (the -r command line flag)
+ *  o In "termcap" gui: Graphic chars, Shift & Alt F-key labels, xterm retitling
+ *  o Screen update optimization
+ *  o Support for mouse clicks and scrollbars
+ *  o Expansion of "~user" in a filename.  (plain old "~" still works though)
+ */
+
+/* The following provide custom implementations of some common functions which
  * are either missing or poorly implemented on some systems.
  */
 #undef	NEED_ABORT	/* replaces abort() with a simpler macro */
@@ -756,6 +1060,7 @@ cat >config.h <<eof-config
 #${NEED_OSPEED:-undef}	NEED_OSPEED	/* causes guitcap.c to supply an ospeed variable */
 #${NEED_BC:-undef}	NEED_BC		/* causes guitcap.c to supply a BC variable */
 #${NEED_SETPGID:-undef}	NEED_SETPGID	/* use setpgrp() instead of setpgid() */
+#${NEED_FREOPEN:-undef}	NEED_FREOPEN	/* use close()/dup()instead of freopen() */
 #define	NEED_CTYPE	/* uses a custom <ctype.h>, driven by :digraph */
 #${NEED_WAIT_H:-undef}	NEED_WAIT_H	/* must include <sys/wait.h> */
 #${NEED_SELECT_H:-undef}	NEED_SELECT_H	/* must include <sys/select.h> */
@@ -776,6 +1081,9 @@ cat >config.h <<eof-config
 #undef	DEBUG_SESSION	/* define to debug the block cache */
 #undef	DEBUG_EVENT	/* define to trace events */
 #undef	DEBUG_MARKUP	/* define to debug markup display modes */
+#undef	DEBUG_REGEXP	/* define to debug regular expressions */
+#undef	DEBUG_MARK	/* define to debug marksetbuffer() usage */
+#undef	DEBUG_REGION	/* define to debug regions */
 
 
 
@@ -783,7 +1091,7 @@ cat >config.h <<eof-config
  * default values of some options.
  */
 #define	OSLPOUT	"${LPOUT:-!lpr}"	/* default value of lpout option */
-#define OSLIBPATH "~/.elvislib:${LIBDIR}"	/* default elvispath */
+#define OSLIBPATH "${ELVISPATH}"	/* default elvispath */
 eof-config
 
 
@@ -857,11 +1165,18 @@ s!^CC=.*!CC=$CC!
 eof-bsd
 ;;
 
-*qnx*)
-cat >$tmp <<eof-qnx
+*qnx4*)
+cat >$tmp <<eof-qnx4
 s!^# Makefile.in\$!# Makefile - configured for $SYS!
-s!^CC=.*!CC=$CC -D_POSIX_SOURCE!
-eof-qnx
+s!^CC=.*!CC=$CC!
+eof-qnx4
+;;
+
+*qnx6*)
+cat >$tmp <<eof-qnx6
+s!^# Makefile.in\$!# Makefile - configured for $SYS!
+s!^CC=.*!CC=$CC!
+eof-qnx6
 ;;
 
 *aix*)
@@ -880,10 +1195,25 @@ eof-generic
 
 esac
 cat >>$tmp <<eof-all
-s!^LIBS=.*!LIBS=$XLIBS $LIBS!
+s!^LIBS=.*!LIBS=$GNOMELIBS $XLIBS $LIBS!
+s!^PREFIX=.*!PREFIX=$PREFIX!
 s!^BINDIR=.*!BINDIR=$BINDIR!
-s!^LIBDIR=.*!LIBDIR=$LIBDIR!
+s!^DATADIR=.*!DATADIR=$DATADIR!
+s!^DOCDIR=.*!DOCDIR=$DOCDIR!
 eof-all
+if [ -d /usr/local/X11/include ]
+then
+	echo 's!^CFLAGS=.*!& -I/usr/local/X11/include!' >>$tmp
+fi
+
+# Remove the source/object for GNOME from the makefile if we aren't using it
+if [ "$GUI_GNOME" != "define" ]
+then
+cat >> $tmp << eof-gnome
+s!^GNOMESRCS=.*!GNOMESRCS=!
+s!^GNOMEOBJS=.*!GNOMEOBJS=!
+eof-gnome
+fi
 
 # Run "Makefile.in" through that sed script, to produce "Makefile"
 sed -f $tmp Makefile.in >Makefile && rm $tmp

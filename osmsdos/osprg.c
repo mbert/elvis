@@ -20,11 +20,11 @@ static int swapsystem(char *cmd)
 	char	*prog, *args;
 	int	retcode;
 
-	for (; isspace(*cmd); cmd++)
+	for (; elvspace(*cmd); cmd++)
 	{
 	}
 	prog = safedup(cmd);
-	for (args = prog; *args && !isspace(*args); args++)
+	for (args = prog; *args && !elvspace(*args); args++)
 	{
 	}
 	if (*args)
@@ -64,10 +64,10 @@ static int	fd;		/* file descriptor for reading or writing */
 static int	status;		/* exit status of the program */
 
 /* Declares which program we'll run, and what we'll be doing with it.
- * This function should return True if successful.  If there is an error,
- * it should issue an error message via msg(), and return False.
+ * This function should return ElvTrue if successful.  If there is an error,
+ * it should issue an error message via msg(), and return ElvFalse.
  */
-BOOLEAN prgopen(char *command, BOOLEAN willwrite, BOOLEAN willread)
+ELVBOOL prgopen(char *command, ELVBOOL willwrite, ELVBOOL willread)
 {
 	/* remember the command we're supposed to run */
 	cmd = command;
@@ -83,7 +83,7 @@ BOOLEAN prgopen(char *command, BOOLEAN willwrite, BOOLEAN willread)
 		if (fd < 0)
 		{
 			msg(MSG_ERROR, "[s]can't create temp file $1", tempread);
-			return False;
+			return ElvFalse;
 		}
 		close(fd);
 	}
@@ -101,13 +101,13 @@ BOOLEAN prgopen(char *command, BOOLEAN willwrite, BOOLEAN willread)
 			msg(MSG_ERROR, "[s]can't create temp file $1", tempwrite);
 			if (tempread[0])
 				remove(tempread);
-			return False;
+			return ElvFalse;
 		}
 	}
 	else
 		tempwrite[0] = '\0';
 
-	return True;
+	return ElvTrue;
 }
 
 /* Write the contents of buf to the program's stdin, and return nbytes
@@ -122,10 +122,10 @@ int prgwrite(CHAR *buf, int nbytes)
 	return write(fd, buf, nbytes);
 }
 
-/* Marks the end of writing.  Returns True if all is okay, or False if
+/* Marks the end of writing.  Returns ElvTrue if all is okay, or ElvFalse if
  * error.
  */
-BOOLEAN prggo(void)
+ELVBOOL prggo(void)
 {
 	int	old0;	/* elvis' stdin */
 	int	old1;	/* elvis' stdout */
@@ -180,14 +180,14 @@ BOOLEAN prggo(void)
 		arg[0] = toCHAR(tempwrite);
 		arg[1] = toCHAR(tempread);
 		arg[2] = NULL;
-		cmd = tochar8(calculate(toCHAR(cmd), arg, True));
+		cmd = tochar8(calculate(toCHAR(cmd), arg, CALC_MSG));
 		if (!cmd)
 		{
 			if (tempwrite[0])
 				remove(tempwrite);
 			if (tempread[0])
 				remove(tempread);
-			return False;
+			return ElvFalse;
 		}
 	}
 #endif
@@ -232,7 +232,7 @@ BOOLEAN prggo(void)
 		assert(fd > 0);
 	}
 
-	return True;
+	return ElvTrue;
 }
 
 

@@ -38,6 +38,12 @@
 #define OSPATHDELIM	':'
 
 /*=============================================================================
+ * This is used as the directory delimiter inside a file name.  For UNIX, this
+ * is traditionally a '/' character.  Most other OSes use a '\\' character.
+ */
+#define OSDIRDELIM	'/'
+
+/*=============================================================================
  * This is a list of directories where elvis might store its session file.
  */
 #define OSSESSIONPATH	"/var/tmp:/tmp:~:."
@@ -70,10 +76,16 @@
 #undef OSINIT
 
 /*=============================================================================
- * This should be True if the argv[] array passed to main() needs to have
- * wildcards expanded in filenames.
+ * OSFILENAMERULES should be a bitwise-OR of ELVFNR flags, indicating how
+ * file names passed to elvis should be interpreted.  Usually this will be
+ * "(ELVFNR_TILDE|ELVFNR_DOLLAR|ELVFNR_WILDCARD)" to do the kind of processing
+ * that the shell would do on Unix, or "(ELVFNR)0" on Unix systems.
+ *
+ * OSEXPANDARGS should be 1 if the args ever need expansion, or 0 if they
+ * never do.
  */
-#define OSEXPANDARGS	False
+#define OSFILENAMERULES	(ELVFNR)0
+#define OSEXPANDARGS	0
 
 /*=============================================================================
  * This is the default terminal type, used by the "termcap" GUI whenever the

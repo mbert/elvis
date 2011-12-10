@@ -23,7 +23,12 @@ BEGIN_EXTERNC
 extern void markadjust P_((MARK from, MARK to, long delta));
 extern long markline P_((MARK mark));
 extern MARK marksetline P_((MARK mark, long linenum));
+#ifdef DEBUG_MARK
+#define marksetbuffer(m,b)	_marksetbuffer(__FILE__, __LINE__, (m), (b))
+extern void _marksetbuffer P_((char *file, int line, MARK mark, BUFFER buffer));
+#else
 extern void marksetbuffer P_((MARK mark, BUFFER buffer));
+#endif
 END_EXTERNC
 
 #ifndef DEBUG_ALLOC

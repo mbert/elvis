@@ -3,30 +3,33 @@
 # This shell script is used on UNIX-like systems to install or remove
 # man-pages.  It is run automatically during "make install".
 #
-#   usage: sh install.sh [-r] [-bbindir] programs...
+#   usage: sh install.sh [-r|-d] [-pprefix] programs...
 #
 ################################################################################
 
+# This is the default prefix.  All installation directories are relative
+# to this.  Usually the PREFIX shown here is overridden by a -pprefix flag.
+PREFIX=/usr/local
+
 # This is a list of directories where the nroff source for man-pages might
 # be installed.  The order is important -- the man-pages will be installed
-# in the first existing directory in the list.  If "-b /usr/local/bin" is
-# an argument, then /usr/local/man/man1 is added to the front of the list.
-MANDIRS="/usr/man/man.l /usr/man/man.LOCAL /usr/man/man.1 /usr/man/1
-/usr/catman.C /usr/man/manl /usr/man/man1 /usr/elvis/man"
+# in the first existing directory in the list.
+MANDIRS="MAN/man.l MAN/man.LOCAL MAN/man.1 MAN/1 MAN/catman.C MAN/manl MAN/man1 MAN/elvis/man"
 
 # Similarly, this is a list of directories where the plaintext form of the
 # man-pages might belong.  If, after searching, it is decided that both forms
 # should go in the same directory, then only the plain-text version is
-# installed.  If "-b /usr/local/bin" is an argument, then /usr/local/man/cat1
-# is added to the front of the list.
-CATDIRS="/usr/man/catmanl /usr/man/catman.l /usr/man/catman.LOCAL
-/usr/man/cat.LOCAL /usr/man/catman.1 /usr/man/cat.C /usr/catman.C
-/usr/catman/1 /usr/man/1 /usr/man/cat1"
+# installed.
+CATDIRS="MAN/catmanl MAN/catman.l MAN/catman.LOCAL MAN/cat.LOCAL MAN/catman.1 MAN/cat.C MAN/catman.C MAN/catman/1 MAN/1 MAN/cat1"
 
 ################################################################################
 
 # Look for a "-r"
-if test "$1" = "-r"
+if test "$1" = "-d"
+then
+	shift
+	job="install/remove"
+elif test "$1" = "-r"
 then
 	shift
 	job="remove"
@@ -34,39 +37,76 @@ else
 	job="install"
 fi
 
-# Look for a "-bbindir" argument
+# Look for a "-pprefix" argument
 case "$1" in
-  -b*/bin)
-	MANDIRS=`echo "X$1" | sed 's/X-b\(.*\)\/bin$/\1\/man\/man1 \1\/man\/man.1 \1\/man\/man.C/'`" clubland $MANDIRS"
-	CATDIRS=`echo "X$1" | sed 's/X-b\(.*\)\/bin$/\1\/man\/cat1 \1\/man\/catman1 \1\/man\/cat.1 \1\/man\/cat.C/'`" clubland $CATDIRS"
+  -p)
+	shift
+	PREFIX="$1"
 	shift
 	;;
-  -b)
-	shift
-	MANDIRS=`echo "X$1" | sed 's/X\(.*\)\/bin$/\1\/man\/man1 \1\/man\/man.1 \1\/man\/man.C/'`" clubland $MANDIRS"
-	CATDIRS=`echo "X$1" | sed 's/X\(.*\)\/bin$/\1\/man\/cat1 \1\/man\/catman1 \1\/man\/cat.1 \1\/man\/cat.C/'`" clubland $CATDIRS"
-	shift
-	;;
-  -b*)
+  -p*)
+	PREFIX=`echo "$1"|sed 's/-p//'`
 	shift
 	;;
 esac
 
-# Complain if no programs were named on the command line
-if test $# -lt 1
+# If MANPATH is unset, then set it to some likely values
+if [ "$MANPATH" = "" ]
 then
-	echo "Usage: sh instman.sh [-r] [-b bindir] {program names...}"
-	echo "     where {program names...} is a list of programs whose"
-	echo "     manual pages are to be installed.  It is assumed that"
-	echo "     the manual pages are currently located inside the 'lib'"
-	echo "     subdirectory."
-	echo
-	echo "        -r         Remove man-pages (else install them)"
-	echo "        -b bindir  Take a hint for possible man directory from"
-	echo "                   the name of the bin directory"
-	echo
-	echo "     Note: Normally, this script is executed via 'make install'"
-	echo "           or 'make uninstall'"
+	MANPATH="/usr/local/man:/usr/X11/man:/usr/man:$PREFIX/man"
+fi
+
+# Choose a man directory under PREFIX, giving priority to "share" directories.
+oldIFS="$IFS"
+IFS=":"
+manprefix="none"
+for i in $MANPATH
+do
+	case $i in
+	  "$PREFIX"/share/*) [ -d "$i" -a $manprefix = none ] && manprefix=$i;;
+	esac
+done
+for i in $MANPATH
+do
+	case $i in
+	  "$PREFIX"/*) [ -d "$i" -a $manprefix = none ] && manprefix=$i;;
+	esac
+done
+IFS="$oldIFS"
+if  [ "$manprefix" = "none" ]
+then
+	JOB=`echo $job|tr '[a-z]' '[A-Z]'`
+	echo >&2 "::: I CAN'T AUTOMATICALLY $JOB THE MAN PAGES ON THIS SYSTEM"
+	echo >&2 "::: BECAUSE I DON'T KNOW WHERE TO PUT THEM!  No directory in"
+	echo >&2 "::: your \$MANPATH looks like a man page directory, inside"
+	echo >&2 "::: your chosen installation directory of '$PREFIX'"
+	echo >&2 "::: You should $job the man pages manually."
+
+	# But "make install" should continue anyway
+	exit 0
+fi
+
+
+# Adjust MANDIRS and CATDIRS to be relative to the manprefix
+MANDIRS=`echo "$MANDIRS" | sed "s#MAN#$manprefix#g"`
+CATDIRS=`echo "$CATDIRS" | sed "s#MAN#$manprefix#g"`
+
+# Complain if no programs were named on the command line
+if test $# -lt 1 -a $job \!= "install/remove"
+then
+	echo >&2 "Usage: sh instman.sh [-r] [-p prefix] {program names...}"
+	echo >&2 "     where {program names...} is a list of programs whose"
+	echo >&2 "     manual pages are to be installed.  It is assumed that"
+	echo >&2 "     the manual pages are currently located inside the 'doc'"
+	echo >&2 "     subdirectory."
+	echo >&2
+	echo >&2 "        -d         Announce the directory (else install)"
+	echo >&2 "        -r         Remove man-pages (else install them)"
+	echo >&2 "        -p prefix  All possible man page directories are"
+	echo >&2 "                   relative to this prefix."
+	echo >&2
+	echo >&2 "     Note: Normally, this script is executed via 'make install'"
+	echo >&2 "           or 'make uninstall'"
 	exit 1
 fi
 
@@ -81,7 +121,7 @@ eval `for dir in $MANDIRS
 		if test $dir = clubland
 		then
 			echo manclubland=no
-		elif test -d $dir -a -w $dir
+		elif test -d $dir # -a -w $dir
 		then
 			echo mandir=$dir
 			exit 0
@@ -96,14 +136,14 @@ eval `for dir in $CATDIRS
 		if test $dir = clubland
 		then
 			echo catclubland=no
-		elif test -d $dir -a -w $dir
+		elif test -d $dir # -a -w $dir
 		then
 			echo catdir=$dir
 			exit 0
 		fi
 	done`
 
-# Both names should be either in the list derived from "-b dir" or on the
+# Both names should be either in the list derived from "-p prefix" or on the
 # default list.  If we have a mixture, then ignore the catdir.
 if test -n "$mandir" -a -n "$catdir" -a $manclubland != $catclubland
 then
@@ -116,11 +156,14 @@ fi
 # If we didn't find a directory for either of them, then complain & quit
 if test -z "$anydir"
 then
-	echo "::: I CAN'T AUTOMATICALLY INSTALL THE MAN PAGES ON THIS SYSTEM"
-	echo "::: BECAUSE I DON'T KNOW WHERE TO PUT THEM!  YOU CAN EITHER"
-	echo "::: TRY EDITING THE \"instman.sh\" SCRIPT & RERUNNING IT, OR"
-	echo "::: SIMPLY INSTALL THEM YOURSELF BY HAND."
-	exit 1
+	JOB=`echo $job|tr '[a-z]' '[A-Z]'`
+	echo >&2 "::: I CAN'T AUTOMATICALLY $JOB THE MAN PAGES ON THIS SYSTEM"
+	echo >&2 "::: BECAUSE I DON'T KNOW WHERE TO PUT THEM!  You can either"
+	echo >&2 "::: try editing the \"instman.sh\" script & rerunning it, or"
+	echo >&2 "::: simply $job them yourself by hand."
+
+	# exit... but 'make install' should continue anyway
+	exit 0
 fi
 
 # If they're the same, then we only want to install the plaintext versions
@@ -145,7 +188,7 @@ then
 	for i
 	do
 		case $job in
-		  install)	cp lib/$i.man $mandir/$i$ext ;;
+		  install)	cp doc/$i.man $mandir/$i$ext ;;
 		  remove)	rm $mandir/$i$ext* ;;
 		esac
 	done
@@ -164,14 +207,14 @@ then
 		  install)
 			if [ -x /usr/bin/nroff ]
 			then
-				/usr/bin/nroff -man lib/$i.man >$catdir/$i$ext
+				/usr/bin/nroff -man doc/$i.man >$catdir/$i$ext
 			elif [ -x ./elvis ]
 			then
 				ELVISPATH=dummypath; export ELVISPATH
-				./elvis -Gquit -c"se bd=man lpt=bs|lp! $catdir/$i$ext" lib/$i.man
+				./elvis -Gquit -c"se bd=man lpt=bs lplines=0|lp! $catdir/$i$ext" doc/$i.man
 			else
 				# give nroff another chance
-				nroff -man lib/$i.man >$catdir/$i$ext
+				nroff -man doc/$i.man >$catdir/$i$ext
 			fi
 			;;
 		  remove)
@@ -246,6 +289,9 @@ case $job in
 	then
 		echo "plaintext manpages removed from $catdir"
 	fi
+	;;
+  install/remove)
+	echo $mandir
 	;;
 esac
 exit 0

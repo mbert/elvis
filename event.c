@@ -1,36 +1,91 @@
 /* event.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_event[] = "$Id: event.c,v 2.53 1999/02/17 22:54:22 steve Exp $";
 
 #include "elvis.h"
+#ifdef FEATURE_RCSID
+char id_event[] = "$Id: event.c,v 2.85 2003/10/17 17:41:23 steve Exp $";
+#endif
 
 #ifndef DEBUG_EVENT
 # define WATCH(x)
+# define USUAL_SUSPECTS	;
 #else
 # define WATCH(x)	x
-#endif
-
-#ifdef NDEBUG
-# define USUAL_SUSPECTS
-#else
-# define USUAL_SUSPECTS {WINDOW w; for (w = windows; w; w = w->next){ \
+# ifdef NDEBUG
+#  define USUAL_SUSPECTS ;
+# else
+#  define USUAL_SUSPECTS {WINDOW w; for (w = windows; w; w = w->next){ \
 	if (!w->state) continue; \
 	assert(markbuffer(w->state->top) == markbuffer(w->state->cursor)); \
 	assert(markbuffer(w->state->bottom) == markbuffer(w->state->cursor)); \
 	assert(markoffset(w->state->top) <= markoffset(w->state->cursor)); \
-	assert(markoffset(w->state->bottom) >= markoffset(w->state->cursor)); \
+	assert(markoffset(w->state->bottom) == 0 \
+	    || markoffset(w->state->bottom) >= markoffset(w->state->cursor)); \
     } }
+# endif
 #endif
 
 #if USE_PROTOTYPES
-static void setcursor(WINDOW win, long offset, BOOLEAN clean);
+static void setcursor(WINDOW win, long offset, ELVBOOL clean);
 #endif
 
 /* This counts the number of events that have been processed.  In particular,
  * if eventcounter==0 then we know we're still performing initialization.
  */
 long eventcounter;
+
+/* Regenerate the CUSTOM_BUF if necessary */
+void eventupdatecustom(later)
+	ELVBOOL	later;	/* update it before waiting for an event? (else now) */
+{
+#ifdef FEATURE_MKEXRC
+	static ELVBOOL mustupdate;
+	BUFFER		custom;	/* the CUSTOM_BUF buffer */
+	MARKBUF		top, bottom;
+
+	/* if just supposed to update later, then remember that */
+	if (later)
+	{
+		mustupdate = ElvTrue;
+		return;
+	}
+
+	/* if no update is needed, then do nothing */
+	if (!mustupdate)
+		return;
+	mustupdate = ElvFalse;
+
+	/* find/create the CUSTOM_BUF buffer */
+	custom = bufalloc(toCHAR(CUSTOM_BUF), 0, ElvTrue);
+	if (o_bufchars(custom) != 0)
+	{
+		bufreplace(marktmp(top, custom, 0),
+			marktmp(bottom, custom, o_bufchars(custom)),
+			NULL, 0);
+	}
+
+	/* add stuff into it */
+	optsave(custom);
+	mapsave(custom);
+	digsave(custom);
+	colorsave(custom);
+	/* abbrsave(custom); */
+# ifdef FEATURE_ALIAS
+	exaliassave(custom);
+# endif
+# ifdef FEATURE_SPELL
+	spellsave(custom);
+# endif
+# ifdef FEATURE_AUTOCMD
+	ausave(custom);
+# endif
+	if (gui && gui->save && windefault)
+	{
+		(*gui->save)(custom, windefault->gw);
+	}
+#endif
+}
 
 /* Some events move the cursor. E.g., clicking the mouse or moving the
  * scrollbar's thumb.  If the window is in input mode, then there may be
@@ -45,7 +100,7 @@ long eventcounter;
 static void setcursor(win, offset, clean)
 	WINDOW	win;	/* window whose cursor should be moved */
 	long	offset;	/* new offset for the cursor */
-	BOOLEAN	clean;	/* definitely delete superfluous text */
+	ELVBOOL	clean;	/* definitely delete superfluous text */
 {
 	/* if in input mode, and there are superfluous characters after the
 	 * cursor (probably the end is marked with a '$' character) then we
@@ -85,10 +140,10 @@ static void setcursor(win, offset, clean)
  *
  * The GUIWIN already exists, and the BUFFER named "name" must also
  * exist.  If anything goes wrong, this function issues an error message
- * via msg(), and returns False; the GUI should then destroy its window and
- * forget about it.  Returns True for successful creations.
+ * via msg(), and returns ElvFalse; the GUI should then destroy its window and
+ * forget about it.  Returns ElvTrue for successful creations.
  */
-BOOLEAN eventcreate(gw, guivals, name, rows, columns)
+ELVBOOL eventcreate(gw, guivals, name, rows, columns)
 	GUIWIN	*gw;		/* GUI's handle for new window */
 	OPTVAL	*guivals;	/* values of GUI's window-dependent options */
 	char	*name;		/* name of the new window */
@@ -101,12 +156,14 @@ BOOLEAN eventcreate(gw, guivals, name, rows, columns)
 WATCH(fprintf(stderr, "eventcreate(..., name=\"%s\", rows=%d, columns=%d)\n", name, rows, columns));
 	USUAL_SUSPECTS
 	eventcounter++;
+	if (windefault)
+		o_eventcounter(windefault) = eventcounter;
 
 	/* find/create a buffer with the requested name */
 	buf = buffind(toCHAR(name));
 	if (!buf)
 	{
-		buf = bufload((CHAR *)0, name, False);
+		buf = bufload((CHAR *)0, name, ElvFalse);
 	}
 
 	/* create a WINDOW */
@@ -116,7 +173,7 @@ WATCH(fprintf(stderr, "eventcreate(..., name=\"%s\", rows=%d, columns=%d)\n", na
 	if (gui->moveto) USUAL_SUSPECTS
 #endif
 
-	return (BOOLEAN)(win != NULL);
+	return (ELVBOOL)(win != NULL);
 }
 
 /* This function frees the WINDOW associated with gw, and frees it. */
@@ -137,7 +194,7 @@ WATCH(fprintf(stderr, "eventdestroy(...)\n"));
 	assert(win);
 
 	/* free it */
-	winfree(win, False);
+	winfree(win, ElvFalse);
 
 	/* if there are any messages pending, and we aren't about to exit,
 	 * then flush the messages out to some other window.
@@ -169,7 +226,7 @@ WATCH(fprintf(stderr, "eventresize(..., rows=%d, columns=%d\n", rows, columns));
 	/* if too small, then ignore the change */
 	if (rows < 2 || columns < 30)
 	{
-		return; /* False? */
+		return; /* ElvFalse? */
 	}
 
 	/* find the window */
@@ -179,8 +236,6 @@ WATCH(fprintf(stderr, "eventresize(..., rows=%d, columns=%d\n", rows, columns));
 	/* resize it */
 	winresize(win, rows, columns);
 
-	/* announce the new size */
-	msg(MSG_INFO, "[dd]$1 rows, $2 columns", (long)rows, (long)columns);
 	USUAL_SUSPECTS
 }
 
@@ -190,7 +245,7 @@ WATCH(fprintf(stderr, "eventresize(..., rows=%d, columns=%d\n", rows, columns));
  */
 void eventreplace(gw, freeold, name)
 	GUIWIN	*gw;	/* GUI's handle for window to be switched */
-	BOOLEAN	freeold;/* if True, destroy old buffer; else retain it */
+	ELVBOOL	freeold;/* if ElvTrue, destroy old buffer; else retain it */
 	char	*name;	/* name of new buffer to use */
 {
 	WINDOW	win;
@@ -199,12 +254,14 @@ void eventreplace(gw, freeold, name)
 WATCH(fprintf(stderr, "eventreplace(..., freeold=%s, name=\"%s\")\n", freeold?"True":"False", name));
 	USUAL_SUSPECTS
 	eventcounter++;
+	if (windefault)
+		o_eventcounter(windefault) = eventcounter;
 
 	/* find/create a buffer with the requested name */
 	buf = buffind(toCHAR(name));
 	if (!buf)
 	{
-		buf = bufload((CHAR *)0, name, False);
+		buf = bufload((CHAR *)0, name, ElvFalse);
 	}
 
 	/* find the window */
@@ -212,7 +269,7 @@ WATCH(fprintf(stderr, "eventreplace(..., freeold=%s, name=\"%s\")\n", freeold?"T
 	assert(win);
 
 	/* replace its buffer */
-	winchgbuf(win, buf, True);
+	winchgbuf(win, buf, ElvTrue);
 	USUAL_SUSPECTS
 }
 
@@ -255,8 +312,13 @@ WATCH(fprintf(stderr, "eventdraw(...)\n"));
 	assert(win && win->state);
 	eventcounter++;
 
+	/* update the CUSTOM_BUF now, if necessary */
+	eventupdatecustom(ElvFalse);
+
 	/* flush any messages */
+#ifdef FEATURE_MAKE
 	if (!makeflag)
+#endif
 		msgflush();
 
 	/* permit the bell to ring */
@@ -279,15 +341,25 @@ WATCH(fprintf(stderr, "eventdraw(...)\n"));
 	else
 	{
 		/* draw the screen */
+#ifdef FEATURE_SPELL
+		spellbegin();
+#endif
 		drawimage(win);
+#ifdef FEATURE_SPELL
+		spellend();
+#endif
 	}
 
+#ifdef FEATURE_MAKE
 	/* After user hits <Enter>, reset the makeflag */
 	if (makeflag && morehit)
 	{
-		makeflag = morehit = False;
+		makeflag = morehit = ElvFalse;
 		msgflush();
 	}
+#else
+	msgflush();
+#endif
 
 	USUAL_SUSPECTS
 	return (win->state ? (*win->state->shape)(win) : CURSOR_NONE);
@@ -298,18 +370,59 @@ WATCH(fprintf(stderr, "eventdraw(...)\n"));
  * the only forseeable use of this function is to return the current cursor
  * shape.
  */
-ELVCURSOR eventfocus(gw)
+ELVCURSOR eventfocus(gw, change)
 	GUIWIN	*gw;	/* GUI's handle for window to become new default */
+	ELVBOOL	change;	/* really change focus? else just use options */
 {
 	WINDOW	win = winofgw(gw);
+	WINDOW	other;
 
 WATCH(fprintf(stderr, "eventfocus(...)\n"));
 	USUAL_SUSPECTS
-	assert(win && win->state);
+	assert(!win || win->state);
 	eventcounter++;
 
-	winoptions(win);
+	if (change && (!win || !o_hasfocus(win)))
+	{
+#if 1
+		for (other = windows; other; other = other->next)
+		{
+			if (!o_hasfocus(other))
+				continue;
+			o_hasfocus(other) = ElvFalse;
+			if (guicolorsync(other) && gui && gui->draw)
+			{
+				if (other->state->pop)
+					drawexpose(other, 0, 0, (int)o_lines(other)-1, (int)o_columns(other)-1);
+				else
+				{
+					other->di->logic = DRAW_SCRATCH;
+					drawimage(other);
+				}
+			}
+		}
+#endif
+		if (!win)
+			return CURSOR_NONE;
+		winoptions(win);
+		o_hasfocus(win) = ElvTrue;
+#if 1
+		if (guicolorsync(win) && gui && gui->draw)
+		{
+			if (win->state->pop)
+				drawexpose(win, 0, 0, (int)o_lines(win)-1, (int)o_columns(win)-1);
+			else
+			{
+				win->di->logic = DRAW_SCRATCH;
+				drawimage(win);
+			}
+		}
+#endif
+	}
+	else
+		winoptions(win);
 	USUAL_SUSPECTS
+
 	return (*win->state->shape)(win);
 }
 
@@ -327,22 +440,27 @@ long eventclick(gw, row, column, what)
 	int	column;	/* column where clicked */
 	CLICK	what;	/* action that the click should perform */
 {
+#ifndef FEATURE_MISC
+	return 0;
+#else
 	WINDOW	win = winofgw(gw);
 	VIINFO	vinfbuf;
 	MARKBUF	tmp;
 	MARK	newcurs;
 	long	offset;
 
-WATCH(fprintf(stderr, "eventclick(..., row=%d, column=%d,...)\n", row, column));
+WATCH(fprintf(stderr, "eventclick(..., row=%d, column=%d, what=%d)\n", row, column, (int)what));
 	USUAL_SUSPECTS
 	eventcounter++;
 
 	/* reset the poll frequency counter */
-	guipoll(True);
+	guipoll(ElvTrue);
 	bufmsgtype = MSG_STATUS;
 
-	/* make this window be the current window */
-	winoptions(win);
+	/* use the options for this window */
+	eventfocus(gw, ElvTrue);
+	if (windefault)
+		o_eventcounter(windefault) = eventcounter;
 
 	/* if the window is showing "Hit <Enter> to continue" then any click
 	 * is treated as an <Enter> keystoke.
@@ -353,13 +471,44 @@ WATCH(fprintf(stderr, "eventclick(..., row=%d, column=%d,...)\n", row, column));
 		return markoffset(win->cursor);
 	}
 
+	/* if not in visual mode, then most clicks mean nothing */
+	if (win->state->acton && what != CLICK_PASTE)
+	{
+		return -1L;
+	}
+
 	/* for some operations, the position doesn't matter */
 	switch (what)
 	{
+#ifndef FEATURE_V
+	  case CLICK_CANCEL:
+	  case CLICK_SSLINE:
+	  case CLICK_SSCHAR:
+	  case CLICK_YANK:
+		return 0;
+#else
 	  case CLICK_CANCEL:
 		vinfbuf.command = ELVCTRL('[');
 		(void)v_visible(win, &vinfbuf);
 		USUAL_SUSPECTS
+		return 0;
+
+	  case CLICK_SSLINE:
+		if (win->seltop == NULL)
+		{
+			vinfbuf.command = 'V';
+			(void)v_visible(win, &vinfbuf);
+			USUAL_SUSPECTS
+		}
+		return 0;
+
+	  case CLICK_SSCHAR:
+		if (win->seltop == NULL)
+		{
+			vinfbuf.command = 'v';
+			(void)v_visible(win, &vinfbuf);
+			USUAL_SUSPECTS
+		}
 		return 0;
 
 	  case CLICK_YANK:
@@ -379,24 +528,25 @@ WATCH(fprintf(stderr, "eventclick(..., row=%d, column=%d,...)\n", row, column));
 			 */
 			tmp = *win->selbottom;
 			markaddoffset(&tmp, 1);
-			cutyank((_CHAR_)'>', win->seltop, &tmp, win->seltype, False);
+			cutyank((_CHAR_)'>', win->seltop, &tmp, win->seltype, 'y');
 			break;
 
 		  case 'l':
 			/* for line yanks, we want to avoid readjusting the
 			 * endpoints, so we'll pass 'L' as the type.
 			 */
-			cutyank((_CHAR_)'>', win->seltop, win->selbottom, 'L', False);
+			cutyank((_CHAR_)'>', win->seltop, win->selbottom, 'L', 'y');
 			break;
 
 		  case 'r':
 			tmp = *win->selbottom;
 			markaddoffset(&tmp, 1);
-			cutyank((_CHAR_)'>', win->seltop, &tmp, win->seltype, False);
+			cutyank((_CHAR_)'>', win->seltop, &tmp, win->seltype, 'y');
 			break;
 		}
 		USUAL_SUSPECTS
 		return 0;
+#endif /* FEATURE_V */
 
 	  case CLICK_PASTE:
 		/* end any pending selection */
@@ -404,17 +554,40 @@ WATCH(fprintf(stderr, "eventclick(..., row=%d, column=%d,...)\n", row, column));
 		(void)v_visible(win, &vinfbuf);
 
 		/* delete any superfluous text after the cursor */
-		setcursor(win, markoffset(win->state->cursor), True);
+		setcursor(win, markoffset(win->state->cursor), ElvTrue);
 
 		/* set the buffer's "willdo" flag so this paste is undoable */
 		if (!win->state->pop)
-			bufwilldo(win->state->cursor, True);
+			bufwilldo(win->state->cursor, ElvTrue);
 
 		/* paste the text */
-		newcurs = cutput((_CHAR_)'<', win, win->state->cursor, False, True, True);
+		newcurs = cutput((_CHAR_)'^', win, win->state->cursor, ElvFalse, ElvTrue, ElvTrue);
 		if (newcurs)
 		{
-			setcursor(win, markoffset(newcurs) + 1, True);
+			/* newcurs is normally at the last character, but we
+			 * want to leave it *AFTER* the last character.
+			 */
+			markaddoffset(newcurs, 1L);
+
+			/* if the edit buffer was empty before, then we may
+			 * need to add a newline after this.
+			 */
+			if (markoffset(newcurs) >= o_bufchars(markbuffer(win->state->cursor)))
+			{
+				marksetoffset(newcurs, o_bufchars(markbuffer(win->state->cursor)));
+				bufreplace(newcurs, newcurs, toCHAR("\n"), 1L);
+				markaddoffset(newcurs, 1L);
+				marksetoffset(newcurs, o_bufchars(markbuffer(win->state->cursor)) - 2L);
+			}
+
+			/* Now we can move the cursor there.  Note that we
+			 * don't call setcursor() to do this, because we don't
+			 * want to clobber the edit region -- the user should
+			 * be able to backspace over the pasted text.
+			 */
+			marksetoffset(win->state->cursor, markoffset(newcurs));
+			if (win->state->bottom)
+				marksetoffset(win->state->bottom, markoffset(newcurs));
 		}
 		USUAL_SUSPECTS
 		return 0;
@@ -440,7 +613,7 @@ WATCH(fprintf(stderr, "eventclick(..., row=%d, column=%d,...)\n", row, column));
 		;
 	}
 
-	/* bad positions are always -1.  If the screen is in ex mode, all
+	/* Bad positions are always -1.  If the screen is in ex mode, all
 	 * positions are bad.
 	 */
 	if (win->di->drawstate == DRAW_OPENEDIT
@@ -452,8 +625,27 @@ WATCH(fprintf(stderr, "eventclick(..., row=%d, column=%d,...)\n", row, column));
 		return -1;
 	}
 
-	/* else look it up */
-	offset =  win->di->offsets[row * o_columns(win) + column];
+#ifdef FEATURE_LISTCHARS
+	/* if sidescrolled, and click is on left margin, then scroll to reveal
+	 * chars to left of screen.
+	 */
+	if (!o_wrap(win) && win->di->skipped > 0 && column < dmnlistchars('<', 9L, 0L, NULL, NULL))
+	{
+		if (win->di->skipped > o_sidescroll(win))
+			win->di->skipped -= o_sidescroll(win);
+		else
+			win->di->skipped = 0;
+		win->di->logic = DRAW_CHANGED;
+	}
+#endif
+	/* Else look it up.  If the clicked-on character is bad (not part of
+	 * the buffer) then look leftward in that line for a good character
+	 * and use it instead.
+	 */
+	do
+	{
+		offset =  win->di->offsets[row * o_columns(win) + column];
+	} while (offset < 0 && ++column < o_columns(win));
 	if (offset < 0 || offset >= o_bufchars(markbuffer(win->state->cursor)))
 	{
 		USUAL_SUSPECTS
@@ -464,8 +656,9 @@ WATCH(fprintf(stderr, "eventclick(..., row=%d, column=%d,...)\n", row, column));
 	win->wantcol = column;
 	if (o_number(win))
 		win->wantcol -= 8;
-	setcursor(win, offset, False);
+	setcursor(win, offset, ElvFalse);
 
+#ifdef FEATURE_V
 	/* perform the requested operation */
 	switch (what)
 	{
@@ -503,6 +696,8 @@ WATCH(fprintf(stderr, "eventclick(..., row=%d, column=%d,...)\n", row, column));
 		(void)v_visible(win, &vinfbuf);
 		break;
 
+	  case CLICK_SSCHAR:
+	  case CLICK_SSLINE:
 	  case CLICK_CANCEL:
 	  case CLICK_NONE:
 	  case CLICK_YANK:
@@ -512,8 +707,10 @@ WATCH(fprintf(stderr, "eventclick(..., row=%d, column=%d,...)\n", row, column));
 		/*NOTREACHED*/
 		;
 	}
+#endif
 	USUAL_SUSPECTS
 	return offset;
+#endif /* FEATURE_MISC */
 }
 
 /* This function makes the window and buffer associated with "gw"
@@ -532,11 +729,13 @@ WATCH(fprintf(stderr, "eventkeys(..., key={%d, ...}, nkeys=%d)\n", key[0], nkeys
 	eventcounter++;
 
 	/* reset the poll frequency counter */
-	guipoll(True);
+	guipoll(ElvTrue);
 	bufmsgtype = MSG_STATUS;
 
-	/* Make this the default window, if it isn't already */
-	winoptions(winofgw(gw));
+	/* Use the options for this window */
+	eventfocus(gw, ElvTrue);
+	if (windefault)
+		o_eventcounter(windefault) = eventcounter;
 
 	/* send the keys through the mapper */
 	mapstate = mapdo(key, nkeys);
@@ -545,38 +744,47 @@ WATCH(fprintf(stderr, "eventkeys(..., key={%d, ...}, nkeys=%d)\n", key[0], nkeys
 }
 
 
-/* This scrolls the screen, and returns True if successful.  The screen's
+/* This scrolls the screen, and returns ElvTrue if successful.  The screen's
  * image won't be adjusted to reflect this, though, until the next eventdraw().
- * This function is intended mostly to be used fpr processing mouse clicks on
+ * This function is intended mostly to be used for processing mouse clicks on
  * the scrollbar.  It may also be useful for mouse draw-through operations
  * in which the mouse is dragged off the edge of the screen.
  */
-BOOLEAN eventscroll(gw, scroll, count, denom)
+ELVBOOL eventscroll(gw, scroll, count, denom)
 	GUIWIN	*gw;	/* GUI's handle for window to be scrolled */
 	SCROLL	scroll;	/* type of scrolling to perform */
 	long	count;	/* amount to scroll */
 	long	denom;	/* scrollbar height, for moving the "thumb" */
 {
+#ifndef FEATURE_MISC
+	return ElvFalse;
+#else
 	WINDOW	win = winofgw(gw);
 	VIINFO	cmd;
 	RESULT	result;
 	long	origoffset;
 	long	newoffset;
 
+WATCH(fprintf(stderr, "eventscroll(..., %d, %ld, %ld)\n", scroll, count, denom));
 	USUAL_SUSPECTS
 	assert(win != NULL && (count > 0 || (count == 0 && scroll == SCROLL_PERCENT)));
 	eventcounter++;
 
 	/* reset the poll frequency counter */
-	guipoll(True);
+	guipoll(ElvTrue);
 
 	/* if window is in open mode, this fails */
 	if (win->state->flags & ELVIS_BOTTOM)
 	{
 		msg(MSG_WARNING, "not while in open mode");
 		USUAL_SUSPECTS
-		return False;
+		return ElvFalse;
 	}
+
+	/* Use the options for this window */
+	eventfocus(gw, ElvTrue);
+	if (windefault)
+		o_eventcounter(windefault) = eventcounter;
 
 	/* remember the cursor's original offset */
 	origoffset = markoffset(win->state->cursor);
@@ -611,10 +819,21 @@ BOOLEAN eventscroll(gw, scroll, count, denom)
 		break;
 
 	  case SCROLL_PERCENT:
-		if (count > 0)
+		if (o_buflines(markbuffer(win->cursor)) == 0L)
+		{
+			/* do nothing */
+		}
+		else if (count > 0 && o_buflines(markbuffer(win->cursor)) > 0L)
 		{
 			if (win->md->move == dmnormal.move && denom != 0)
 			{
+				/* Prescale so we don't overflow 32-bit math */
+				while (0x7fffffff / o_bufchars(markbuffer(win->cursor)) < count)
+				{
+					count >>= 1;
+					denom >>= 1;
+				}
+
 				cmd.command = 'G';
 				cmd.count = 1 + o_buflines(markbuffer(win->cursor)) * count / denom;
 				if (cmd.count > o_buflines(markbuffer(win->cursor)))
@@ -678,10 +897,11 @@ BOOLEAN eventscroll(gw, scroll, count, denom)
 	 */
 	newoffset = markoffset(win->state->cursor);
 	marksetoffset(win->state->cursor, origoffset);
-	setcursor(win, newoffset, True);
+	setcursor(win, newoffset, ElvTrue);
 
 	USUAL_SUSPECTS
-	return False;
+	return ElvTrue;
+#endif /* FEATURE_MISC */
 }
 
 
@@ -694,21 +914,21 @@ void eventsuspend()
 
 	USUAL_SUSPECTS
 
-	/* if autowrite is False, then do nothing */
+	/* if autowrite is ElvFalse, then do nothing */
 	if (!o_autowrite)
 		return;
 
 	/* If there is superfluous text after any cursor, delete it */
 	for (win = winofbuf(NULL, NULL); win; win = winofbuf(win, NULL))
 	{
-		setcursor(win, markoffset(win->state->cursor), True);
+		setcursor(win, markoffset(win->state->cursor), ElvTrue);
 	}
 
 	/* save all user buffers */
 	for (buf = elvis_buffers; buf; buf = buf->next)
 	{
 		if (!o_internal(buf))
-			bufsave(buf, False, False);
+			bufsave(buf, ElvFalse, ElvFalse);
 	}
 
 	USUAL_SUSPECTS
@@ -722,36 +942,38 @@ void eventsuspend()
 void eventex(gw, cmd, safer)
 	GUIWIN	*gw;	/* window where command should be run */
 	char	*cmd;	/* an ex command to execute */
-	BOOLEAN	safer;	/* temporarily set the o_safer option? */
+	ELVBOOL	safer;	/* temporarily set security=safer? */
 {
-	BOOLEAN	origsafer;
+	CHAR	origsecurity;
 
 	eventcounter++;
 	USUAL_SUSPECTS
 
 	/* reset the poll frequency counter */
-	guipoll(True);
+	guipoll(ElvTrue);
 	bufmsgtype = MSG_STATUS;
 
 	/* temporarily set the "safer" option appropriately */
-	origsafer = o_safer;
-	if (safer)
-		o_safer = True;
+	origsecurity = o_security;
+	if (safer && o_security == 'n'/* normal */)
+		o_security = 's' /* safer */;
 
-	/* Make this the default thing, if it isn't already */
+	/* Use this window's options while executing the command.  Note that
+	 * we don't necessarily assume this window has input focus.
+	 */
 	winoptions(winofgw(gw));
 
 	/* If there is superfluous text after the cursor, delete it */
-	setcursor(windefault, markoffset(windefault->state->cursor), True);
+	setcursor(windefault, markoffset(windefault->state->cursor), ElvTrue);
 
 	/* execute the command */
 	exstring(windefault, toCHAR(cmd), "gui");
 
 	/* update the state as though a key had just been pressed */
-	statekey((_CHAR_)-1);
+	(void)statekey((_CHAR_)-1);
 
-	/* restore the "safer" option */
-	o_safer = origsafer;
+	/* restore the "security" option */
+	o_security = origsecurity;
 
 	USUAL_SUSPECTS
 }

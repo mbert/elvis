@@ -1,9 +1,11 @@
 /* need.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_need[] = "$Id: need.c,v 2.3 1998/03/09 22:34:43 steve Exp $";
 
 #include "elvis.h"
+#ifdef FEATURE_RCSID
+char id_need[] = "$Id: need.c,v 2.5 2001/10/23 01:37:09 steve Exp $";
+#endif
 
 
 #ifdef NEED_STRDUP

@@ -1,6 +1,8 @@
 /* tcaposix.c */
 
-char id_tcaposix[] = "$Id: tcaposix.h,v 2.10 1997/12/31 21:37:57 steve Exp $";
+#ifdef FEATURE_RCSID
+char id_tcaposix[] = "$Id: tcaposix.h,v 2.13 2003/01/26 19:41:36 steve Exp $";
+#endif
 
 #include <termios.h>
 #include <signal.h>
@@ -27,10 +29,10 @@ static void catchsig(signo)
 }
 
 /* get the original tty state */
-void ttyinit()
+static void ttyinit2()
 {
 	/* get the old tty state */
-	tcgetattr(0, &oldtermio);
+	tcgetattr(ttykbd, &oldtermio);
 }
 
 /* switch to the tty state that elvis runs in */
@@ -83,13 +85,13 @@ void ttyraw(erasekey)
 #  ifdef VDSUSP
 	newtermio.c_cc[VDSUSP] = 0;
 #  endif
-	tcsetattr(0, TCSADRAIN, &newtermio);
+	tcsetattr(ttykbd, TCSADRAIN, &newtermio);
 }
 
 /* switch back to the original tty state */
 void ttynormal()
 {
-	tcsetattr(0, TCSADRAIN, &oldtermio);
+	tcsetattr(ttykbd, TCSADRAIN, &oldtermio);
 }
 
 /* Read from keyboard with timeout.  For POSIX, we use VMIN/VTIME to implement
@@ -116,7 +118,7 @@ int ttyread(buf, len, timeout)
 #endif
 
 	/* arrange for timeout, and disable control chars */
-	tcgetattr(0, &t);
+	tcgetattr(ttykbd, &t);
 	oldt = t;
 	if (timeout)
 	{
@@ -129,13 +131,13 @@ int ttyread(buf, len, timeout)
 		t.c_cc[VTIME] = 0;
 	}
 	t.c_cc[VINTR] = t.c_cc[VQUIT] = t.c_cc[VSTART] = t.c_cc[VSTOP] = 0;
-	tcsetattr(0, TCSANOW, &t);
+	tcsetattr(ttykbd, TCSANOW, &t);
 
 	/* Perform the read. */
-	bytes = read(0, buf, (unsigned)len);
+	bytes = read(ttykbd, buf, (unsigned)len);
 
 	/* revert to previous mode */
-	tcsetattr(0, TCSANOW, &oldt);
+	tcsetattr(ttykbd, TCSANOW, &oldt);
 
 	/* return the number of bytes read */
 	return bytes;

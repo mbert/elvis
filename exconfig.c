@@ -1,15 +1,20 @@
 /* exconfig.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_exconfig[] = "$Id: exconfig.c,v 2.87 1999/10/08 18:03:03 steve Exp $";
 
 #include "elvis.h"
+#ifdef FEATURE_RCSID
+char id_exconfig[] = "$Id: exconfig.c,v 2.147 2003/10/19 23:13:33 steve Exp $";
+#endif
 
 
 
 /* This variable stores the current state of ex's control structures. */
 EXCTLSTATE exctlstate;
 
+static MAPFLAGS maphelp2 P_((CHAR **refcp, char *word, MAPFLAGS flag));
+static MAPFLAGS maphelp P_((CHAR **refcp, CHAR **mode));
+static CHAR *equaltilde P_((CHAR *value, int len, CHAR	*cmd));
 
 
 #ifdef FEATURE_ALIAS
@@ -19,16 +24,33 @@ typedef struct alias_s
 	struct alias_s	*next;		/* some other alias */
 	char		*name;		/* name of this alias */
 	CHAR		*command;	/* commands for this alias */
-	BOOLEAN		inuse;		/* is this alias already being run? */
+	ELVBOOL		inuse;		/* is this alias already being run? */
+	ELVBOOL		internal;	/* save in .exrc file? */
 } alias_t;
 
 
 BEGIN_EXTERNC
-static void listalias P_((WINDOW win, alias_t *alias, BOOLEAN shortformat));
-static void buildarg P_((CHAR **cmd, CHAR *arg, long len, CHAR *defarg, long deflen, BOOLEAN quote));
+static void listalias P_((WINDOW win, alias_t *alias, ELVBOOL shortformat));
+static void buildarg P_((CHAR **cmd, CHAR *arg, long len, CHAR *defarg, long deflen, ELVBOOL quote));
 END_EXTERNC
 static alias_t	*aliases;	/* This is the head of a list of aliases */
 
+
+# ifdef FEATURE_COMPLETE
+/* Return the name of an alias, by number.  If there is no such alias then
+ * return NULL.  This is used only by the name completion code in ex.c.
+ */
+char *exaliasname(i)
+	int	i;
+{
+	alias_t *alias;
+
+	for (alias = aliases; --i >= 0 && alias; alias = alias->next)
+	{
+	}
+	return alias ? alias->name : NULL;
+}
+# endif /* FEATURE_COMPLETE */
 
 /* look up a name in the alias list.  The name can be terminated with any
  * non-alphanumeric character, not just '\0'.  Return its name if alias,
@@ -36,7 +58,7 @@ static alias_t	*aliases;	/* This is the head of a list of aliases */
  */
 char *exisalias(name, inuse)
 	char	*name;	/* name of a command, maybe an alias */
-	BOOLEAN	inuse;	/* find even if in use? (else hide in-use aliases) */
+	ELVBOOL	inuse;	/* find even if in use? (else hide in-use aliases) */
 {
 	alias_t	*alias;
 
@@ -52,11 +74,12 @@ char *exisalias(name, inuse)
 static void listalias(win, alias, shortformat)
 	WINDOW	win;
 	alias_t	*alias;
-	BOOLEAN	shortformat;
+	ELVBOOL	shortformat;
 {
 	CHAR	ch[4];
 	CHAR	*start;
 	int	len;
+	int	indent;
 
 	drawexlist(win, toCHAR(alias->name), strlen(alias->name));
 	if (CHARchr(alias->command, '\n') == alias->command + CHARlen(alias->command) - 1)
@@ -89,15 +112,20 @@ static void listalias(win, alias, shortformat)
 		ch[1] = '{';
 		ch[2] = '\n';
 		drawexlist(win, ch, 3);
+		indent = 4;
 		for (start = alias->command, len = 0; *start; len++)
 		{
 			if (start[len] == '\n')
 			{
-				drawexlist(win, blanks, 10);
+				drawexlist(win, blanks, indent);
 				drawexlist(win, start, len);
 				ch[0] = '\n';
 				drawexlist(win, ch, 1);
 				start += len + 1;
+				if (len > 1 && indent + 2 < QTY(blanks) && start[-2] == '{')
+					indent += 2;
+				if (indent > 4 && *start == '}')
+					indent -= 2;
 				len = -1; /* will be incremented to 0 by for()*/
 			}
 		}
@@ -120,7 +148,8 @@ RESULT	ex_alias(xinf)
 	{
 		for (alias = aliases; alias; alias = alias->next)
 		{
-			listalias(xinf->window, alias, True);
+			if (xinf->bang == alias->internal)
+				listalias(xinf->window, alias, ElvTrue);
 		}
 		return RESULT_COMPLETE;
 	}
@@ -162,7 +191,7 @@ RESULT	ex_alias(xinf)
 		if (!alias)
 			msg(MSG_WARNING, "[S]no alias named $1", xinf->lhs);
 		else
-			listalias(xinf->window, alias, False);
+			listalias(xinf->window, alias, ElvFalse);
 		return RESULT_COMPLETE;
 	}
 
@@ -176,7 +205,7 @@ RESULT	ex_alias(xinf)
 	/* verify that the name contains only alphanumeric characters */
 	for (i = 0; xinf->lhs[i]; i++)
 	{
-		if (!isalnum(xinf->lhs[i]))
+		if (!elvalnum(xinf->lhs[i]))
 		{
 			msg(MSG_ERROR, "alias names must be alphanumeric");
 			return RESULT_ERROR;
@@ -211,6 +240,7 @@ RESULT	ex_alias(xinf)
 	alias->command = xinf->rhs;
 	xinf->rhs = NULL;
 #endif
+	alias->internal = xinf->bang;
 	return RESULT_COMPLETE;
 }
 
@@ -222,7 +252,7 @@ static void buildarg(cmd, arg, len, defarg, deflen, quote)
 	long	len;	/* length of arg */
 	CHAR	*defarg;/* default, used if len == 0 */
 	long	deflen;	/* length of defarg */
-	BOOLEAN	quote;	/* should backslashes be inserted? */
+	ELVBOOL	quote;	/* should backslashes be inserted? */
 {
 	long	i;
 
@@ -231,13 +261,13 @@ static void buildarg(cmd, arg, len, defarg, deflen, quote)
 	{
 		arg = defarg;
 		len = deflen;
-		quote = False;
+		quote = ElvFalse;
 	}
 
 	/* copy characters, with optional quoting */
 	for (i = 0; i < len; i++, arg++)
 	{
-		if (quote && CHARchr(toCHAR("/\\^$*[."), *arg))
+		if (quote && (*arg == '\\' || (o_magicchar && CHARchr(o_magicchar, *arg))))
 			buildCHAR(cmd, '\\');
 		buildCHAR(cmd, *arg);
 	}
@@ -249,17 +279,22 @@ RESULT	ex_doalias(xinf)
 	EXINFO	*xinf;
 {
 	alias_t	*alias;
-	CHAR	*cmd, *str, *defarg;
+	CHAR	*cmd, *str, *defarg, *name;
+	CHAR	*mustfree;
 	CHAR	*args[11];
 	long	lens[11];
 	long	deflen;
-	int	i;
+	long	namelen;
+	int	i, j;
 	char	num[24];
-	BOOLEAN	inword;
-	BOOLEAN	anyargs, anyaddr, anybang;
-	BOOLEAN	multiline;
-	BOOLEAN	quote;
+	ELVBOOL	inword;
+	ELVBOOL	anyargs, anyaddr, anybang;
+	ELVBOOL	multiline;
+	ELVBOOL	quote;
 	RESULT	result = RESULT_ERROR;
+#ifdef FEATURE_AUTOCMD
+	void	*popopt;
+#endif
 
 	/* Find the alias.  It *will* exist, and use the same name pointer */
 	for (alias = aliases; alias->name != xinf->cmdname; alias = alias->next)
@@ -270,33 +305,135 @@ RESULT	ex_doalias(xinf)
 	 * args[1] through args[9] are the first 9 words from that string.
 	 */
 	memset(lens, 0, sizeof lens);
+	mustfree = NULL;
 	if (xinf->rhs)
 	{
 		args[0] = xinf->rhs;
 		lens[0] = CHARlen(args[0]);
-		args[1] = args[0];
-		for (i = 1, inword = True, str = args[0]; *str && i < 10; str++)
+#ifdef FEATURE_PROTO
+		if (xinf->command == EX_DOPROTO)
 		{
-			if (inword)
+			/* parsing a URL -- skip the protocol, if given */
+			str = xinf->rhs;
+			for (i = 0; elvalpha(str[i]); i++)
 			{
-				if (isspace(*str))
-					inword = False;
-				else
-					lens[i]++;
 			}
-			else if (!isspace(*str))
+			if (i > 0 && str[i] == ':')
+				str += i + 1;
+
+			/* parsing a URL -- first part is machine name */
+			if (str[0] == '/' && str[1] == '/')
 			{
-				args[++i] = str; 
-				lens[i] = 1;
-				inword = True;
+				args[1] = str += 2;
+				while (*str && *str != ':' && *str != '/' && *str != '?')
+					str++;
+				lens[1] = (int)(str - args[1]);
+				if (*str == ':')
+					do
+					{
+						str++;
+					} while (elvdigit(*str));
+			}
+
+			/* next is the resource name */
+			args[2] = str;
+			while (*str && *str != '#' && *str != '?')
+				str++;
+			lens[2] = (int)(str - args[2]);
+
+			/* next is the anchor name */
+			if (*str == '#')
+			{
+				str++;
+				args[3] = str;
+				lens[3] = CHARlen(str);
+				str += lens[3];
+			}
+
+			/* remainder is '&'-delimited, URL-encoded params */
+			if (*str == '?' && str[1])
+			{
+				/* URL-decode the params, remembering lengths */
+				for (str++, i = 4; i < 9 && *str; str++)
+				{
+					switch (*str)
+					{
+					  case '&':
+						if (lens[i] > 0)
+							i++;
+						break;
+
+					  case '+':
+						buildCHAR(&mustfree, ' ');
+						lens[i]++;
+						break;
+
+					  case '%':
+						if (elvxdigit(str[1]) && elvxdigit(str[2]))
+						{
+							str++;
+							if (elvdigit(*str))
+								j = *str - '0';
+							else
+								j = (*str - 'A' + 10) & 0x0f;
+							j <<= 4;
+							str++;
+							if (elvdigit(*str))
+								j = *str - '0';
+							else
+								j = (*str - 'A' + 10) & 0x0f;
+							buildCHAR(&mustfree, j);
+							lens[i]++;
+							break;
+						}
+						/* else fall through... */
+
+					  default:
+						buildCHAR(&mustfree, *str);
+						lens[i]++;
+					}
+				}
+
+				/* use lengths to find start of each param */
+				for (j = 4, str = mustfree; j <= i; j++)
+				{
+					args[j] = str;
+					str += lens[j];
+				}
+			}
+		}
+		else /* EX_DOALIAS */
+#endif /* FEATURE_PROTO */
+		{
+			args[1] = args[0];
+			for (i = 1, inword = ElvTrue, str = args[0]; *str && i < 10; str++)
+			{
+				if (inword)
+				{
+					if (elvspace(*str))
+						inword = ElvFalse;
+					else
+						lens[i]++;
+				}
+				else if (!elvspace(*str))
+				{
+					args[++i] = str; 
+					lens[i] = 1;
+					inword = ElvTrue;
+				}
 			}
 		}
 	}
 
+	/* Any missing args are zero-length */
+	for (i = 1; i < QTY(args); i++)
+		if (lens[i] == 0)
+			args[i] = args[0] + lens[0];
+
 	/* Build a copy of the command string, with !0-!9 replaced by args[0]
 	 * through args[9].
 	 */
-	anyargs = anyaddr = anybang = multiline = False;
+	anyargs = anyaddr = anybang = multiline = ElvFalse;
 	for (cmd = NULL, str = alias->command; *str; str++)
 	{
 		/* if not '!' then it can't be an arg substitution */
@@ -304,7 +441,7 @@ RESULT	ex_doalias(xinf)
 		{
 			buildCHAR(&cmd, *str);
 			if (*str == '\n' && str[1])
-				multiline = True;
+				multiline = ElvTrue;
 			continue;
 		}
 
@@ -312,17 +449,19 @@ RESULT	ex_doalias(xinf)
 		 * \ which causes backslashes to be inserted before certain
 		 * characters in the expansion.
 		 */
-		quote = False;
+		quote = ElvFalse;
 		deflen = 0;
 		defarg = args[0]; /* anything but NULL, really */
 		str++;
-		while (*str == ':' || *str == '\\' || *str == '(')
+		name = NULL;
+		namelen = 0;
+		while (*str == ':' || *str == '\\' || *str == '(' || elvalpha(*str))
 		{
 			if (*str == ':')
 				str++;
 			else if (*str == '\\')
-				str++, quote = True;
-			else /* *str == '(' */
+				str++, quote = ElvTrue;
+			else if (*str == '(')
 			{
 				str++;
 				defarg = str;
@@ -333,11 +472,27 @@ RESULT	ex_doalias(xinf)
 						msg(MSG_ERROR, "malformed !() in alias $1", alias->name);
 						if (cmd)
 							safefree(cmd);
+						if (mustfree)
+							safefree(mustfree);
 						return RESULT_ERROR;
 					}
 					str++;
 				}
 				str++;
+			}
+			else /* elvalpha(*str) -- only works for !name= and !name& */
+			{
+				name = str;
+				for (namelen = 1; elvalnum(name[namelen]); namelen++)
+				{
+				}
+				if (name[namelen]=='=' || name[namelen]=='&')
+					str += namelen;
+				else
+				{
+					name = NULL;
+					break;
+				}
 			}
 		}
 
@@ -355,20 +510,27 @@ RESULT	ex_doalias(xinf)
 		  case '9':
 			/* insert an argument */
 			i = *str - '0';
-			buildarg(&cmd, args[i], lens[i], defarg, deflen, quote);
-			anyargs = True;
+			if (str[1] == '*')
+			{
+				/* !n* includes all items from !n to !$ */
+				str++;
+				buildarg(&cmd, args[i], lens[0] - (int)(args[i] - args[0]), defarg, deflen, quote);
+			}
+			else
+				buildarg(&cmd, args[i], lens[i], defarg, deflen, quote);
+			anyargs = ElvTrue;
 			break;
 
 		  case '*':
 			/* insert the whole argument string */
 			buildarg(&cmd, args[0], lens[0], defarg, deflen, quote);
-			anyargs = True;
+			anyargs = ElvTrue;
 			break;
 
 		  case '^':
 			/* insert the first argument string */
 			buildarg(&cmd, args[1], lens[1], defarg, deflen, quote);
-			anyargs = True;
+			anyargs = ElvTrue;
 			break;
 
 		  case '$':
@@ -376,8 +538,16 @@ RESULT	ex_doalias(xinf)
 			for (i = 1; i < QTY(lens) - 1 && lens[i + 1] > 0; i++)
 			{
 			}
-			buildarg(&cmd, args[i], lens[i], defarg, deflen, quote);
-			anyargs = True;
+			if (str[1] == '*')
+			{
+				/* !$* includes all items from !1 to !$-1 */
+				str++;
+				if (i != 1)
+					buildarg(&cmd, args[0], lens[i - 1] + (int)(args[i - 1] - args[0]), defarg, deflen, quote);
+			}
+			else
+				buildarg(&cmd, args[i], lens[i], defarg, deflen, quote);
+			anyargs = ElvTrue;
 			break;
 
 		  case '!':
@@ -387,7 +557,7 @@ RESULT	ex_doalias(xinf)
 		  case '?':
 			if (xinf->bang)
 				buildCHAR(&cmd, '!');
-			anybang = True;
+			anybang = ElvTrue;
 			break;
 
 		  case '<':
@@ -398,7 +568,7 @@ RESULT	ex_doalias(xinf)
 			}
 			else
 				buildarg(&cmd, NULL, 0, defarg, deflen, quote);
-			anyaddr = True;
+			anyaddr = ElvTrue;
 			break;
 
 		  case '>':
@@ -409,7 +579,7 @@ RESULT	ex_doalias(xinf)
 			}
 			else
 				buildarg(&cmd, NULL, 0, defarg, deflen, quote);
-			anyaddr = True;
+			anyaddr = ElvTrue;
 			break;
 
 		  case '%':
@@ -420,7 +590,60 @@ RESULT	ex_doalias(xinf)
 			}
 			else
 				buildarg(&cmd, NULL, 0, defarg, deflen, quote);
-			anyaddr = True;
+			anyaddr = ElvTrue;
+			break;
+
+		  case '=':
+		  case '&':
+			/* If just "!=" with no name, then insert "!=" */
+			if (!name)
+			{
+				buildCHAR(&cmd, '!');
+				buildCHAR(&cmd, *str);
+				break;
+			}
+
+			/* find a named arg & insert it (else use default) */
+			for (i = 1;
+			     i <= 9 && (lens[i] <= namelen
+					|| CHARncmp(args[i], name, (int)namelen)
+					|| args[i][namelen] != '=');
+			     i++)
+			{
+			}
+			if (i <= 9)
+			{
+				if (*str == '=')
+				{
+					buildarg(&cmd, args[i] + namelen+1,
+						lens[i] - (namelen+1),
+						defarg, deflen, quote);
+				}
+				else
+				{
+					for (name = args[i] + (namelen+1),
+						j = lens[i] - (namelen+1);
+					     --j >= 0;
+					     name++)
+					{
+						switch (*name)
+						{
+						  case '\t':	buildstr(&cmd, "%09");	break;
+						  case '+':	buildstr(&cmd, "%2B");	break;
+						  case '"':	buildstr(&cmd, "%22");	break;
+						  case '%':	buildstr(&cmd, "%25");	break;
+						  case '<':	buildstr(&cmd, "%3C");	break;
+						  case '>':	buildstr(&cmd, "%3E");	break;
+						  case ' ':	buildCHAR(&cmd, '+');	break;
+						  default:	buildCHAR(&cmd, *name);
+						}
+					
+					}
+				}
+			}
+			else
+				buildarg(&cmd, NULL, 0, defarg, deflen, quote);
+			anyargs = ElvTrue;
 			break;
 
 		  default:
@@ -432,32 +655,55 @@ RESULT	ex_doalias(xinf)
 		}
 	}
 
+	/* don't need the mustfree strings anymore */
+	if (mustfree)
+		safefree(mustfree);
+
 	/* If command contained no !n strings, but the alias was invoked with
 	 * arguments, then append the arguments to the last command line.
 	 */
-	if (!anyargs && !multiline && lens[0] > 0)
+	if (xinf->command == EX_DOALIAS && !anyargs && !multiline && lens[0] > 0)
 	{
 		cmd[CHARlen(cmd) - 1] = ' '; /* convert newline to space */
-		buildarg(&cmd, args[0], lens[0], args[0], lens[0], False);
+		buildarg(&cmd, args[0], lens[0], args[0], lens[0], ElvFalse);
 		buildCHAR(&cmd, '\n');
-		anyargs = True;
+		anyargs = ElvTrue;
 	}
 
 	/* Detect usage errors */
-	if (xinf->bang && !anybang)
+	if (xinf->command == EX_DOALIAS && xinf->bang && !anybang)
 		msg(MSG_ERROR, "[s]the $1 alias doesn't use a ! suffix", alias->name);
-	else if (xinf->anyaddr && !anyaddr)
+	else if (xinf->command == EX_DOALIAS && xinf->anyaddr && !anyaddr)
 		msg(MSG_ERROR, "[s]the $1 alias doesn't use addresses", alias->name);
-	else if (lens[0] > 0 && !anyargs)
+	else if (xinf->command == EX_DOALIAS && lens[0] > 0 && !anyargs)
 		msg(MSG_ERROR, "[s]the $1 alias doesn't use arguments", alias->name);
 	else
 	{
 		/* No errors - Run the command.  Mark it as being "in use"
-		 * while it is running, to prevent recursion.
+		 * while it is running, to prevent recursion.  If autocmd is
+		 * supported, then do an AliasEnter event immediately after
+		 * starting a :local context, and AliasLeave before restoring
+		 * options to their non-local values.  This allws AliasEnter
+		 * to use :local for settings that only affect the alias.  Note
+		 * that exstring() also has its own internal :local logic, but
+		 * the duplication doesn't cost much and keeps exstring()'s
+		 * interface simple.
 		 */
-		alias->inuse = True;
+		alias->inuse = ElvTrue;
+# ifdef FEATURE_AUTOCMD
+#  ifdef FEATURE_MISC
+		popopt = optlocal(NULL);
+#  endif
+		(void)auperform(xinf->window, ElvFalse, NULL, AU_ALIASENTER, toCHAR(alias->name));
+# endif
 		result = exstring(xinf->window, cmd, alias->name);
-		alias->inuse = False;
+# ifdef FEATURE_AUTOCMD
+		(void)auperform(xinf->window, ElvFalse, NULL, AU_ALIASENTER, toCHAR(alias->name));
+#  ifdef FEATURE_MISC
+		(void)optlocal(popopt);
+#  endif
+# endif
+		alias->inuse = ElvFalse;
 	}
 
 	/* Free the copy of the command string */
@@ -466,6 +712,86 @@ RESULT	ex_doalias(xinf)
 	return result;
 }
 
+# ifdef FEATURE_MKEXRC
+
+/* add user aliases to end of buffer */
+void exaliassave(custom)
+	BUFFER	custom;	/* the buffer to which the :au commands are added */
+{
+	ELVBOOL anyout;	/* any groups output yet? */
+	MARKBUF	end;
+	alias_t	*alias;
+	CHAR	*cmd, *word;
+
+	/* for each alias... */
+	anyout = ElvFalse;
+	for (alias = aliases; alias; alias = alias->next)
+	{
+		/* skip if standard - we don't need to save it since the
+		 * standard initialization scripts will recreate it each time
+		 * elvis is run anyway.
+		 */
+		if (alias->internal)
+			continue;
+
+		/* if first alias, output "try {" */
+		if (!anyout)
+		{
+			anyout = ElvTrue;
+			(void)marktmp(end, custom, o_bufchars(custom));
+			bufreplace(&end, &end,
+			    toCHAR("try {\n"), 6L);
+		}
+
+		/* construct an alias command string */
+		cmd = NULL;
+		buildstr(&cmd, " alias ");
+		buildstr(&cmd, alias->name);
+		buildCHAR(&cmd, ' ');
+		word = alias->command;
+		if (CHARchr(word, '\n') == word + CHARlen(word) - 1)
+		{
+			/* single line - output it including final \n */
+			for ( ; *word; word++)
+			{
+				if (*word == ELVCTRL('V') || *word == '\033')
+					buildCHAR(&cmd, ELVCTRL('V'));
+				buildCHAR(&cmd, *word);
+			}
+		}
+		else
+		{
+			/* multi-line - add explicit {} around it */
+			buildstr(&cmd, "{\n  ");
+			for ( ; *word; word++)
+			{
+				if (*word == ELVCTRL('V') || *word == '\033')
+					buildCHAR(&cmd, ELVCTRL('V'));
+				buildCHAR(&cmd, *word);
+				if (*word == '\n' && word[1])
+					buildstr(&cmd, "  ");
+			}
+			buildstr(&cmd, " }\n");
+		}
+
+		/* add the command to the buffer */
+		end.offset = o_bufchars(custom);
+		bufreplace(&end, &end, cmd, CHARlen(cmd));
+
+		/* free the string form of the command */
+		safefree(cmd);
+
+	} /* for alias */
+
+	/* if any groups were output, then we need to end "try {" */
+	if (anyout)
+	{
+		end.offset = o_bufchars(custom);
+		bufreplace(&end, &end, toCHAR("}\n"), 2L);
+	}
+}
+
+# endif /* FEATURE_MKEXRC */
 #endif /* FEATURE_ALIAS */
 
 RESULT	ex_args(xinf)
@@ -523,178 +849,65 @@ RESULT	ex_args(xinf)
 }
 
 
-/* This table stores the names of the fonts, and the colors assigned to
- * them.  Initially the colors are NULL.  A foreground and background are
- * stored for each, although some GUIs don't allow that much control.
- */
-static struct
-{
-	char	*name;	/* name of the font to be colorized */
-	CHAR	*fg;	/* name of foreground color */
-	CHAR	*bg;	/* name of background color */
-} colortbl[] =
-{
-	{"normal"}, {"bold"}, {"emphasized"}, {"italic"},
-	{"underlined"}, {"fixed"}, {"cursor"}, {"standout"},
-	{"tool"},
-	{"scrollbar"} /* "scrollbar" must be last */
-};
-
-
 /* This function implements the :color command. */
 RESULT	ex_color(xinf)
 	EXINFO	*xinf;
 {
-	CHAR	*args, *cp, *bg;
-	int	i, j;
+	int	i;
+	WINDOW	win;
+	CHAR	*lhs;
 
+	/* If this GUI doesn't support colors, then do nothing */
 	if (!gui->color)
 	{
-		msg(MSG_ERROR, "no color support");
+		if (xinf->bang)
+			return RESULT_COMPLETE;
+		msg(MSG_ERROR, "the (gui) user interface doesn't support colors");
 		return RESULT_ERROR;
 	}
+
+	/* If "gui.role", where "gui" is the current GUI, then strip that off */
+	lhs = xinf->lhs;
+	i = CHARlen(o_gui);
+	if (lhs && !CHARncmp(lhs, o_gui, i) && lhs[i] == '.' && lhs[i + 1])
+		lhs += i + 1;
 
 	if (!xinf->rhs)
 	{
-		/* list any colors which have been set */
-		for (i = j = 0; i < QTY(colortbl); i++)
-		{
-			if (colortbl[i].fg && colortbl[i].bg)
-				msg(MSG_INFO, "[sSS]color $1 $2 on $3",
-					colortbl[i].name, colortbl[i].fg,
-					colortbl[i].bg);
-			else if (colortbl[i].fg)
-				msg(MSG_INFO, "[sS]color $1 $2",
-					colortbl[i].name, colortbl[i].fg);
-			else
-				j++;
-		}
-		if (i == j)
-			msg(MSG_WARNING, "no colors have been set");
-		return RESULT_COMPLETE;
+		/* no args, or just a role name - list the colors */
+		colorlist(xinf->window, lhs, xinf->bang);
 	}
+	else if (CHARchr(lhs, '.'))
+	{
+		/* setting some other GUI's colors */
+		if (!xinf->bang)
+			colorforeign(lhs, xinf->rhs);
+	}
+	else 
+	{
+		/* both a role and a new color definition - set the colors */
+		i = colorfind(lhs);
+		if (i == 0)
+			return RESULT_ERROR;
+		colorset(i, xinf->rhs, (ELVBOOL)!xinf->bang);
 
-	/* PARSE ARGS INTO FONT, FOREGROUND & BACKGROUND */
+		/* reset the GUI, to bypass any optimizations */
+		guireset();
 
-	/* font... */
-	args = xinf->rhs;
-	if (!CHARncmp(args, toCHAR("s "), 2) && gui->scrollbar)
-	{
-		i = QTY(colortbl) - 1;
+		/* Cause all windows to be redrawn from scratch */
+		for (win = windows; win; win = win->next)
+			win->di->logic = DRAW_SCRATCH;
 	}
-	else
-	{
-		for (i = 0;
-		     i < QTY(colortbl)
-			&& (CHARncmp(toCHAR(colortbl[i].name), args, strlen(colortbl[i].name)) || args[strlen(colortbl[i].name)] != ' ')
-			&& !(args[0] == (CHAR)colortbl[i].name[0] && args[1] == ' ');
-		     i++)
-		{
-		}
-	}
-	if (i >= QTY(colortbl))
-	{
-		i = 0; /* if no name given, assume "normal" */
-	}
-	else
-	{
-		/* skip past the name */
-		while (*args != ' ')
-		{
-			args++;
-		}
-		while (*args == ' ')
-		{
-			args++;
-		}
-	}
-
-	/* foreground & background... */
-	for (bg = args; *bg && strncmp(tochar8(bg), " on ", 4); bg++)
-	{
-	}
-	if (*bg)
-	{
-		*bg = '\0';
-		for (bg += 4; *bg && isspace(*bg); bg++)
-		{
-		}
-	}
-	if (!*bg)
-	{
-		bg = (CHAR *)0;
-	}
-
-	/* trim trailing whitespace */
-	for (cp = args + CHARlen(args); --cp >= args && isspace(*cp); )
-	{
-		*cp = '\0';
-	}
-	if (!*args)
-	{
-		msg(MSG_ERROR, "missing foreground color");
-		return RESULT_ERROR;
-	}
-
-	/* call the GUI's color function */
-	if ((*gui->color)(xinf->window ? xinf->window->gw : (GUIWIN *)0, colortbl[i].name[0], args, bg))
-	{
-		/* redraw the window */
-		if (xinf->window)
-		{
-			xinf->window->di->logic = DRAW_SCRATCH;
-			xinf->window->di->newmsg = True;
-		}
-
-		/* remember the chosen colors */
-		if (colortbl[i].fg)
-			safefree(colortbl[i].fg);
-		colortbl[i].fg = args ? CHARkdup(args) : NULL;
-		if (colortbl[i].bg)
-			safefree(colortbl[i].bg);
-		colortbl[i].bg = bg ? CHARkdup(bg) : NULL;
-
-		return RESULT_COMPLETE;
-	}
-	return RESULT_ERROR;
+	return RESULT_COMPLETE;
 }
-
-
-# ifdef FEATURE_MKEXRC
-void colorsave(custom)
-	BUFFER	custom;	/* where to stuff the color commands */
-{
-	MARKBUF	m;
-	int	i;
-	char	tmp[80];
-
-	/* try to make colors GUI-sensitive */
-	sprintf(tmp, "if gui==\"%s\"\n", tochar8(o_gui));
-	bufreplace(marktmp(m, custom, o_bufchars(custom)), &m, toCHAR(tmp), (long)strlen(tmp));
-
-	/* store the color commands */
-	for (i = 0; i < QTY(colortbl); i++)
-	{
-		if (colortbl[i].fg)
-		{
-			sprintf(tmp, "then color %s %s", colortbl[i].name, tochar8(colortbl[i].fg));
-			if (colortbl[i].bg)
-			{
-				strcat(tmp, " on ");
-				strcat(tmp, tochar8(colortbl[i].bg));
-			}
-			strcat(tmp, "\n");
-			bufreplace(marktmp(m, custom, o_bufchars(custom)), &m, toCHAR(tmp), (long)strlen(tmp));
-		}
-	}
-}
-# endif /* FEATURE_MKEXRC */
 
 
 RESULT	ex_comment(xinf)
 	EXINFO	*xinf;
 {
+#ifdef FEATURE_CALC
 	CHAR	*result;
+#endif
 
 	assert(xinf->command == EX_COMMENT || xinf->command == EX_ECHO
 		|| xinf->command == EX_CALC || xinf->command == EX_GOTO);
@@ -704,9 +917,10 @@ RESULT	ex_comment(xinf)
 		drawextext(xinf->window, xinf->rhs, (int)CHARlen(xinf->rhs));
 		drawextext(xinf->window, toCHAR("\n"), 1);
 	}
+#ifdef FEATURE_CALC
 	else if (xinf->command == EX_CALC && xinf->rhs)
 	{
-		result = calculate(xinf->rhs, NULL, False);
+		result = calculate(xinf->rhs, NULL, CALC_ALL);
 		if (!result)
 		{
 			return RESULT_ERROR;
@@ -714,6 +928,7 @@ RESULT	ex_comment(xinf)
 		drawextext(xinf->window, result, (int)CHARlen(result));
 		drawextext(xinf->window, toCHAR("\n"), 1);
 	}
+#endif
 	else if (xinf->command == EX_GOTO && xinf->fromaddr)
 	{
 		if (xinf->fromoffset > markoffset(xinf->fromaddr)
@@ -739,10 +954,11 @@ RESULT ex_message(xinf)
 	  case EX_WARNING: imp = MSG_WARNING;	result = RESULT_COMPLETE; break;
 	  case EX_ERROR:   imp = MSG_ERROR;	result = RESULT_ERROR;	  break;
 	  default:
+		/* this should never happen. */
 #ifndef NDEBUG
 		abort();
 #endif
-		;
+		return RESULT_ERROR;
 	}
 
 	/* do we have a message? */
@@ -779,13 +995,93 @@ RESULT	ex_digraph(xinf)
 RESULT	ex_display(xinf)
 	EXINFO	*xinf;
 {
+	int	len;
+#ifdef FEATURE_NORMAL
+	long	lback, last;
+	BUFFER	buf;
+	RESULT	result;
+	MARK	cursor, orig;
+
+	/* As a special case, ":normal vicmds" interprets "vicmds" as a series
+	 * of vi commands.
+	 */
+	if (xinf->command == EX_NORMAL && xinf->rhs)
+	{
+		/* Count the chars in rhs.  Skip the last character, since it
+		 * is just a newline marking the end of the string.
+		 */
+		len = CHARlen(xinf->rhs) - 1;
+
+		/* remember the cursor position, we can restore it and return
+		 * the new position the usual way (via xinf->newcurs).
+		 */
+		if (xinf->window->state->acton)
+			cursor = xinf->window->state->acton->cursor;
+		else
+			cursor = xinf->window->cursor;
+		orig = markdup(cursor);
+
+		/* If no address was given, then run the command once */
+		if (!xinf->anyaddr)
+		{
+			/* no addresses, run the command once, here */
+			result = vinormal(xinf->window, len, xinf->rhs);
+		}
+		else
+		{
+			/* Otherwise we need to repeat the command on each
+			 * line.  We want to do this in a top-to-bottom
+			 * sequence, but the command may insert or delete
+			 * lines so simply stepping by line number won't
+			 * work.  Instead, we count relative to the end of
+			 * the buffer.
+			 */
+			buf = xinf->defaddr.buffer;
+			lback = o_buflines(buf) - xinf->from;
+			last = o_buflines(buf) - xinf->to;
+			result = RESULT_COMPLETE;
+			for ( ;
+			     lback >= last
+				&& marksetline(cursor, o_buflines(buf) - lback);
+			     lback--)
+			{
+				result = vinormal(xinf->window, len, xinf->rhs);
+				if (result != RESULT_COMPLETE)
+					break;
+			}
+		}
+
+		/* if success, then stuff the new position into xinf->newcurs */
+		if (result == RESULT_COMPLETE)
+			xinf->newcurs = markdup(cursor);
+
+		/* move the cursor back to its original position, so
+		 * xinf->newcurs can change it gracefully
+		 */
+		marksetbuffer(cursor, markbuffer(orig));
+		marksetoffset(cursor, markoffset(orig));
+
+		return result;
+	}
+#endif
+
+	/* List or change the display mode */
 	if (xinf->command == EX_DISPLAY && !xinf->rhs)
 	{
 		displist(xinf->window);
 	}
-	else if (!dispset(xinf->window, tochar8(xinf->rhs)))
+	else
 	{
-		return RESULT_ERROR;
+		/* trim trailing whitespace from the mode name */
+		if (xinf->rhs)
+		{
+			for (len = CHARlen(xinf->rhs); xinf->rhs[--len] == ' ';)
+				xinf->rhs[len] = '\0';
+		}
+
+		/* set the mode */
+		if (!dispset(xinf->window, tochar8(xinf->rhs)))
+			return RESULT_ERROR;
 	}
 	xinf->window->di->logic = DRAW_CHANGED;
 	return RESULT_COMPLETE;
@@ -807,35 +1103,41 @@ RESULT	ex_gui(xinf)
 }
 
 
+#ifdef FEATURE_MISC
 RESULT	ex_help(xinf)
 	EXINFO	*xinf;
 {
-#ifndef DISPLAY_HTML
+# ifndef DISPLAY_HTML
 	msg(MSG_ERROR, "help unavailable; html mode is disabled");
 	return RESULT_ERROR;
-#else
+# else
 	CHAR	*topic;	/* topic to search for; a tag name */
 	char	*section;/* name of help file containing topic */
 	CHAR	*tag;	/* name of tag to search for -- section#topic */
 	BUFFER	buf;	/* buffer containing help text */
 	MARK	tagdefn;/* result of search; where cursor should move to */
 	OPTDESC	*od;	/* description struct of an option */
+	int	len;
 	int	i;
+#ifdef FEATURE_ALIAS
+	alias_t	*alias;
+#endif
 
 	/* remove trailing whitespace from args */
 	if (xinf->lhs)
 		for (topic = &xinf->lhs[CHARlen(xinf->lhs)];
-		     topic-- != xinf->lhs && isspace(*topic);
+		     topic-- != xinf->lhs && elvspace(*topic);
 		     )
 			*topic = '\0';
 	if (xinf->rhs)
 		for (topic = &xinf->rhs[CHARlen(xinf->rhs)];
-		     topic-- != xinf->rhs && isspace(*topic);
+		     topic-- != xinf->rhs && elvspace(*topic);
 		     )
 			*topic = '\0';
 
 	/* construct a tag name for the requested topic */
 	topic = NULL;
+	len = xinf->lhs ? CHARlen(xinf->lhs) : 0;
 	if (!xinf->lhs)
 	{
 		/* :help */
@@ -857,22 +1159,107 @@ RESULT	ex_help(xinf)
 		&& xinf->rhs)
 	{
 		/* :help set optionname */
+
+		/* strip off trailing =, if any */
+		topic = xinf->rhs + CHARlen(xinf->rhs);
+		while (*--topic == ' ' || *topic == '=')
+		{
+		}
+		topic[1] = '\0';
+
+		/* topic is option name */
 		if (optgetstr(xinf->rhs, &od))
 			topic = toCHAR(od->longname);
 		else if (xinf->rhs[0] == 'n' && xinf->rhs[1] == 'o'
 					&& (optgetstr(xinf->rhs + 2, &od)))
 			topic = toCHAR(od->longname);
 		else
-			topic = toCHAR("GROUP");
+			topic = xinf->rhs;
 		section = "elvisopt.html";
 	}
-	else if (CHARlen(xinf->lhs) > 1 && xinf->lhs[0] == ':')
+	else if ((!CHARncmp(xinf->lhs, toCHAR("di"), 2)
+			|| !CHARncmp(xinf->lhs, toCHAR(":di"), 3))
+		&& xinf->rhs)
+	{
+		/* :help display mode */
+
+		/* topic is option name */
+		topic = xinf->rhs;
+		section = "elvisdm.html";
+	}
+#  ifdef FEATURE_AUTOCMD
+	else if ((!CHARncmp(xinf->lhs, toCHAR("au"), 2)
+			|| !CHARncmp(xinf->lhs, toCHAR(":au"), 3))
+		&& xinf->rhs)
+	{
+		/* :help autocmd event */
+
+		/* topic is event name */
+		topic = auname(xinf->rhs);
+		if (!topic)
+			topic = toCHAR("AUTOCMD");
+		section = "elvistip.html";
+	}
+#  endif
+	else if (len > 1 && xinf->lhs[0] == ':')
 	{
 		/* :help :exname */
+		section = "elvisex.html";
 		topic = exname(xinf->lhs + 1);
+#ifdef FEATURE_ALIAS
+		if (!topic)
+		{
+			/* Try to find the named alias */
+			for (alias = aliases;
+			     alias && CHARcmp(xinf->lhs+1, toCHAR(alias->name));
+			     alias = alias->next)
+			{
+			}
+
+			/* if it's a ! alias then look in elvistip.html;
+			 * else just tell the user it's an alias.
+			 */
+			if (alias)
+			{
+				if (!alias->internal)
+				{
+					msg(MSG_INFO, "[S]$1 is an alias.", xinf->lhs + 1);
+					return RESULT_COMPLETE;
+				}
+				section = "elvistip.html";
+				topic = xinf->lhs + 1;
+			}
+		}
+#endif
 		if (!topic)
 			topic = toCHAR("GROUP");
-		section = "elvisex.html";
+	}
+	else if (len > 1 && xinf->lhs[0] == '<' && xinf->lhs[1])
+	{
+		/* :help <name */
+
+		/* strip off trailing > and leading </ */
+		topic = xinf->lhs + CHARlen(xinf->lhs) - 1;
+		if (*topic == '>')
+			*topic = '\0';
+		topic = xinf->lhs;
+		if (topic[1] == '/')
+			*++topic = '<';
+		if (!elvalnum(topic[1]))
+			topic = toCHAR("html");
+		section = "elvisdm.html";
+	}
+	else if (len > 1 && elvalpha(xinf->lhs[0]) 
+	      && (xinf->lhs[len - 1] == '(' || xinf->lhs[len - 1] == ')'))
+	{
+		/* :help function()  (where function is a name) */
+		section = "elvisexp.html";
+		do
+		{
+			len--;
+		} while (!elvalpha(xinf->lhs[len - 1]));
+		xinf->lhs[len] = '\0';
+		topic = xinf->lhs;
 	}
 	else if ((topic = viname(xinf->lhs)) != NULL)
 	{
@@ -892,11 +1279,36 @@ RESULT	ex_help(xinf)
 	}
 	else
 	{
-		/* Can't tell what user is looking for; perhaps the user
-		 * doesn't know the syntax of :help ?  Teach them!
+#ifdef FEATURE_ALIAS
+		/* Try to find the named alias */
+		for (alias = aliases;
+		     alias && CHARcmp(xinf->lhs, toCHAR(alias->name));
+		     alias = alias->next)
+		{
+		}
+
+		/* if it's a ! alias then look in elvistip.html;
+		 * else just tell the user it's an alias.
 		 */
-		topic = toCHAR("help");
-		section = "elvisex.html";
+		if (alias)
+		{
+			if (!alias->internal)
+			{
+				msg(MSG_INFO, "[S]$1 is an alias.", xinf->lhs);
+				return RESULT_COMPLETE;
+			}
+			section = "elvistip.html";
+			topic = xinf->lhs;
+		}
+		else
+#endif
+		{
+			/* Can't tell what user is looking for; perhaps the user
+			 * doesn't know the syntax of :help ?  Teach them!
+			 */
+			topic = toCHAR("help");
+			section = "elvisex.html";
+		}
 	}
 
 	/* if help text not found, then give up */
@@ -914,6 +1326,7 @@ RESULT	ex_help(xinf)
 		optflags(o_bufdisplay(buf)) &= ~OPT_FREE;
 	}
 	o_bufdisplay(buf) = toCHAR("html");
+	o_initialsyntax(buf) = ElvFalse;
 
 	/* combine section name and topic name to form a tag */
 	if (topic)
@@ -925,7 +1338,7 @@ RESULT	ex_help(xinf)
 	}
 	else
 	{
-		tag = CHARdup(toCHAR(section));
+		tag = CHARdup(o_filename(buf));
 	}
 
 	/* perform tag lookup to find the the topic in the help file */
@@ -942,7 +1355,7 @@ RESULT	ex_help(xinf)
 	 * work, then use the original window and push the old cursor onto
 	 * the tag stack.
 	 */
-	bufwilldo(tagdefn, False);
+	bufwilldo(tagdefn, ElvFalse);
 	if ((*gui->creategw)(tochar8(o_bufname(markbuffer(tagdefn))), ""))
 	{
 		return RESULT_COMPLETE;
@@ -969,10 +1382,12 @@ RESULT	ex_help(xinf)
 	/* arrange for the cursor to move to the tag position */
 	xinf->newcurs = markdup(tagdefn);
 	return RESULT_COMPLETE;
-#endif
+# endif /* DISPLAY_HTML */
 }
+#endif /* FEATURE_MISC */
 
 
+#ifdef FEATURE_CALC
 /* Evaluate an expression, and set the "then" flag according to result */
 RESULT	ex_if(xinf)
 	EXINFO	*xinf;
@@ -987,7 +1402,7 @@ RESULT	ex_if(xinf)
 	}
 
 	/* evaluate expression */
-	result = calculate(xinf->rhs, NULL, (BOOLEAN)(xinf->command == EX_EVAL));
+	result = calculate(xinf->rhs, NULL, xinf->command == EX_EVAL ? CALC_MSG : CALC_ALL);
 	if (!result)
 	{
 		return RESULT_ERROR;
@@ -1005,30 +1420,42 @@ RESULT	ex_if(xinf)
 		return exstring(xinf->window, result, NULL);
 	}
 }
+#endif /* FEATURE_CALC */
 
+/* implements the :try, :then, and :else commands */
 RESULT	ex_then(xinf)
 	EXINFO	*xinf;
 {
 	RESULT	result = RESULT_COMPLETE;
-	BOOLEAN	washiding;
+	ELVBOOL	origmsg;
+	CHAR	origsecurity;
 
 	assert(xinf->command == EX_THEN || xinf->command == EX_ELSE
-		|| xinf->command == EX_TRY);
+		|| xinf->command == EX_TRY || xinf->command == EX_SAFELY);
 
 	/* If no commands, then do nothing */
 	if (!xinf->rhs)
 		return result;
 
 	/* For :try, execute the commands unconditionally and then set the
-	 * "exthenflag" to indicate whether the command succeeded.  Otherwise
-	 * (for :then and :else) execute the commands if "exthenflag" is set
-	 * appropriately
+	 * "exthenflag" to indicate whether the command succeeded.  For :safely,
+	 * execute the commands unconditionally with security=safer temporarily.
+	 * Otherwise (for :then and :else) execute the commands if "exthenflag"
+	 * is set appropriately.
 	 */
 	if (xinf->command == EX_TRY)
 	{
-		washiding = msghide(True);
-		exctlstate.thenflag = (BOOLEAN)(exstring(xinf->window, xinf->rhs, NULL) == RESULT_COMPLETE);
-		(void)msghide(washiding);
+		origmsg = msghide(ElvTrue);
+		exctlstate.thenflag = (ELVBOOL)(exstring(xinf->window, xinf->rhs, NULL) == RESULT_COMPLETE);
+		(void)msghide(origmsg);
+	}
+	else if (xinf->command == EX_SAFELY)
+	{
+		origsecurity = o_security;
+		if (o_security == 'n' /* normal */)
+			o_security = 's' /* safer */;
+		result = exstring(xinf->window, xinf->rhs, NULL);
+		o_security = origsecurity;
 	}
 	else if (xinf->command == EX_THEN ? exctlstate.thenflag : !exctlstate.thenflag)
 	{
@@ -1039,24 +1466,88 @@ RESULT	ex_then(xinf)
 }
 
 
+#ifdef FEATURE_CALC
 RESULT ex_while(xinf)
 	EXINFO	*xinf;
 {
+	CHAR	*vals;
+	int	thisfile;
+
+	assert(xinf->command == EX_WHILE || xinf->command == EX_FOR);
+
 	/* If there was some other, unused test lying around, then free it. */
 	if (exctlstate.dotest)
 		safefree(exctlstate.dotest);
 	exctlstate.dotest = NULL;
+	if (exctlstate.list)
+	{
+		safefree(exctlstate.list);
+		exctlstate.list = NULL;
+	}
+	if (exctlstate.nfiles > 0)
+	{
+		for (thisfile = 0; thisfile < exctlstate.nfiles; thisfile++)
+			safefree(exctlstate.file[thisfile]);
+		safefree(exctlstate.file);
+		exctlstate.nfiles = 0;
+	}
 
-	/* expression is required */
-	if (!xinf->rhs)
+	/* :for requires a variable name, which must be an option */
+	if (xinf->command == EX_FOR)
+	{
+		if (!xinf->lhs)
+		{
+			msg(MSG_ERROR, "missing lhs");
+			return RESULT_ERROR;
+		}
+		if (!optval(tochar8(xinf->lhs)))
+		{
+			msg(MSG_ERROR, "[S]bad option $1", xinf->lhs);
+			return RESULT_ERROR;
+		}
+	}
+
+	/* expression is required for :while, and the non-file version of :for*/
+	if (!xinf->rhs && !(xinf->command == EX_FOR && xinf->nfiles > 0))
 	{
 		msg(MSG_ERROR, "missing rhs");
 		return RESULT_ERROR;
 	}
 
-	/* store the new test */
-	exctlstate.dotest = xinf->rhs;
-	xinf->rhs = NULL;
+	if (xinf->command == EX_WHILE)
+	{
+		/* store the new test */
+		exctlstate.dotest = xinf->rhs;
+		xinf->rhs = NULL;
+	}
+	else if (xinf->nfiles > 0)
+	{
+		/* remember the files list */
+		exctlstate.file = xinf->file;
+		exctlstate.nfiles = xinf->nfiles;
+
+		/* don't let the main ex code free this array */
+		xinf->nfiles = 0;
+		xinf->file = NULL;
+
+		/* remember the name of the variable */
+		exctlstate.dotest = xinf->lhs;
+		xinf->lhs = NULL;
+	}
+	else
+	{
+		/* evaluate the for-list expression */
+		vals = calculate(xinf->rhs, NULL, CALC_ALL);
+		if (!vals)
+			/* error message was already output by calculate() */
+			return RESULT_ERROR;
+		exctlstate.list = CHARdup(vals);
+
+		/* remember the name of the variable */
+		exctlstate.dotest = xinf->lhs;
+		xinf->lhs = NULL;
+	}
+
 	return RESULT_COMPLETE;
 }
 
@@ -1065,19 +1556,87 @@ RESULT ex_do(xinf)
 	EXINFO	*xinf;
 {
 	CHAR	*value;
+	CHAR	*end, atend;
 	RESULT	result = RESULT_COMPLETE;
+	int	thisfile;
 
 	/* if no :while was executed before this, then fail */
 	if (!exctlstate.dotest)
 	{
-		msg(MSG_ERROR, "missing :while");
+		msg(MSG_ERROR, "missing :while or :for");
 		return RESULT_ERROR;
 	}
 
 	/* while the expression is true and valid... */
-	while ((value = calculate(exctlstate.dotest, NULL, False)) != NULL
-	    && calctrue(value))
+	value = exctlstate.list;
+	end = NULL;
+	atend = '\0';
+	thisfile = 0;
+	while (result == RESULT_COMPLETE)
 	{
+		/* distinguish between "for" and "while" */
+		if (exctlstate.list)
+		{
+			/* :for i (expr) */
+
+			/* restore the character at the end of previous word */
+			if (end)
+			{
+				*end = atend;
+				value = end;
+			}
+
+			/* skip ahead to next word.  Break if none */
+			while (*value && elvspace(*value))
+				value++;
+			if (!*value)
+				break;
+
+			/* locate the end of the word, and mark it */
+			for (end = value; *end && !elvspace(*end); end++)
+			{
+			}
+			atend = *end;
+			*end = '\0';
+
+			/* store the value in the variable */
+			if (!optputstr(exctlstate.dotest, value, ElvFalse))
+			{
+				value = NULL;
+				break;
+			}
+		}
+		else if (exctlstate.nfiles > 0)
+		{
+			/* for i in files... */
+
+			/* if no more files, then break */
+			if (thisfile >= exctlstate.nfiles)
+			{
+				/* make sure this doesn't look like error */
+				if (!value)
+					value = toCHAR(exctlstate.file[0]);
+				break;
+			}
+
+			/* copy the next file name into the variable */
+			value = toCHAR(exctlstate.file[thisfile++]);
+			if (!optputstr(exctlstate.dotest, value, ElvFalse))
+			{
+				value = NULL;
+				break;
+			}
+		}
+		else
+		{
+			/* :while */
+
+			/* evaluate the expression.  Break if failed or false */
+			value = calculate(exctlstate.dotest, NULL, CALC_ALL);
+			if (!value || !calctrue(value))
+				break;
+		}
+
 		/* Run the command.  If no command, then display result */
 		if (xinf->rhs)
 			result = exstring(xinf->window, xinf->rhs, NULL);
@@ -1088,13 +1647,26 @@ RESULT ex_do(xinf)
 		}
 
 		/* is the user getting bored? */
-		if (guipoll(False))
+		if (guipoll(ElvFalse))
 			break;
 	}
 
-	/* free the exdotest expression */
+	/* free the dotest expression, and (if used) the list */
 	safefree(exctlstate.dotest);
 	exctlstate.dotest = NULL;
+	if (exctlstate.list)
+	{
+		safefree(exctlstate.list);
+		exctlstate.list = NULL;
+	}
+	if (exctlstate.nfiles > 0)
+	{
+		for (thisfile = 0; thisfile < exctlstate.nfiles; thisfile++)
+			safefree(exctlstate.file[thisfile]);
+		safefree(exctlstate.file);
+		exctlstate.file = NULL;
+		exctlstate.nfiles = 0;
+	}
 
 	/* if test could not be evaluated, then this command fails */
 	if (!value)
@@ -1113,7 +1685,7 @@ RESULT ex_switch(xinf)
 	if (exctlstate.switchvalue)
 		safefree(exctlstate.switchvalue);
 	exctlstate.switchvalue = NULL;
-	exctlstate.switchcarry = False;
+	exctlstate.switchcarry = ElvFalse;
 
 	/* verify that we were given an expression */
 	if (!xinf->rhs)
@@ -1123,7 +1695,7 @@ RESULT ex_switch(xinf)
 	}
 
 	/* compute a new value */
-	exctlstate.switchvalue = calculate(xinf->rhs, NULL, False);
+	exctlstate.switchvalue = calculate(xinf->rhs, NULL, CALC_ALL);
 	if (exctlstate.switchvalue)
 	{
 		exctlstate.switchvalue = CHARdup(exctlstate.switchvalue);
@@ -1178,41 +1750,162 @@ RESULT ex_case(xinf)
 		safefree(exctlstate.switchvalue);
 		exctlstate.switchvalue = NULL;
 	}
-	exctlstate.switchcarry = False;
+	exctlstate.switchcarry = ElvFalse;
 
 	/* Execute the command for this case.  If there is no command, then
 	 * set a flag to indicate that the next case should match.
 	 */
 	if (xinf->rhs)
 		return exstring(xinf->window, xinf->rhs, NULL);
-	exctlstate.switchcarry = True;		
+	exctlstate.switchcarry = ElvTrue;		
 	return RESULT_COMPLETE;
 }
+#endif /* FEATURE_CALC */
 
 
+/* Test for a given word at the front of the map text.  If present, then advance
+ * past it and return its flag bit.
+ */
+static MAPFLAGS maphelp2(refcp, word, flag)
+	CHAR	**refcp;	/* front of the map text */
+	char	*word;		/* a word to test for */
+	MAPFLAGS flag;		/* flag to return if word is found */
+{
+	int	len = strlen(word);
+	CHAR	*bigword = toCHAR(word);
+
+	if (!CHARncmp(*refcp, bigword, len)
+	 && (!(*refcp)[len] || elvspace((*refcp)[len])))
+	{
+		*refcp += len;
+		while (elvspace(**refcp))
+			(*refcp)++;
+		return flag;
+	}
+	return (MAPFLAGS)0;
+}
+
+/* parse any number of map flags.  Return the MAPFLAGS value, and advance
+ * *refcp past the flags.  If "mode=..." is seen, then set *refmode to point
+ * to a static string giving the mode name.
+ */
+static MAPFLAGS maphelp(refcp, refmode)
+	CHAR	**refcp;
+	CHAR	**refmode;
+{
+	MAPFLAGS flags = (MAPFLAGS)0;
+	CHAR	*start;
+ static CHAR	modebuf[30];
+
+	/* if no arg, then return no flags */
+	if (!*refcp)
+		return flags;
+
+	/* parse any flags */
+	do
+	{
+		/* skip extra whitespace */
+		while (elvspace(**refcp))
+			(*refcp)++;
+
+		/* check for a word */
+		start = *refcp;
+		flags |= maphelp2(refcp, "input", MAP_INPUT);
+		flags |= maphelp2(refcp, "history", MAP_HISTORY);
+		flags |= maphelp2(refcp, "command", MAP_COMMAND);
+		flags |= maphelp2(refcp, "motion", MAP_MOTION);
+		flags |= maphelp2(refcp, "select", MAP_SELECT);
+		flags |= maphelp2(refcp, "visual", MAP_ASCMD);
+		flags |= maphelp2(refcp, "noremap", MAP_NOREMAP);
+		flags |= maphelp2(refcp, "nosave", MAP_NOSAVE);
+		if (!CHARncmp(*refcp, "mode=", 5))
+		{
+			for (start = modebuf, *refcp += 5;
+			     start < &modebuf[sizeof modebuf -1]
+				&& !elvspace(**refcp);
+			     )
+				*start++ = *(*refcp)++;
+			*start = '\0';
+			*refmode = modebuf;
+		}
+	} while (start != *refcp);
+
+	return flags;
+}
 
 /* This implemented :map, :unmap, :abbr, :unabbr, :break, and :unbreak */
 RESULT	ex_map(xinf)
 	EXINFO	*xinf;
 {
-	CHAR	*line;
+	CHAR	*line, *build;
 	MAPFLAGS flags;
 	int	len;
+	CHAR	*mode, *lhs, *rhs;
+	ELVBOOL	all;
 
 	assert(xinf->command == EX_MAP || xinf->command == EX_ABBR
 		|| xinf->command == EX_UNMAP || xinf->command == EX_UNABBR
 		|| xinf->command == EX_BREAK || xinf->command == EX_UNBREAK);
 
+	/* the lhs and rhs of maps are complicated by the fact that they may
+	 * be prefixed by context flags.  This doesn't affect abbreviations.
+	 */
+	flags = 0;
+	lhs = rhs = mode = NULL;
+	if (xinf->command == EX_ABBR || xinf->command == EX_UNABBR)
+	{
+		/* standard parser is smart enough for :abbr */
+		lhs = xinf->lhs;
+		rhs = xinf->rhs;
+	}
+	else if (xinf->rhs)
+	{
+		/* for :map, everything is passed as part of the rhs, and we
+		 * parse it out here.
+		 */
+		lhs = xinf->rhs;
+		flags = maphelp(&lhs, &mode);
+		for (build = rhs = lhs; *rhs && !elvspace(*rhs); )
+		{
+			if (*rhs == ELVCTRL('V') && rhs[1])
+				rhs++;
+			*build++ = *rhs++;
+		}
+		if (*rhs)
+			*rhs++ = '\0';
+		*build = '\0';
+		flags |= maphelp(&rhs, &mode);
+		for (build = line = rhs; *line; )
+		{
+			if (*line == ELVCTRL('V') && line[1])
+				line++;
+			*build++ = *line++;
+		}
+		*build = '\0';
+		if (!*rhs)
+			rhs = NULL;
+		if (!*lhs)
+			lhs = NULL;
+	}
+
+	/* detect "map all" */
+	all = ElvFalse;
+	if (xinf->command == EX_MAP && lhs && !rhs && !CHARcmp(lhs, toCHAR("all")))
+	{
+		lhs = NULL;
+		all = ElvTrue;
+	}
+
 	/* check for missing mandatory arguments */
 	if ((xinf->command == EX_MAP || xinf->command == EX_ABBR)
-		&& xinf->lhs && !xinf->rhs)
+		&& lhs && !rhs)
 	{
 		msg(MSG_ERROR, "missing rhs");
 		return RESULT_ERROR;
 	}
 	if ((xinf->command == EX_UNMAP || xinf->command == EX_UNABBR
 		   || xinf->command == EX_BREAK || xinf->command == EX_UNBREAK)
-		&& !xinf->lhs)
+		&& !lhs)
 	{
 		msg(MSG_ERROR, "missing lhs");
 		return RESULT_ERROR;
@@ -1221,50 +1914,120 @@ RESULT	ex_map(xinf)
 	/* choose which flags to map */
 	if (xinf->command == EX_ABBR || xinf->command == EX_UNABBR)
 	{
-		flags = MAP_ABBR|(xinf->bang ? MAP_COMMAND : MAP_INPUT);
-	}
-	else if (xinf->rhs && !CHARncmp(xinf->rhs, toCHAR("visual "), 7))
-	{
-		flags = (MAP_INPUT|MAP_ASCMD|MAP_OPEN);
-		if (!xinf->bang)
-			flags |= MAP_COMMAND;
+		flags = MAP_ABBR|(xinf->bang ? MAP_HISTORY : MAP_INPUT);
 	}
 	else
 	{
-		flags = xinf->bang ? (MAP_INPUT|MAP_OPEN) : MAP_COMMAND;
+		/* using :map! implies "input history" */
+		if (xinf->bang)
+			flags |= MAP_INPUT|MAP_HISTORY;
+
+		/* "visual" implies at least one of "input history" */
+		if ((flags & (MAP_INPUT|MAP_HISTORY|MAP_ASCMD)) == MAP_ASCMD)
+			flags |= MAP_INPUT|MAP_HISTORY;
+
+		/* if no other context specified, assume "command motion select" */
+		if ((flags & MAP_WHEN) == 0)
+			flags |= MAP_COMMAND|MAP_MOTION|MAP_SELECT;
 	}
 
 	/* either list, unmap, or map */
-	if (!xinf->lhs)
+	if (!lhs)
 	{
-		while ((line = maplist(flags & (MAP_INPUT|MAP_COMMAND|MAP_ABBR), &len)) != (CHAR *)0)
-		{
-			/* can't list maps before the first window is created */
-			if (xinf->window)
-				drawextext(xinf->window, line, len);
-		}
+		/* can't list maps before the first window is created */
+		if (xinf->window)
+			while ((line = maplist(flags & (MAP_WHEN|MAP_ABBR), mode, &len)) != (CHAR *)0)
+			{
+				if (*line == ' ' || all)
+					drawextext(xinf->window, line, len);
+			}
 	}
-	else if (!xinf->rhs)
+	else if (!rhs)
 	{
-		(void)mapdelete(xinf->lhs, (int)CHARlen(xinf->lhs), flags,
-			(BOOLEAN)(xinf->command == EX_UNMAP || xinf->command == EX_UNABBR),
-			(BOOLEAN)(xinf->command == EX_BREAK));
+		(void)mapdelete(lhs, (int)CHARlen(lhs), flags, mode,
+			(ELVBOOL)(xinf->command == EX_UNMAP || xinf->command == EX_UNABBR),
+			(ELVBOOL)(xinf->command == EX_BREAK));
 	}
 	else 
 	{
-		mapinsert(xinf->lhs, (int)CHARlen(xinf->lhs), xinf->rhs, (int)CHARlen(xinf->rhs), (CHAR *)0, flags);
+		mapinsert(lhs, (int)CHARlen(lhs), rhs, (int)CHARlen(rhs), (CHAR *)0, flags, mode);
 	}
 	return RESULT_COMPLETE;
 }
 
 
+#ifdef FEATURE_EQUALTILDE
+static CHAR *equaltilde(value, len, cmd)
+	CHAR	*value;	/*value to act on */
+	int	len;	/* length of value (which might not be NUL terminated)*/
+	CHAR	*cmd;	/* ex command to apply to the value */
+{
+	BUFFER	buf, prevdef;
+	MARKBUF top, bottom;
+	RESULT	result;
+
+	/* create a temporary buffer */
+	buf = bufalloc(toCHAR(EQUALTILDE_BUF), 0, ElvTrue);
+
+	/* store the value into the buffer */
+	bufreplace(marktmp(top, buf, 0L), marktmp(bottom, buf, o_bufchars(buf)),
+		value, len);
+	bufreplace(marktmp(bottom, buf, o_bufchars(buf)), &bottom, toCHAR("\n"), 1);
+
+#if 0
+	/* temporarily move the cursor to this buffer */
+	top = *windefault->cursor;
+	marksetoffset(windefault->cursor, 0L);
+	marksetbuffer(windefault->cursor, buf);
+#else
+	/* temporarily make this the default buffer */
+	prevdef = bufdefault;
+	bufoptions(buf);
+#endif
+
+	/* apply the ex command line to the buffer */
+	result = exstring(windefault, cmd, "equaltilde");
+
+#if 0
+	/* restore the cursor */
+	marksetbuffer(windefault->cursor, top.buffer);
+	marksetoffset(windefault->cursor, top.offset);
+#else
+	/* restore the buffer */
+	bufoptions(prevdef);
+#endif
+
+	/* if the command failed or has no characters, return NULL */
+	if (result != RESULT_COMPLETE || o_bufchars(buf) == 0L)
+		return NULL;
+
+	/* else return the buffer's contents as a string */
+	return bufmemory(marktmp(top, buf, 0L), marktmp(bottom, buf, o_bufchars(buf) - 1L));
+}
+#endif
+
 RESULT	ex_set(xinf)
 	EXINFO	*xinf;
 {
-	CHAR	outbuf[5000];
+	CHAR	outbuf[10000];
 	static CHAR empty[1];
+#ifdef FEATURE_CALC
 	CHAR	*value;
+	CHAR	*opereq = NULL;
 	int	i;
+	int	j;
+
+# ifdef FEATURE_ARRAY
+	CHUNK	chunks[3];
+	CHAR	*build;
+	CHAR	*element;
+	CHAR	*oldval = NULL;
+# endif
+
+#ifdef FEATURE_EQUALTILDE
+	ELVBOOL	doequaltilde = ElvFalse;
+	CHAR	*mustfree = NULL;
+#endif
 
 	if (xinf->command == EX_LET)
 	{
@@ -1275,16 +2038,138 @@ RESULT	ex_set(xinf)
 		}
 
 		/* copy name into outbuf[], so we can nul-terminate it */
-		for ( ; xinf->rhs && isalnum(xinf->rhs[i]); i++)
+		for ( ; xinf->rhs && elvalnum(xinf->rhs[i]); i++)
 		{
 			outbuf[i] = xinf->rhs[i];
 		}
 		outbuf[i] = '\0';
 
+# ifdef FEATURE_ARRAY
+		/* if "[" then get the array subscript */
+		if (xinf->rhs[i] == '[' || xinf->rhs[i] == '.')
+		{
+			/* get the option's value, as a string.  We need to
+			 * save it in a private buffer since optgetstr()
+			 * returns a static buffer, and calculate() also uses
+			 * optgetstr.  So we copy it into outbuf.
+			 */
+			value = optgetstr(outbuf, NULL);
+			if (!value)
+			{
+				msg(MSG_ERROR, "[S]bad option $1", outbuf);
+				return RESULT_ERROR;
+			}
+			oldval = outbuf + i + 1;
+			CHARncpy(oldval, value, QTY(outbuf) - 100);
+			oldval[QTY(oldval) - 100] = '\0';
+
+			/* parse the subscript -- it will be alphanumeric */
+			if (xinf->rhs[i] == '.')
+			{
+				/* collect the chars */
+				for (build = NULL;
+				     xinf->rhs[++i] && elvalnum(xinf->rhs[i]);
+				     buildCHAR(&build, xinf->rhs[i]))
+				{
+				}
+
+				/* if the string is a set with a valueless
+				 * element of that name, then delete the name.
+				 */
+				element = calcelement(oldval, build);
+				if (element && *element != ':')
+				{
+					j = CHARlen(build);
+					if (*element == ',')
+						element++, j++;
+					else if (oldval + j != element)
+						j++;
+					memmove(element - j, element, (CHARlen(element) + 1) * sizeof(CHAR));
+				}
+
+				/* find the chunks in the option's value */
+				(void)calcsubscript(oldval, build, QTY(chunks), chunks);
+
+				/* if no chunks, then append the name and try
+				 * again.
+				 */
+				if (chunks[0].ptr == NULL)
+				{
+					if (oldval[0])
+						CHARcat(oldval, toCHAR(","));
+					CHARcat(oldval, build);
+					CHARcat(oldval, toCHAR(":"));
+					(void)calcsubscript(oldval, build, QTY(chunks), chunks);
+				}
+				safefree(build);
+			}
+			else /* it will end with "] = " */
+			{
+				for (build = NULL; xinf->rhs[++i]; buildCHAR(&build, xinf->rhs[i]))
+				{
+					/* if "] = " then stop */
+					if (xinf->rhs[i] == ']')
+					{
+						j = i + 1;
+						while (xinf->rhs[j] && elvspace(xinf->rhs[j]))
+							j++;
+						if (xinf->rhs[j] == '=' && xinf->rhs[j + 1] != '=')
+							break;
+					}
+				}
+				i++;
+
+				/* evaluate it */
+				if (build)
+				{
+					value = calculate(build, NULL, CALC_ALL);
+					safefree(build);
+					if (!value)
+						return RESULT_ERROR;
+
+					/* find the chunks in the option's value */
+					(void)calcsubscript(oldval, value, QTY(chunks), chunks);
+				}
+				else
+					value = NULL;
+			}
+
+			/* can't assign to element 0 (the length), or to
+			 * scattered chunks.
+			 */
+			if (!value
+			 || chunks[0].ptr == NULL
+			 || chunks[0].ptr < oldval
+			 || chunks[0].ptr + chunks[0].len > oldval + CHARlen(oldval)
+			 || chunks[1].ptr)
+			{
+				msg(MSG_ERROR, "invalid subscript for assignment");
+				return RESULT_ERROR;
+			}
+		}
+# endif /* FEATURE_ARRAY */
+
 		/* skip whitespace */
-		while (isspace(xinf->rhs[i]))
+		while (elvspace(xinf->rhs[i]))
 		{
 			i++;
+		}
+
+		/* if we're using an <oper>= then adjust the expression */
+		if (xinf->rhs[i] != '=' && elvpunct(xinf->rhs[i]))
+		{
+			/* convert ":let option oper= expr" to
+			 * ":let option = option oper (expr)"
+			 */
+			for (j = 0; j < i; j++)
+				buildCHAR(&opereq, xinf->rhs[j]);
+			while (xinf->rhs[i] != '=' && xinf->rhs[i])
+				buildCHAR(&opereq, xinf->rhs[i++]);
+			buildCHAR(&opereq, ' ');
+			buildCHAR(&opereq, '(');
+			for (j = i + 1; xinf->rhs[j]; j++)
+				buildCHAR(&opereq, xinf->rhs[j]);
+			buildCHAR(&opereq, ')');
 		}
 
 		/* skip '=' */
@@ -1294,30 +2179,109 @@ RESULT	ex_set(xinf)
 		}
 		i++;
 
+# ifdef FEATURE_EQUALTILDE
+		/* detect if we're using "=~" */
+		if (!opereq && xinf->rhs[i] == '~')
+		{
+			doequaltilde = ElvTrue;
+			i++;
+		}
+# endif
+
 		/* skip whitespace after the '=' */
-		while (isspace(xinf->rhs[i]))
+		while (elvspace(xinf->rhs[i]))
 		{
 			i++;
 		}
 		if (!xinf->rhs[i])
 		{
 MissingRHS:
+			if (opereq)
+				safefree(opereq);
 			msg(MSG_ERROR, "missing rhs");
 			return RESULT_ERROR;
 		}
 
 		/* evaluate the expression */
-		value = calculate(&xinf->rhs[i], NULL, False);
+# ifdef FEATURE_EQUALTILDE
+		if (doequaltilde)
+		{
+#  ifdef FEATURE_ARRAY
+			if (oldval)
+			{
+				mustfree = value = equaltilde(chunks[0].ptr, chunks[0].len, &xinf->rhs[i]);
+			}
+			else
+#  endif
+			{
+				value = optgetstr(outbuf, NULL);
+				mustfree = value = equaltilde(value, CHARlen(value), &xinf->rhs[i]);
+			}
+		}
+		else
+# endif
+		value = calculate(opereq ? opereq : &xinf->rhs[i], NULL, CALC_ALL);
 		if (!value)
+		{
 			/* error message already given */
+			if (opereq)
+				safefree(opereq);
+#ifdef FEATURE_EQUALTILDE
+			if (mustfree)
+				safefree(mustfree);
+#endif
 			return RESULT_ERROR;
+		}
 
 		/* store the result */
-		if (!optputstr(outbuf, value, xinf->bang))
-			/* error message already given */
-			return RESULT_ERROR;
+# ifdef FEATURE_ARRAY
+		if (oldval)
+		{
+			/* the subscripted portion of the value is always one
+			 * chunk, and it excludes any required delimiters.  So
+			 * all we need to do is copy text before the chunk,
+			 * copy the new text, and copy the text after the chunk.
+			 */
+			build = NULL;
+			for (i = 0; i < (int)(chunks[0].ptr - oldval); i++)
+				buildCHAR(&build, oldval[i]);
+			while (*value)
+				buildCHAR(&build, *value++);
+			for (i += chunks[0].len; oldval[i]; i++)
+				buildCHAR(&build, oldval[i]);
+			if (!optputstr(outbuf, build, xinf->bang))
+			{
+				safefree(build);
+				if (opereq)
+					safefree(opereq);
+#  ifdef FEATURE_EQUALTILDE
+				if (mustfree)
+					safefree(mustfree);
+#  endif
+				return RESULT_ERROR;
+			}
+			safefree(build);
+		}
+		else /* no subscripts */
+# endif /* FEATURE_ARRAY */
+		{
+			if (!optputstr(outbuf, value, xinf->bang))
+			{
+				/* error message already given */
+				if (opereq)
+					safefree(opereq);
+#  ifdef FEATURE_EQUALTILDE
+				if (mustfree)
+					safefree(mustfree);
+#  endif
+				return RESULT_ERROR;
+			}
+		}
 	}
-	else if (xinf->command == EX_LOCAL)
+	else
+#endif /* FEATURE_CALC */
+#ifdef FEATURE_MISC
+	if (xinf->command == EX_LOCAL)
 	{
 		if (!xinf->rhs)
 		{
@@ -1329,7 +2293,9 @@ MissingRHS:
 			return RESULT_ERROR;
 		}
 	}
-	else /* command == EX_SET */
+	else
+#endif /* FEATURE_MISC */
+	/* command == EX_SET */
 	{
 		if (!optset(xinf->bang, xinf->rhs ? xinf->rhs : empty, outbuf, QTY(outbuf)))
 		{
@@ -1376,7 +2342,7 @@ RESULT	ex_qall(xinf)
 	WINDOW	win, except;
 	WINDOW	orig;
 	RESULT	result;
-	BOOLEAN	didorig;
+	ELVBOOL	didorig;
 
 	assert(xinf->command == EX_QALL || xinf->command == EX_PRESERVE
 		|| xinf->command == EX_ONLY);
@@ -1384,7 +2350,7 @@ RESULT	ex_qall(xinf)
 	/* If :preserve, then turn off the tempsession flag */
 	if (xinf->command == EX_PRESERVE)
 	{
-		o_tempsession = False;
+		o_tempsession = ElvFalse;
 	}
 
 	/* if :only, then use EX_CLOSE but don't close this window */
@@ -1401,14 +2367,14 @@ RESULT	ex_qall(xinf)
 
 	/* run the command on each window, except possibly this one */
 	orig = xinf->window;
-	for (win = winofbuf(NULL, NULL), result = RESULT_COMPLETE, didorig = False;
+	for (win = winofbuf(NULL, NULL), result = RESULT_COMPLETE, didorig = ElvFalse;
 	     win;
 	     win = winofbuf(win, NULL))
 	{
 		/* maybe skip the current window */
 		if (win == except)
 		{
-			didorig = True;
+			didorig = ElvTrue;
 			continue;
 		}
 
@@ -1423,12 +2389,12 @@ RESULT	ex_qall(xinf)
 			 * current one.  The current one will go away
 			 * automatically when the ex_qall() function exits.
 			 */
-			(*gui->destroygw)(win->gw, False);
+			(*gui->destroygw)(win->gw, ElvFalse);
 			win = didorig ? orig : NULL;
 		}
 		else
 		{
-			didorig = True;
+			didorig = ElvTrue;
 		}
 	}
 	return result;
@@ -1458,7 +2424,7 @@ RESULT	ex_xit(xinf)
 		 */
 		if (xinf->nfiles == 1
 			? !bufwrite(marktmp(top, buf, 0), marktmp(bottom, buf, o_bufchars(buf)), xinf->file[0], xinf->bang)
-			: !bufsave(buf, xinf->bang, True))
+			: !bufsave(buf, xinf->bang, ElvTrue))
 		{
 			/* an error message has already been output */
 			return RESULT_ERROR;
@@ -1476,11 +2442,11 @@ RESULT	ex_xit(xinf)
 	{
 		if (xinf->bang)
 		{
-			o_modified(buf) = False;
+			o_modified(buf) = ElvFalse;
 		}
 		else
 		{
-			msg(MSG_ERROR, "[S]$1 modified, not saved", o_bufname(buf));
+			msg(MSG_ERROR, "[S]$1 modified, not saved", o_filename(buf) ? o_filename(buf) : o_bufname(buf));
 			return RESULT_ERROR;
 		}
 	}
@@ -1512,7 +2478,7 @@ RESULT	ex_xit(xinf)
 				 * be checked.
 				 */
 				if (xinf->command == EX_QUIT && xinf->bang)
-					o_modified(b) = False;
+					o_modified(b) = ElvFalse;
 				else
 				{
 					msg(MSG_ERROR, "check other buffers");
@@ -1533,7 +2499,7 @@ RESULT	ex_xit(xinf)
 	/* If :close, then set the "retain" flag on the window's main buffer. */
 	if (xinf->command == EX_CLOSE)
 	{
-		o_retain(markbuffer(xinf->window->cursor)) = True;
+		o_retain(markbuffer(xinf->window->cursor)) = ElvTrue;
 	}
 
 	/* Arrange for the state stack to pop everything.  This will cause
@@ -1545,3 +2511,118 @@ RESULT	ex_xit(xinf)
 	}
 	return RESULT_COMPLETE;
 }
+
+#ifdef FEATURE_SPELL
+
+RESULT	ex_check(xinf)
+	EXINFO	*xinf;
+{
+	long	flags = 0;
+	CHAR	*word, *end, atend;
+	int	i;
+	ELVBOOL	casesensitive;
+
+	assert(xinf->command == EX_CHECK || xinf->command == EX_WORDS);
+
+	/* if no words then dump current personal words */
+	if (!xinf->rhs)
+	{
+		if (xinf->command == EX_CHECK)
+			spellcheckfont(NULL, xinf->bang ? SPELL_CHECK_TAGONLY : SPELL_CHECK_ALL, xinf->bang);
+		else
+			spellsave(NULL);
+		return RESULT_COMPLETE;
+	}
+
+	/* find the start of each word.  Also notice "+" or "-" */
+	for (word = xinf->rhs; *word; word++)
+	{
+		if (*word == '+')
+			flags = 0;
+		else if (*word == '-')
+			flags = SPELL_FLAG_BAD;
+		else if (*word == '*' && xinf->command == EX_CHECK)
+			flags = -1;
+		else if (!elvspace(*word))
+		{
+			/* found a word!  now see how long it is */
+			casesensitive = (ELVBOOL)elvupper(*word);
+			for (end = word + 1;
+			     elvalnum(*end) || *end == '_' || *end == '\'';
+			     end++)
+			{
+				casesensitive |= elvupper(*word);
+			}
+
+			/* temporarily mark the end with a NUL character */
+			atend = *end;
+			*end = '\0';
+
+			/* add font or word, depending on the command */
+			if (xinf->command == EX_CHECK)
+			{
+				/* add the font */
+				spellcheckfont(word,
+					flags == -1 ? SPELL_CHECK_ALL :
+					(flags & SPELL_FLAG_BAD) ? SPELL_CHECK_NONE :
+					SPELL_CHECK_TAGONLY, xinf->bang);
+			}
+			else if (CHARlen(word) < 100) /* personal word */
+			{
+				/* add the word */
+				if (!xinf->bang)
+					flags |= SPELL_FLAG_PERSONAL;
+				spellwords = spelladdword(spellwords, word,
+							flags);
+
+				/* if case sensitive, then make the
+				 * wrong-case version be a "wrong" word.
+				 * There's no need to make this be treated
+				 * as a personal word.
+				 */
+				if (casesensitive)
+				{
+					for (i = 0; &word[i] != end; i++)
+						word[i] = elvtolower(word[i]);
+					spellwords = spelladdword(spellwords,
+							word, SPELL_FLAG_BAD);
+				}
+			}
+
+			/* prepare for next word */
+			*end = atend;
+			word = end - 1; /* advances to end in for(;;) stmt */
+		}
+	}
+	return RESULT_COMPLETE;
+}
+
+RESULT	ex_wordfile(xinf)
+	EXINFO	*xinf;
+{
+	int	i;
+
+	assert(xinf->command == EX_WORDFILE);
+
+	/* check arguments */
+	if (xinf->nfiles == 0)
+	{
+		if (!o_spelldict || !*o_spelldict)
+		{
+			msg(MSG_ERROR, "missing file name");
+			return RESULT_ERROR;
+		}
+		spellload(tochar8(o_spelldict), ElvFalse);
+	}
+	else
+	{
+		for (i = 0; i < xinf->nfiles; i++)
+		{
+			spellload(xinf->file[i], (ELVBOOL)!xinf->bang);
+		}
+	}
+
+	return RESULT_COMPLETE;
+}
+
+#endif /* FEATURE_SPELL */

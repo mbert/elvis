@@ -1,9 +1,11 @@
 /* operator.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_operator[] = "$Id: operator.c,v 2.40 1999/10/07 16:23:58 steve Exp $";
 
 #include "elvis.h"
+#ifdef FEATURE_RCSID
+char id_operator[] = "$Id: operator.c,v 2.47 2003/10/17 17:41:23 steve Exp $";
+#endif
 
 
 #if USE_PROTOTYPES
@@ -34,8 +36,8 @@ RESULT opfilter(from, to, prog)
 
 	/* start the filter */
 	if (gui->prgopen
-		? !(*gui->prgopen)(tochar8(prog), True, True)
-		: !prgopen(tochar8(prog), True, True))
+		? !(*gui->prgopen)(tochar8(prog), ElvTrue, ElvTrue)
+		: !prgopen(tochar8(prog), ElvTrue, ElvTrue))
 	{
 		return RESULT_ERROR;
 	}
@@ -112,7 +114,7 @@ static RESULT	filterenter(win)
 	scanalloc(&cp, win->state->top);
 	if (cp && *cp == '!')
 		scannext(&cp);
-	while (cp && isspace(*cp))
+	while (cp && elvspace(*cp))
 		scannext(&cp);
 
 	/* Copy the command line into a buffer.  Note that the looping
@@ -207,7 +209,7 @@ RESULT oper(win, vinf, from, to)
 {
 	RESULT	result;
 	EXINFO	xinfb;
-	BOOLEAN	dot;
+	ELVBOOL	dot;
 	MARK	curs;
 
 	assert(markbuffer(from) == markbuffer(to));
@@ -215,7 +217,7 @@ RESULT oper(win, vinf, from, to)
 	assert(markoffset(from) <= markoffset(to));
 
 	/* are we doing this for a "." command? */
-	dot = (BOOLEAN)((vinf->tweak & TWEAK_DOTTING) != 0);
+	dot = (ELVBOOL)((vinf->tweak & TWEAK_DOTTING) != 0);
 
 	/* If this operator is being applied to a rectangular selection which
 	 * happens to use only a single row, then treat it as a character
@@ -223,18 +225,18 @@ RESULT oper(win, vinf, from, to)
 	 */
 	if (win->seltop
 	 && win->seltype == 'r'
-	 && markoffset((*win->md->move)(win, win->seltop, 0L, INFINITY, False)) >= markoffset(win->selbottom))
+	 && markoffset((*win->md->move)(win, win->seltop, 0L, INFINITY, ElvFalse)) >= markoffset(win->selbottom))
 	{
 		win->seltype = 'c';
-		marksetoffset(win->seltop, markoffset((*win->md->move)(win, win->seltop, 0L, win->selleft, False)));
-		marksetoffset(win->selbottom, markoffset((*win->md->move)(win, win->selbottom, 0L, win->selright + 1, False)));
+		marksetoffset(win->seltop, markoffset((*win->md->move)(win, win->seltop, 0L, win->selleft, ElvFalse)));
+		marksetoffset(win->selbottom, markoffset((*win->md->move)(win, win->selbottom, 0L, win->selright + 1, ElvFalse)));
 		marksetoffset(from, markoffset(win->seltop));
 		marksetoffset(to, markoffset(win->selbottom));
 	}
 
 	/* very few rectangle operations for now */
 	if (win->seltop && win->seltype == 'r'
-		&& vinf->oper != 'y' && vinf->oper != 'd')
+		&& vinf->oper != 'y' && vinf->oper != 'd' && vinf->oper < 0x80)
 	{
 		msg(MSG_ERROR, "[C]can't $1 rectangles", vinf->oper);
 		return RESULT_ERROR;
@@ -262,16 +264,22 @@ RESULT oper(win, vinf, from, to)
 	{
 	  case 'y':
 	  case 'd':
+#ifdef FEATURE_G
+	  case ELVG('u'):
+	  case ELVG('U'):
+	  case ELVG('~'):
+	  case ELVG('='):
+#endif
 		if (win->seltop)
 		{
 			cutyank(vinf->cutbuf, from, to,
 				(_CHAR_)(win->seltype == 'l' ? 'L' : win->seltype),
-				(BOOLEAN)(vinf->oper == 'd'));
+				vinf->oper);
 			vinf->tweak |= (TWEAK_LINE | TWEAK_FRONT);
 		}
 		else
 		{
-			cutyank(vinf->cutbuf, from, to, (CHAR)((vinf->tweak & TWEAK_LINE) ? 'L' : 'c'), (BOOLEAN)(vinf->oper == 'd'));
+			cutyank(vinf->cutbuf, from, to, (CHAR)((vinf->tweak & TWEAK_LINE) ? 'L' : 'c'), vinf->oper);
 		}
 		result = RESULT_COMPLETE;
 		break;
@@ -280,7 +288,7 @@ RESULT oper(win, vinf, from, to)
 		/* yank the text that we're about to change */
 		if (win->seltop)
 		{
-			cutyank(vinf->cutbuf, from, to, win->seltype, dot);
+			cutyank(vinf->cutbuf, from, to, win->seltype, dot ? 'd' : 'y');
 			if (win->seltype == 'l')
 			{
 				vinf->tweak |= (TWEAK_LINE | TWEAK_FRONT);
@@ -288,13 +296,13 @@ RESULT oper(win, vinf, from, to)
 		}
 		else
 		{
-			cutyank(vinf->cutbuf, from, to, (CHAR)((vinf->tweak & TWEAK_LINE) ? 'L' : 'c'), dot);
+			cutyank(vinf->cutbuf, from, to, (CHAR)((vinf->tweak & TWEAK_LINE) ? 'L' : 'c'), dot ? 'd' : 'y');
 		}
 
 		if (dot)
 		{
 			/* replace the text with previous input */
-			curs = cutput('.', win, from, False, True, True);
+			curs = cutput('.', win, from, ElvFalse, ElvTrue, ElvTrue);
 
 			/* if line mode, then append a newline */
 			if (vinf->tweak & TWEAK_LINE)
@@ -310,7 +318,7 @@ RESULT oper(win, vinf, from, to)
 		else
 		{
 			/* set the edit boundaries */
-			inputchange(win, from, to, (vinf->tweak & TWEAK_LINE) ? True : False);
+			inputchange(win, from, to, (vinf->tweak & TWEAK_LINE) ? ElvTrue : ElvFalse);
 		}
 
 		result = RESULT_COMPLETE;
@@ -320,6 +328,7 @@ RESULT oper(win, vinf, from, to)
 	  case '>':
 		/* build a :< or :> ex command */
 		memset((char *)&xinfb, 0, sizeof xinfb);
+		xinfb.window = win;
 		xinfb.cmdname = (vinf->oper == '<') ? "<" : ">";
 		xinfb.command = (vinf->oper == '<') ? EX_SHIFTL : EX_SHIFTR;
 		xinfb.defaddr = *from;
@@ -337,7 +346,11 @@ RESULT oper(win, vinf, from, to)
 		if ((win->seltop && win->seltype == 'c')
 		 || (!win->seltype && (vinf->tweak & TWEAK_LINE) == 0))
 		{
+#ifdef FEATURE_CALC
 			result = calcsel(from, to) ? RESULT_COMPLETE : RESULT_ERROR;
+#else
+			result = RESULT_ERROR;
+#endif
 		}
 		else
 		{

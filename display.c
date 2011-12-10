@@ -1,9 +1,11 @@
 /* display.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_display[] = "$Id: display.c,v 2.18 1999/03/11 17:55:46 steve Exp $";
 
 #include "elvis.h"
+#ifdef FEATURE_RCSID
+char id_display[] = "$Id: display.c,v 2.23 2003/10/17 17:41:23 steve Exp $";
+#endif
 
 /* This is a list of all known display modes.  The last mode is the default. */
 DISPMODE *allmodes[] =
@@ -47,10 +49,10 @@ void displist(win)
 
 /* Set the edit mode of a given window.  If the name of the new mode is NULL,
  * then the default display mode is used.  If the name doesn't match any known
- * mode, then an error message is issued and dispset() returns False; normally
- * it returns True.
+ * mode, then an error message is issued and dispset() returns ElvFalse;
+ * normally it returns ElvTrue.
  */
-BOOLEAN dispset(win, newmode)
+ELVBOOL dispset(win, newmode)
 	WINDOW	win;		/* window whose edit mode is to be changed */
 	char	*newmode;	/* name of the new display mode */
 {
@@ -74,13 +76,16 @@ BOOLEAN dispset(win, newmode)
 		if (i >= QTY(allmodes))
 		{
 			msg(MSG_ERROR, "[s]bad display mode $1", newmode);
-			return False;
+			return ElvFalse;
 		}
 	}
 
 	/* if previous mode, then terminate it */
 	if (win->md)
 	{
+#ifdef FEATURE_AUTOCMD
+		(void)auperform(win, ElvFalse, NULL, AU_DISPLAYLEAVE, o_display(win));
+#endif
 		(*win->md->term)(win->mi);
 		if (optflags(o_display(win)) & OPT_FREE)
 		{
@@ -94,17 +99,20 @@ BOOLEAN dispset(win, newmode)
 	o_display(win) = CHARdup(toCHAR(newmode));
 	optflags(o_display(win)) |= OPT_FREE;
 	win->mi = allmodes[i]->init(win);
+#ifdef FEATURE_AUTOCMD
+	(void)auperform(win, ElvFalse, NULL, AU_DISPLAYENTER, o_display(win));
+#endif
 
-	return True;
+	return ElvTrue;
 }
 
 
-/* This function is called twice: once before "elvis.ini" is interpretted, and
+/* This function is called twice: once before "elvis.ini" is interpreted, and
  * again afterward.  This function makes EVERY display mode's global options
  * available via ":set" so they can be initialized to user-defined values.
  */
 void dispinit(before)
-	BOOLEAN	before;	/* True before "elvis.ini", and False after */
+	ELVBOOL	before;	/* ElvTrue before "elvis.ini", and ElvFalse after */
 {
 	int	i;
 	/* for each display mode... */
@@ -199,7 +207,7 @@ MARK dispmove(win, linedelta, wantcol)
 	long	linedelta;	/* line movement */
 	long	wantcol;	/* desired column number */
 {
-	BOOLEAN	cmd;
+	ELVBOOL	cmd;
 
 	/* use "cmd" behavior if in vi command state */
 	cmd = viiscmd(win);
@@ -227,12 +235,12 @@ MARK dispmove(win, linedelta, wantcol)
 long dispmark2col(win)
 	WINDOW	win;	/* window whose mode to use */
 {
-	BOOLEAN	cmd = False ;
+	ELVBOOL	cmd = ElvFalse ;
 
 	/* use "cmd" behavior if in vi command state */
 	if (!win->state->pop)
 	{
-		cmd = True;
+		cmd = ElvTrue;
 	}
 
 	/* call the right function */

@@ -17,5 +17,5 @@ extern void msglog P_((char *filename));
 extern void msg P_((MSGIMP imp, char *terse, ...));
 extern void msgflush P_((void));
 extern CHAR *msgtranslate P_((char *word));
-extern BOOLEAN msghide P_((BOOLEAN hide));
+extern ELVBOOL msghide P_((ELVBOOL hide));
 END_EXTERNC

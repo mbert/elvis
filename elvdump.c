@@ -1,19 +1,21 @@
 /* elvdump.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_elvdump[] = "$Id: elvdump.c,v 1.8 1998/09/20 18:31:50 steve Exp $";
 
 /* This file contains a replacement for elvis' main() function.  The resulting
  * program will test each component of elvis.
  */
 
 #include "elvis.h"
+#ifdef FEATURE_RCSID
+char id_elvdump[] = "$Id: elvdump.c,v 1.11 2003/10/17 17:41:23 steve Exp $";
+#endif
 
 #ifdef FEATURE_COMPLETE
 # error You must #undef FEATURE_COMPLETE in config.h to compile this program
 #endif
 
-extern void dump(char *bufname, BOOLEAN useronly);
+extern void dump(char *bufname, ELVBOOL useronly);
 
 /* support for elvis' ctype macros */
 #ifdef ELVCT_DIGIT
@@ -43,9 +45,9 @@ static GUI nogui;
 GUI *chosengui = &nogui;
 GUI *gui = &nogui;
 
-BOOLEAN guipoll(BOOLEAN reset)
+ELVBOOL guipoll(ELVBOOL reset)
 {
-	return False;
+	return ElvFalse;
 }
 
 void msg(MSGIMP imp, char *format, ...)
@@ -58,14 +60,14 @@ CHAR *msgtranslate(char *msg)
 	return toCHAR(msg);
 }
 
-BOOLEAN calcnumber(CHAR *arg)
+ELVBOOL calcnumber(CHAR *arg)
 {
-	return False;
+	return ElvFalse;
 }
 
-BOOLEAN calctrue(CHAR *arg)
+ELVBOOL calctrue(CHAR *arg)
 {
-	return False;
+	return ElvFalse;
 }
 
 WINDOW windefault;
@@ -78,7 +80,7 @@ void bufreplace(MARK from, MARK to, CHAR *newp, long newlen)
 {
 }
 
-void dump(char *bufname, BOOLEAN useronly)
+void dump(char *bufname, ELVBOOL useronly)
 {
 	BLK	*super;
 	BLK	*bufinfo;
@@ -87,8 +89,8 @@ void dump(char *bufname, BOOLEAN useronly)
 	BLKNO	blkno, next;
 	int	i, j;
 
-	sesopen(True);
-	seslock(0, False, SES_SUPER);
+	sesopen(ElvTrue);
+	seslock(0, ElvFalse, SES_SUPER);
 	super = sesblk(0);
 	for (i = 0; i < SES_MAXSUPER; i++)
 	{
@@ -100,13 +102,13 @@ void dump(char *bufname, BOOLEAN useronly)
 
 		/* read the bufinfo block */
 		sesalloc(super->super.buf[i], SES_BUFINFO);
-		seslock(super->super.buf[i], False, SES_BUFINFO);
+		seslock(super->super.buf[i], ElvFalse, SES_BUFINFO);
 		bufinfo = sesblk(super->super.buf[i]);
 
 		/* skip if "-u" and this isn't a user buffer */
 		if (useronly && !strncmp(bufinfo->bufinfo.name, "Elvis ", 6))
 		{
-			sesunlock(super->super.buf[i], False);
+			sesunlock(super->super.buf[i], ElvFalse);
 			continue;
 		}
 
@@ -120,7 +122,7 @@ void dump(char *bufname, BOOLEAN useronly)
 		/* if "-u" and we don't have a buffer name, then we're done */
 		if (useronly && !bufname)
 		{
-			sesunlock(super->super.buf[i], False);
+			sesunlock(super->super.buf[i], ElvFalse);
 			continue;
 		}
 
@@ -131,7 +133,7 @@ void dump(char *bufname, BOOLEAN useronly)
 
 			/* read the blklist block */
 			sesalloc(blkno, SES_BLKLIST);
-			seslock(blkno, False, SES_BLKLIST);
+			seslock(blkno, ElvFalse, SES_BLKLIST);
 			blklist = sesblk(blkno);
 
 			/* for each chars block... */
@@ -147,33 +149,33 @@ void dump(char *bufname, BOOLEAN useronly)
 				{
 					/* read the chars block & output its contents */
 					sesalloc(blklist->blklist.blk[j].blkno, SES_CHARS);
-					seslock(blklist->blklist.blk[j].blkno, False, SES_CHARS);
+					seslock(blklist->blklist.blk[j].blkno, ElvFalse, SES_CHARS);
 					chars = sesblk(blklist->blklist.blk[j].blkno);
 					fwrite(chars->chars.chars, blklist->blklist.blk[j].nchars, sizeof(CHAR), stdout);
-					sesunlock(blklist->blklist.blk[j].blkno, False);
+					sesunlock(blklist->blklist.blk[j].blkno, ElvFalse);
 				}
 			}
 
 			/* release the blklist block */
 			next = blklist->blklist.next;
-			sesunlock(blkno, False);
+			sesunlock(blkno, ElvFalse);
 		}
 
 		/* release the bufinfo block */
-		sesunlock(super->super.buf[i], False);
+		sesunlock(super->super.buf[i], ElvFalse);
 	}
-	sesunlock(0, False);
+	sesunlock(0, ElvFalse);
 	sesclose();
 }
 
 int main(int argc, char **argv)
 {
-	BOOLEAN useronly = False;
+	ELVBOOL useronly = ElvFalse;
 
 	optglobinit();
 	if (argc >= 2 && !strcmp(argv[1], "-u"))
 	{
-		useronly = True;
+		useronly = ElvTrue;
 		argv++;
 		argc--;
 	}

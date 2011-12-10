@@ -1,13 +1,15 @@
 /* lowbuf.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_lowbuf[] = "$Id: lowbuf.c,v 2.32 1999/10/01 19:39:27 steve Exp $";
 
 /* This file contains functions which divide the session file into several
  * buffers.  These functions use session.c, and are used by buffer.c
  */
 
 #include "elvis.h"
+#ifdef FEATURE_RCSID
+char id_lowbuf[] = "$Id: lowbuf.c,v 2.46 2003/10/17 17:41:23 steve Exp $";
+#endif
 
 /* These control the sizes of some tiny caches for storing line offsets and
  * info about random offsets.  You can disable these by making them 0.  This
@@ -85,23 +87,23 @@ static BLKNO delblock(blklist, lblkno, ncharsptr, nlinesptr)
 	 */
 	if (lblkno >= SES_MAXBLKLIST)
 	{
-		blklist = seslock(blklist, True, SES_BLKLIST);
+		blklist = seslock(blklist, ElvTrue, SES_BLKLIST);
 		blk = sesblk(blklist);
 		next = delblock(blk->blklist.next, (LBLKNO)(lblkno - SES_MAXBLKLIST), ncharsptr, nlinesptr);
 		if (next == blk->blklist.next)
 		{
-			sesunlock(blklist, False);
+			sesunlock(blklist, ElvFalse);
 		}
 		else
 		{
 			blk->blklist.next = next;
-			sesunlock(blklist, True);
+			sesunlock(blklist, ElvTrue);
 		}
 		return blklist;
 	}
 
 	/* the doomed lblkno is in this block.  Free the char block */
-	(void)seslock(blklist, False, SES_BLKLIST);
+	(void)seslock(blklist, ElvFalse, SES_BLKLIST);
 	blk = sesblk(blklist);
 	assert(blk->blklist.blk[lblkno].blkno != 0);
 	sesfree(blk->blklist.blk[lblkno].blkno);
@@ -115,14 +117,14 @@ static BLKNO delblock(blklist, lblkno, ncharsptr, nlinesptr)
 	 */
 	if (lblkno == 0 && blk->blklist.blk[1].blkno == 0)
 	{
-		sesunlock(blklist, False);
+		sesunlock(blklist, ElvFalse);
 		sesfree(blklist);
 		return 0;
 	}
-	sesunlock(blklist, False);
+	sesunlock(blklist, ElvFalse);
 
 	/* shift this blklist's blk[] array to delete the element */
-	blklist = seslock(blklist, True, SES_BLKLIST);
+	blklist = seslock(blklist, ElvTrue, SES_BLKLIST);
 	blk = sesblk(blklist);
 	while (lblkno < SES_MAXBLKLIST - 1)
 	{
@@ -144,16 +146,17 @@ static BLKNO delblock(blklist, lblkno, ncharsptr, nlinesptr)
 	{
 		/* shift in the first element of the next blklist's blk[] */
 		next = blk->blklist.next;
-		(void)seslock(next, False, SES_BLKLIST);
+		(void)seslock(next, ElvFalse, SES_BLKLIST);
 		blk->blklist.blk[lblkno] = sesblk(next)->blklist.blk[0];
-		sesunlock(next, False);
+		sesalloc(blk->blklist.blk[lblkno].blkno, SES_CHARS);
+		sesunlock(next, ElvFalse);
 
 		/* recursively shift following blklists' blk[] arrays */
 		blk->blklist.next = delblock(next, 0, (COUNT *)0, (COUNT *)0);
 	}
 
 	/* return BLKNO of altered version of this blklist */
-	sesunlock(blklist, True);
+	sesunlock(blklist, ElvTrue);
 	return blklist;
 }
 
@@ -186,18 +189,18 @@ static BLKNO insblock(blklist, before, chars, nchars, nlines)
 		blklist = sesalloc(0, SES_BLKLIST);
 
 		/* make the new CHARS block be its first entry */
-		(void)seslock(blklist, True, SES_BLKLIST);
+		(void)seslock(blklist, ElvTrue, SES_BLKLIST);
 		blk = sesblk(blklist);
 		blk->blklist.blk[0].blkno = chars;
 		blk->blklist.blk[0].nchars = nchars;
 		blk->blklist.blk[0].nlines = nlines;
-		sesunlock(blklist, True);
+		sesunlock(blklist, ElvTrue);
 	}
 	/* should the chars block be inserted into this blklist block? */
 	else if (before < SES_MAXBLKLIST)
 	{
 		/* yes!  Get this blocklist block */
-		blklist = seslock(blklist, True, SES_BLKLIST);
+		blklist = seslock(blklist, ElvTrue, SES_BLKLIST);
 		blk = sesblk(blklist);
 
 		/* if the blklist is full, then insert the last item of
@@ -213,7 +216,7 @@ static BLKNO insblock(blklist, before, chars, nchars, nlines)
 		}
 
 		/* insert the chars block into this blklist block */
-		for (; i > before; --i)
+		for (; (unsigned)i > before; --i)
 		{
 			blk->blklist.blk[i] = blk->blklist.blk[i - 1];
 		}
@@ -222,21 +225,21 @@ static BLKNO insblock(blklist, before, chars, nchars, nlines)
 		blk->blklist.blk[before].nlines = nlines;
 
 		/* done! */
-		sesunlock(blklist, True);
+		sesunlock(blklist, ElvTrue);
 	}
 	else /* chars will be inserted into a later blklist block */
 	{
-		blklist = seslock(blklist, True, SES_BLKLIST);
+		blklist = seslock(blklist, ElvTrue, SES_BLKLIST);
 		blk = sesblk(blklist);
 		next = insblock(blk->blklist.next, (LBLKNO)(before - SES_MAXBLKLIST), chars, nchars, nlines);
 		if (blk->blklist.next != next)
 		{
 			blk->blklist.next = next;
-			sesunlock(blklist, True);
+			sesunlock(blklist, ElvTrue);
 		}
 		else
 		{
-			sesunlock(blklist, False);
+			sesunlock(blklist, ElvFalse);
 		}
 	}
 	return blklist;
@@ -257,18 +260,21 @@ static BLKNO lockchars(bufinfo, lblkno, blkno)
 	BLK	*blk;
 
 	assert(bufinfo != 0 && blkno != 0);
+#ifdef DEBUG_SCAN
+	scan__nobuf();
+#endif
 
 	/* step 1: lock the chars block.  If its BLKNO remains unchanged,
 	 * then we're done.
 	 */
-	locked = seslock(blkno, True, SES_CHARS);
+	locked = seslock(blkno, ElvTrue, SES_CHARS);
 	if (locked == blkno)
 	{
 		return blkno;
 	}
 
 	/* step 2: fetch the bufinfo block. */
-	next = seslock(bufinfo, False, SES_BUFINFO);
+	next = seslock(bufinfo, ElvFalse, SES_BUFINFO);
 	assert(next == bufinfo);
 	blk = sesblk(bufinfo);
 
@@ -276,13 +282,13 @@ static BLKNO lockchars(bufinfo, lblkno, blkno)
 	 * chars block.  Since blklist blocks are never shared, this
 	 * shouldn't require copy-on-write.
 	 */
-	blklist = seslock(blk->bufinfo.first, True, SES_BLKLIST);
+	blklist = seslock(blk->bufinfo.first, ElvTrue, SES_BLKLIST);
 	blk = sesblk(blklist);
 	while (lblkno >= SES_MAXBLKLIST)
 	{
-		next = seslock(blk->blklist.next, True, SES_BLKLIST);
+		next = seslock(blk->blklist.next, ElvTrue, SES_BLKLIST);
 		assert(next != 0);
-		sesunlock(blklist, False);
+		sesunlock(blklist, ElvFalse);
 		blklist = next;
 		lblkno -= SES_MAXBLKLIST;
 		blk = sesblk(blklist);
@@ -291,8 +297,8 @@ static BLKNO lockchars(bufinfo, lblkno, blkno)
 
 	/* step 4: replace the blkno in the blklist */
 	blk->blklist.blk[lblkno].blkno = locked;
-	sesunlock(blklist, True);
-	sesunlock(bufinfo, False);
+	sesunlock(blklist, ElvTrue);
+	sesunlock(bufinfo, ElvFalse);
 	return locked;
 }
 
@@ -317,21 +323,21 @@ static void unlockchars(bufinfo, lblkno, blkno, chgchars, chglines)
 	if (chgchars != 0 || chglines != 0)
 	{
 		/* locate the BLKLIST block that refers to this CHARS block */
-		(void)seslock(bufinfo, False, SES_BUFINFO);
+		(void)seslock(bufinfo, ElvFalse, SES_BUFINFO);
 		blklist = sesblk(bufinfo)->bufinfo.first;
 		assert(blklist != 0);
-		sesunlock(bufinfo, False);
+		sesunlock(bufinfo, ElvFalse);
 		for (; lblkno >= SES_MAXBLKLIST; lblkno -= SES_MAXBLKLIST)
 		{
-			(void)seslock(blklist, False, SES_BLKLIST);
+			(void)seslock(blklist, ElvFalse, SES_BLKLIST);
 			next = sesblk(blklist)->blklist.next;
-			sesunlock(blklist, False);
+			sesunlock(blklist, ElvFalse);
 			blklist = next;
 			assert(blklist != 0);
 		}
 
 		/* update the nchars and nlines counts */
-		next = seslock(blklist, True, SES_BLKLIST);
+		next = seslock(blklist, ElvTrue, SES_BLKLIST);
 		assert(next == blklist);
 		blk = sesblk(blklist);
 		blk->blklist.blk[lblkno].nchars += chgchars;
@@ -340,26 +346,23 @@ static void unlockchars(bufinfo, lblkno, blkno, chgchars, chglines)
 		blk->blklist.blk[lblkno].nlines += chglines;
 		assert(blk->blklist.blk[lblkno].nlines < SES_MAXCHARS);
 		assert(blk->blklist.blk[lblkno].blkno == blkno);
-		sesunlock(blklist, True);
+		sesunlock(blklist, ElvTrue);
 	}
 
 	/* unlock the chars block for writing */
-	sesunlock(blkno, True);
+	sesunlock(blkno, ElvTrue);
 }
 
 /******************************************************************************/
 /* session restarting function                                                */
 
+#ifdef FEATURE_MISC
 /* This function helps lowinit(), by initializing a single buffer from the
  * session file.
  */
-#if USE_PROTOTYPES
-static void helpinit(_BLKNO_ bufinfo, void (*bufproc)(_BLKNO_ bufinfo, long nchars, long nlines, long changes, long prevloc, CHAR *name))
-#else
 static void helpinit(bufinfo, bufproc)
 	_BLKNO_	bufinfo;	/* a BUFINFO block */
-	void	(*bufproc)();	/* a function in "buffer.c" for high-level processing */
-#endif
+	void	(*bufproc)P_((_BLKNO_ bufinfo, long nchars, long nlines, long changes, long prevloc, CHAR *name));
 {
 	BLKNO	blklist, next;
 	BLK	*binfo, *blist;
@@ -369,20 +372,26 @@ static void helpinit(bufinfo, bufproc)
 	/* mark the bufinfo block as being "allocated", and lock it in memory */
 	next = sesalloc(bufinfo, SES_BUFINFO);
 	assert(next == bufinfo);
-	(void)seslock(bufinfo, False, SES_BUFINFO);
+	(void)seslock(bufinfo, ElvFalse, SES_BUFINFO);
 	binfo = sesblk(bufinfo);
 
-	assert(checksum(binfo) == binfo->bufinfo.checksum);
+	/* if it is damaged, skip it */
+	if (checksum(binfo) != binfo->bufinfo.checksum)
+	{
+		fprintf(stderr, "found a bad version of \"%s\"\n", binfo->bufinfo.name);
+		sesunlock(bufinfo, ElvFalse);
+		return;
+	}
 
 	/* for each blklist block... */
 	for (blklist = binfo->bufinfo.first; blklist; blklist = next)
 	{
 		/* mark the blklist block as being "allocated", & lock it */
-		(void)seslock(sesalloc(blklist, SES_BLKLIST), False, SES_BLKLIST);
+		(void)seslock(sesalloc(blklist, SES_BLKLIST), ElvFalse, SES_BLKLIST);
 		blist = sesblk(blklist);
 
 		/* For each chars block mentioned in the BLKLIST... */
-		for (i = 0; i < SES_MAXBLKLIST && blist->blklist.blk[i].blkno; i++)
+		for (i = 0; (unsigned)i < SES_MAXBLKLIST && blist->blklist.blk[i].blkno; i++)
 		{
 			assert(blist->blklist.blk[i].nchars < SES_MAXCHARS);
 			assert(blist->blklist.blk[i].nlines <= blist->blklist.blk[i].nchars);
@@ -398,15 +407,16 @@ static void helpinit(bufinfo, bufproc)
 
 		/* find the next blklist, and then unlock this one */
 		next = blist->blklist.next;
-		sesunlock(blklist, False);
+		sesunlock(blklist, ElvFalse);
 	}
 
 	/* let the BUFFER module initialize itself */
 	(*bufproc)(bufinfo, nchars, nlines, binfo->bufinfo.changes, binfo->bufinfo.prevloc, toCHAR(binfo->bufinfo.name));
 
 	/* unlock the bufinfo block */
-	sesunlock(bufinfo, False);
+	sesunlock(bufinfo, ElvFalse);
 }
+#endif /* FEATURE_MISC */
 
 
 /* This function uses sesopen() to open or create a session file.  Then it
@@ -417,19 +427,22 @@ static void helpinit(bufinfo, bufproc)
 void lowinit(bufproc)
 	void	(*bufproc) P_((_BLKNO_ bufinfo, long nchars, long nlines, long changes, long prevloc, CHAR *name));
 {
+#ifdef FEATURE_MISC
 	BLK	*blk;
 	BLKNO	blkno, next;
 	int	i;
+#endif
 
 	/* create or open the session file */
 	sesopen(o_recovering);
 
+#ifdef FEATURE_MISC
 	/* lock the superblock */
-	(void)seslock(0, False, SES_SUPER);
+	(void)seslock(0, ElvFalse, SES_SUPER);
 	blk = sesblk(0);
 
 	/* for each buffer mentioned in the superblock... */
-	for (i = 0; i < SES_MAXSUPER; i++)
+	for (i = 0; (unsigned)i < SES_MAXSUPER; i++)
 	{
 		/* ... skipping empty slots... */
 		if (blk->super.buf[i])
@@ -443,14 +456,14 @@ void lowinit(bufproc)
 	 * as being "allocated".
 	 */
 	blkno = blk->super.next;
-	sesunlock(0, False);
+	sesunlock(0, ElvFalse);
 	while (blkno)
 	{
 		/* mark the block as allocated, and lock it into memory */
-		(void)seslock(sesalloc(blkno, SES_SUPER2), False, SES_SUPER2);
+		(void)seslock(sesalloc(blkno, SES_SUPER2), ElvFalse, SES_SUPER2);
 
 		/* for each buffer mentioned in the superblock... */
-		for (i = 0; i < SES_MAXSUPER2; i++)
+		for (i = 0; (unsigned)i < SES_MAXSUPER2; i++)
 		{
 			/* ... skipping empty slots... */
 			if (blk->super2.buf[i])
@@ -462,9 +475,10 @@ void lowinit(bufproc)
 
 		/* find the next block */
 		next = blk->super2.next;
-		sesunlock(blkno, False);
+		sesunlock(blkno, ElvFalse);
 		blkno = next;
 	}
+#endif /* FEATURE_MISC */
 }
 
 
@@ -484,7 +498,7 @@ BLKNO lowalloc(name)
 	safeinspect();
 
 	/* Allocate a block, and lock it for writing */
-	bufinfo = seslock(sesalloc(0, SES_BUFINFO), True, SES_BUFINFO);
+	bufinfo = seslock(sesalloc(0, SES_BUFINFO), ElvTrue, SES_BUFINFO);
 
 	/* Fill in the block's info */
 	blk = sesblk(bufinfo);
@@ -496,10 +510,10 @@ BLKNO lowalloc(name)
 	blk->bufinfo.checksum = checksum(blk);
 
 	/* Unlock the block */
-	sesunlock(bufinfo, True);
+	sesunlock(bufinfo, ElvTrue);
 
 	/* Lock the superblock for writing */
-	super = seslock(0, True, SES_SUPER);
+	super = seslock(0, ElvTrue, SES_SUPER);
 	assert(super == 0);
 	blk = sesblk(super);
 
@@ -508,14 +522,14 @@ BLKNO lowalloc(name)
 	do
 	{
 		/* if we reached the end of this block, start next */
-		if (++i >= (super==0 ? SES_MAXSUPER : SES_MAXSUPER2))
+		if ((unsigned)++i >= (super==0 ? SES_MAXSUPER : SES_MAXSUPER2))
 		{
-			sesunlock(super, False);
+			sesunlock(super, ElvFalse);
 			next = (super==0 ? blk->super.next : blk->super2.next);
 			if (next == 0)
 			{
 				/* need to allocate a new super2 */
-				next = seslock(super, True, SES_SUPER);
+				next = seslock(super, ElvTrue, SES_SUPER);
 				assert(next == super);
 				next = sesalloc(0, SES_SUPER2);
 				if (super == 0)
@@ -526,9 +540,9 @@ BLKNO lowalloc(name)
 				{
 					blk->super2.buf[i] = next;
 				}
-				sesunlock(super, True);
+				sesunlock(super, ElvTrue);
 			}
-			super = seslock(next, True, SES_SUPER2);
+			super = seslock(next, ElvTrue, SES_SUPER2);
 			assert(super == next);
 			blk = sesblk(super);
 			i = 0;
@@ -544,7 +558,7 @@ BLKNO lowalloc(name)
 	}
 
 	/* Unlock the superblock (or its super2 block) */
-	sesunlock(super, True);
+	sesunlock(super, ElvTrue);
 	safeinspect();
 	return bufinfo;
 }
@@ -565,14 +579,14 @@ BLKNO lowdup(originfo)
 #endif
 
 	/* Lock the originfo block */
-	(void)seslock(originfo, False, SES_BUFINFO);
+	(void)seslock(originfo, ElvFalse, SES_BUFINFO);
 	blk = sesblk(originfo);
 
 	/* Create a buffer */
 	dupinfo = lowalloc(blk->bufinfo.name);
 
 	/* Lock its bufinfo block for writing */
-	scan = seslock(dupinfo, True, SES_BUFINFO);
+	scan = seslock(dupinfo, ElvTrue, SES_BUFINFO);
 	assert(scan == dupinfo);
 
 	/* Copy the original bufinfo into the new bufinfo */
@@ -580,7 +594,7 @@ BLKNO lowdup(originfo)
 	memcpy(dupbiblk, blk, (size_t)o_blksize);
 
 	/* Unlock the original bufinfo block */
-	sesunlock(originfo, False);
+	sesunlock(originfo, ElvFalse);
 
 	/* For each blklist block... */
 	scan = blk->bufinfo.first;
@@ -593,7 +607,7 @@ BLKNO lowdup(originfo)
 		if (prevdup != 0)
 		{
 			dupblk->blklist.next = dupblklist;
-			sesunlock(prevdup, True);
+			sesunlock(prevdup, ElvTrue);
 		}
 		else
 		{
@@ -601,9 +615,9 @@ BLKNO lowdup(originfo)
 		}
 
 		/* Lock the blklist blocks */
-		(void)seslock(scan, False, SES_BLKLIST);
+		(void)seslock(scan, ElvFalse, SES_BLKLIST);
 		blk = sesblk(scan);
-		next = seslock(dupblklist, True, SES_BLKLIST);
+		next = seslock(dupblklist, ElvTrue, SES_BLKLIST);
 		assert(next == dupblklist);
 		dupblk = sesblk(dupblklist);
 		prevdup = dupblklist;
@@ -612,28 +626,28 @@ BLKNO lowdup(originfo)
 		memcpy(dupblk, blk, (size_t)o_blksize);
 
 		/* For each chars block... */
-		for (i = 0; i < SES_MAXBLKLIST && blk->blklist.blk[i].blkno; i++)
+		for (i = 0; (unsigned)i < SES_MAXBLKLIST && blk->blklist.blk[i].blkno; i++)
 		{
 			/* Increment allocation count on the chars block */
 			(void)sesalloc(blk->blklist.blk[i].blkno, SES_CHARS);
 		}
-		assert(i == SES_MAXBLKLIST || !blk->blklist.next);
+		assert((unsigned)i == SES_MAXBLKLIST || !blk->blklist.next);
 
 		/* unlock the blklist blocks, and procede to next blklist */
 		next = blk->blklist.next;
-		sesunlock(scan, False);
+		sesunlock(scan, ElvFalse);
 		scan = next;
 	}
 
 	/* unlock the final new blklist block (if any) */
 	if (dupblk)
 	{
-		sesunlock(prevdup, True);
+		sesunlock(prevdup, ElvTrue);
 	}
 
 	/* Unlock the new bufinfo block for writing */
 	dupbiblk->bufinfo.checksum = checksum(dupbiblk);
-	sesunlock(dupinfo, True);
+	sesunlock(dupinfo, ElvTrue);
 	return dupinfo;
 }
 
@@ -649,7 +663,7 @@ void lowfree(bufinfo)
 	clobbercache(bufinfo);
 #endif
 	/* Lock the superblock for writing */
-	scan = seslock(0, True, SES_SUPER);
+	scan = seslock(0, ElvTrue, SES_SUPER);
 	assert(scan == 0);
 	blk = sesblk(0);
 
@@ -658,17 +672,17 @@ void lowfree(bufinfo)
 	do
 	{
 		/* if we reached the end of this block, start next */
-		if (++i >= (scan==0 ? SES_MAXSUPER : SES_MAXSUPER2))
+		if ((unsigned)++i >= (scan==0 ? SES_MAXSUPER : SES_MAXSUPER2))
 		{
 			next = (scan==0 ? blk->super.next : blk->super2.next);
-			sesunlock(scan, False);
+			sesunlock(scan, ElvFalse);
 			assert(next != 0);
-			scan = seslock(next, True, SES_BLKLIST);
+			scan = seslock(next, ElvTrue, SES_BLKLIST);
 			assert(scan == next);
 			blk = sesblk(scan);
 			i = 0;
 		}
-	} while (((scan==0) ? blk->super.buf[i] : blk->super2.buf[i]) != bufinfo);
+	} while ((unsigned)((scan==0) ? blk->super.buf[i] : blk->super2.buf[i]) != bufinfo);
 	if (scan == 0)
 	{
 		blk->super.buf[i] = 0;
@@ -685,37 +699,37 @@ void lowfree(bufinfo)
 	 * and the super block had never been flushed, then the session file
 	 * might be too scrambled for elvis to read it successfully.
 	 */
-	sesunlock(scan, True);
+	sesunlock(scan, ElvTrue);
 	sesflush(scan);
 
 	/* Lock the bufinfo block */
-	(void)seslock(bufinfo, False, SES_BUFINFO);
+	(void)seslock(bufinfo, ElvFalse, SES_BUFINFO);
 
 	/* For each blklist block... */
 	for (scan = sesblk(bufinfo)->bufinfo.first; scan; scan = next)
 	{
 		/* Lock the blklist block */
-		(void)seslock(scan, False, SES_BLKLIST);
+		(void)seslock(scan, ElvFalse, SES_BLKLIST);
 
 		/* For each chars block... */
 		blk = sesblk(scan);
-		for (i = 0; i < SES_MAXBLKLIST && blk->blklist.blk[i].blkno; i++)
+		for (i = 0; (unsigned)i < SES_MAXBLKLIST && blk->blklist.blk[i].blkno; i++)
 		{
 			/* free the chars block */
 			sesfree(blk->blklist.blk[i].blkno);
 		}
-		assert(i == SES_MAXBLKLIST || !blk->blklist.next);
+		assert((unsigned)i == SES_MAXBLKLIST || !blk->blklist.next);
 
 		/* Unlock the blklist block */
 		next = blk->blklist.next;
-		sesunlock(scan, False);
+		sesunlock(scan, ElvFalse);
 
 		/* Free the blklist block */
 		sesfree(scan);
 	}
 
 	/* Unlock the bufinfo block */
-	sesunlock(bufinfo, False);
+	sesunlock(bufinfo, ElvFalse);
 
 	/* Free the bufinfo block */
 	sesfree(bufinfo);
@@ -730,16 +744,16 @@ void lowtitle(bufinfo, title)
 #ifdef DEBUG_SESSION
 	BLKNO	blkno;
 
-	blkno = seslock(bufinfo, True, SES_BUFINFO);
+	blkno = seslock(bufinfo, ElvTrue, SES_BUFINFO);
 	assert(blkno == bufinfo);
 #else
-	(void)seslock(bufinfo, True, SES_BUFINFO);
+	(void)seslock(bufinfo, ElvTrue, SES_BUFINFO);
 #endif
 
 	blk = sesblk(bufinfo);
 	assert(blk);
 	CHARncpy(blk->bufinfo.name, title, (size_t)SES_MAXBUFINFO);
-	sesunlock(bufinfo, True);
+	sesunlock(bufinfo, ElvTrue);
 }
 
 /******************************************************************************/
@@ -779,6 +793,7 @@ long lowline(bufinfo, lineno)
 	BLKNO	next;	/* the next blklist block, after this one */
 	long	offset;	/* total offset seen */
 	int	i;	/* used for scanning through blklist.blk[] */
+	int	nlines;	/* number of lines/chars in block */
 #if LINECACHE
 	long	origline;/* a copy of lineno */
 
@@ -797,9 +812,9 @@ long lowline(bufinfo, lineno)
 	lineno--;
 
 	/* find the first blklist */
-	(void)seslock(bufinfo, False, SES_BUFINFO);
+	(void)seslock(bufinfo, ElvFalse, SES_BUFINFO);
 	blklist = sesblk(bufinfo)->bufinfo.first;
-	sesunlock(bufinfo, False);
+	sesunlock(bufinfo, ElvFalse);
 
 	/* if empty buffer then return 0 */
 	if (!blklist)
@@ -813,26 +828,54 @@ long lowline(bufinfo, lineno)
 		assert(blklist != 0);
 
 		/* for each element of blklist->blk[]... */
-		seslock(blklist, False, SES_BLKLIST);
+		seslock(blklist, ElvFalse, SES_BLKLIST);
 		blk = sesblk(blklist);
-		for (i = 0; i < SES_MAXBLKLIST && blk->blklist.blk[i].blkno; i++)
+		for (i = 0; (unsigned)i < SES_MAXBLKLIST && blk->blklist.blk[i].blkno; i++)
 		{
 			/* see if we've found the right chars block yet */
-			if (blk->blklist.blk[i].nlines >= lineno)
+			if ((nlines = blk->blklist.blk[i].nlines) >= lineno)
 			{
 				/* unlock the blklist, and lock the chars block */
 				next = blk->blklist.blk[i].blkno;
-				sesunlock(blklist, False);
-				(void)seslock(next, False, SES_CHARS);
+				i = blk->blklist.blk[i].nchars;
+				sesunlock(blklist, ElvFalse);
+				(void)seslock(next, ElvFalse, SES_CHARS);
 				blk = sesblk(next);
 
+				/* AT THIS POINT...
+				 * lineno = number of newlines to move past
+				 *          in this CHARS block.
+				 * nlines = total number of newlines in this
+				 *          CHARS block
+				 * i      = total chars in this CHARS block
+				 * offset = offset of start of this block
+				 */
+
 				/* locate the line within the chars block */
-				for (i = 0; lineno > 0; offset++, i++)
+				if (lineno + lineno <= nlines)
 				{
-					assert(i < SES_MAXCHARS);
-					if (blk->chars.chars[i] == '\n')
+					/* count newlines from front of block */
+					for (i = 0; lineno > 0; offset++, i++)
 					{
-						lineno--;
+						assert((unsigned)i < SES_MAXCHARS);
+						if (blk->chars.chars[i] == '\n')
+						{
+							lineno--;
+						}
+					}
+				}
+				else
+				{
+					/* count newlines from rear of block */
+					for (offset += i, lineno -= nlines; ; )
+					{
+						assert(i > 0);
+						if (blk->chars.chars[--i]=='\n')
+						{
+							if (lineno++ == 0)
+								break;
+						}
+						offset--;
 					}
 				}
 
@@ -845,7 +888,7 @@ long lowline(bufinfo, lineno)
 #endif /* LINECACHE */
 
 				/* return the offset */
-				sesunlock(next, False);
+				sesunlock(next, ElvFalse);
 				return offset;
 			}
 			lineno -= blk->blklist.blk[i].nlines;
@@ -854,8 +897,8 @@ long lowline(bufinfo, lineno)
 
 		/* find the next blklist */
 		next = blk->blklist.next;
-		assert(!next || i == SES_MAXBLKLIST);
-		sesunlock(blklist, False);
+		assert(!next || (unsigned)i == SES_MAXBLKLIST);
+		sesunlock(blklist, ElvFalse);
 		if (!next)
 		{
 			/* there is no next blklist block -- return final offset */
@@ -901,6 +944,8 @@ BLKNO lowoffset(bufinfo, offset, left, right, lptr, linenum)
 	long	lnum;	/* counts newlines */
 	BLK	*blk;	/* contents of a bufinfo or blklist block */
 	register int	i;	/* used for scanning through blklist.blk[] */
+	int	nlines;	/* lines in current CHARS block */
+	int	nchars;	/* chars in current CHARS block */
 	register struct blki_s *blki;
 	BLKNO	maxblklist = SES_MAXBLKLIST;
 
@@ -911,9 +956,9 @@ BLKNO lowoffset(bufinfo, offset, left, right, lptr, linenum)
 	}
 
 	/* find the first blklist */
-	(void)seslock(bufinfo, False, SES_BUFINFO);
+	(void)seslock(bufinfo, ElvFalse, SES_BUFINFO);
 	blklist = sesblk(bufinfo)->bufinfo.first;
-	sesunlock(bufinfo, False);
+	sesunlock(bufinfo, ElvFalse);
 
 	/* if the buffer has no blocks, then any offset is past the end of
 	 * the buffer, so do the "*right = 0" thing.
@@ -933,7 +978,7 @@ BLKNO lowoffset(bufinfo, offset, left, right, lptr, linenum)
 		assert(blklist != 0);
 
 		/* for each element of blklist->blk[]... */
-		seslock(blklist, False, SES_BLKLIST);
+		seslock(blklist, ElvFalse, SES_BLKLIST);
 		blk = sesblk(blklist);
 		for (i = 0, blki = blk->blklist.blk;
 		     i < maxblklist && blki->blkno;
@@ -945,23 +990,51 @@ BLKNO lowoffset(bufinfo, offset, left, right, lptr, linenum)
 			{
 				/* Yes!  Return the info */
 				next = blki->blkno;
-				sesunlock(blklist, False);
+				nlines = blki->nlines;
+				nchars = blki->nchars;
+				sesunlock(blklist, ElvFalse);
 				if (lptr) *lptr = lblkno + i;
-				i = offset + blki->nchars;
+				i = offset + nchars;
 				if (left) *left = i;
-				if (right) *right = -offset;
+				if (right) *right = (unsigned short)-offset;
 				if (linenum)
 				{
-					seslock(next, False, SES_CHARS);
-					blk = sesblk(next);
-					while (--i >= 0)
+					/* AT THIS POINT...
+					 * lnum = line# of front of block
+					 * i    = index into block
+					 * nlines = total \n's in CHARS block
+					 * nchars = total chars in CHARS block
+					 * next   = BLKNO of the CHARS block
+					 */
+					if (i + i <= nchars)
 					{
-						if (blk->chars.chars[i] == '\n')
+						/* count from front of block */
+						seslock(next, ElvFalse, SES_CHARS);
+						blk = sesblk(next);
+						while (--i >= 0)
 						{
-							lnum++;
+							if (blk->chars.chars[i] == '\n')
+							{
+								lnum++;
+							}
 						}
+						sesunlock(next, ElvFalse);
 					}
-					sesunlock(next, False);
+					else
+					{
+						/* count from rear of block */
+						lnum += nlines;
+						seslock(next, ElvFalse, SES_CHARS);
+						blk = sesblk(next);
+						do
+						{
+							if (blk->chars.chars[--nchars] == '\n')
+							{
+								lnum--;
+							}
+						} while (i < nchars);
+						sesunlock(next, ElvFalse);
+					}
 					*linenum = lnum;
 				}
 				return next;
@@ -979,10 +1052,10 @@ BLKNO lowoffset(bufinfo, offset, left, right, lptr, linenum)
 			if (lptr) *lptr = lblkno + i - 1;
 			if (linenum) *linenum = lnum;
 			next = blk->blklist.blk[i - 1].blkno;
-			sesunlock(blklist, False);
+			sesunlock(blklist, ElvFalse);
 			return next;
 		}
-		sesunlock(blklist, False);
+		sesunlock(blklist, ElvFalse);
 	}
 	/*NOTREACHED*/
 }
@@ -1024,7 +1097,7 @@ register int	i;
 	blkno = lowoffset(dst, dsttop, &left, &right, &lblkno, (long *)0);
 
 	/* will the new text fit in the current block? */
-	if (blkno != 0 && left + right + newlen < SES_MAXCHARS)
+	if (blkno != 0 && (unsigned)(left + right + newlen) < SES_MAXCHARS)
 	{
 		/* yes!  Do a single-block rewrite. */
 
@@ -1054,7 +1127,7 @@ register int	i;
 		if (blkno != 0 && left != 0 && right != 0)
 		{
 			/* allocate a new block */
-			newblkno = seslock(sesalloc(0, SES_CHARS), True, SES_CHARS);
+			newblkno = seslock(sesalloc(0, SES_CHARS), ElvTrue, SES_CHARS);
 			newblk = sesblk(newblkno);
 
 			/* copy the second half of the characters into it */
@@ -1069,17 +1142,17 @@ register int	i;
 					nlines++;
 				}
 			}
-			sesunlock(newblkno, True);
+			sesunlock(newblkno, ElvTrue);
 
 			/* insert the new block after the first */
-			seslock(dst, True, SES_BUFINFO);
+			seslock(dst, ElvTrue, SES_BUFINFO);
 			biblk = sesblk(dst);
 			blklist = insblock(biblk->bufinfo.first, (LBLKNO)(lblkno + 1), newblkno, (COUNT)i, (COUNT)nlines);
 			biblk->bufinfo.first = blklist;
 			biblk->bufinfo.changes++;
 			biblk->bufinfo.prevloc = dsttop;
 			biblk->bufinfo.checksum = checksum(biblk);
-			sesunlock(dst, True);
+			sesunlock(dst, ElvTrue);
 
 			/* copy some new text into first half, filling it 90% */
 			nlines = -nlines;
@@ -1106,13 +1179,13 @@ register int	i;
 		}
 
 		/* while we have more text to insert */
-		seslock(dst, True, SES_BLKLIST);
+		seslock(dst, ElvTrue, SES_BUFINFO);
 		biblk = sesblk(dst);
 		blklist = biblk->bufinfo.first;
 		while (newlen > 0)
 		{
 			/* allocate a new block */
-			newblkno = seslock(sesalloc(0, SES_CHARS), True, SES_CHARS);
+			newblkno = seslock(sesalloc(0, SES_CHARS), ElvTrue, SES_CHARS);
 			newblk = sesblk(newblkno);
 
 			/* copy text into it */
@@ -1126,7 +1199,7 @@ register int	i;
 				}
 			}
 			totlines += (long)nlines;
-			sesunlock(newblkno, True);
+			sesunlock(newblkno, ElvTrue);
 
 			/* insert the new block */
 			blklist = insblock(blklist, lblkno, newblkno, (COUNT)i, nlines);
@@ -1135,7 +1208,7 @@ register int	i;
 		biblk->bufinfo.changes++;
 		biblk->bufinfo.first = blklist;
 		biblk->bufinfo.checksum = checksum(biblk);
-		sesunlock(dst, True);
+		sesunlock(dst, ElvTrue);
 	}
 
 	safeinspect();
@@ -1177,7 +1250,7 @@ long lowdelete(dst, dsttop, dstbottom)
 #endif
 
 	/* lock the bufinfo block, and fetch it */
-	(void)seslock(dst, True, SES_BUFINFO);
+	(void)seslock(dst, ElvTrue, SES_BUFINFO);
 	biblk = sesblk(dst);
 
 	/* If both ends are in the same block */
@@ -1314,7 +1387,7 @@ long lowdelete(dst, dsttop, dstbottom)
 	biblk->bufinfo.checksum = checksum(biblk);
 
 	/* Unlock the bufinfo block for writing */
-	sesunlock(dst, True);
+	sesunlock(dst, ElvTrue);
 	safeinspect();
 	return totlines;
 }
@@ -1383,12 +1456,12 @@ long lowpaste(dst, dsttop, src, srctop, srcbottom)
 		/* read the text block, and find the start of source text in it */
 		blkno = lowoffset(src, srctop, &left, &right, (LBLKNO *)0, (long *)0);
 
-		seslock(blkno, False, SES_CHARS);
+		seslock(blkno, ElvFalse, SES_CHARS);
 		blk = sesblk(blkno);
 		if (tmpblk)
 		{
 			memcpy(tmpblk, blk, (size_t)o_blksize);
-			sesunlock(blkno, False);
+			sesunlock(blkno, ElvFalse);
 			blk = tmpblk;
 		}
 
@@ -1398,7 +1471,7 @@ long lowpaste(dst, dsttop, src, srctop, srcbottom)
 		 */
 		if (right > srcbottom - srctop)
 		{
-			right = srcbottom - srctop;
+			right = (unsigned short)(srcbottom - srctop);
 		}
 
 		/* Copy the chunk of text into the destination. */
@@ -1416,7 +1489,7 @@ long lowpaste(dst, dsttop, src, srctop, srcbottom)
 		}
 		else /* different buffers -- the blk was used without copying */
 		{
-			sesunlock(blkno, False);
+			sesunlock(blkno, ElvFalse);
 		}
 	}
 

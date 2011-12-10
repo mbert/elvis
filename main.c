@@ -1,9 +1,12 @@
 /* main.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_main[] = "$Id: main.c,v 2.44 1999/02/06 22:26:40 steve Exp $";
 
 #include "elvis.h"
+#ifdef FEATURE_RCSID
+char id_main[] = "$Id: main.c,v 2.74 2003/10/18 04:47:18 steve Exp $";
+#endif
+#include <time.h> /* for time(), used to seed the random number generator */
 
 #if USE_PROTOTYPES
 static void usage(char *hint);
@@ -14,7 +17,6 @@ static void doexrc(void);
 static void buildargs(int argc, char **argv);
 static void startfirst(void);
 static void init(int argc, char **argv);
-void mainfirstcmd(WINDOW win);
 void term(void);
 int main(int argc, char **argv);
 #endif
@@ -32,6 +34,10 @@ static GUI *allguis[] =
 
 #ifdef GUI_X11
 	&guix11,
+#endif
+
+#ifdef GUI_GNOME
+  &guignome,
 #endif
 
 #ifdef GUI_PM
@@ -64,8 +70,13 @@ static GUI *allguis[] =
 /* These flags are set according to command-line flags */
 static char	*initialcommand;
 static char	*initialtag;
-static BOOLEAN	initialall;
+static ELVBOOL	initialall;
 GUI	*chosengui;
+
+#ifdef FEATURE_STDIN
+FILE	*origstdin;	/* where to read "-" from */
+ELVBOOL	stdin_not_kbd;	/* if ElvTrue, then keyboard input should be adjusted */
+#endif
 
 /* Give a usage message, and then exit */
 static void usage(hint)
@@ -79,9 +90,11 @@ static void usage(hint)
 	msg(MSG_INFO, "       -a          Create a separate window for each file");
 	msg(MSG_INFO, "       -r          Restart a session after a crash");
 	msg(MSG_INFO, "       -R          Mark new buffers as \"readonly\"");
+	msg(MSG_INFO, "       -b          Mark new buffers as \"readeol=binary\"");
 	msg(MSG_INFO, "       -e          Start in ex mode instead of vi mode");
 	msg(MSG_INFO, "       -i          Start in input mode instead of vi mode");
-	msg(MSG_INFO, "       -S          Set the \"safer\" option, for security");
+	msg(MSG_INFO, "       -S          Set security=safer, to protect against Trojan horses");
+	msg(MSG_INFO, "       -SS         Set security=restricted, for maximum security");
 	msg(MSG_INFO, "       -w lines    Set scroll amount to \"lines\"");
 	msg(MSG_INFO, "       -f session  Use \"session\" as the session file");
 	msg(MSG_INFO, "       -G gui      Use the \"gui\" user interface \\(see below\\)");
@@ -89,7 +102,7 @@ static void usage(hint)
 	msg(MSG_INFO, "       -s          Read a script from stdin and execute it");
 	msg(MSG_INFO, "       -t tag      Perform a tag search");
 	msg(MSG_INFO, "       -o logfile  Send messages to logfile instead of stderr");
-	msg(MSG_INFO, "       -b blksize  Use blocks of size \"blksize\"");
+	msg(MSG_INFO, "       -B blksize  Use blocks of size \"blksize\"");
 	msg(MSG_INFO, "       +command    Archaic form of \"-c command\" flag");
 	msg(MSG_INFO, "       -           Archaic form of \"-s\" flag");
 	guinames[0] = '\0';
@@ -126,14 +139,14 @@ static void usage(hint)
 	exit(0);
 }
 
-static void guiusage P_((void))
+static void guiusage()
 {
 	int	i;
-	BOOLEAN	found;
+	ELVBOOL	found;
 	char	*msgfmt;
 
 	msg(MSG_INFO, "user interfaces:");
-	for (i = 0, found = False; i < QTY(allguis); i++)
+	for (i = 0, found = ElvFalse; i < QTY(allguis); i++)
 	{
 		switch ((*allguis[i]->test)())
 		{
@@ -150,7 +163,7 @@ static void guiusage P_((void))
 				msgfmt = "[ss]   -G ($1<<12) $2";
 			else
 				msgfmt = "[ss]   -G ($1<<12) $2 \\(DEFAULT\\)";
-			found = True;
+			found = ElvTrue;
 		}
 		msg(MSG_INFO, msgfmt, allguis[i]->name, allguis[i]->desc);
 		if (allguis[i]->usage)
@@ -176,9 +189,9 @@ static int parseflags(argc, argv)
 	o_program = toCHAR(argv[0]);
 
 	/* for each argument... */
-	for (i = 1; i < argc; i++)
+	for (i = 1; i < argc && strcmp(argv[i], "--"); i++)
 	{
-		/* for now, assume we'll be deleting 0 arguements */
+		/* for now, assume we'll be deleting 0 arguments */
 		del = 0;
 
 		/* recognize any normal flags */
@@ -193,17 +206,17 @@ static int parseflags(argc, argv)
 				switch (argv[i][j])
 				{
 				  case 'a':
-					initialall = True;
+					initialall = ElvTrue;
 					del = 1;
 					break;
 
 				  case 'r':
-					o_recovering = True;
+					o_recovering = ElvTrue;
 					del = 1;
 					break;
 
 				  case 'R':
-					o_defaultreadonly = True;
+					o_defaultreadonly = ElvTrue;
 					del = 1;
 					break;
 
@@ -294,6 +307,11 @@ static int parseflags(argc, argv)
 					break;
 
 				  case 'b':
+					o_binary = ElvTrue;
+					del = 1;
+					break;
+
+				  case 'B':
 					if (argv[i][j + 1])
 					{
 						size = atol(&argv[i][j + 1]);
@@ -307,13 +325,13 @@ static int parseflags(argc, argv)
 					}
 					else
 					{
-						usage("-b requires a block size for the session file");
+						usage("-B requires a block size for the session file");
 					}
 					if (size != 512 && size != 1024
 						&& size != 2048 && size != 4096
 						&& size != 8192)
 					{
-						usage("bad -b blksize: should be 512, 1024, 2048, 4096, or 8192");
+						usage("bad -B blksize: should be 512, 1024, 2048, 4096, or 8192");
 					}
 					j = -1; /* so we stop processing this arg */
 					o_blksize = size;
@@ -326,7 +344,10 @@ static int parseflags(argc, argv)
 					break;
 
 				  case 'S':
-					o_safer = True;
+					if (o_security == 'n' /* normal */)
+						o_security = 's'; /* safer */
+					else
+						o_security = 'r'; /*restricted*/
 					del = 1;
 					break;
 
@@ -411,6 +432,10 @@ static int choosegui(argc, argv)
 		if (argv[i][0] != '-')
 			continue;
 
+		/* Stop looking if "--" is encountered */
+		if (argv[i][1] == '-' && !argv[i][2])
+			break;
+
 		/* is it -G?  -V?  - or -s? */
 		if (argv[i][1] == 'G')
 		{
@@ -478,6 +503,27 @@ static int choosegui(argc, argv)
 
 	}
 
+#ifdef FEATURE_STDIN
+	/* Scan the remaining arguments for "-".  Some user interfaces need
+	 * to know if stdin is going to be read as a file, so they can find
+	 * an alternate way to read from the keyboard.
+	 */
+	for (i = 0; i < argc; i++)
+	{
+		if (!strcmp(argv[i], "-"))
+		{
+			stdin_not_kbd = ElvTrue;
+			break;
+		}
+	}
+#endif
+
+	/* if no GUI was explicitly requested, then check for an ELVISGUI
+	 * environment variable.
+	 */
+	if (!o_gui)
+		o_gui = toCHAR(getenv("ELVISGUI"));
+
 	/* find the specified GUI, or the first available if none specified */
 	if (o_gui)
 	{
@@ -543,29 +589,51 @@ static int choosegui(argc, argv)
 /* execute the initialization buffer (which may create some windows) */
 static void doexrc()
 {
+#ifdef FEATURE_CALC
 	BUFFER	buf;	/* the buffer itself */
 	MARKBUF	top;	/* top of the buffer */
 	MARKBUF	bottom;	/* bottom of the buffer */
+	CHAR	origsecurity;/* value of the "security" option */
 
 	/* If a buffer named "Elvis initialization" exists */
 	buf = bufpath(o_elvispath, INIT_FILE, toCHAR(INIT_BUF));
 	if (buf)
 	{
 		/* Temporarily make all display-mode options available */
-		dispinit(True);
+		dispinit(ElvTrue);
+
+		/* Temporarily turn off security */
+		origsecurity = o_security;
+		o_security = 'n';
 
 		/* Execute its contents. */
 		(void)experform((WINDOW)0, marktmp(top, buf, 0),
 			marktmp(bottom, buf, o_bufchars(buf)));
 
-		/* save the current values as the default values */
-		optsetdflt();
+		/* Restore the "safer" option, unless the script turned it on */
+		if (o_security == 'n' || origsecurity == 'r')
+			o_security = origsecurity;
 
 		/* After this, only the current display-mode's options should
 		 * be available.
 		 */
-		dispinit(False);
+		dispinit(ElvFalse);
 	}
+#else /* !FEATURE_CALC */
+	CHAR	origsecurity;
+	char	*exinit;
+	dispinit(ElvTrue);
+	origsecurity = o_security;
+	o_security = 'n';
+	exinit = getenv("EXINIT");
+	if (!exinit)
+		exinit = "so! ~/.exrc";
+	(void)exstring((WINDOW)0, toCHAR(exinit), NULL);
+	o_security |= origsecurity;
+	if (o_exrc)
+		(void)exstring((WINDOW)0, toCHAR("safely source! .exrc"), NULL);
+	dispinit(ElvFalse);
+#endif
 }
 
 /* make the "elvis args" buffer contain file names from command line */
@@ -589,7 +657,7 @@ static void buildargs(argc, argv)
 	 */
 	for (argnext = i = 0; i < argc; i++)
 	{
-		(void)exaddfilearg(&arglist, &argnext, argv[i], OSEXPANDARGS);
+		(void)exaddfilearg(&arglist, &argnext, argv[i], OSFILENAMERULES);
 	}
 
 	/* if nothing read was added, then still allocate something */
@@ -609,7 +677,7 @@ static void startfirst()
 	if (!arglist[0])
 	{
 		/* Create an anonymous buffer and a window for it */
-		buf = bufalloc(NULL, 0, False);
+		buf = bufalloc(NULL, 0, ElvFalse);
 		assert(buf);
 		(void)(*gui->creategw)(tochar8(o_bufname(buf)), "");
 	}
@@ -622,18 +690,22 @@ static void startfirst()
 		do
 		{
 			/* Create a buffer & window the first file */
-			buf = bufload((CHAR *)0, arglist[argnext++], True);
+			buf = bufload((CHAR *)0, arglist[argnext++], ElvTrue);
 			assert(buf);
 		} while ((*gui->creategw)(tochar8(o_bufname(buf)), "")
 					&& initialall && arglist[argnext]);
 	}
 }
 
-/* perform "-c cmd" or "-t tag" */
-void mainfirstcmd(win)
+/* Perform "-c cmd" or "-t tag".  If supposed to exit after that, then return
+ * TRUE; else return FALSE to continue running interactively.
+ */
+ELVBOOL mainfirstcmd(win)
 	WINDOW	win;	/* the first window */
 {
+#ifdef FEATURE_TAGS
 	CHAR	tagcmd[100];
+#endif
 
 	/* If "-c cmd" was given */
 	if (initialcommand)
@@ -642,16 +714,25 @@ void mainfirstcmd(win)
 		exstring(win, toCHAR(initialcommand), "-c");
 	}
 
+#ifdef FEATURE_TAGS
 	/* If "-t tag" was given */
 	if (initialtag)
 	{
 		/* Compose a ":tag" command */
 		CHARcpy(tagcmd, toCHAR("tag "));
-		CHARcat(tagcmd, toCHAR(initialtag));
+		CHARncat(tagcmd, toCHAR(initialtag), QTY(tagcmd) - 5);
 
 		/* Execute the command */
 		exstring(win, tagcmd, "-t");
 	}
+#endif
+
+	/* clean up the state stack */
+	while (windefault
+	    && windefault->state
+	    && 0 != (windefault->state->flags & ELVIS_POP))
+		statepop(windefault);
+	return (ELVBOOL)(windefault && !windefault->state);
 }
 
 static void init(argc, argv)
@@ -662,16 +743,34 @@ static void init(argc, argv)
 	char	*lc;		/* locale name */
 	char	lcfile[100];	/* combination of locale name and file name */
 
+#ifdef FEATURE_STDIN
+	origstdin = stdin;
+#endif
 #ifdef OSINIT
 	/* initialize the OS */
 	osinit(argv[0]);
 #endif
+
+	/* initialize the random number generator */
+	srand((unsigned)time(NULL));
 
 	/* initialize options */
 	optglobinit();
 
 	/* Choose a GUI, and call its init() function */
 	argc = choosegui(argc, argv);
+
+#ifdef FEATURE_TAGS
+	/* Make the first :tag command prefer functions over macros.  This isn't
+	 * critical, but it can be convenient.  After the fist tag search, the
+	 * preferred kind of tag will be derived from the tags that the user
+	 * actually accepts, so the effect of this will either fade or be
+	 * reinforced over time.  Note that tsparse() clobbers the string, so
+	 * we can't pass a literal directly; we must pass a copy of it.
+	 */
+	strcpy(lcfile, "kind:+f");
+	tsparse(lcfile);
+#endif
 
 	/* Parse command-line flags */
 	argc = parseflags(argc, argv);
@@ -689,12 +788,21 @@ static void init(argc, argv)
 	gui = chosengui;
 	o_gui = toCHAR(gui->name);
 
+	/* Disable idle color switching by default, by making the idle colors
+	 * look like the normal colors.  Also used "boxed" as the default
+	 * selection color.
+	 */
+	colorset(COLOR_FONT_IDLE, toCHAR("like normal"), ElvFalse);
+	colorset(COLOR_FONT_BOTTOM, toCHAR("like normal"), ElvFalse);
+	colorset(COLOR_FONT_NONTEXT, toCHAR("like normal"), ElvFalse);
+	colorset(COLOR_FONT_SELECTION, toCHAR("boxed"), ElvFalse);
+
 	/* Create the "Elvis ex history" buffer, and tweak its options */
-	buf = bufalloc(toCHAR(EX_BUF), (BLKNO)0, True);
+	buf = bufalloc(toCHAR(EX_BUF), (BLKNO)0, ElvTrue);
 	o_inputtab(buf) = 'e';
 
 	/* Create the "Elvis error list" buffer, and tweak its options */
-	buf = bufalloc(toCHAR(ERRLIST_BUF), (BLKNO)0, True);
+	buf = bufalloc(toCHAR(ERRLIST_BUF), (BLKNO)0, ElvTrue);
 	o_undolevels(buf) = 0;
 
 	/* Execute the initialization buffer (which may create some windows) */
@@ -730,6 +838,24 @@ static void init(argc, argv)
 
 	/* start the first file (i.e., make sure we have at least 1 window) */
 	startfirst();
+
+#ifdef FEATURE_AUTOCMD
+	/* do a BgChanged event, so highlight colors can be chosen relative
+	 * the current background color.
+	 */
+	if (colorinfo[COLOR_FONT_NORMAL].da.bits & COLOR_BG)
+		(void)auperform(windefault, ElvFalse, NULL, AU_BGCHANGED,
+			toCHAR(colorinfo[COLOR_FONT_NORMAL].da.bg_rgb[0] +
+			       colorinfo[COLOR_FONT_NORMAL].da.bg_rgb[1] +
+			       colorinfo[COLOR_FONT_NORMAL].da.bg_rgb[2]>=384
+					? "light" 
+					: "dark"));
+# if 0
+	else
+		(void)auperform(windefault, ElvFalse, NULL, AU_BGCHANGED,
+				o_background == 'l' ? "light" : "dark");
+# endif
+#endif
 }
 
 /* Terminate elvis.  By the time this function is called, all windows have
@@ -762,6 +888,12 @@ void term()
 		if (!o_internal(buf))
 			buffree(buf);
 	}
+
+# ifdef FEATURE_SPELL
+	/* free the spelling dictionaries */
+	spellfree(spelltags);
+	spellfree(spellwords);
+# endif
 #endif
 
 	/* Close the session */

@@ -3,6 +3,7 @@
 
 
 BEGIN_EXTERNC
+extern RESULT v_ascii	P_((WINDOW win, VIINFO *vinf));
 extern RESULT v_at	P_((WINDOW win, VIINFO *vinf));
 extern RESULT v_delchar	P_((WINDOW win, VIINFO *vinf));
 extern RESULT v_ex	P_((WINDOW win, VIINFO *vinf));

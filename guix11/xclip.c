@@ -2,14 +2,17 @@
 
 
 #include "elvis.h"
+#ifdef FEATURE_RCSID
+char id_xclip[] = "$Id: xclip.c,v 2.7 2003/10/17 17:41:23 steve Exp $";
+#endif
 #ifdef GUI_X11
 # include "guix11.h"
 
-BOOLEAN		x_ownselection;	/* does elvis own the X11 selection? */
+ELVBOOL		x_ownselection;	/* does elvis own the X11 selection? */
 static char	*clipbuf;	/* pointer to malloc'ed buffer of chars to/from X */
 static long	clipsize;	/* total number of bytes in clipbuf */
 static long	clipused;	/* if reading, total number of bytes read previously */
-static BOOLEAN	clipwriting;	/* True if cutting to X, False if pasting from X */
+static ELVBOOL	clipwriting;	/* ElvTrue if cutting to X, ElvFalse if pasting from X */
 
 
 
@@ -19,6 +22,7 @@ void x_clipevent(event)
 	XEvent	notify;
 	Window	owner;
 	X11WIN	*xw;
+	Atom	targets[2];
 
 	switch (event->type)
 	{
@@ -39,7 +43,7 @@ void x_clipevent(event)
 				safefree(clipbuf);
 				clipbuf = NULL;
 			}
-			x_ownselection = False;
+			x_ownselection = ElvFalse;
 			x_ta_drawcursor(NULL);
 		}
 		break;
@@ -47,14 +51,15 @@ void x_clipevent(event)
 	  case SelectionRequest:
 		/* create a SelectionNotify event for requestor */
 		notify.type = SelectionNotify;
-		notify.xselection.requestor = event->xselectionrequest.requestor;
-		notify.xselection.selection = event->xselectionrequest.selection;
+		notify.xselection.requestor= event->xselectionrequest.requestor;
+		notify.xselection.selection= event->xselectionrequest.selection;
 		notify.xselection.target = event->xselectionrequest.target;
 		notify.xselection.time = event->xselectionrequest.time;
 
 		/* try to convert the selection */
 		if (event->xselectionrequest.selection == XA_PRIMARY
-		 && event->xselectionrequest.target == XA_STRING)
+		 && (event->xselectionrequest.target == XA_STRING
+			|| event->xselectionrequest.target == x_compound_text))
 		{
 			/* store the selection's value into the property */
 			XChangeProperty(x_display,
@@ -66,6 +71,20 @@ void x_clipevent(event)
 				clipsize);
 			notify.xselection.property = event->xselectionrequest.property;
 		}
+		else if (event->xselectionrequest.selection == XA_PRIMARY
+		 && event->xselectionrequest.target == x_targets)
+		{
+			targets[0] = XA_STRING;
+			targets[1] = x_compound_text;
+			XChangeProperty(x_display,
+				event->xselectionrequest.requestor,
+				event->xselectionrequest.property,
+				event->xselectionrequest.target,
+				32, PropModeReplace,
+				(unsigned char *)targets,
+				sizeof targets / sizeof *targets);
+			notify.xselection.property = event->xselectionrequest.property;
+		}
 		else
 		{
 			/* can't convert */
@@ -74,13 +93,13 @@ void x_clipevent(event)
 
 		/* notify the requestor */
 		XSendEvent(x_display, notify.xselection.requestor,
-			False, 0L, &notify);
+			ElvFalse, 0L, &notify);
 	}
 }
 
-/* open an X cut buffer for reading or writing.  Returns True if successful */
-BOOLEAN	x_clipopen(forwrite)
-	BOOLEAN	forwrite;	/* True for writing, False for reading */
+/* open an X cut buffer for reading or writing.  Returns ElvTrue if successful */
+ELVBOOL	x_clipopen(forwrite)
+	ELVBOOL	forwrite;	/* ElvTrue for writing, ElvFalse for reading */
 {
 	XEvent	event;
 	Atom	gottype;
@@ -99,7 +118,7 @@ BOOLEAN	x_clipopen(forwrite)
 	if (forwrite)
 	{
 		/* prepare to collect bytes as clipwrite() gets called */
-		clipwriting = True;
+		clipwriting = ElvTrue;
 		clipsize = 0;
 	}
 	else
@@ -146,7 +165,7 @@ BOOLEAN	x_clipopen(forwrite)
 				XGetWindowProperty(x_display,
 					event.xselection.requestor,
 					event.xselection.property,
-					0L, 65536L, True,
+					0L, 65536L, ElvTrue,
 					event.xselection.target, &gottype, &i,
 					(unsigned long *)&clipsize,
 					(unsigned long *)&extra,
@@ -161,16 +180,16 @@ BOOLEAN	x_clipopen(forwrite)
 				clipsize = i;
 				if (!clipbuf)
 				{
-					return False;
+					return ElvFalse;
 				}
 			}
 		}
 
 		/* prepare to receive bytes as clipread() gets called */
-		clipwriting = False;
+		clipwriting = ElvFalse;
 		clipused = 0;
 	}
-	return True;
+	return ElvTrue;
 }
 
 /* add text to the buffer */
@@ -234,13 +253,13 @@ void x_clipclose()
 		if (XGetSelectionOwner(x_display, XA_PRIMARY) ==
 			((X11WIN *)windefault->gw)->win)
 		{
-			x_ownselection = True;
+			x_ownselection = ElvTrue;
 			x_ta_drawcursor(NULL);
 		}
 		else
 		{
 			/* elvis doesn't own the selection */
-			x_ownselection = False;
+			x_ownselection = ElvFalse;
 			x_ta_drawcursor(NULL);
 			safefree(clipbuf);
 			clipbuf = NULL;

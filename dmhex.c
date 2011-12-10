@@ -1,9 +1,11 @@
 /* dmhex.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_dmhex[] = "$Id: dmhex.c,v 2.15 1998/07/31 02:03:45 steve Exp $";
 
 #include "elvis.h"
+#ifdef FEATURE_RCSID
+char id_dmhex[] = "$Id: dmhex.c,v 2.21 2003/10/17 17:41:23 steve Exp $";
+#endif
 #ifdef DISPLAY_HEX
 
 #ifdef CHAR16
@@ -13,8 +15,8 @@ char id_dmhex[] = "$Id: dmhex.c,v 2.15 1998/07/31 02:03:45 steve Exp $";
 #if USE_PROTOTYPES
 static DMINFO *init(WINDOW win);
 static void term(DMINFO *info);
-static long mark2col(WINDOW w, MARK mark, BOOLEAN cmd);
-static MARK move(WINDOW w, MARK from, long linedelta, long column, BOOLEAN cmd);
+static long mark2col(WINDOW w, MARK mark, ELVBOOL cmd);
+static MARK move(WINDOW w, MARK from, long linedelta, long column, ELVBOOL cmd);
 static MARK setup(WINDOW win, MARK top, long cursor, MARK bottom, DMINFO *info);
 static MARK image(WINDOW w, MARK line, DMINFO *info, void (*draw)(CHAR *p, long qty, _char_ font, long offset));
 #endif
@@ -32,6 +34,11 @@ _offset____0__1__2__3___4__5__6__7___8__9__a__b___c__d__e__f__0123456789abcdef
 /* This array is used to convert a column number to an offset within a line */
 static char col2offset[] = "00000000000011122233334445556667777888999aaabbbbcccdddeeeffff00123456789abcdef";
 
+/* These are the font codes for the column headings and the hex cursor */
+static int font_hexheading;
+static int font_hexcursor;
+static int font_hexoffset;
+
 /* start the mode, and allocate dminfo */
 static DMINFO *init(win)
 	WINDOW	win;
@@ -44,6 +51,12 @@ static DMINFO *init(win)
 		dmhex.tagload = dmnormal.tagload;
 		dmhex.tagnext = dmnormal.tagnext;
 	}
+
+	/* locate the fonts we'll use */
+	font_hexheading = colorfind(toCHAR("hexheading"));
+	colorset(font_hexheading, toCHAR("underlined"), ElvFalse);
+	font_hexcursor = colorfind(toCHAR("hexcursor"));
+	font_hexoffset = colorfind(toCHAR("hexoffset"));
 
 	return NULL;
 }
@@ -58,7 +71,7 @@ static void term(info)
 static long mark2col(w, mark, cmd)
 	WINDOW	w;	/* window where buffer is shown */
 	MARK	mark;	/* mark to convert */
-	BOOLEAN	cmd;	/* if True, we're in command mode; else input mode */
+	ELVBOOL	cmd;	/* if ElvTrue, we're in command mode; else input mode */
 {
 	return 62 + (markoffset(mark) & 0xf);
 }
@@ -69,7 +82,7 @@ static MARK move(w, from, linedelta, column, cmd)
 	MARK	from;		/* old location */
 	long	linedelta;	/* line movement */
 	long	column;		/* desired column number */
-	BOOLEAN	cmd;		/* if True, we're in command mode; else input mode */
+	ELVBOOL	cmd;		/* if ElvTrue, we're in command mode; else input mode */
 {
 	static MARKBUF	mark;
 	long		offset;
@@ -169,35 +182,32 @@ static MARK image(w, line, info, draw)
 {
 	char	*c8p;
 	CHAR	*cp;
-	CHAR	tmp;
-	CHAR	space;	/* usually a space character, maybe bracket character */
+	CHAR	tmp[1];
+	CHAR	space[1];	/* usually a space character, maybe bracket character */
 	char	buf[10];
 	int	i, j;
 
 	/* output headings, if necessary */
 	if ((markoffset(line) & 0xf0) == 0)
 	{
-		for (c8p = " offset    0  1  2  3   4  5  6  7   8  9  a  b   c  d  e  f  0123456789abcdef";
-		     *c8p; c8p++)
-		{
-			tmp = *c8p;
-			(*draw)(&tmp, 1, 'u', -1);
-		}
-		tmp = '\n';
-		(*draw)(&tmp, 1, 'n', -1);
+		c8p = " offset    0  1  2  3   4  5  6  7   8  9  a  b   c  d  e  f  0123456789abcdef";
+		while ((tmp[0] = *c8p++) != '\0')
+			(*draw)(tmp, 1, font_hexheading, -1L);
+		tmp[0] = '\n';
+		(*draw)(tmp, 1L, 0, -1L);
 	}
 
 	/* output the line offset */
 	sprintf(buf, "%08lx", markoffset(line));
 	for (i = 0; buf[i]; i++)
 	{
-		tmp = buf[i];
-		(*draw)(&tmp, 1, 'n', -1);
+		tmp[0] = buf[i];
+		(*draw)(tmp, 1, font_hexoffset, -1);
 	}
 
 	/* output the hex codes of the line */
 	j = markoffset(w->cursor) - markoffset(line);
-	space = ' ';
+	space[0] = ' ';
 	for ((void)scanalloc(&cp, line), i = 0; i < 16 && cp; scannext(&cp), i++)
 	{
 		/* special case: if the last newline was added by elvis
@@ -214,40 +224,40 @@ static MARK image(w, line, info, draw)
 
 		if ((i & 0x03) == 0)
 		{
-			(*draw)(&space, 1, 'n', -1);
-			space = ' ';
+			(*draw)(space, 1, 0, -1);
+			space[0] = ' ';
 		}
 		if (j == i)
 		{
-			tmp = '<';
-			(*draw)(&tmp, 1, 'n', -1);
-			space = '>';
+			tmp[0] = '<';
+			(*draw)(tmp, 1, 0, -1);
+			space[0] = '>';
 		}
 		else
 		{
-			(*draw)(&space, 1, 'n', -1);
-			space = ' ';
+			(*draw)(space, 1, 0, -1);
+			space[0] = ' ';
 		}
 
 		sprintf(buf, "%02x", *cp);
-		tmp = buf[0];
-		(*draw)(&tmp, 1, (char)(j==i ? 'u' : 'n'), markoffset(line) + i);
-		tmp = buf[1];
-		(*draw)(&tmp, 1, (char)(j==i ? 'u' : 'n'), markoffset(line) + i);
+		tmp[0] = buf[0];
+		(*draw)(tmp, 1, (char)(j==i ? font_hexcursor : 0), markoffset(line) + i);
+		tmp[0] = buf[1];
+		(*draw)(tmp, 1, (char)(j==i ? font_hexcursor : 0), markoffset(line) + i);
 	}
-	(*draw)(&space, 1, 'n', -1);
+	(*draw)(space, 1, 0, -1);
 
 	/* pad with blanks, if necessary */
-	space = ' ';
+	space[0] = ' ';
 	while (i < 16)
 	{
-		(*draw)(&space, ((i & 0x03) == 0) ? -4 : -3, 'n', -1);
+		(*draw)(space, ((i & 0x03) == 0) ? -4 : -3, 0, -1);
 		i++;
 	}
-	(*draw)(&space, 1, 'n', -1);
+	(*draw)(space, 1, 0, -1);
 
 	/* output the characters */
-	tmp = '.';
+	tmp[0] = '.';
 	for ((void)scanseek(&cp, line), i = 0; i < 16 && cp; scannext(&cp), i++)
 	{
 		/* special case: if the last newline was added by elvis
@@ -259,25 +269,25 @@ static MARK image(w, line, info, draw)
 		 && markoffset(line) + i == o_bufchars(markbuffer(line)) - 1
 		 && j != i)
 		{
-			(*draw)(blanks, 1, 'n', markoffset(line) + i);
+			(*draw)(blanks, 1, 0, markoffset(line) + i);
 		}
 		else if (*cp < ' ' || *cp == '\177')
 		{
-			(*draw)(&tmp, 1, 'n', markoffset(line) + i);
+			(*draw)(tmp, 1, 0, markoffset(line) + i);
 		}
 		else
 		{
-			(*draw)(cp, 1, 'n', markoffset(line) + i);
+			(*draw)(cp, 1, 0, markoffset(line) + i);
 		}
 	}
 	scanfree(&cp);
-	tmp = '\n';
-	(*draw)(&tmp, 1, 'n', -1);
+	tmp[0] = '\n';
+	(*draw)(tmp, 1L, 0, -1L);
 
 	/* output a blank line after every 16th data line */
 	if ((markoffset(line) & 0xf0) == 0xf0)
 	{
-		(*draw)(&tmp, 1, 'n', -1);
+		(*draw)(tmp, 1L, 0, -1L);
 	}
 
 	markoffset(line) += i;
@@ -288,8 +298,8 @@ DISPMODE dmhex =
 {
 	"hex",
 	"Binary hex dump",
-	False,	/* display generating can't be optimized */
-	False,	/* shouldn't do normal wordwrap */
+	ElvFalse,	/* display generating can't be optimized */
+	ElvFalse,	/* shouldn't do normal wordwrap */
 	0,	/* no window options */
 	NULL,
 	0,	/* no global options */

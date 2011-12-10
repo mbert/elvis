@@ -1,0 +1,52 @@
+%define name    elvis
+%define version VERSION
+%define release 1
+%define serial  1
+%define prefix  /usr
+
+Summary:        Elvis text editor
+Name:           %{name}
+Version:        %{version}
+Release:        %{release}
+Serial:         %{serial}
+Copyright:      Artistic
+Group:          Applications/Editors
+Vendor:         Steve Kirkendall <kirkenda@cs.pdx.edu>
+Url:            http://elvis.vi-editor.org/
+Source:         %{name}-%{version}.tar.gz
+#BuildRoot:      %{_tmppath}/%{name}-%{version}-root
+
+%description
+Elvis is a text editor, compatible with vi.  It has all the usual
+extensions (multiple buffers, multiple windows, syntax coloring,
+etc.) plus a variety of display modes including "html" and "man".
+
+
+%prep
+%setup -q
+
+%build
+export CFLAGS="$RPM_OPT_FLAGS" CPPFLAGS="$RPM_OPT_FLAGS" CXXFLAGS="$RPM_OPT_FLAGS";
+
+./configure --prefix=%{prefix}
+make
+
+%install
+make install
+
+%clean
+
+%files
+%defattr(-, root, root)
+%doc COPYING README.html
+%{prefix}/bin/elvis
+%{prefix}/bin/elvtags
+%{prefix}/bin/elvfmt
+%{prefix}/bin/ref
+MANDIR/elvis.1.gz
+MANDIR/elvtags.1.gz
+MANDIR/elvfmt.1.gz
+MANDIR/ref.1.gz
+%{prefix}/share/elvis/
+%dir /etc/elvis
+/etc/elvis/README

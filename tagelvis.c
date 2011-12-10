@@ -5,26 +5,34 @@
  */
 
 #include "elvis.h"
+#ifdef FEATURE_RCSID
+char id_tagelvis[] = "$Id: tagelvis.c,v 1.42 2003/10/18 04:47:18 steve Exp $";
+#endif
 
 
 /* Each call to tetag() sets this option, to indicate whether the cursor
  * position should be saved.
  */
-static BOOLEAN	newtag = True;
+static ELVBOOL	newtag = ElvTrue;
 
+#ifdef FEATURE_TAGS
 /* This option can be set via temodified to indicate that the current tag
  * couldn't be loaded in a previous attempt because some other buffer was
  * modified.  The current tag hasn't been rejected; the next tetag() call
  * should return the same tag and leave the history unchanged.
  */
-static BOOLEAN	sametag = False;
+static ELVBOOL	sametag = ElvFalse;
 
 /* Cause the next tetag() to return the same tag as the previous tetag() call */
-void tesametag P_((void))
+void tesametag()
 {
-	assert(taglist != NULL);
-
-	sametag = True;
+	/* Note: taglist will always be non-NULL if we got here via a normal
+	 * tag search.  But if we got here by trying to follow a hypertext
+	 * link from a modified buffer, then it will be NULL... in which case
+	 * the sametag variable is irrelevant.  So don't set it if taglist=NULL.
+	 */
+	if (taglist)
+		sametag = ElvTrue;
 }
 
 /* Locate a tag.  Return the tag if it exists, or NULL if there is none.
@@ -48,7 +56,7 @@ TAG *tetag(select)
 		/* if supposed to return the same tag as last time, do that. */
 		if (sametag && taglist != NULL)
 		{
-			sametag = False;
+			sametag = ElvFalse;
 			return taglist;
 		}
 
@@ -59,23 +67,23 @@ TAG *tetag(select)
 		 * list for this particular tags file, then try the next one
 		 * from the path.
 		 */
-		tagdelete(False);
+		tagdelete(ElvFalse);
 		if (!taglist && tfilename)
 		{
 			/* find the next tags file from tagpath */
-			for (tmp = iopath(tochar8(o_tags), "tags", True);
+			for (tmp = iopath(tochar8(o_tags), "tags", ElvTrue);
 			     tmp && strcmp(tmp, tfilename);
-			     tmp = iopath(NULL, "tags", True))
+			     tmp = iopath(NULL, "tags", ElvTrue))
 			{
 			}
 			if (tmp)
-				tmp = iopath(NULL, "tags", True);
+				tmp = iopath(NULL, "tags", ElvTrue);
 
 			/* process the following tag files until we get tags */
 			while (tmp && !taglist)
 			{
 				tsfile(tmp, o_taglength);
-				tmp = iopath(NULL, "tags", True);
+				tmp = iopath(NULL, "tags", ElvTrue);
 			}
 
 			/* if we found tags, then remember the tags file name */
@@ -87,10 +95,10 @@ TAG *tetag(select)
 		}
 
 		/* return the next matching tag, if any */
-		newtag = False;
+		newtag = ElvFalse;
 		goto Finish;
 	}
-	newtag = True;
+	newtag = ElvTrue;
 
 	/* if no tag given on command line, then use o_previoustag */
 	if (!select || !*select)
@@ -98,7 +106,7 @@ TAG *tetag(select)
 		if (!o_previoustag)
 		{
 			msg(MSG_ERROR, "no previous tag");
-			sametag = False;
+			sametag = ElvFalse;
 			return NULL;
 		}
 		select = o_previoustag;
@@ -114,7 +122,7 @@ TAG *tetag(select)
 		/* Determine whether we're given a tag or a more complex
 		 * restriction expression.
 		 */
-		for (scan = select; *scan && *scan != ':' && !isspace(*scan); scan++)
+		for (scan = select; *scan && *scan != ':' && !elvspace(*scan); scan++)
 			if (*scan == '\\' && scan[1])
 				scan++;
 
@@ -142,23 +150,23 @@ TAG *tetag(select)
 		tsadjust(taglist, '+');
 
 	/* Delete all tags from previous search */
-	tagdelete(True);
+	tagdelete(ElvTrue);
 
 	/* using internal tag search, or external? */
-	if (o_tagprg)
+	if (o_tagprg && *o_tagprg)
 	{
 		/* external tag search */
 
 		/* Wipe out the set of restrictions */
 		tsreset();
-		tmp = tochar8(calculate(toCHAR("file:+(filename)"),NULL, True));
+		tmp = tochar8(calculate(toCHAR("file:+(filename)"),NULL, CALC_MSG));
 		assert(tmp);
 		tsparse(tmp);
 
 		/* evaluate the tagprg string with $1 set to the args */
 		args[0] = select;
 		args[1] = NULL;
-		scan = calculate(o_tagprg, args, True);
+		scan = calculate(o_tagprg, args, CALC_MSG);
 		if (!scan)
 			goto Finish;
 
@@ -186,14 +194,14 @@ TAG *tetag(select)
 		/* Build a new set of restrictions */
 		tsreset();
 		tsparse(tochar8(select));
-		tmp = tochar8(calculate(toCHAR("file:+(filename)"),NULL, True));
+		tmp = tochar8(calculate(toCHAR("file:+(filename)"),NULL, CALC_MSG));
 		assert(tmp);
 		tsparse(tmp);
 
 		/* locate the first set of tags */
-		for (tmp = iopath(tochar8(o_tags), "tags", True);
+		for (tmp = iopath(tochar8(o_tags), "tags", ElvTrue);
 		     tmp && !taglist;
-		     tmp = iopath(NULL, "tags", True))
+		     tmp = iopath(NULL, "tags", ElvTrue))
 		{
 			tsfile(tmp, o_taglength);
 		}
@@ -214,14 +222,15 @@ Finish:
 			safefree(o_previoustag);
 		o_previoustag = CHARdup(toCHAR(taglist->TAGNAME));
 	}
-	sametag = False;
+	sametag = ElvFalse;
 	return taglist;
 }
 
 
+#ifdef FEATURE_BROWSE
 /* Build a browser document for a given set of restrictions */
 BUFFER tebrowse(all, select)
-	BOOLEAN	all;		/* scan all tags files? (else only first) */
+	ELVBOOL	all;		/* scan all tags files? (else only first) */
 	CHAR	*select;	/* the restrictions, from command line */
 {
 	BUFFER	buf;		/* the buffer containing the new browser file */
@@ -241,14 +250,14 @@ BUFFER tebrowse(all, select)
 	int	i;
 
 	/* forget any old tag info */
-	tagdelete(True);
+	tagdelete(ElvTrue);
 	tsreset();
 
 	/* default args are none */
 	if (!select)
 		select = toCHAR("");
 
-	if (o_tagprg)
+	if (o_tagprg && *o_tagprg)
 	{
 		/* external tag search */
 
@@ -261,7 +270,7 @@ BUFFER tebrowse(all, select)
 		args[0] = select;
 		args[1] = NULL;
 		select = cp;
-		cp = calculate(o_tagprg, args, True);
+		cp = calculate(o_tagprg, args, CALC_MSG);
 		if (!cp)
 			return NULL;
 
@@ -289,9 +298,9 @@ BUFFER tebrowse(all, select)
 		select = cp;
 
 		/* build the tags list */
-		for (proto = iopath(tochar8(o_tags), "tags", True);
+		for (proto = iopath(tochar8(o_tags), "tags", ElvTrue);
 		     proto && (!taglist || all);
-		     proto = iopath(NULL, "tags", True))
+		     proto = iopath(NULL, "tags", ElvTrue))
 		{
 			tsfile(proto, o_taglength);
 		}
@@ -309,23 +318,42 @@ BUFFER tebrowse(all, select)
 	}
 	sprintf(tochar8(qtystr), "%ld", qty);
 
-	/* create a buffer to hold the browser document */
-	buf = bufalloc(select, 0, False);
-	o_bufdisplay(buf) = toCHAR("html");
-
-	/* get the document format */
-	proto = iopath(tochar8(o_elvispath), BROWSER_FILE, False);
+	/* Create a buffer to hold the browser document.  If possible, load
+	 * the document format from a file named "elvis.bro"
+	 */
+	proto = iopath(tochar8(o_elvispath), BROWSER_FILE, ElvFalse);
 	if (proto)
-		(void)bufload(o_bufname(buf), proto, True);
-	o_readonly(buf) = True;
-	if (o_bufchars(buf) == 0L)
-		bufreplace(marktmp(from, buf, 0L), &from, dflt, CHARlen(dflt));
+		buf = bufload(select, proto, ElvTrue);
+	else
+		buf = bufalloc(select, 0, ElvFalse);
+
+	/* Set some of the buffer's options */
+	o_initialsyntax(buf) = ElvFalse;
+	o_readonly(buf) = ElvTrue;
 	if (o_filename(buf))
 	{
 		if (optflags(o_filename(buf)) & OPT_FREE)
 			safefree(o_filename(buf));
 		o_filename(buf) = NULL;
 	}
+	if (o_bufdisplay(buf))
+	{
+		if (optflags(o_bufdisplay(buf)) & OPT_FREE)
+			safefree(o_bufdisplay(buf));
+		optflags(o_bufdisplay(buf)) &= ~OPT_FREE;
+	}
+	o_bufdisplay(buf) = toCHAR("html");
+	if (o_mapmode(buf))
+	{
+		if (optflags(o_mapmode(buf)) & OPT_FREE)
+			safefree(o_mapmode(buf));
+		optflags(o_mapmode(buf)) &= ~OPT_FREE;
+	}
+	o_mapmode(buf) = toCHAR("html");
+
+	/* if no format was read from "elvis.bro" then use the default */
+	if (o_bufchars(buf) == 0L)
+		bufreplace(marktmp(from, buf, 0L), &from, dflt, CHARlen(dflt));
 
 	/* Parse the document; i.e., locate the item section, copy it into RAM,
 	 * and then delete it from the buffer.  The item section is delimited
@@ -357,7 +385,7 @@ BUFFER tebrowse(all, select)
 			  case '1':
 				args[0] = select;
 				args[1] = NULL;
-				cp = calculate(toCHAR("htmlsafe($1)"), args, False);
+				cp = calculate(toCHAR("htmlsafe($1)"), args, CALC_MSG);
 				break;
 
 			  case '2':
@@ -384,10 +412,10 @@ BUFFER tebrowse(all, select)
 	bufreplace(&from, &to, NULL, 0L);
 
 	/* for each tag in the list... */
-	for ( ; taglist; tagdelete(False))
+	for ( ; taglist; tagdelete(ElvFalse))
 	{
 		/* Convert the address to a plaintext line */
-		if (isdigit(*taglist->TAGADDR))
+		if (elvdigit(*taglist->TAGADDR))
 		{
 			/* line number -- make sure it isn't JUST a number! */
 			address = NULL;
@@ -435,7 +463,7 @@ BUFFER tebrowse(all, select)
 		args[2] = address;
 		args[3] = url;
 		args[4] = NULL;
-		cp = calculate(item, args, True);
+		cp = calculate(item, args, CALC_MSG);
 		if (!cp)
 			cp = item; /* error -- but give user a clue */
 
@@ -449,52 +477,175 @@ BUFFER tebrowse(all, select)
 	}
 
 	/* turn off the "modified" flag. */
-	o_modified(buf) = False;
+	o_modified(buf) = ElvFalse;
 	buf->docursor = 0L;
 
 	/* return the buffer */
 	return buf;
 }
+#endif /* FEATURE_BROWSE */
 
-/* Save the current cursor position on the tag stack.  */
-void tepush(win, label)
-	WINDOW	win;	/* window where push should occur */
-	CHAR	*label;	/* dynamically-allocated name of old position */
+#ifdef DISPLAY_SYNTAX
+/* Scan a tags file for any tags which are callable from the current language
+ * (i.e., the most recently loaded via descr_open(), not descr_recall()), and
+ * add them to a dictionary.  The tag's name is the word that gets added.  The
+ * word's flags are set to denote the font; the font name is derived by adding
+ * a prefix to the value of the tag's "kind".  For example, if prefix="lib"
+ * and we're adding a function named "foo", then the dictionary will receive
+ * the word "foo" with font "libf".
+ *
+ * Returns the new root of the spell dictionary.
+ */
+spell_t *telibrary(tagfile, dict, ignorecase, prefix)
+	char	*tagfile;	/* name of the tags file */
+	spell_t	*dict;		/* dictionary to which tags are added */
+	ELVBOOL	ignorecase;	/* convert to lowercase before adding? */
+	CHAR	*prefix;	/* prefix for font names */
 {
+	CHAR	tagline[1000];	/* input buffer */
+	ELVBOOL	allnext;	/* does tagline[] contain the whole next line?*/
+	int	bytes;		/* number of bytes in tagline */
+	CHAR	*src, *dst;	/* for manipulating tagline[] */
+	TAG	*tag;		/* a tag parsed from tagline[] */
+	ELVBOOL	inside;		/* is tag's scope limited? */
+	CHAR	fontname[50];
+	CHAR	descr[30];
+	int	font;
+	char	prevkind[50];
+	long	flags;
+	int	genericfont, letterfont[26];
 	int	i;
 
-	if (o_tagstack
-	 && newtag
-	 && (o_filename(markbuffer(win->cursor))
-		|| o_bufchars(markbuffer(win->cursor))))
-	{
-		/* The oldest tag will be lost.  If it had pointers to any
-		 * dynamically allocated memory, then free that memory now.
-		 */
-		if (win->tagstack[TAGSTK - 1].prevtag)
-			safefree(win->tagstack[TAGSTK - 1].prevtag);
-		if (win->tagstack[TAGSTK - 1].origin)
-			markfree(win->tagstack[TAGSTK - 1].origin);
+	/* open the file */
+	if (!ioopen(tagfile, 'r', ElvFalse, ElvFalse, 't'))
+		return dict;
 
-		/* Shift the tag stack; top is always win->tagstack[0] */
-		for (i = TAGSTK - 1; i > 0; i--)
+	/* Arrange certain parameters to always appear in the same elements of
+	 * the tag->attr[] array.
+	 */
+#define TEKIND	attr[3]
+#define TEFILE	attr[4]
+#define TEFIRST	6
+	tagnamereset();
+	CHARcpy(tagline, toCHAR("x\tx\t1;\"\tkind:x\tfile:x\tln:x\tenum:x"));
+	tagparse(tochar8(tagline));
+
+	/* create a generic font name */
+	prevkind[0] = '\0';
+	font = genericfont = colorfind(prefix);
+	CHARcpy(descr, toCHAR("like normal"));
+	if (genericfont)
+	{
+		colorset(genericfont, descr, ElvFalse);
+
+		/* after this, others should default to be "like" this font */
+		CHARcpy(descr, toCHAR("like "));
+		CHARcat(descr, prefix);
+	}
+	flags = genericfont << 8;
+
+	/* single-letter fonts aren't allocated yet */
+	memset(letterfont, 0, sizeof letterfont);
+
+	/* For each line from the tags file */
+	bytes = ioread(tagline, QTY(tagline) - 1);
+	while (bytes > 5) /* shortest possible legal tag line */
+	{
+		/* find the end of this line */
+		for (src = tagline; src < &tagline[bytes] && *src != '\n'; src++)
 		{
-			win->tagstack[i] = win->tagstack[i - 1];
 		}
 
-		/* insert data into the top slot */
-		win->tagstack[0].origin = markdup(win->cursor);
-		win->tagstack[0].display = win->md->name;
-		win->tagstack[0].prevtag = label;
-	}
-	else
-	{
-		safefree(label);
-	}
+		/* parse it */
+		*src = '\0';
+		tag = tagparse(tochar8(tagline));
+		if (!tag)
+			break;
 
-	/* always leave newtag set to "true" */
-	newtag = True;
+		/* see if the tag's scope is limited, unless it's a function */
+		inside = ElvFalse;
+		if (!tag->TEKIND || tag->TEKIND[0] != 'f' || tag->TEKIND[1])
+			for (i = TEFIRST; i < QTY(tag->attr); i++)
+				if (tag->attr[i])
+				{
+					inside = ElvTrue;
+					break;
+				}
+
+		/* if not static, not a non-function limited to some other
+		 * scope, and not already in dictionary, and is defined in a
+		 * file which is callable by this one...
+		 */
+		if (!tag->TEFILE
+		 && !inside
+		 && !SPELL_IS_GOOD(spellfindword(dict, toCHAR(tag->TAGNAME), 0))
+		 && descr_cancall(toCHAR(tag->TAGFILE)))
+		{
+			/* some easy cases: no "kind" then use generic */
+			if (!tag->TEKIND)
+				flags = genericfont << 8;
+			/* single-letter "kind" and letterfont is set, use it */
+			else if (tag->TEKIND[0] >= 'a'
+			      && tag->TEKIND[0] <= 'z'
+			      && tag->TEKIND[1] == '\0'
+			      && letterfont[tag->TEKIND[0] - 'a'] != 0)
+				flags = letterfont[tag->TEKIND[0] - 'a'] << 8;
+			/* same font as last time */
+			else if (!strcmp(prevkind, tag->TEKIND))
+				flags = font << 8;
+			else
+			{
+				/* no special cases, just do it the hard way */
+				strcpy(prevkind, tag->TEKIND);
+				CHARcpy(fontname, prefix);
+				CHARcat(fontname, toCHAR(prevkind));
+				font = colorfind(fontname);
+				if (font)
+					colorset(font, descr, ElvFalse);
+
+				/* if single-letter, remember it */
+				if (tag->TEKIND[0] >= 'a'
+				 && tag->TEKIND[0] <= 'z'
+				 && tag->TEKIND[1] == '\0')
+					letterfont[tag->TEKIND[0] - 'a'] = font;
+
+				/* set the flags to use this font */
+				flags = font << 8;
+			}
+
+			/* if ignorecase, then force the name to be lowercase */
+			if (ignorecase)
+			{
+				char *conv;
+				for (conv = tag->TAGNAME; *conv; conv++)
+					*conv = elvtolower(*conv);
+			}
+
+			/* add the word, with the proper font flags */
+			dict = spelladdword(dict, toCHAR(tag->TAGNAME), flags);
+		}
+
+		/* delete this line from tagline[] */
+		for (dst = tagline, src++, allnext = ElvFalse; src < &tagline[bytes]; )
+		{
+			if (*src == '\n')
+				allnext = ElvTrue;
+			*dst++ = *src++;
+		}
+		bytes = (int)(dst - tagline);
+
+		/* if the next line is incomplete, read some more text
+		 * from the tags file.
+		 */
+		if (!allnext)
+		{
+			bytes += ioread(dst, (int)QTY(tagline) - bytes - 1);
+		}
+	}
+	(void)ioclose();
+	return dict;
 }
+#endif /* DISPLAY_SYNTAX */
 
 
 #ifdef FEATURE_SHOWTAG
@@ -509,15 +660,15 @@ void tebuilddef(buf)
 	int	ntagdefs;	/* number of items in tagdef */
    /* for scanning the tags file... */
 	CHAR	tagline[1000];	/* input buffer */
-	BOOLEAN	allnext;	/* does tagline[] contain the whole next line?*/
+	ELVBOOL	allnext;	/* does tagline[] contain the whole next line?*/
 	int	bytes;		/* number of bytes in tagline */
 	CHAR	*src, *dst;	/* for manipulating tagline[] */
 	TAG	*tag;		/* a tag parsed from tagline[] */
     /* for locating a tag defintion within this buffer */
 	EXINFO	xinfb;		/* dummy ex command, for parsing tag address */
-	BOOLEAN	wasmagic;	/* stores the normal value of o_magic */
-	BOOLEAN wassaveregexp;	/* stores the normal value of o_saveregexp */
-	BOOLEAN	wasmsghide;	/* stores the msghide() flag */
+	ELVBOOL	wasmagic;	/* stores the normal value of o_magic */
+	ELVBOOL wassaveregexp;	/* stores the normal value of o_saveregexp */
+	ELVBOOL	wasmsghide;	/* stores the msghide() flag */
 	CHAR	*cp;		/* for scanning the line */
 	long	offset;		/* offset of the tag within this buffer */
 	int	i;
@@ -525,8 +676,13 @@ void tebuilddef(buf)
 	/* Destroy the old list, if any */
 	tefreedef(buf);
 
-	/* if "showtag" isn't set, then do nothing more */
-	if (!o_showtag)
+	/* if the show option doesn't contain "tag", then do nothing more */
+	if (!o_show)
+		return;
+	for (src = o_show; src && *src; src++)
+		if (CHARncmp(src, "tag", 3))
+			break;
+	if (!*src)
 		return;
 
 	/* if this buffer contains no file, then do nothing */
@@ -549,13 +705,13 @@ void tebuilddef(buf)
 		return;
 
 	/* open the file */
-	if (!ioopen("tags", 'r', False, False, 't'))
+	if (!ioopen("tags", 'r', ElvFalse, ElvFalse, 't'))
 		return;
 
 	/* For each line from the tags file */
 	ntagdefs = allocated = 0;
 	tagdef = NULL;
-	wasmsghide = msghide(True);
+	wasmsghide = msghide(ElvTrue);
 	bytes = ioread(tagline, QTY(tagline) - 1);
 	while (bytes > 5) /* shortest possible legal tag line */
 	{
@@ -572,7 +728,7 @@ void tebuilddef(buf)
 
 		/* if for this file, and its definition isn't indented... */
 		if (!strcmp(tag->TAGFILE, tochar8(o_filename(buf)))
-		 && (isdigit(tag->TAGADDR[0]) || !isspace(tag->TAGADDR[2])))
+		 && (elvdigit(tag->TAGADDR[0]) || !elvspace(tag->TAGADDR[2])))
 		{
 			/* if the tag has a "ln" attribute, start searching
 			 * there -- saves *a lot* of time.
@@ -588,9 +744,9 @@ void tebuilddef(buf)
 			/* locate the tag's definition within this buffer */
 			scanstring(&cp, toCHAR(tag->TAGADDR));
 			wasmagic = o_magic;
-			o_magic = False;
+			o_magic = ElvFalse;
 			wassaveregexp = o_saveregexp;
-			o_saveregexp = False;
+			o_saveregexp = ElvFalse;
 			if (!exparseaddress(&cp, &xinfb))
 			{
 				scanfree(&cp);
@@ -625,16 +781,17 @@ void tebuilddef(buf)
 					tagdef[i] = tagdef[i - 1];
 			}
 			tagdef[i].where = markalloc(buf, offset);
-			tagdef[i].label = CHARdup(toCHAR(tag->TAGNAME));
+			tagdef[i].label = NULL;
+			buildstr(&tagdef[i].label, tag->TAGNAME);
 			ntagdefs++;
 		}
 NotFound:
 
 		/* delete this line from tagline[] */
-		for (dst = tagline, src++, allnext = False; src < &tagline[bytes]; )
+		for (dst = tagline, src++, allnext = ElvFalse; src < &tagline[bytes]; )
 		{
 			if (*src == '\n')
-				allnext = True;
+				allnext = ElvTrue;
 			*dst++ = *src++;
 		}
 		bytes = (int)(dst - tagline);
@@ -689,10 +846,8 @@ CHAR *telabel(cursor)
  static	CHAR	noinfo[1];
 	TEDEF	*tagdef = markbuffer(cursor)->tagdef;
 
-	/* if buffer has no tags, or the "showtag" option is off, then
-	 * return no info
-	 */
-	if (!tagdef || !o_showtag)
+	/* if buffer has no tags, then return no info */
+	if (!tagdef)
 		return noinfo;
 
 	/* search for this MARK in the list */
@@ -729,8 +884,8 @@ CHAR *tagcomplete(win, m)
 	TAG	*tag, *scan;
 	long	oldtaglength;
 	TAG	*oldtaglist;
-	BOOLEAN	oldmsghide;
-	BOOLEAN	oldexrefresh;
+	ELVBOOL	oldmsghide;
+	ELVBOOL	oldexrefresh;
 	CHAR	*oldprevioustag;
 	DRAWSTATE olddrawstate;
 
@@ -749,7 +904,7 @@ CHAR *tagcomplete(win, m)
 	/* collect the characters of the partial name */
 	rest[0] = '\0';
 	for (scanalloc(&cp, m), plen = 0;
-	     scanprev(&cp) && (isalnum(*cp) || *cp == '_') && plen < QTY(rest) - 1;
+	     scanprev(&cp) && (elvalnum(*cp) || *cp == '_') && plen < QTY(rest) - 1;
 	     )
 	{
 		memmove(rest + 1, rest, QTY(rest) - 1);
@@ -770,7 +925,7 @@ CHAR *tagcomplete(win, m)
 	oldtaglist = taglist;
 	taglist = NULL;
 	oldtaglength = o_taglength;
-	oldmsghide = msghide(True);
+	oldmsghide = msghide(ElvTrue);
 	oldprevioustag = o_previoustag ? CHARdup(o_previoustag) : NULL;
 	o_previoustag = NULL;
 	o_taglength = plen;
@@ -861,7 +1016,7 @@ CHAR *tagcomplete(win, m)
 	if (olddrawstate == DRAW_VISUAL)
 	{
 		oldexrefresh = o_exrefresh;
-		o_exrefresh = True;
+		o_exrefresh = ElvTrue;
 		drawextext(win, retbuf, 0);
 		o_exrefresh = oldexrefresh;
 		win->di->drawstate = DRAW_VMSG;
@@ -874,3 +1029,45 @@ CHAR *tagcomplete(win, m)
 	return retbuf;
 }
 #endif
+
+#endif /* FEATURE_TAGS */
+
+/* Save the current cursor position on the tag stack.  */
+void tepush(win, label)
+	WINDOW	win;	/* window where push should occur */
+	CHAR	*label;	/* dynamically-allocated name of old position */
+{
+	int	i;
+
+	if (o_tagstack
+	 && newtag
+	 && (o_filename(markbuffer(win->cursor))
+		|| o_bufchars(markbuffer(win->cursor))))
+	{
+		/* The oldest tag will be lost.  If it had pointers to any
+		 * dynamically allocated memory, then free that memory now.
+		 */
+		if (win->tagstack[TAGSTK - 1].prevtag)
+			safefree(win->tagstack[TAGSTK - 1].prevtag);
+		if (win->tagstack[TAGSTK - 1].origin)
+			markfree(win->tagstack[TAGSTK - 1].origin);
+
+		/* Shift the tag stack; top is always win->tagstack[0] */
+		for (i = TAGSTK - 1; i > 0; i--)
+		{
+			win->tagstack[i] = win->tagstack[i - 1];
+		}
+
+		/* insert data into the top slot */
+		win->tagstack[0].origin = markdup(win->cursor);
+		win->tagstack[0].display = win->md->name;
+		win->tagstack[0].prevtag = label;
+	}
+	else
+	{
+		safefree(label);
+	}
+
+	/* always leave newtag set to "true" */
+	newtag = ElvTrue;
+}

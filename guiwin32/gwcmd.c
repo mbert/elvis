@@ -5,10 +5,9 @@
 */
 
 #define CHAR    Char
-#define BOOLEAN Boolean
 #include "elvis.h" 
 #undef CHAR
-#undef BOOLEAN 
+#undef ELVBOOL 
 
 #if defined (GUI_WIN32)
 
@@ -26,10 +25,10 @@ extern char     *gw_new_buffer;
 static void gwcmd_file_new (GUI_WINDOW *gwp)
 
 {
-    BUFFER      pbuf = bufalloc (NULL, 0, False);
+    BUFFER      pbuf = bufalloc (NULL, 0, ElvFalse);
     
     if (pbuf != NULL)
-        eventreplace ((GUIWIN *)gwp, False, o_bufname (pbuf));
+        eventreplace ((GUIWIN *)gwp, ElvFalse, o_bufname (pbuf));
 }
 
 /* --------------------------------------------------------------------
@@ -65,7 +64,7 @@ static void gwcmd_file_open (GUI_WINDOW *gwp)
 		quoted = addquotes(toCHAR("#% ()$"), toCHAR(&cmd[3]));
 		strcpy(&cmd[3], tochar8(quoted));
 		safefree(quoted);
-		eventex ((GUIWIN *)gwp, cmd, False);
+		eventex ((GUIWIN *)gwp, cmd, ElvFalse);
     }
 }
 
@@ -102,7 +101,7 @@ static void gwcmd_file_split (GUI_WINDOW *gwp)
 		quoted = addquotes(toCHAR("#% ()$"), toCHAR(&cmd[4]));
 		strcpy(&cmd[4], tochar8(quoted));
 		safefree(quoted);
-		eventex ((GUIWIN *)gwp, cmd, False);
+		eventex ((GUIWIN *)gwp, cmd, ElvFalse);
     }
 }
 
@@ -114,7 +113,7 @@ static void gwcmd_file_split (GUI_WINDOW *gwp)
 static void gwcmd_file_save (GUI_WINDOW *gwp)
 
 {
-	eventex ((GUIWIN *)gwp, ":w", False);
+	eventex ((GUIWIN *)gwp, ":w", ElvFalse);
 }
 
 /* --------------------------------------------------------------------
@@ -145,7 +144,7 @@ static void gwcmd_file_saveas (GUI_WINDOW *gwp)
 		quoted = addquotes(toCHAR("#% ()$"), toCHAR(&cmd[4]));
 		strcpy(&cmd[4], tochar8(quoted));
 		safefree(quoted);
-		eventex ((GUIWIN *)gwp, cmd, False);
+		eventex ((GUIWIN *)gwp, cmd, ElvFalse);
     }
 }
 
@@ -187,7 +186,7 @@ static void gwcmd_file_cd (GUI_WINDOW *gwp)
         strcpy(&cmd[4], tochar8(quoted));
         safefree(quoted);
 
-        eventex ((GUIWIN *)gwp, cmd, False);
+        eventex ((GUIWIN *)gwp, cmd, ElvFalse);
     }
 }
 
@@ -199,7 +198,7 @@ static void gwcmd_file_cd (GUI_WINDOW *gwp)
 static void gwcmd_file_print (GUI_WINDOW *gwp)
 
 {
-	eventex ((GUIWIN *)gwp, ":lpr", False);
+	eventex ((GUIWIN *)gwp, ":lpr", ElvFalse);
 }
 
 /* --------------------------------------------------------------------
@@ -240,7 +239,7 @@ static void gwcmd_file_exit (GUI_WINDOW *gwp)
     eventkeys ((GUIWIN *)gwp, &chr[2], 1);
     eventkeys ((GUIWIN *)gwp, &chr[3], 1);
 #else
-    eventex ((GUIWIN *)gwp, ":q", False);
+    eventex ((GUIWIN *)gwp, ":q", ElvFalse);
 #endif
 }
 
@@ -252,7 +251,7 @@ static void gwcmd_file_exit (GUI_WINDOW *gwp)
 static void gwcmd_edit_undo (GUI_WINDOW *gwp)
 
 {
-	eventex ((GUIWIN *)gwp, ":undo", False);
+	eventex ((GUIWIN *)gwp, ":undo", ElvFalse);
 }
 
 /* --------------------------------------------------------------------
@@ -263,7 +262,7 @@ static void gwcmd_edit_undo (GUI_WINDOW *gwp)
 static void gwcmd_edit_redo (GUI_WINDOW *gwp)
 
 {
-	eventex ((GUIWIN *)gwp, ":redo", False);
+	eventex ((GUIWIN *)gwp, ":redo", ElvFalse);
 }
 
 /* --------------------------------------------------------------------
@@ -275,7 +274,7 @@ static void gwcmd_edit_cut (GUI_WINDOW *gwp)
 
 {
 #if 0
-	eventex ((GUIWIN *)gwp, ":d >", False);
+	eventex ((GUIWIN *)gwp, ":d >", ElvFalse);
 #else
 	if (eventclick ((GUIWIN *)gwp, -1, -1, CLICK_YANK) >= 0)
 	{
@@ -294,7 +293,7 @@ static void gwcmd_edit_copy (GUI_WINDOW *gwp)
 
 {
 #if 0
-	eventex ((GUIWIN *)gwp, ":y >", False);
+	eventex ((GUIWIN *)gwp, ":y >", ElvFalse);
 #else
 	if (eventclick ((GUIWIN *)gwp, -1, -1, CLICK_YANK) >= 0)
 	{
@@ -312,7 +311,7 @@ static void gwcmd_edit_paste (GUI_WINDOW *gwp)
 
 {
 #if 0
-	eventex ((GUIWIN *)gwp, ":pu <", False);
+	eventex ((GUIWIN *)gwp, ":pu <", ElvFalse);
 #else
 	(void)eventclick ((GUIWIN *)gwp, -1, -1, CLICK_PASTE);
 #endif
@@ -326,7 +325,7 @@ static void gwcmd_edit_paste (GUI_WINDOW *gwp)
 static void gwcmd_search_again (GUI_WINDOW *gwp)
 
 {
-	eventex ((GUIWIN *)gwp, "/", False);
+	eventex ((GUIWIN *)gwp, "/", ElvFalse);
 }
 
 /* --------------------------------------------------------------------
@@ -337,7 +336,7 @@ static void gwcmd_search_again (GUI_WINDOW *gwp)
 static void gwcmd_search_next_error (GUI_WINDOW *gwp)
 
 {
-	eventex ((GUIWIN *)gwp, ":errlist", False);
+	eventex ((GUIWIN *)gwp, ":errlist", ElvFalse);
 }
 
 /* --------------------------------------------------------------------
@@ -348,7 +347,7 @@ static void gwcmd_search_next_error (GUI_WINDOW *gwp)
 static void gwcmd_window_new (GUI_WINDOW *gwp)
 
 {
-	eventex ((GUIWIN *)gwp, ":split", False);
+	eventex ((GUIWIN *)gwp, ":split", ElvFalse);
 }
 
 /* --------------------------------------------------------------------
@@ -359,7 +358,7 @@ static void gwcmd_window_new (GUI_WINDOW *gwp)
 static void gwcmd_window_next (GUI_WINDOW *gwp)
 
 {
-	eventex ((GUIWIN *)gwp, ":window ++", False);
+	eventex ((GUIWIN *)gwp, ":window ++", ElvFalse);
 }
 
 /* --------------------------------------------------------------------
@@ -370,7 +369,7 @@ static void gwcmd_window_next (GUI_WINDOW *gwp)
 static void gwcmd_window_previous (GUI_WINDOW *gwp)
 
 {
-	eventex ((GUIWIN *)gwp, ":window --", False);
+	eventex ((GUIWIN *)gwp, ":window --", ElvFalse);
 }
 
 /* --------------------------------------------------------------------
@@ -381,7 +380,7 @@ static void gwcmd_window_previous (GUI_WINDOW *gwp)
 static void gwcmd_window_nfile (GUI_WINDOW *gwp)
 
 {
-	eventex ((GUIWIN *)gwp, ":next", False);
+	eventex ((GUIWIN *)gwp, ":next", ElvFalse);
 }
 
 /* --------------------------------------------------------------------
@@ -392,7 +391,7 @@ static void gwcmd_window_nfile (GUI_WINDOW *gwp)
 static void gwcmd_window_buffer (GUI_WINDOW *gwp)
 
 {
-	eventex ((GUIWIN *)gwp, ":bb", False);
+	eventex ((GUIWIN *)gwp, ":bb", ElvFalse);
 }
 
 /* --------------------------------------------------------------------
@@ -403,7 +402,7 @@ static void gwcmd_window_buffer (GUI_WINDOW *gwp)
 static void gwcmd_window_pfile (GUI_WINDOW *gwp)
 
 {
-	eventex ((GUIWIN *)gwp, ":prev", False);
+	eventex ((GUIWIN *)gwp, ":prev", ElvFalse);
 }
 
 /* --------------------------------------------------------------------
@@ -432,7 +431,7 @@ static void gwcmd_options_font (GUI_WINDOW *gwp)
 		lf.lfHeight = -MulDiv (lf.lfHeight, 72, GetDeviceCaps (dc, LOGPIXELSY));
 		ReleaseDC (NULL, dc);
         sprintf (str, ":set font=\"%s*%d\"", lf.lfFaceName, lf.lfHeight);
-		eventex ((GUIWIN *)gwp, str, False);
+		eventex ((GUIWIN *)gwp, str, ElvFalse);
 	}
 }
 
@@ -444,7 +443,7 @@ static void gwcmd_options_font (GUI_WINDOW *gwp)
 static void gwcmd_options_save (GUI_WINDOW *gwp)
 
 {
-	eventex ((GUIWIN *)gwp, ":mkexrc", False);
+	eventex ((GUIWIN *)gwp, ":mkexrc", ElvFalse);
 }
 
 /* --------------------------------------------------------------------
@@ -455,7 +454,7 @@ static void gwcmd_options_save (GUI_WINDOW *gwp)
 static void gwcmd_tools_compile (GUI_WINDOW *gwp)
 
 {
-	eventex ((GUIWIN *)gwp, ":cc", False);
+	eventex ((GUIWIN *)gwp, ":cc", ElvFalse);
 }
 
 /* --------------------------------------------------------------------
@@ -466,7 +465,7 @@ static void gwcmd_tools_compile (GUI_WINDOW *gwp)
 static void gwcmd_tools_make (GUI_WINDOW *gwp)
 
 {
-	eventex ((GUIWIN *)gwp, ":make", False);
+	eventex ((GUIWIN *)gwp, ":make", ElvFalse);
 }
 
 /* --------------------------------------------------------------------
@@ -477,7 +476,7 @@ static void gwcmd_tools_make (GUI_WINDOW *gwp)
 static void gwcmd_tools_shell (GUI_WINDOW *gwp)
 
 {
-	eventex ((GUIWIN *)gwp, ":sh", False);
+	eventex ((GUIWIN *)gwp, ":sh", ElvFalse);
 }
 
 /* --------------------------------------------------------------------
@@ -488,7 +487,7 @@ static void gwcmd_tools_shell (GUI_WINDOW *gwp)
 static void gwcmd_help_index (GUI_WINDOW *gwp)
 
 {
-	eventex ((GUIWIN *)gwp, ":help", False);
+	eventex ((GUIWIN *)gwp, ":help", ElvFalse);
 }
 
 /* --------------------------------------------------------------------
@@ -499,7 +498,7 @@ static void gwcmd_help_index (GUI_WINDOW *gwp)
 static void gwcmd_help_ex (GUI_WINDOW *gwp)
 
 {
-	eventex ((GUIWIN *)gwp, ":help ex", False);
+	eventex ((GUIWIN *)gwp, ":help ex", ElvFalse);
 }
 
 /* --------------------------------------------------------------------
@@ -510,7 +509,7 @@ static void gwcmd_help_ex (GUI_WINDOW *gwp)
 static void gwcmd_help_vi (GUI_WINDOW *gwp)
 
 {
-	eventex ((GUIWIN *)gwp, ":help vi", False);
+	eventex ((GUIWIN *)gwp, ":help vi", ElvFalse);
 }
 
 /* --------------------------------------------------------------------
@@ -521,7 +520,7 @@ static void gwcmd_help_vi (GUI_WINDOW *gwp)
 static void gwcmd_help_options (GUI_WINDOW *gwp)
 
 {
-	eventex ((GUIWIN *)gwp, ":help set all", False);
+	eventex ((GUIWIN *)gwp, ":help set all", ElvFalse);
 }
 
 /* --------------------------------------------------------------------
@@ -626,10 +625,6 @@ LONG gwcmd (GUI_WINDOW *gwp, UINT wParam)
         case IDM_OPTIONS_GLOBAL:
             DialogBox (hInst, MAKEINTRESOURCE (IDD_OPT_GLOBAL), gwp->frameHWnd,
                        (DLGPROC)DlgOptGlobal);
-            break;
-        case IDM_OPTIONS_SYNTAX:
-            DialogBox (hInst, MAKEINTRESOURCE (IDD_OPT_SYNTAX), gwp->frameHWnd,
-                       (DLGPROC)DlgOptSyntax);
             break;
         case IDM_OPTIONS_WINDOW:
             DialogBox (hInst, MAKEINTRESOURCE (IDD_OPT_WINDOW), gwp->frameHWnd,

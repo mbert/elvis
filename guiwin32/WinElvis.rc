@@ -80,7 +80,6 @@ BEGIN
         MENUITEM SEPARATOR
         MENUITEM "&Buffer...",                  IDM_OPTIONS_BUFFER
         MENUITEM "G&lobal...",                  IDM_OPTIONS_GLOBAL
-        MENUITEM "&Syntax...",                  IDM_OPTIONS_SYNTAX
         MENUITEM "&Window...",                  IDM_OPTIONS_WINDOW
         MENUITEM "&User...",                    IDM_OPTIONS_USER
         MENUITEM SEPARATOR
@@ -151,7 +150,7 @@ BEGIN
     DEFPUSHBUTTON   "OK",IDOK,74,88,50,14
     ICON            IDI_ELVIS,IDC_STATIC,7,7,18,20
     CTEXT           "WinElvis Version ",IDAB_VERSION,41,7,151,8
-    CTEXT           "Copyright 1996, Steve Kirkendall",IDC_STATIC,41,19,151,
+    CTEXT           "Copyright 2003, Steve Kirkendall",IDC_STATIC,41,19,151,
                     8
     CTEXT           "Windows Port by Serge Pirotte",IDC_STATIC,41,31,151,8
     LTEXT           "Physical Memory :",IDC_STATIC,41,56,62,8
@@ -399,32 +398,6 @@ BEGIN
     PUSHBUTTON      "Cancel",IDCANCEL,62,140,50,14
 END
 
-IDD_OPT_SYNTAX DIALOG DISCARDABLE  0, 0, 267, 130
-STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
-CAPTION "Syntax Options"
-FONT 8, "MS Sans Serif"
-BEGIN
-    DEFPUSHBUTTON   "OK",IDOK,5,110,50,14
-    GROUPBOX        "",IDC_STATIC,5,5,255,95
-    LTEXT           "&Element",IDC_STATIC,15,15,26,8
-    LISTBOX         IDC_SO_ELEMENT,15,25,90,65,LBS_NOINTEGRALHEIGHT | 
-                    WS_VSCROLL | WS_TABSTOP
-    GROUPBOX        "&Font mapping",IDC_STATIC,115,20,135,70
-    CONTROL         "Normal",IDC_SO_NORMAL,"Button",BS_AUTORADIOBUTTON | 
-                    WS_TABSTOP,125,40,38,10
-    CONTROL         "Bold",IDC_SO_BOLD,"Button",BS_AUTORADIOBUTTON,125,55,30,
-                    10
-    CONTROL         "Emphasized",IDC_SO_EMPHASIZED,"Button",
-                    BS_AUTORADIOBUTTON,125,70,54,10
-    CONTROL         "Italic",IDC_SO_ITALIC,"Button",BS_AUTORADIOBUTTON,195,
-                    40,31,10
-    CONTROL         "Underlined",IDC_SO_UNDERLINED,"Button",
-                    BS_AUTORADIOBUTTON,195,55,50,10
-    CONTROL         "Fixed",IDC_SO_FIXED,"Button",BS_AUTORADIOBUTTON,195,70,
-                    33,10
-    PUSHBUTTON      "Cancel",IDCANCEL,60,110,50,14,WS_GROUP
-END
-
 IDD_OPT_GLOBAL DIALOG DISCARDABLE  0, 0, 382, 258
 STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Global Options"
@@ -517,28 +490,46 @@ BEGIN
     LTEXT           "writeeol",IDC_STATIC,250,212,25,8
 END
 
-IDD_OPT_GUI DIALOG DISCARDABLE  0, 0, 197, 170
+IDD_OPT_GUI DIALOG DISCARDABLE  0, 0, 239, 205
 STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Gui Options"
 FONT 8, "MS Sans Serif"
 BEGIN
-    DEFPUSHBUTTON   "OK",IDOK,5,150,50,14
-    GROUPBOX        "",IDC_STATIC,5,5,185,25
+    DEFPUSHBUTTON   "OK",IDOK,7,184,50,14
+    GROUPBOX        "",IDC_STATIC,7,7,225,27
     CONTROL         "&Scrollbar",IDC_GUI_SCROLLBAR,"Button",BS_AUTOCHECKBOX | 
-                    WS_TABSTOP,15,15,43,10
+                    WS_TABSTOP,124,17,43,10
     CONTROL         "&Toolbar",IDC_GUI_TOOLBAR,"Button",BS_AUTOCHECKBOX | 
-                    WS_TABSTOP,110,15,40,10
-    GROUPBOX        "&Font types",IDC_STATIC,5,35,185,105
-    LISTBOX         IDC_GUI_FONTS,10,50,90,80,LBS_NOINTEGRALHEIGHT | 
+                    WS_TABSTOP,71,17,43,10
+    GROUPBOX        "Text faces",IDC_STATIC,7,39,225,138
+    LISTBOX         IDC_GUI_FONTS,13,52,90,115,LBS_NOINTEGRALHEIGHT | 
                     WS_VSCROLL | WS_TABSTOP
-    GROUPBOX        "&Attributes",IDC_STATIC,110,50,70,80
+    GROUPBOX        "&Attributes",IDC_STATIC,105,52,119,115
     CONTROL         "&Bold",IDC_GUI_BOLD,"Button",BS_AUTOCHECKBOX | 
-                    WS_TABSTOP,120,65,30,10
+                    WS_TABSTOP,120,79,30,10
     CONTROL         "&Italic",IDC_GUI_ITALIC,"Button",BS_AUTOCHECKBOX | 
-                    WS_TABSTOP,120,86,31,10
+                    WS_TABSTOP,120,92,31,10
     CONTROL         "&Underlined",IDC_GUI_UNDERLINED,"Button",
                     BS_AUTOCHECKBOX | WS_TABSTOP,120,105,50,10
-    PUSHBUTTON      "Cancel",IDCANCEL,60,150,50,14
+    PUSHBUTTON      "Cancel",IDCANCEL,62,184,50,14
+    CONTROL         "B&oxed",IDC_GUI_BOXED,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,175,79,36,10
+    CONTROL         "Graphic",IDC_GUI_GRAPHIC,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,175,92,41,10
+    CONTROL         "&Fixed",IDC_GUI_FIXED,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,175,66,33,10
+    COMBOBOX        IDC_GUI_FOREGROUND,151,126,72,72,CBS_DROPDOWN | 
+                    WS_VSCROLL | WS_TABSTOP
+    CONTROL         "&Menubar",IDC_GUI_MENUBAR,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,18,17,43,10
+    CONTROL         "St&atusbar",IDC_GUI_STATUSBAR,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,177,17,43,10
+    COMBOBOX        IDC_GUI_BACKGROUND,151,146,72,52,CBS_DROPDOWN | 
+                    WS_VSCROLL | WS_TABSTOP
+    LTEXT           "Foreground",IDC_STATIC,109,128,37,8
+    LTEXT           "Background",IDC_STATIC,109,147,40,8
+    CONTROL         "Proportional",IDC_GUI_PROPORTIONAL,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,120,66,53,10
 END
 
 
@@ -577,7 +568,6 @@ END
 // Icon with lowest ID value placed first to ensure application icon
 // remains consistent on all systems.
 IDI_ELVIS               ICON    DISCARDABLE     "elvis.ico"
-IDI_ICON2               ICON    DISCARDABLE     "elvisold.ico"
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -683,14 +673,6 @@ BEGIN
         BOTTOMMARGIN, 154
     END
 
-    IDD_OPT_SYNTAX, DIALOG
-    BEGIN
-        LEFTMARGIN, 7
-        RIGHTMARGIN, 260
-        TOPMARGIN, 7
-        BOTTOMMARGIN, 123
-    END
-
     IDD_OPT_GLOBAL, DIALOG
     BEGIN
         LEFTMARGIN, 7
@@ -702,9 +684,9 @@ BEGIN
     IDD_OPT_GUI, DIALOG
     BEGIN
         LEFTMARGIN, 7
-        RIGHTMARGIN, 190
+        RIGHTMARGIN, 232
         TOPMARGIN, 7
-        BOTTOMMARGIN, 163
+        BOTTOMMARGIN, 198
     END
 END
 #endif    // APSTUDIO_INVOKED
@@ -747,14 +729,18 @@ BEGIN
     BEGIN
         BLOCK "040904b0"
         BEGIN
+            VALUE "Comments", "\0"
             VALUE "CompanyName", "\0"
             VALUE "FileDescription", "WinElvis\0"
-            VALUE "FileVersion", "2.1_4\0"
+            VALUE "FileVersion", "2.2\0"
             VALUE "InternalName", "WinElvis\0"
-            VALUE "LegalCopyright", "Copyright © 1999 Steve Kirkendall & Serge Pirotte\0"
+            VALUE "LegalCopyright", "Copyright © 2003 Steve Kirkendall & Serge Pirotte\0"
+            VALUE "LegalTrademarks", "\0"
             VALUE "OriginalFilename", "WinElvis.exe\0"
+            VALUE "PrivateBuild", "\0"
             VALUE "ProductName", " WinElvis\0"
-            VALUE "ProductVersion", "2.1_4\0"
+            VALUE "ProductVersion", "2.2\0"
+            VALUE "SpecialBuild", "\0"
         END
     END
     BLOCK "VarFileInfo"

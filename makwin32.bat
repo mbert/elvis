@@ -1,5 +1,6 @@
 @echo off
 
+if "%1"=="clean" goto Clean
 echo Checking environment...
 if "%INCLUDE%"=="" goto EnvNeeded
 echo Environment variables already set
@@ -33,5 +34,11 @@ nmake /nologo /s /f winelvis.mak CFG="WinElvis - Win32 Release"
 if errorlevel 1 goto Fail
 nmake /nologo /s /f wintags.mak CFG="WinTags - Win32 Release"
 if errorlevel 1 goto Fail
+goto Done
+
+:Clean
+deltree /y winrel
+deltree /y guirel
 
 :Fail
+:Done

@@ -13,9 +13,9 @@
  *   void netdisconnect(sockbuf_t *sb);
  *	Close a socket connection which was created via netconnect()
  *
- *   BOOLEAN netread(sockbuf_t *sb);
- *	Read bytes from sb's socket.  Returns True if successful (even if
- *	no data has been read, at the end of input), or False if error or
+ *   ELVBOOL netread(sockbuf_t *sb);
+ *	Read bytes from sb's socket.  Returns ElvTrue if successful (even if
+ *	no data has been read, at the end of input), or ElvFalse if error or
  *	user-abort (after giving an error message).
  *
  *   char *netgetline(sockbuf_t *sb);
@@ -34,10 +34,10 @@
  *	Consume len bytes from sb's read-buffer.
  *	(This is actually a macro, defined in osnet.h)
  *
- *   BOOLEAN netwrite(sockbuf_t *sb, char *text, int bytes);
- *	Write data to sb's socket.  Returns True iff successful.
+ *   ELVBOOL netwrite(sockbuf_t *sb, char *text, int bytes);
+ *	Write data to sb's socket.  Returns ElvTrue iff successful.
  *
- *   BOOLEAN netputline(sockbuf_t *sb, char *text);
+ *   ELVBOOL netputline(sockbuf_t *sb, char *text);
  *	Write a line to sb's socket.  text is a NUL-terminated line;
  *	netlinewrite() adds a CR-LF pair itself.
  *
@@ -46,11 +46,12 @@
  */
 
 #include "elvis.h"
+#ifdef FEATURE_RCSID
+char id_osnet[] = "$Id: osnet.c,v 2.12 2003/10/17 17:41:23 steve Exp $";
+#endif
 #if defined(PROTOCOL_HTTP) || defined(PROTOCOL_FTP)
 # define CHAR	WinCHAR
-# define BOOLEAN WinBOOLEAN
 # include <winsock.h>
-# undef BOOLEAN
 # undef CHAR
 # define close(s)	closesocket(s)
 # define read(s,p,n)	recv(s, p, n, 0)
@@ -58,17 +59,17 @@
 
 
 # if USE_PROTOTYPES
-static BOOLEAN site2addr(char *site, struct in_addr *address);
+static ELVBOOL site2addr(char *site, struct in_addr *address);
 # endif
 
 
-static BOOLEAN initialized;
+static ELVBOOL initialized;
 
 /* Find the address of a site.  The site can be given as either a domain name,
  * or a "numbers and dots" name.  If successful, the address is stuffed into
- * address struct, and True is returned; otherwise False is returned.
+ * address struct, and ElvTrue is returned; otherwise ElvFalse is returned.
  */
-static BOOLEAN site2addr(site, address)
+static ELVBOOL site2addr(site, address)
 	char		*site;
 	struct in_addr	*address;
 {
@@ -80,7 +81,7 @@ static BOOLEAN site2addr(site, address)
 	/* if the site name starts with a digit, then assume it is in the
 	 * "numbers and dots" format.  Else use the name server.
 	 */
-	if (isdigit(site[0]))
+	if (elvdigit(site[0]))
 	{
 		/* convert to binary address */
 		address->S_un.S_addr = inet_addr(site);
@@ -93,7 +94,7 @@ static BOOLEAN site2addr(site, address)
 		if (strlen(site) < QTY(prevsite) && !strcmp(prevsite, site))
 		{
 			*address = prevaddr;
-			return True;
+			return ElvTrue;
 		}
 
 		/* look up the name */
@@ -112,11 +113,11 @@ static BOOLEAN site2addr(site, address)
 		prevaddr = *address;
 	}
 
-	return True;
+	return ElvTrue;
 
 Error:
 	msg(MSG_ERROR, "[s]unknown site $1", site);
-	return False;
+	return ElvFalse;
 }
 
 
@@ -160,7 +161,7 @@ sockbuf_t *netconnect(site_port, defport)
 			WSACleanup();
 			return NULL;
 		}
-		initialized = True;
+		initialized = ElvTrue;
 	}
 
 	/* if site_port contains a port number, then separate it from the site
@@ -215,10 +216,10 @@ void netdisconnect(sb)
 
 
 /* Read as much data as possible from a socket, with a timeout.  Returns True
- * if successful, or False if there was an error or the user aborted; in the
+ * if successful, or ElvFalse if there was an error or the user aborted; in the
  * latter cases, an error message is given.
  */
-BOOLEAN netread(sockbuf_t *sb)
+ELVBOOL netread(sockbuf_t *sb)
 {
 	int		i;
 	int		gotfds;
@@ -234,9 +235,9 @@ BOOLEAN netread(sockbuf_t *sb)
 		timeout.tv_sec = 2;
 		timeout.tv_usec = 0;
 		gotfds = select(sb->fd + 1, &rfds, NULL, NULL, &timeout);
-		if (gotfds < 0 || guipoll(False))
+		if (gotfds < 0 || guipoll(ElvFalse))
 		{
-			return False;
+			return ElvFalse;
 		}
 	} while (gotfds == 0);
 
@@ -254,12 +255,12 @@ BOOLEAN netread(sockbuf_t *sb)
 	if (i < 0)
 	{
 		msg(MSG_ERROR, "error reading from socket");
-		return False;
+		return ElvFalse;
 	}
 	sb->right += i;
 
 	/* return the number of bytes available */
-	return True;
+	return ElvTrue;
 }
 
 
@@ -296,26 +297,26 @@ char *netgetline(sockbuf_t *sb)
 }
 
 
-/* Send data bytes through a socket.  Returns True if successful, or False if
+/* Send data bytes through a socket.  Returns ElvTrue if successful, or ElvFalse if
  * error (after giving an error message).
  */
-BOOLEAN netwrite(sb, data, len)
+ELVBOOL netwrite(sb, data, len)
 	sockbuf_t	*sb;
 	char		*data;
 	int		len;
 {
 	if (write(sb->fd, data, len) == len)
-		return True;
+		return ElvTrue;
 	msg(MSG_ERROR, "transmission failed");
-	return False;
+	return ElvFalse;
 }
 
 /* Send a line through a socket.  This intended to be used for sending commands
  * to an FTP or HTTP server.  The line should be a normal NUL-terminated string
- * with no newline; this function appends a CRLF.  Returns True if successful,
- * or False if error (after giving an error message).
+ * with no newline; this function appends a CRLF.  Returns ElvTrue if successful,
+ * or ElvFalse if error (after giving an error message).
  */
-BOOLEAN netputline(sb, command, arg1, arg2)
+ELVBOOL netputline(sb, command, arg1, arg2)
 	sockbuf_t	*sb;		/* stream to write to */
 	char		*command;	/* command name */
 	char		*arg1, *arg2;	/* arguments, may be NULL if not used */
@@ -349,10 +350,10 @@ BOOLEAN netputline(sb, command, arg1, arg2)
 	{
 		msg(MSG_ERROR, "could not send request to server");
 		safefree(buf);
-		return False;
+		return ElvFalse;
 	}
 	safefree(buf);
-	return True;
+	return ElvTrue;
 }
 
 char *netself P_((void))

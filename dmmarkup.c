@@ -1,7 +1,6 @@
 /* dmmarkup.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_dmmarkup[] = "$Id: dmmarkup.c,v 2.87 1999/10/05 19:14:08 steve Exp $";
 
 /* This file contains some fairly generic text formatting code -- generic
  * in the sense that it can be easily tweaked to format a variety of types
@@ -10,10 +9,13 @@ char id_dmmarkup[] = "$Id: dmmarkup.c,v 2.87 1999/10/05 19:14:08 steve Exp $";
  */
 
 #include "elvis.h"
+#ifdef FEATURE_RCSID
+char id_dmmarkup[] = "$Id: dmmarkup.c,v 2.136 2003/10/19 23:13:33 steve Exp $";
+#endif
 #ifdef DISPLAY_ANYMARKUP
 
 
-#undef SGML_HACK
+#define SGML_HACK
 
 #define GRANULARITY 64	/* number of LINEINFOs to allocate at a time */
 
@@ -55,8 +57,8 @@ typedef struct
 	    unsigned graphic : 1; /* 1=replace |-^. with graphic chars */
 	    unsigned midline: 1;  /* 1=after a newline, 0=after other char */
 	    unsigned reduce : 1;  /* 1=fewer newlines, 0=normal qty newlines */
-	    unsigned deffont : 3; /* index into "nbiufe" of default font char */
-	    unsigned curfont : 3; /* index into "nbiufe" of current font char */
+	    unsigned deffont : 4; /* index into fonttable[] of default font char */
+	    unsigned curfont : 4; /* index into fonttable[] of current font char */
 	}	state;
 } LINEINFO;
 
@@ -74,26 +76,32 @@ typedef struct
 #endif
 } MUINFO;
 
-static BOOLEAN	first;	/* is this the first token on this line? */
-static BOOLEAN	anyspc;	/* has whitespace been encountered? */
-static BOOLEAN	title;	/* collecting characters of the title */
-static BOOLEAN	list;	/* o_list */
-static BOOLEAN	readonly;/* o_readonly -- affects &entity with no ; */
+static ELVBOOL	first;	/* is this the first token on this line? */
+static ELVBOOL	anyspc;	/* has whitespace been encountered? */
+static ELVBOOL	title;	/* collecting characters of the title */
+static ELVBOOL	list;	/* o_list && o_listchars.markup */
+static ELVBOOL	readonly;/* o_readonly -- affects &entity with no ; */
 static int	textwidth;/* o_columns */
-static int	tabstop;/* o_tabstop */
+static int	tabstop;/* repeating part of o_tabstop */
 static int	listind;/* o_shiftwidth/2, or 2 if shiftwidth<=4 */
 static int	col;	/* logical column number */
 static MUINFO	*mui;	/* pointer to muinfo */
 
-static BOOLEAN	prefmt;	/* True=literal whitespace, False=fill */
-static BOOLEAN	graphic;/* True=replace |-^. with graphic chars */
-static BOOLEAN	midline;/* False=after newline, True=after other character */
-static BOOLEAN	reduce;	/* True=fewer newlines, False=normal qty newlines */
+static ELVBOOL	prefmt;	/* ElvTrue=literal whitespace, ElvFalse=fill */
+static ELVBOOL	graphic;/* ElvTrue=replace |-^. with graphic chars */
+static ELVBOOL	midline;/* ElvFalse=after newline, ElvTrue=after other character */
+static ELVBOOL	reduce;	/* ElvTrue=fewer newlines, ElvFalse=normal qty newlines */
 static char	deffont;/* default font */
 static char	curfont;/* current font */
 static int	indent;	/* indentation amount */
 static int	nest;	/* nesting level of list/menu; 0=not in list */
 static int	listcnt;/* Counter for nest#1 numbered list; 0=not numbered */
+
+/* Because the MUINFO font fields are only 4 bits long, we can only store a
+ * few specific font codes.  The following table is used to convert the font
+ * codes from the letter format to the MUINFO format.
+ */
+static char	fonttable[] = "nbiufeldg*m\b\r\\\t\f";
 
 /* These variables store the string and font collected by the manarg() function
  * and output by the manput() function.  The "manlen" variable should be
@@ -116,6 +124,7 @@ static CHAR	sgmltag[20];
 
 /* Forward declarations of some functions which are static to this file */
 #ifdef DISPLAY_HTML
+static void	initfonts P_((void));
 static void	htmlescape P_((TOKEN *tok));
 static twrap_t	htmlimg P_((TOKEN *token));
 static twrap_t	htmlpre P_((TOKEN *token));
@@ -140,7 +149,7 @@ static twrap_t	manput P_((void));
 
 #ifdef DISPLAY_MAN
 static void	manescape P_((TOKEN *tok));
-static int	manarg P_((TOKEN *token, int start, _char_ font, BOOLEAN spc));
+static int	manarg P_((TOKEN *token, int start, _char_ font, ELVBOOL spc));
 static twrap_t	manTH P_((TOKEN *token));
 static twrap_t	manSH P_((TOKEN *token));
 static twrap_t	manBI P_((TOKEN *token));
@@ -165,8 +174,8 @@ static DMINFO	*texinit P_((WINDOW win));
 static void	countchar P_((CHAR *p, long qty, _char_ font, long offset));
 static twrap_t	put P_((TOKEN *token));
 static void	term P_((DMINFO *info));
-static long	mark2col P_((WINDOW w, MARK mark, BOOLEAN cmd));
-static MARK	move P_((WINDOW w, MARK from, long linedelta, long column, BOOLEAN cmd));
+static long	mark2col P_((WINDOW w, MARK mark, ELVBOOL cmd));
+static MARK	move P_((WINDOW w, MARK from, long linedelta, long column, ELVBOOL cmd));
 static MARK	setup P_((WINDOW win, MARK top, long cursor, MARK bottom, DMINFO *info));
 static MARK	image P_((WINDOW w, MARK line, DMINFO *info, void (*draw)(CHAR *p, long qty, _char_ font, long offset)));
 static int	start P_((WINDOW win, MARK from, void (*draw)(CHAR *p, long qty, _char_ font, long offset)));
@@ -184,8 +193,9 @@ static TOKEN	rettok;
  */
 static long	cursoff;
 
-/* Offset of a space character, if "anyspc" is True. */
+/* Offset & font of a space character, if "anyspc" is ElvTrue. */
 static long	spcoffset;
+static char	spcfont;	
 
 /* This the drawchar pointer points to a function for outputting a single
  * character.
@@ -195,15 +205,72 @@ static void	(*drawchar) P_((CHAR *p, long qty, _char_ font, long offset));
 /* Special characters.  These are stored in variables rather than macros so
  * that we can pass their address to (*drawchar)().
  */
-static CHAR	hyphen = '-';
-static CHAR	newline = '\n';
-static CHAR	formfeed = '\f';
-static CHAR	vtab = '\013';
-static CHAR	space = ' ';
-static CHAR	bullet = '*';
-
+static CHAR	hyphen[1] = {'-'};
+static CHAR	newline[1] = {'\n'};
+static CHAR	formfeed[1] = {'\f'};
+static CHAR	vtab[1] = {'\013'};
+static CHAR	space[1] = {' '};
+static CHAR	bullet1[1] = {'*'};
+static CHAR	bullet2[1] = {'o'};
 
 #ifdef DISPLAY_HTML
+/*----------------------------------------------------------------------------*/
+/* Array for converting single-letter font names into font codes.  The long
+ * names of the fonts are converted into font codes in the initialization
+ * function.
+ */
+static char	fontcode[128];
+
+static void initfonts()
+{
+	static ELVBOOL first = ElvTrue;
+	char	form;
+
+	/* if not first time, then do nothing */
+	if (!first)
+		return;
+	first = ElvFalse;
+
+	/* initialize the fontcode[] array */
+	fontcode['n'] = fontcode['N'] = colorfind(toCHAR("formatted"));
+	fontcode['b'] = fontcode['B'] = colorfind(toCHAR("bold"));
+	fontcode['i'] = fontcode['I'] = colorfind(toCHAR("italic"));
+	fontcode['u'] = fontcode['U'] = colorfind(toCHAR("underlined"));
+	fontcode['f'] = fontcode['F'] = colorfind(toCHAR("fixed"));
+	fontcode['e'] = fontcode['E'] = colorfind(toCHAR("emphasized"));
+	fontcode['l'] = fontcode['L'] = colorfind(toCHAR("link"));
+	fontcode['d'] = fontcode['D'] = colorfind(toCHAR("definition"));
+	fontcode['g'] = fontcode['G'] = colorfind(toCHAR("graphic"));
+	fontcode['m'] = fontcode['M'] = colorfind(toCHAR("markup"));
+	fontcode['*'] = colorfind(toCHAR("bullet"));
+	fontcode['\b'] = colorfind(toCHAR("form_button"));
+	fontcode['\r'] = colorfind(toCHAR("form_radio"));
+	fontcode['\\'] = colorfind(toCHAR("form_check"));
+	fontcode['\t'] = colorfind(toCHAR("form_text"));
+	fontcode['\f'] = colorfind(toCHAR("form_other"));
+	form = colorfind(toCHAR("form"));
+
+	/* some hardcoded defaults for the appearances of those fonts */
+	colorset(fontcode['n'], toCHAR("proportional"), ElvFalse);
+	colorset(fontcode['b'], toCHAR("bold like formatted"), ElvFalse);
+	colorset(fontcode['i'], toCHAR("italic like formatted"), ElvFalse);
+	colorset(fontcode['u'], toCHAR("underlined like formatted"), ElvFalse);
+	colorset(fontcode['e'], toCHAR("like bold"), ElvFalse);
+	colorset(fontcode['f'], toCHAR("fixed like formatted"), ElvFalse);
+	colorset(fontcode['l'], toCHAR("underlined blue like formatted"), ElvFalse);
+	colorset(fontcode['d'], toCHAR("like bold"), ElvFalse);
+	colorset(fontcode['g'], toCHAR("graphic like fixed"), ElvFalse);
+	colorset(fontcode['*'], toCHAR("graphic"), ElvFalse);
+	colorset(fontcode['m'], toCHAR("bold green"), ElvFalse);
+	colorset(form, toCHAR("red"), ElvFalse);
+	colorset(fontcode['\b'], toCHAR("boxed like form"), ElvFalse);
+	colorset(fontcode['\r'], toCHAR("boxed like form"), ElvFalse);
+	colorset(fontcode['\\'], toCHAR("boxed like form"), ElvFalse);
+	colorset(fontcode['\t'], toCHAR("underlined like form"), ElvFalse);
+	colorset(fontcode['\f'], toCHAR("boxed like form"), ElvFalse);
+}
+
+
 /*----------------------------------------------------------------------------*/
 /* HTML-specific functions and variables                                      */
 
@@ -242,6 +309,7 @@ static struct {
 		{7,	"rdquo",	  0, '"'},
 		{7,	"lsquo",	  0, '`'},
 		{7,	"rsquo",	  0,'\''},
+		{7,	"tilde",	  0, '~'},
 		{5,	"shy",		  0, '-'},
 		{5,	"ETH",		'-', 'D'},
 		{5,	"eth",		'-', 'd'},
@@ -255,10 +323,12 @@ static struct {
 		{7,	"pound",	'$', 'L'},
 		{6,	"cent",		'$', 'C'},
 		{5,	"yen",		'$', 'Y'},
+		{6,	"euro",		'$', 'E'},
 		{5,	"deg",		'*', '*'},
 #if USE_PROTOTYPES /* because K&R C can't handle 6 chars in a char[6] field */
 		{8,	"iquest",	'~', '?'},
 		{8,	"curren",	'$', 'X'},
+		{8,	"percnt",	  0, '%'},
 #endif
 		{4,	"LT",		  0, '<'},
 		{4,	"GT",		  0, '>'},
@@ -278,7 +348,7 @@ static struct {
 		/* find the length of this escape's name */
 		for (len = truelen = 1; src[len] != ';'; truelen++, len++)
 		{
-			if (!src[len] || isspace(src[len]))
+			if (!src[len] || elvspace(src[len]))
 			{
 				if (readonly)
 				{
@@ -375,10 +445,10 @@ static twrap_t htmlimg(token)
 	TOKEN	*token;
 {
 	int	i, j;
-	BOOLEAN	htmlurl;
+	ELVBOOL	htmlurl;
 
 	/* detect whether this is an SGML <htmlurl> or <ulink> tag */
-	htmlurl = (token->text[1] == 'h' || token->text[1] == 'u');
+	htmlurl = (ELVBOOL)(token->text[1] == 'h' || token->text[1] == 'u');
 
 	/* look for an "alt=..." argument */
 	for (i = 5; i < token->nchars && CHARncmp(&token->text[i - 5], toCHAR(" alt="), 5); i++)
@@ -419,7 +489,7 @@ static twrap_t htmlimg(token)
 	{
 		/* there is no "alt=..." string, so display the tag name */
 		i = 1;
-		for (j = 1; j + i < token->nchars && isalpha(token->text[j + i]); j++)
+		for (j = 1; j + i < token->nchars && elvalpha(token->text[j + i]); j++)
 		{
 		}
 	}
@@ -458,7 +528,7 @@ static twrap_t htmlimg(token)
 	{
 		mantext[0] = '>';
 		manoffset[0] = token->offset[0];
-		manfont[0] = 'u';
+		manfont[0] = fontcode['l'];
 		manlen++;
 	}
 
@@ -467,7 +537,7 @@ static twrap_t htmlimg(token)
 	{
 		mantext[manlen] = token->text[i];
 		manoffset[manlen] = token->offset[i];
-		manfont[manlen] = htmlurl ? 'u' : 'N';
+		manfont[manlen] = fontcode[htmlurl ? 'u' : 'N'];
 	}
 	return manput();
 }
@@ -479,11 +549,11 @@ static twrap_t htmlpre(token)
 {
 	int	i;
 
-	for (graphic = False, i = 0; i < token->nchars; i++)
+	for (graphic = ElvFalse, i = 0; i < token->nchars; i++)
 	{
 		if (token->text[i] == 'g')
 		{
-			graphic = True;
+			graphic = ElvTrue;
 			break;
 		}
 	}
@@ -510,12 +580,12 @@ static twrap_t htmlli(token)
 		/* output whitespace for indentation */
 		if (indent - len > 1)
 		{
-			(*drawchar)(&space, 1 + len - indent, 'n', -1);
+			(*drawchar)(space, 1 + len - indent, 0, -1);
 			col += indent - len - 1;
 		}
 
 		/* output the item number */
-		(*drawchar)(buf, len, 'n', -1);
+		(*drawchar)(buf, len, 0, -1);
 		col += len;
 	}
 	else
@@ -523,12 +593,12 @@ static twrap_t htmlli(token)
 		/* output whitespace for indentation */
 		if (indent > 2)
 		{
-			(*drawchar)(&space, 2 - indent, 'n', -1);
+			(*drawchar)(space, 2 - indent, 0, -1);
 			col += indent - 2;
 		}
 
 		/* output a bullet */
-		(*drawchar)(&bullet, 1, 'g', -1);
+		(*drawchar)((nest & 1) ? bullet1 : bullet2, 1, fontcode['*'], -1);
 		col++;
 	}
 
@@ -547,8 +617,8 @@ static twrap_t htmlinput(token)
 	int	width;	/* displayed width of item */
 	int	vallen;	/* length of the value */
 	int	validx;	/* index into token->text[] of initial value */
-	BOOLEAN	button;	/* does this form item appear to be a button? */
-	BOOLEAN	radio;	/* does this form item appear to be a radio button? */
+	ELVBOOL	button;	/* does this form item appear to be a button? */
+	ELVBOOL	radio;	/* does this form item appear to be a radio button? */
 	char	font;	/* font - 'E' for buttons, or 'N' for any other */
 	int	mycol;
 	int	i;
@@ -556,8 +626,8 @@ static twrap_t htmlinput(token)
 	/* parse the arguments */
 	height = (token->text[1] == 't') ? 3 : 1;
 	width = vallen = validx = 0;
-	button = radio = False;
-	font = 'u';
+	button = radio = ElvFalse;
+	font = fontcode['\t'];
 	for (i = 4; i < token->nchars; i++)
 	{
 		if (!CHARncmp(&token->text[i], toCHAR("value="), 6))
@@ -574,7 +644,7 @@ static twrap_t htmlinput(token)
 			else
 			{
 				validx = i;
-				for (vallen = i; i < token->nchars && isalnum(token->text[i]); i++)
+				for (vallen = i; i < token->nchars && elvalnum(token->text[i]); i++)
 				{
 				}
 			}
@@ -595,8 +665,9 @@ static twrap_t htmlinput(token)
 			 || !CHARncmp(&token->text[i], toCHAR("CHECKBOX"), 8))
 			{
 				/* CHECKBOX button */
-				button = radio = True;
+				button = radio = ElvTrue;
 				i += 8;
+				font = fontcode['\\'];
 			}
 			else if (!CHARncmp(&token->text[i], toCHAR("hidden"), 6)
 			      || !CHARncmp(&token->text[i], toCHAR("HIDDEN"), 6))
@@ -608,19 +679,20 @@ static twrap_t htmlinput(token)
 			      || !CHARncmp(&token->text[i], toCHAR("RADIO"), 5))
 			{
 				/* RADIO button */
-				button = radio = True;
+				button = radio = ElvTrue;
 				i += 5;
+				font = fontcode['\r'];
 			}
 			else if (token->text[i] != 't' && token->text[i] != 'T')
 			{
 				/* not TEXT, probably SUBMIT or RESET button */
-				button = True;
-				font = 'B';
+				button = ElvTrue;
+				font = fontcode['\b'];
 			}
 		}
 		else if (!CHARncmp(&token->text[i], toCHAR("checked"), 7))
 		{
-			font = 'N';
+			/* font = fontcode['\\'] BUT WITH HIGHLIGHTING */
 			i += 7;
 		}
 	}
@@ -644,14 +716,14 @@ static twrap_t htmlinput(token)
 	else if (anyspc)
 	{
 		mycol++;
-		anyspc = False;
+		anyspc = ElvFalse;
 	}
 
 	/* will it fit on this line? */
 	if (!first && mycol + width > textwidth)
 	{
 		/* no it won't */
-		(*drawchar)(&newline, 1, 'n', -1);
+		(*drawchar)(newline, 1, 0, -1);
 		col = 0;
 		return TWRAP_BEFORE;
 	}
@@ -661,23 +733,23 @@ static twrap_t htmlinput(token)
 	{
 		if (col > mycol)
 		{
-			(*drawchar)(&newline, 1, 'n', -1);
+			(*drawchar)(newline, 1, 0, -1);
 			col = 0;
 		}
 		if (col < mycol)
 		{
-			(*drawchar)(&space, col - mycol , 'n', -1);
+			(*drawchar)(space, col - mycol , 0, -1);
 			col = mycol;
 		}
 		if (vallen > 0)
 			(*drawchar)(&token->text[validx], vallen,
 				font, token->offset[validx]);
 		if (width > vallen)
-			(*drawchar)(&space, vallen - width, /* <- negative! */
+			(*drawchar)(space, vallen - width, /* <- negative! */
 				font, token->offset[token->nchars - 1]);
 		col += width;
 	}
-	anyspc = False;
+	anyspc = ElvFalse;
 
 	return TWRAP_NO;
 }
@@ -693,9 +765,9 @@ static twrap_t htmla(token)
 	 */
 	deffont = curfont;
 
-	/* if the token starts with "a href" then force font to 'u' */
+	/* if the token starts with "a href" then force font to "link" */
 	if (!CHARncmp(token->text, toCHAR("<a href="), 8))
-		curfont = 'u';
+		curfont = fontcode['l'];
 
 	/* zero width, always fits on line */
 	return TWRAP_NO;
@@ -715,8 +787,10 @@ static int htmlmarkup(token)
 		/* These are SGML tags.  We only consider using these when
 		 * the display mode is "html sgml".
 		 */
-		{ "title",	"N---b--"			},
-		{ "/title",	"N-|-=--"			},
+		{ "title",	"N0--b--"			},
+		{ "/title",	"N2|-=--"			},
+		{ "subtitle",	"N0--i--"			},
+		{ "/subtitle",	"N2|-=--"			},
 		{ "/",		"N---=--"			},
 		{ "author",	"N0--I--"			},
 		{ "date",	"N0--N--"			},
@@ -757,17 +831,23 @@ static int htmlmarkup(token)
 		{ "/replaceable","N---=--"			}, /* </var> */
 		{ "bf",		"N---b--"			}, /* <b> */
 		{ "/bf",	"N---=--"			}, /* </b> */
-		{ "sf",		"N---b--"			}, /* <strong> */
-		{ "/sf",	"N---=--"			}, /* </strong> */
+		{ "sf",		"N---b--"			}, /* <strong>*/
+		{ "/sf",	"N---=--"			}, /*</strong>*/
 		{ "it",		"N---i--"			}, /* <i> */
 		{ "/it",	"N---=--"			}, /* </i> */
 		{ "sl",		"N---i--"			}, /* <i> */
 		{ "/sl",	"N---=--"			}, /* </i> */
+		{ "informaltable",	"N0|-NY-"		}, /* <table> */
+		{ "/informaltable",	"N0@-NY-"		}, /* </table>*/
 		{ "row",	"N02--Y-"			}, /* <tr> */
 		{ "entry",	"N-=-NY-"			}, /* <td> */
+		{ "literallayout","N0---NP"			},
+		{ "/literallayout","N0---Y-"			},
 #endif /* SGML_HACK */
 
 		/* These are HTML tags */
+		/* Tag		 Effects	Function	*/
+		/*               TBILFFD                        */
 		{ "html",	"Y-2-NY-"			},
 		{ "/html",	"N-2-NY-"			},
 		{ "head",	"Y-2-NY-"			},
@@ -792,10 +872,11 @@ static int htmlmarkup(token)
 		{ "hr",		"N0-----",	htmlhr		},
 		{ "img",	"N------",	htmlimg		},
 		{ "frame",	"N-----T",	htmlimg		},
+		{ "embed",	"N-----T",	htmlimg		},
 		{ "br",		"N0---Y-"			},
-		{ "table",	"N02-NY-"			},
-		{ "/table",	"N02-NY-"			},
-		{ "tr",		"N02--Y-"			},
+		{ "table",	"N0|-NY-"			},
+		{ "/table",	"N0@-NY-"			},
+		{ "tr",		"N0@--Y-"			},
 		{ "th",		"N-=-BY-"			},
 		{ "td",		"N-=-NY-"			},
 		{ "blockquote",	"N14-NYP"			},
@@ -808,7 +889,7 @@ static int htmlmarkup(token)
 		{ "/xmp",	"N0<-NY-"			},
 		{ "dl",		"N-2-NYS"			},
 		{ "/dl",	"N02-NY-"			},
-		{ "dt",		"N12-BYP"			},
+		{ "dt",		"N12-DYP"			},
 		{ "dd",		"N03-NY-"			},
 		{ "ol",		"N->#-YP"			},
 		{ "/ol",	"N0<N-Y-"			},
@@ -823,7 +904,7 @@ static int htmlmarkup(token)
 		{ "/a",		"N---=--"			},
 		{ "cite",	"N---i--"			},
 		{ "/cite",	"N---=--"			},
-		{ "dfn",	"N---i--"			},
+		{ "dfn",	"N---d--"			},
 		{ "/dfn",	"N---=--"			},
 		{ "em",		"N---i--"			},
 		{ "/em",	"N---=--"			},
@@ -855,7 +936,7 @@ static int htmlmarkup(token)
 	assert(token->nchars > 1 && token->text[0] == '<');
 	for (len = 1;
 	     len < token->nchars &&
-		((len == 1 && token->text[len] == '/') || isalnum(token->text[len]));
+		((len == 1 && token->text[len] == '/') || elvalnum(token->text[len]));
 	     len++)
 	{
 	}
@@ -863,7 +944,7 @@ static int htmlmarkup(token)
 
 	/* look it up in the table */
 #ifdef SGML_HACK
-	for (scan = &tbl[mui->flavor];
+	for (scan = mui ? &tbl[mui->flavor] : tbl; /* won't always have mui */
 #else
 	for (scan = tbl;
 #endif
@@ -886,7 +967,8 @@ static TOKEN *htmlget(refp)
 	CHAR	**refp;	/* address of a (CHAR *) used for scanning */
 {
 	long	offset;
-	BOOLEAN lower, nameonly;
+	ELVBOOL lower, nameonly;
+	int	i;
 
 	/* if the CHAR pointer is NULL, then return NULL */
 	if (!*refp)
@@ -933,17 +1015,47 @@ static TOKEN *htmlget(refp)
 	if (rettok.text[0] == '<')
 	{
 		/* This is a markup.  Collect characters up to next '>' */
-		for (lower = nameonly = True;
+		for (lower = nameonly = ElvTrue;
 		     *refp && **refp != '>' && !(**refp == '/' && nameonly && rettok.nchars > 1);
 		     offset++, scannext(refp))
 		{
+			/* If this is a comment token, then incorporate
+			 * everything and including the next hyphen before
+			 * going back to the top of the loop.  This way,
+			 * '>' chars in the comment won't be erroneously
+			 * detected as the end of the comment.
+			 */
+			if (rettok.nchars >= 3
+			 && rettok.text[1] == '!'
+			 && rettok.text[2] == '-')
+			{
+				while (*refp && **refp != '-')
+				{
+					if (rettok.nchars <= QTY(rettok.text) - 3)
+					{
+						rettok.text[rettok.nchars] = **refp;
+						rettok.offset[rettok.nchars] = offset;
+						rettok.nchars++;
+					}
+					offset++;
+					scannext(refp);
+				}
+				if (!*refp)
+					break;
+
+				/* else we found a '-' which should be processed
+				 * normally, so continue on with the normal body
+				 * of the loop...
+				 */
+			}
+			
 			/* if token text is full, then skip this char */
 			if (rettok.nchars >= QTY(rettok.text) - 2)
 				continue;
 
 			/* if not alphanumeric, then clear nameonly */
-			if (nameonly && !isalnum(**refp))
-				nameonly = False;
+			if (nameonly && !elvalnum(**refp))
+				nameonly = ElvFalse;
 
 			/* Store the character.  This is a little complex
 			 * because we want to convert uppercase tags and
@@ -952,14 +1064,14 @@ static TOKEN *htmlget(refp)
 			 * should be displayed as a space.
 			 */
 			if (**refp == '=')
-				lower = False;
-			else if (isspace(**refp))
-				lower = True;
+				lower = ElvFalse;
+			else if (elvspace(**refp))
+				lower = ElvTrue;
 
 			if (**refp <= ' ')
 				rettok.text[rettok.nchars] = ' ';
-			else if (isupper(**refp) && lower)
-				rettok.text[rettok.nchars] = tolower(**refp);
+			else if (elvupper(**refp) && lower)
+				rettok.text[rettok.nchars] = elvtolower(**refp);
 			else
 				rettok.text[rettok.nchars] = **refp;
 			rettok.offset[rettok.nchars++] = offset;
@@ -1012,7 +1124,7 @@ static TOKEN *htmlget(refp)
 		for (;
 		     *refp 
 			&& rettok.nchars < QTY(rettok.text) - 1
-			&& **refp > ' ' /* !isspace(**refp) */
+			&& **refp > ' ' /* !elvspace(**refp) */
 #ifdef SGML_HACK
 			&& !(**refp == '/' && *sgmltag)
 #endif
@@ -1029,6 +1141,27 @@ static TOKEN *htmlget(refp)
 		 * are processed, this may change.
 		 */
 		rettok.width = rettok.nchars;
+
+		/* If this is a readonly file, then be forgiving about illegal
+		 * characters.  Many Windows HTML editors produce documents
+		 * which use characters 0x80-0x9f for kerned punctuation.
+		 */
+		if (readonly && o_nonascii == 'm')
+		{
+			for (i = 0; i < rettok.width; i++)
+			{
+				switch (rettok.text[i])
+				{
+				  case 0x85:	rettok.text[i] = ':';	break;
+				  case 0x91:	rettok.text[i] = '`';	break;
+				  case 0x92:	rettok.text[i] = '\'';	break;
+				  case 0x93:	rettok.text[i] = '"';	break;
+				  case 0x94:	rettok.text[i] = '"';	break;
+				  case 0x96:	rettok.text[i] = '-';	break;
+				  case 0x97:	rettok.text[i] = '-';	break;
+				}
+			}
+		}
 	}
 
 	/* Mark the end of the text, and return the token */
@@ -1050,6 +1183,13 @@ static DMINFO *htmlinit(win)
 	/* inherit some functions from dmnormal */
 	dmhtml.wordmove = dmnormal.wordmove;
 
+	/* initialize the fonts */
+	initfonts();
+
+	/* if merely initializing options, we're done */
+	if (!win)
+		return NULL;
+
 	/* allocate the info struct */
 	mui = (MUINFO *)safealloc(1, sizeof(MUINFO));
 	mui->get = htmlget;
@@ -1064,8 +1204,10 @@ static DMINFO *htmlinit(win)
 	{
 		/* we want plain HTML -- find the first HTML tag */
 		CHARcpy(rettok.text, toCHAR("<html>"));
+		rettok.nchars = 6;
 		mui->flavor = htmlmarkup(&rettok);
 	}
+	assert(mui->flavor < 100);
 #endif /* SGML_HACK */
 
 	/* temporarily move the cursor someplace harmless */
@@ -1086,7 +1228,7 @@ static DMINFO *htmlinit(win)
 		 */
 		if (result == TWRAP_AFTER)
 		{
-			/* assert(first == True && col == 0); */
+			/* assert(first == ElvTrue && col == 0); */
 			storestate(token->offset[0], NULL);
 		}
 
@@ -1096,7 +1238,7 @@ static DMINFO *htmlinit(win)
 		 */
 		if (cursoffset == 0L 
 		 && !title
-		 && !isspace(token->text[0])
+		 && !elvspace(token->text[0])
 		 && !token->markup)
 		{
 			cursoffset = token->offset[0];
@@ -1108,7 +1250,7 @@ static DMINFO *htmlinit(win)
 		result = put(token);
 		if (result == TWRAP_BEFORE)
 		{
-			assert(first == True && col == 0);
+			assert(first == ElvTrue && col == 0);
 			storestate(token->offset[0], NULL);
 			(void)put(token);
 		}
@@ -1139,8 +1281,9 @@ static CHAR *htmltagatcursor(win, cursor)
 	TOKEN	anchor;	/* copy of last <a...> or </a> token */
 	long	endoffset;/* where to stop scanning */
 	int	i;	/* index into mui->line */
-	BOOLEAN	anyviz;	/* have any visible tokens been encountered? */
+	ELVBOOL	anyviz;	/* have any visible tokens been encountered? */
 	MARKBUF	tmp;
+	int	lb;	/* line break counter */
 
 	/* We need to find the last <a ...> or </a> tag which occurs before
 	 * before the cursor.  Since we can't read tokens backward, we must
@@ -1169,29 +1312,38 @@ static CHAR *htmltagatcursor(win, cursor)
 	do
 	{
 		scanalloc(&p, marktmp(tmp, markbuffer(cursor), mui->line[i].offset));
-		anyviz = False;
+		anyviz = ElvFalse;
+		lb = 3;
 		while ((token = htmlget(&p)) != NULL
 				&& (!anyviz || token->offset[0] < endoffset))
 		{
 			if (!token->markup)
 			{
-				if (!isspace(token->text[0]))
-					anyviz = True;
+				if (!elvspace(token->text[0]))
+					anyviz = ElvTrue;
 				continue;
 			}
 			if (!CHARncmp(token->text, toCHAR("<a "), 3)
 			 || !CHARcmp(token->text, toCHAR("</a>"))
 			 || !CHARncmp(token->text, toCHAR("<frame "), 7)
+			 || !CHARncmp(token->text, toCHAR("<embed "), 7)
 			 || !CHARncmp(token->text, toCHAR("<htmlurl "), 9)
 			 || !CHARncmp(token->text, toCHAR("<ulink "), 7)
 			 || (anchor.text[1] == '/'
 				&& !CHARncmp(token->text, toCHAR("<img "), 5)))
 			{
 				anchor = *token;
-				anyviz = False;
+				anyviz = ElvFalse;
 			}
 			if (!CHARncmp(token->text, toCHAR("<img "), 5))
-				anyviz = True;
+				anyviz = ElvTrue;
+
+			/* Don't look across too many line breaks, for speed */
+			if (token->markup->BREAKLN != '-'
+			 || (token->markup->DEST != '-' && token->markup->DEST != 'T'))
+				lb--;
+			if (lb <= 0)
+				break;
 		}
 		scanfree(&p);
 #if 0
@@ -1220,7 +1372,7 @@ static CHAR *htmltagatcursor(win, cursor)
 		/* Copy the URL.  Beware of quotes! */
 		if (*p == '"')
 		{
-			while (*++p != '"')
+			while (*++p != '"' && *p)
 			{
 				buildCHAR(&ret, *p);
 			}
@@ -1230,7 +1382,7 @@ static CHAR *htmltagatcursor(win, cursor)
 			do
 			{
 				buildCHAR(&ret, *p);
-			} while (*++p != ' ' && *p != '>');
+			} while (*++p != ' ' && *p && *p != '>');
 		}
 	}
 
@@ -1248,8 +1400,8 @@ static MARK htmltagload(tagname, from)
 	char	*inherit;	/* part of filename that reference is from */
 	CHAR	*anchorname;	/* name of tag's anchor */
 	CHAR	separator;	/* '\0', '#', or '?' from URL */
-	BOOLEAN	wasmagic;	/* original value of o_magic */
-	BOOLEAN	hasprotocol;	/* is a network protocol specified in tagname? */
+	ELVBOOL	wasmagic;	/* original value of o_magic */
+	ELVBOOL	hasprotocol;	/* is a network protocol specified in tagname? */
 	EXINFO	xinfb;		/* ex command, holds result of parsing addr */
 	CHAR	*p, *addr;
 	TOKEN	*token;
@@ -1257,7 +1409,7 @@ static MARK htmltagload(tagname, from)
 	char	*tmp, *fnfree;
 
 	if (o_verbose >= 5)
-		msg(MSG_INFO, "[SS]htmltagload\\(tagname=$1, from=$2\\)", tagname, o_bufname(markbuffer(from)));
+		msg(MSG_INFO, "[SS]htmltagload\\(tagname=$1, from=$2\\)", tagname, from ? o_bufname(markbuffer(from)) : toCHAR("NULL"));
 
 	/* if no tagname is given, then fail */
 	if (!tagname || !*tagname)
@@ -1279,19 +1431,19 @@ static MARK htmltagload(tagname, from)
 		return &retmark;
 	}
 
-	/* if protocol is "file:", or "http:" without a host, then skip that. */
-	hasprotocol = False;
+	/* if protocol is "file:", OR "http:" without a host, then skip that. */
+	hasprotocol = ElvFalse;
 	if ((!CHARncmp(tagname, "file:", 5))
 	  || (!CHARncmp(tagname, "http:", 5) && (tagname[5] != '/' || tagname[6] != '/')))
 		tagname += 5;
-	else if (isalnum(tagname[0]) && isalnum(tagname[1]) && CHARchr(tagname, ':'))
+	else if (elvalnum(tagname[0]) && elvalnum(tagname[1]) && CHARchr(tagname, ':'))
 	{
-		for (i = 2; isalnum(tagname[i]); i++)
+		for (i = 2; elvalnum(tagname[i]); i++)
 		{
 		}
 		if (tagname[i] == ':')
 		{
-			hasprotocol = True;
+			hasprotocol = ElvTrue;
 		}
 	}
 
@@ -1304,18 +1456,18 @@ static MARK htmltagload(tagname, from)
 		filename[i] = *anchorname;
 	}
 
-#ifdef PROTOCOL_HTTP
-	/* For http, if the anchor is delimited with '?' then it will be
-	 * passed along with the request.
+	/* For any protocol except "file", if the anchor is delimited with
+	 * '?' then it will be passed along with the request.
 	 */
-	if (!CHARncmp(tagname, toCHAR("http:"), 5) && *anchorname == '?')
+	if ((!CHARncmp(tagname, toCHAR("http:"), 5)
+		|| (elvalpha(*tagname) && !CHARncmp(tagname+1, toCHAR("http:"), 5)))
+	  && *anchorname == '?')
 	{
 		while (*anchorname)
 		{
 			filename[i++] = *anchorname++;
 		}
 	}
-#endif
 
 	/* mark the end of the filename */
 	filename[i] = '\0';
@@ -1336,7 +1488,7 @@ static MARK htmltagload(tagname, from)
 		marktmp(retmark, markbuffer(from), 0);
 	}
 	else if (from && o_filename(markbuffer(from)) && !hasprotocol
-	 && (isalpha(*filename) || *filename == '/' /*!!!*/
+	 && (elvalpha(*filename) || *filename == '.' || *filename == '/' /*!!!*/
 	 	|| urllocal(tochar8(o_filename(markbuffer(from))))
 	 			!= tochar8(o_filename(markbuffer(from))) ))
 	{
@@ -1375,12 +1527,12 @@ static MARK htmltagload(tagname, from)
 			sprintf(tmp, "%s%s", inherit, filename);
 		else
 			sprintf(tmp, "%s/%s", inherit, filename);
-		marktmp(retmark, bufload(NULL, tmp, False), 0);
+		marktmp(retmark, bufload(NULL, tmp, ElvFalse), 0);
 		safefree(tmp);
 	}
 	else
 	{
-		marktmp(retmark, bufload(NULL, filename, False), 0);
+		marktmp(retmark, bufload(NULL, filename, ElvFalse), 0);
 	}
 	safefree(fnfree);
 	if (!markbuffer(&retmark) || o_bufchars(markbuffer(&retmark)) == 0)
@@ -1393,6 +1545,7 @@ static MARK htmltagload(tagname, from)
 	{
 		i = (int)CHARlen(anchorname);
 		scanalloc(&p, &retmark);
+		mui = NULL;
 		for (token = htmlget(&p); token; token = htmlget(&p))
 		{
 			/* ignore if not markup or not a possible target */
@@ -1428,7 +1581,7 @@ static MARK htmltagload(tagname, from)
 		}
 
 		/* skip to the following non-whitespace text token */
-		while (token && (token->markup || isspace(token->text[0])))
+		while (token && (token->markup || elvspace(token->text[0])))
 		{
 			token = htmlget(&p);
 		}
@@ -1458,13 +1611,13 @@ static MARK htmltagload(tagname, from)
 			else if (*anchorname == '%' && anchorname[1] && anchorname[2])
 			{
 				anchorname++;
-				if (isdigit(*anchorname))
+				if (elvdigit(*anchorname))
 					separator = *anchorname - '0';
 				else
 					separator = (*anchorname & 0xf) + 9;
 				separator <<= 4;
 				anchorname++;
-				if (isdigit(*anchorname))
+				if (elvdigit(*anchorname))
 					separator |= *anchorname - '0';
 				else
 					separator |= (*anchorname & 0xf) + 9;
@@ -1482,7 +1635,7 @@ static MARK htmltagload(tagname, from)
 		memset((char *)&xinfb, 0, sizeof xinfb);
 		(void)marktmp(xinfb.defaddr, markbuffer(&retmark), 0);
 		wasmagic = o_magic;
-		o_magic = False;
+		o_magic = ElvFalse;
 		if (!exparseaddress(&p, &xinfb))
 		{
 			xinfb.from = 1;
@@ -1525,7 +1678,7 @@ static MARK htmltagnext(cursor)
 	if (p && !CHARncmp(token->text, toCHAR("<a "), 3))
 	{
 		while ((token = htmlget(&p)) != NULL
-			&& isspace(token->text[0]))
+			&& elvspace(token->text[0]))
 		{
 		}
 	}
@@ -1556,17 +1709,17 @@ static twrap_t htmlhr(token)
 		len = 3;
 
 	/* draw the hrule */
-	(*drawchar)(&space, -indent, 'g', (anyspc ? spcoffset : 1));
-	(*drawchar)(&hyphen, -len, 'g', token->offset[0]);
+	(*drawchar)(space, -indent, 0, (anyspc ? spcoffset : 1));
+	(*drawchar)(hyphen, -len, fontcode['g'], token->offset[0]);
 	col = indent + len;
-	anyspc = False;
+	anyspc = ElvFalse;
 	return TWRAP_NO;
 }
 #endif /* defined(DISPLAY_HTML) || defined(DISPLAY_TEX) */
 
 #if defined(DISPLAY_HTML) || defined(DISPLAY_MAN)
-/* This function either outputs mantext[] and returns False, or (if mantext[]
- * is too wide to fit on this line) it outputs a newline and returns True.
+/* This function either outputs mantext[] and returns ElvFalse, or (if mantext[]
+ * is too wide to fit on this line) it outputs a newline and returns ElvTrue.
  */
 static twrap_t manput()
 {
@@ -1576,26 +1729,26 @@ static twrap_t manput()
 	if (!first && col > indent && col + manlen > textwidth - listind)
 	{
 		/* output a newline */
-		(*drawchar)(&newline, 1, 'n', anyspc ? spcoffset : -1);
+		(*drawchar)(newline, 1, 0, anyspc ? spcoffset : -1);
 		col = 0;
-		first = True;
+		first = ElvTrue;
 		return TWRAP_BEFORE;
 	}
 
 	/* It will fit.  If we need to adjust our indent, do it now */
 	if (col < indent)
 	{
-		(*drawchar)(&space, col - indent, 'n', anyspc ? spcoffset : -1);
+		(*drawchar)(space, col - indent, 0, anyspc ? spcoffset : -1);
 		col = indent;
-		anyspc = False;
+		anyspc = ElvFalse;
 	}
 
 	/* Output a space between tokens, usually. */
 	if (anyspc)
 	{
-		(*drawchar)(&space, 1, 'n', spcoffset);
+		(*drawchar)(space, 1, spcfont, spcoffset);
 		col++;
-		anyspc = False;
+		anyspc = ElvFalse;
 	}
 
 	/* Output mantext[] in as few chunks as possible */
@@ -1626,13 +1779,31 @@ static twrap_t manput()
 static void manescape(token)
 	TOKEN	*token;
 {
-	int	i, j;
+	int	i, j, n;
 	TOKEN	temp;
+	CHAR	*arg;
+	static struct {
+		CHAR	name1, name2, c1, c2;
+	} special[] = {
+		{ 'b', 'r',	'|' },		/* should be graphic */
+		{ 'b', 'u',	'*' },		/* should be graphic */
+		{ 'c', 'o',	'O', 'c' },
+		{ 'd', 'g',	'~', '!' },
+		{ 'e', 'm',	'-' },		/* should be wide */
+		{ 'h', 'y',	'-' },
+		{ 'l', 'q',	'"' },
+		{ 'r', 'n',	'-' },		/* should be graphic */
+		{ 'r', 'q',	'"' },
+		{ 'u', 'l',	'_' },
+		{0}
+	};
 
 	/* if the cursor is in this somewhere, then don't change it but we
 	 * still need to compute the width so change a temporary copy.
 	 */
-	if (cursoff >= token->offset[0] && cursoff <= token->offset[token->nchars - 1])
+	if (o_showmarkups
+	 && cursoff >= token->offset[0]
+	 && cursoff <= token->offset[token->nchars - 1])
 	{
 		temp = *token;
 		temp.offset[0] = cursoff + 1;
@@ -1657,21 +1828,90 @@ static void manescape(token)
 			  case '|':
 			  case '&':
 			  case '^':
-				/* delete the \|, \&, or \^ */
+			  case 'c':
+				/* delete the \|, \&, \^, or \c */
+				break;
+
+			  case '(':
+				/* some special characters */
+				arg = &token->text[i + 1];
+				for (n = 0; special[n].name1 && (arg[0] != special[n].name1 || arg[1] != special[n].name2); n++)
+				{
+				}
+				if (special[n].name1)
+				{
+					if (special[n].c2)
+						token->text[j] = digraph(special[n].c1, special[n].c2);
+					else
+						token->text[j] = special[n].c1;
+					token->offset[j] = token->offset[i - 1];
+					j++;
+				}
+				i += 2;
 				break;
 
 			  case 's':
 				/* delete the \s and the number that follows */
-				if (token->text[i + 1] == '+' || token->text[i + 1] == '-')
-					i++;
-				do
+				if (token->text[i + 1] == '\'')
 				{
-					i++;
-				} while (isdigit(token->text[i]));
-				i--;
+					/* in single-quotes, skip to next */
+					for (i += 2; token->text[i] && token->text[i] != '\''; i++)
+					{
+					}
+				}
+				else
+				{
+					/* unquoted, so skip sign & digits */
+					if (token->text[i + 1] == '+' || token->text[i + 1] == '-')
+						i++;
+					do
+					{
+						i++;
+					} while (elvdigit(token->text[i]));
+					i--;
+				}
 				break;
 
 			  case '*':
+				/* man predefines a few special strings */
+				if (token->text[i + 1] == 'R')
+				{
+					token->text[j] = digraph('O', 'r');
+					token->offset[j] = token->offset[i - 1];
+					j++;
+					i++;
+					break;
+				}
+				else if (token->text[i + 1] == 'S')
+				{
+					/* hide it */
+					i++;
+					break;
+				}
+				else if (!CHARncmp(token->text + i, toCHAR("*(Tm"), 4))
+				{
+					token->text[j] = digraph('M', 'T');
+					token->offset[j] = token->offset[i - 1];
+					if (token->text[j] == 'T')
+					{
+						token->text[++j] = 'M';
+						token->offset[j] = token->offset[i];
+					}
+					j++;
+					i += 3;
+					break;
+				}
+				else if (!CHARncmp(token->text + i, toCHAR("*(lq"), 4)
+				      || !CHARncmp(token->text + i, toCHAR("*(rq"), 4))
+				{
+					token->text[j] = '"';
+					token->offset[j] = token->offset[i - 1];
+					j++;
+					i += 3;
+					break;
+				}
+				/* else fall through... */
+
 			  case 'n':
 				/* keep the \* or \n as-is */
 				token->text[j] = '\\';
@@ -1712,18 +1952,18 @@ static int manarg(token, start, font, spc)
 	TOKEN	*token;	/* the token to parse */
 	int	start;	/* where to begin scanning */
 	_char_	font;	/* initial font of arg */
-	BOOLEAN	spc;	/* insert a space before the word? */
+	ELVBOOL	spc;	/* insert a space before the word? */
 {
-	BOOLEAN	quote;	/* is this arg enclosed in quotes? */
+	ELVBOOL	quote;	/* is this arg enclosed in quotes? */
 
 	/* skip leading whitespace */
-	while (isspace(token->text[start]))
+	while (elvspace(token->text[start]))
 	{
 		start++;
 	}
 
 	/* is this arg quoted? */
-	quote = (BOOLEAN)(token->text[start] == '"');
+	quote = (ELVBOOL)(token->text[start] == '"');
 	if (quote)
 		start++;
 
@@ -1735,7 +1975,7 @@ static int manarg(token, start, font, spc)
 		{
 			mantext[manlen] = ' ';
 			manoffset[manlen] = token->offset[start - 1];
-			manfont[manlen] = 'b';
+			manfont[manlen] = fontcode['b'];
 			manlen++;
 		}
 	}
@@ -1743,7 +1983,7 @@ static int manarg(token, start, font, spc)
 	/* collect text to end of arg, or until mantext[] is full */
 	while (manlen < QTY(mantext) - 1
 		&& start < token->nchars - 2
-		&& (quote ? token->text[start] != '"' : !isspace(token->text[start])))
+		&& (quote ? token->text[start] != '"' : !elvspace(token->text[start])))
 	{
 		/* handle \fX */
 		if (token->text[start] == '\\' && token->text[start + 1] == 'f')
@@ -1751,10 +1991,10 @@ static int manarg(token, start, font, spc)
 			switch (token->text[start + 2])
 			{
 			  case '1':
-			  case 'B':	font = 'b';	break;
+			  case 'B':	font = fontcode['b'];	break;
 			  case '2':
-			  case 'I':	font = 'i';	break;
-			  default:	font = 'n';	break;
+			  case 'I':	font = fontcode['i'];	break;
+			  default:	font = 0;		break;
 			}
 			start += 3;
 		}
@@ -1764,6 +2004,8 @@ static int manarg(token, start, font, spc)
 			{
 			  case '|':
 			  case '&':
+			  case '^':
+			  case 'c':
 				break;
 
 			  case 'e':
@@ -1778,14 +2020,28 @@ static int manarg(token, start, font, spc)
 
 			  case 's':
 				/* delete the \s and the number that follows */
+				start++;
 				if (token->text[start] == '+' || token->text[start] == '-')
 					start++;
 				do
 				{
 					start++;
-				} while (isdigit(token->text[start]));
+				} while (elvdigit(token->text[start]));
 				start--;
 				break;
+
+			  case '(':
+				/* handle the \(bu special character only! */
+				if (token->text[start + 1] == 'b' || token->text[start + 2] == 'u')
+				{
+					mantext[manlen] = '*';
+					manoffset[manlen] =token->offset[start];
+					manfont[manlen] = fontcode['g'];
+					manlen++;
+					start += 2;
+					break;
+				}
+				/* else fall through... */
 
 			  default:
 				if (manlen < QTY(mantext))
@@ -1828,9 +2084,9 @@ static twrap_t manTH(token)
 
 	/* combine the first & second args as the document name */
 	manlen = 0;
-	i = manarg(token, 3, 'n', False);
+	i = manarg(token, 3, 0, ElvFalse);
 	mantext[manlen++] = '(';
-	(void)manarg(token, i, 'n', False);
+	(void)manarg(token, i, 0, ElvFalse);
 	mantext[manlen++] = ')';
 	mantext[manlen] = '\0';
 
@@ -1856,7 +2112,7 @@ static twrap_t manSH(token)
 	manlen = 0;
 	for (i = 4; i < token->nchars; i++)
 	{
-		i = manarg(token, i, 'b', (BOOLEAN)(i != 4));
+		i = manarg(token, i, fontcode['b'], (ELVBOOL)(i != 4));
 	}
 
 	/* If the cursor is located in this token, or we're doing some sort
@@ -1873,13 +2129,13 @@ static twrap_t manSH(token)
 	}
 
 	/* output the title, followed by a newline */
-	anyspc = False;
+	anyspc = ElvFalse;
 	manput();
-	(*drawchar)(&newline, 1, 'n', nloff);
+	(*drawchar)(newline, 1, 0, nloff);
 	col = 0;
-	first = True;
-	anyspc = False;
-	reduce = True;
+	first = ElvTrue;
+	anyspc = ElvFalse;
+	reduce = ElvTrue;
 
 	/* force the indentation to be the default */
 	indent = listind * 2;
@@ -1906,6 +2162,7 @@ static twrap_t manBI(token)
 	{
 	  case 'B':	font1 = 'b';	break;
 	  case 'I':	font1 = 'i';	break;
+	  case 'Z':	font1 = 'f';	break;
 	  default:	font1 = 'n';
 	}
 	switch (token->text[2])
@@ -1913,20 +2170,23 @@ static twrap_t manBI(token)
 	  case 'B':	font2 = 'b';	start = 4;	break;
 	  case 'I':	font2 = 'i';	start = 4;	break;
 	  case 'S':
+	  case 'N':
 	  case 'R':	font2 = 'n';	start = 4;	break;
 	  default:	font2 = font1;	start = 3;
 	}
+	font1 = fontcode[(int)font1];
+	font2 = fontcode[(int)font2];
 
 	/* collect the args, with their fonts */
 	manlen = 0;
-	start = manarg(token, start, font1, False);
+	start = manarg(token, start, font1, ElvFalse);
 	for (i = 2; i < (readonly ? 12 : 6); i++)
 	{
-		start = manarg(token, start, (i & 1) ? font1 : font2, (BOOLEAN)(font1 == font2));
+		start = manarg(token, start, (i & 1) ? font1 : font2, (ELVBOOL)(font1 == font2));
 	}
 
 	/* If the cursor is on this token, then just tweak its width and
-	 * return False so the remaining token-putting code will handle
+	 * return ElvFalse so the remaining token-putting code will handle
 	 * line-wrap.  Else perform the token's output.
 	 */
 	if (list || (o_showmarkups && token->offset[0] <= cursoff && cursoff <= token->offset[token->nchars - 1]))
@@ -1940,8 +2200,9 @@ static twrap_t manBI(token)
 	}
 
 	/* assume there should be some whitespace after this */
-	anyspc = True;
+	anyspc = ElvTrue;
 	spcoffset = token->offset[token->nchars - 1];
+	spcfont = curfont;
 	return TWRAP_NO;
 }
 
@@ -1956,6 +2217,8 @@ static twrap_t manIP(token)
 {
 	int	i, start;
 	char	font, font2;
+	int	moreindent;
+	double	f;
 
 	/* if this token is going to be displayed anyway, then don't bother
 	 * performing its output.
@@ -1963,9 +2226,17 @@ static twrap_t manIP(token)
 	if (list || (o_showmarkups && token->offset[0] <= cursoff && cursoff <= token->offset[token->nchars - 1]))
 		return TWRAP_NO;
 
+	/* Choose the default indentation.  .IP normally increases indentation
+	 * by one full tab stop, and .TP normally does it by two full tabstops.
+	 */
+	if (token->text[1] == 'T')
+		moreindent = 4 * listind;
+	else
+		moreindent = 2 * listind;
+
 	/* get the first arg, as the paragraph tag */
 	manlen = 0;
-	start = manarg(token, 4, 'n', False);
+	start = manarg(token, 4, fontcode['n'], ElvFalse);
 
 	/* For .TP (but not .IP) get other args as part of the tag, too */
 	if (token->text[1] == 'T')
@@ -1973,22 +2244,22 @@ static twrap_t manIP(token)
 		/* if first word was .B or .I, then change font */
 		if (manlen == 2 && mantext[0] == '.' && (mantext[1] == 'B' || mantext[1] == 'I'))
 		{
-			font = font2 = tolower(mantext[1]);
+			font = font2 = fontcode[mantext[1]];
 			manlen = 0;
 		}
 		else if (manlen == 3 && mantext[0] == '.')
 		{
-			font = tolower(mantext[1]);
-			if (font != 'b' && font != 'i')
-				font = 'n';
-			font2 = tolower(mantext[2]);
-			if (font2 != 'b' && font2 != 'i')
-				font2 = 'n';
+			font = fontcode[mantext[1]];
+			if (font != fontcode['b'] && font != fontcode['i'])
+				font = fontcode['n'];
+			font2 = fontcode[mantext[2]];
+			if (font2 != fontcode['b'] && font2 != fontcode['i'])
+				font2 = fontcode['n'];
 			manlen = 0;
 		}
 		else
 		{
-			font = font2 = 'n';
+			font = font2 = fontcode['n'];
 		}
 
 		/* Copy the remaining args, in the desired font[s].  If the
@@ -1997,23 +2268,47 @@ static twrap_t manIP(token)
 		 */
 		for (i = 0; i < 5; i++)
 		{
-			start = manarg(token, start, (i & 1) ? font2 : font, (BOOLEAN)(font == font2 && manlen > 0));
+			start = manarg(token, start, (i & 1) ? font2 : font, (ELVBOOL)(font == font2 && manlen > 0));
+		}
+	}
+	else
+	{
+		/* For .IP, second argument is indentation amount */
+
+		/* skip intervening whitespace */
+		while (elvspace(token->text[start]))
+			start++;
+
+		/* Convert indentation to integer.  Assume the unit of
+		 * measurement is "n".
+		 */
+		if (elvdigit(token->text[start]))
+		{
+			f = atof(tochar8(&token->text[start]));
+			while (elvdigit(token->text[start]) || token->text[start] == '.')
+				start++;
+			switch (token->text[start])
+			{
+			  case 'n':	i = (int)f;		break;
+			  case 'i':	i = (int)(f * 10);	break;
+			  case 'p':	i = (int)(f / 7.2);	break;
+			  default:	i = 0;
+			}
+			if (i > 0 && indent + i < 40)
+				moreindent = i;
 		}
 	}
 
 	/* output the paragraph tag */
 	(void)manput();
 
-	/* increase the indentation by one full tab for .IP, two for .TP */
-	if (token->text[1] == 'T')
-		indent += 4 * listind;
-	else
-		indent += 2 * listind;
+	/* add the indentation */
+	indent += moreindent;
 
 	/* If necessary, output a newline as part of the text */
 	if (col >= indent)
 	{
-		(*drawchar)(&newline, 1, 'n', token->offset[token->nchars - 1]);
+		(*drawchar)(newline, 1, 0, token->offset[token->nchars - 1]);
 		col = 0;
 		return TWRAP_AFTER;
 	}
@@ -2044,6 +2339,7 @@ static void manmarkup(token)
 		{ "RB",		"N------",	manBI		},
 		{ "BS",		"N------",	manBI		},
 		{ "SB",		"N------",	manBI		},
+		{ "ZN",		"N------",	manBI		},
 		{ "IP",		"N12-NYP",	manIP		},
 		{ "TP",		"N12-NYP",	manIP		},
 		{ "PP",		"N12-NYP"			},
@@ -2054,8 +2350,8 @@ static void manmarkup(token)
 		{ "RE",		"N-<----"			},
 		{ "br",		"N0-----"			},
 		{ "sp",		"N1-----"			},
-		{ "nf",		"N0---N-"			},
-		{ "fi",		"N0---Y-"			},
+		{ "nf",		"N0--FN-"			},
+		{ "fi",		"N---NY-"			},
 		{ "DS",		"N1---N-"			},
 		{ "DE",		"N0---Y-"			},
 		{ "TS",		"N0---N-"			},
@@ -2068,7 +2364,7 @@ static void manmarkup(token)
 	for (scan = tbl;
 	     scan->name &&
 		(strncmp(scan->name, tochar8(token->text+1), strlen(scan->name))
-		|| isalnum(token->text[strlen(scan->name) + 1]));
+		|| elvalnum(token->text[strlen(scan->name) + 1]));
 	     scan++)
 	{
 	}
@@ -2084,8 +2380,10 @@ static TOKEN *manget(refp)
 {
 	MARK	back;	/* address of a backslash */
 	long	offset;	/* offset of character that *refp points to */
+	long	start;	/* offset of start of token */
  static	MARKUP	fontchg;/* describes font change markups */
  	TOKEN	tmp, *next;
+ 	ELVBOOL	quote;
 
 	/* Initialize "back" just to silence a compiler warning */
 	back = NULL;
@@ -2100,7 +2398,7 @@ static TOKEN *manget(refp)
 	}
 
 	/* Get first character of token */
-	offset = markoffset(scanmark(refp));
+	start = offset = markoffset(scanmark(refp));
 	rettok.text[0] = **refp;
 	rettok.offset[0] = offset++;
 	rettok.nchars = 1;
@@ -2114,7 +2412,7 @@ static TOKEN *manget(refp)
 	if (!prefmt && rettok.text[0] == '\n' && *refp && **refp == '\n')
 	{
 		/* skip the extra newlines */
-		offset++;
+		/*offset++;*/
 		while (scannext(refp) && **refp == '\n')
 		{
 			offset++;
@@ -2125,13 +2423,15 @@ static TOKEN *manget(refp)
 		 */
 		if (*refp && **refp == '.')
 		{
+			midline = ElvFalse;
 			tmp = rettok;
 			back = scanmark(refp);
 			next = manget(refp);
 			if (next && next->markup && next->markup->BREAKLN != '-')
 			{
+				next->offset[0] = start;
 #ifdef DEBUG_MARKUP
-				fprintf(stderr, "manget() returning \"%s\", offset=%ld, BREAKLN\n", next->text[0] == '\n' ? "\\n" : (char *)next->text, next->offset[0]);
+				fprintf(stderr, "manget() returning newline-tweaked \"%s\", offset=%ld, BREAKLN\n", next->text[0] == '\n' ? "\\n" : (char *)next->text, next->offset[0]);
 #endif
 				return next;
 			}
@@ -2139,9 +2439,9 @@ static TOKEN *manget(refp)
 			rettok = tmp;
 		}
 
-		/* build a ".P" command */
+		/* build a ".sp" command */
 		rettok.text[0] = '.';
-		rettok.offset[0] = offset - 2;
+		rettok.offset[0] = start;
 		rettok.text[1] = 's';
 		rettok.offset[1] = offset - 1;
 		rettok.text[2] = 'p';
@@ -2153,9 +2453,9 @@ static TOKEN *manget(refp)
 		rettok.text[5] = '\0';
 		rettok.nchars = 5;
 		manmarkup(&rettok);
-		midline = False;
+		midline = ElvFalse;
 #ifdef DEBUG_MARKUP
-		fprintf(stderr, "manget() returning constructed \"%s\", offset=%ld\n", rettok.text[0] == '\n' ? "\\n" : (char *)rettok.text, rettok.offset[0]);
+		fprintf(stderr, "manget() returning constructed \"%s\", offset=%ld\n", (char *)rettok.text, rettok.offset[0]);
 #endif
 		return &rettok;
 	}
@@ -2212,7 +2512,7 @@ static TOKEN *manget(refp)
 		manmarkup(&rettok);
 
 		/* remember that we stopped after a newline */
-		midline = False;
+		midline = ElvFalse;
 	}
 	else if (*refp && rettok.text[0] == '\\' && **refp == 'f')
 	{
@@ -2241,7 +2541,7 @@ static TOKEN *manget(refp)
 		rettok.markup = &fontchg;
 
 		/* no newline at the end of this token! */
-		midline = True;
+		midline = ElvTrue;
 	}
 	else if (rettok.text[0] <= ' ')
 	{
@@ -2253,7 +2553,7 @@ static TOKEN *manget(refp)
 			rettok.text[0] = ' ';
 
 		/* remember if this is a newline or not */
-		midline = (BOOLEAN)(rettok.text[0] != '\n');
+		midline = (ELVBOOL)(rettok.text[0] != '\n');
 
 		/* assume this whitespace will show, for computing line break */
 		rettok.width = 1;
@@ -2263,33 +2563,36 @@ static TOKEN *manget(refp)
 		/* This is a word.  Collect chars up to next whitespace or
 		 * "\fX" string.
 		 */
-		for (;
+		for (quote = (ELVBOOL)(rettok.text[0] == '\\');
 		     *refp 
 			&& rettok.nchars < QTY(rettok.text) - 1
-			&& !isspace(**refp)
-			&& (rettok.nchars < 2
-				|| rettok.text[rettok.nchars - 2] != '\\'
-				|| rettok.text[rettok.nchars - 1] != 'f');
+			&& !elvspace(**refp);
 		     offset++, scannext(refp))
 		{
-			if (**refp == '\\')
-				back = scanmark(refp);
+			if (quote)
+				quote = ElvFalse;
+			else if (**refp == '\\')
+			{
+				if (!scannext(refp))
+					break;
+				if (**refp == 'f')
+				{
+					scanprev(refp);
+					break;
+				}
+				rettok.text[rettok.nchars] = '\\';
+				rettok.offset[rettok.nchars] = offset;
+				rettok.nchars++;
+				offset++;
+				quote = ElvTrue;
+			}
 			rettok.text[rettok.nchars] = **refp;
 			rettok.offset[rettok.nchars] = offset;
 			rettok.nchars++;
 		}
 
-		/* if this ended with a \fX then we need to adjust *refp */
-		if (rettok.nchars >= 2
-			&& rettok.text[rettok.nchars - 2] == '\\'
-			&& rettok.text[rettok.nchars - 1] == 'f')
-		{
-			scanseek(refp, back);
-			rettok.nchars -= 2;
-		}
-
 		/* this didn't end with a newline */
-		midline = True;
+		midline = ElvTrue;
 
 		/* For now, assume all characters of this work will be visible.
 		 * When escapes are processed, this may change.
@@ -2319,6 +2622,13 @@ static DMINFO *maninit(win)
 	dmman.tagatcursor = dmnormal.tagatcursor;
 	dmman.tagload = dmnormal.tagload;
 	dmman.tagnext = dmnormal.tagnext;
+
+	/* initialize the fonts */
+	initfonts();
+
+	/* if merely initializing the options, we're done */
+	if (!win)
+		return NULL;
 
 	/* allocate the info struct */
 	mui = (MUINFO *)safealloc(1, sizeof(MUINFO));
@@ -2351,7 +2661,7 @@ static DMINFO *maninit(win)
 #ifdef DEBUG_MARKUP
 			fprintf(stderr, "maninit() storing line %ld, offset=%ld, result=TWRAP_AFTER\n", mui->nlines + 1, token->offset[0]);
 #endif
-			assert(first == True && col == 0);
+			assert(first == ElvTrue && col == 0);
 			storestate(token->offset[0], NULL);
 		}
 
@@ -2361,7 +2671,7 @@ static DMINFO *maninit(win)
 		 */
 		if (cursoffset == 0L 
 		 && !title
-		 && !isspace(token->text[0])
+		 && !elvspace(token->text[0])
 		 && !token->markup)
 		{
 			cursoffset = token->offset[0];
@@ -2376,7 +2686,7 @@ static DMINFO *maninit(win)
 #ifdef DEBUG_MARKUP
 			fprintf(stderr, "maninit() storing line %ld, offset=%ld, result=TWRAP_BEFORE\n", mui->nlines + 1, token->offset[0]);
 #endif
-			assert(first == True && col == 0);
+			assert(first == ElvTrue && col == 0);
 			storestate(token->offset[0], NULL);
 			result = put(token);
 #ifdef DEBUG_MARKUP
@@ -2427,9 +2737,9 @@ static twrap_t texoutput(token)
 	/* if the characters don't fit on the line, then fail */
 	if (token->width + col > textwidth - 4 && col > indent)
 	{
-		(*drawchar)(&newline, 1, 'n', anyspc ? spcoffset : -1);
+		(*drawchar)(newline, 1, 0, anyspc ? spcoffset : -1);
 		col = 0;
-		first = True;
+		first = ElvTrue;
 		return TWRAP_BEFORE;
 	}
 
@@ -2442,20 +2752,20 @@ static twrap_t texoutput(token)
 	else
 	{
 		i = token->nchars - token->width;
-		font = (curfont == 'f') ? 'f' : 'b';
+		font = fontcode[(curfont == fontcode['f']) ? 'f' : 'b'];
 	}
 
 	/* output the indentation, if necessary */
 	if (col < indent)
 	{
-		(*drawchar)(&space, (long)(col - indent), 'n', -1);
+		(*drawchar)(space, (long)(col - indent), 0, -1);
 		col = indent;
 	}
 	else if (anyspc)
 	{
-		(*drawchar)(&space, -1, 'n', spcoffset);
+		(*drawchar)(space, -1, spcfont, spcoffset);
 		col++;
-		anyspc = False;
+		anyspc = ElvFalse;
 	}
 
 
@@ -2483,6 +2793,14 @@ static twrap_t texitem(token)
 		label = &token->text[6];
 		len = token->nchars - 7;
 		offset = token->offset[6];
+
+		/* Watch out for items wrapped in $'s */
+		if (label[0] == '$' && label[len - 1] == '$')
+		{
+			label++;
+			len -= 2;
+			offset++;
+		}
 	}
 	else if (nest == 1 && listcnt > 0)
 	{
@@ -2507,16 +2825,16 @@ static twrap_t texitem(token)
 	if (nest == 0 && token->text[1] == 'b')
 	{
 		/* indent only to normal left margin */
-		(*drawchar)(&space,  -2 * listind, 'n', -1);
+		(*drawchar)(space,  -2 * listind, 0, -1);
 
 		/* draw the label in bold font */
-		(*drawchar)(label, len, 'b', offset);
+		(*drawchar)(label, len, fontcode['b'], offset);
 
 		/* if label is too wide, then start text on next line */
 		col = 2 * listind + len;
 		if (col >= indent)
 		{
-			(*drawchar)(&newline, 1, 'n', (anyspc ? spcoffset : -1));
+			(*drawchar)(newline, 1, 0, (anyspc ? spcoffset : -1));
 			col = 0;
 		}
 	}
@@ -2525,11 +2843,11 @@ static twrap_t texitem(token)
 		/* output whitespace for indentation */
 		if (indent > len)
 		{
-			(*drawchar)(&space, 1 + len - indent, 'n', -1);
+			(*drawchar)(space, 1 + len - indent, 0, -1);
 		}
 
 		/* output the label in bold font */
-		(*drawchar)(label, len, 'b', offset);
+		(*drawchar)(label, len, fontcode['b'], offset);
 		col = indent - 1;
 	}
 
@@ -2544,39 +2862,43 @@ static twrap_t textitle(token)
 	char	font;
 	long	offset;
 	long	indent;
-	BOOLEAN	center;
+	ELVBOOL	center;
 	int	i, j;
+
+	/* initialize "indent" to avoid a bogus compiler warning */
+	indent = 0;
 
 	/* the font and indentation depend on the keyword */
 	switch (token->text[4]) /* <- Tricky! */
 	{
 	  case 'l':	/* \titLe{} */
-		center = True;
+		center = ElvTrue;
 		font = 'b';
 		break;
 
 	  case 'h':	/* \autHor{} */
-		center = True;
+		center = ElvTrue;
 		font = 'i';
 		break;
 
 	  case 'p':	/* \chaPter{} */
-		center = True;
+		center = ElvTrue;
 		font = 'b';
 		break;
 
 	  case 't':	/* \secTion{} or \parT{} */
-		center = (BOOLEAN)(token->text[1] == 'p'); /* part */
+		center = (ELVBOOL)(token->text[1] == 'p'); /* part */
 		indent = 0;
 		font = 'b';
 		break;
 
-	  case 's':	/* \subSection{} */
-		center = False;
+	  default:	/* case 's': \subSection{} */
+		center = ElvFalse;
 		indent = 4;
 		font = 'b';
 		break;
 	}
+	font = fontcode[(int)font];
 
 	/* locate the label text (and its len) */
 	for (i = 1; token->text[i - 1] != '{' && i < token->nchars; i++)
@@ -2595,7 +2917,7 @@ static twrap_t textitle(token)
 		      && token->text[i] != '}'
 		      && token->text[i] != '$'
 		      && token->text[i] != '\\'
-		      && (j > 0 || !isspace(token->text[i])))
+		      && (j > 0 || !elvspace(token->text[i])))
 			mantext[j++] = token->text[i];
 
 		/* if forced line break, then do it now */
@@ -2608,12 +2930,12 @@ static twrap_t textitle(token)
 			/* output the indentation and label */
 			if (center)
 				indent = (textwidth - j) / 2;
-			(*drawchar)(&space, -indent, 'n', -1L);
+			(*drawchar)(space, -indent, 0, -1L);
 			(*drawchar)(mantext, (long)j, font, offset);
 
 			/* output a newline */
-			anyspc = False;
-			(*drawchar)(&newline, 1, 'n', -1L);
+			anyspc = ElvFalse;
+			(*drawchar)(newline, 1, 0, -1L);
 			col = 0;
 
 			/* prepare for next line of title */
@@ -2634,9 +2956,9 @@ static twrap_t textitle(token)
 
 	/* remember that the last the we output was a newline */
 	col = 0;
-	first = True;
-	anyspc = False;
-	reduce = True;
+	first = ElvTrue;
+	anyspc = ElvFalse;
+	reduce = ElvTrue;
 
 	return TWRAP_AFTER;
 }
@@ -2677,12 +2999,10 @@ static long texpair(refp, token)
 	nest = 0;
 	do
 	{
+		token->text[token->nchars] = (elvcntrl(**refp) ? ' ' : **refp);
+		token->offset[token->nchars] = offset++;
 		if (token->nchars < QTY(token->text) - 2)
-		{
-			token->text[token->nchars] = **refp;
-			token->offset[token->nchars] = offset++;
 			token->nchars++;
-		}
 		if (**refp == first)
 			nest++;
 		else if (**refp == match)
@@ -2756,6 +3076,8 @@ static TOKEN *texget(refp)
 	{ "end{quote}",	     "-12-NY-"			},
 	{ "begin{verbatim}", "-0--FNP"			},
 	{ "end{verbatim}",   "-0--NY-"			},
+	{ "begin{code}",     "-0--FNP"			},
+	{ "end{code}",       "-0--NY-"			},
 	{"begin{description}","-04-NYS"			},
 	{ "end{description}","-12-NY-"			},
 	{"begin{enumerate}", "-0>#NYP"			},
@@ -2805,14 +3127,14 @@ static TOKEN *texget(refp)
 		do
 		{
 			scannext(refp);
-		} while (*refp && isspace(**refp));
+		} while (*refp && elvspace(**refp));
 		rettok.text[0] = '\\';
 		rettok.text[1] = 'p';
 		rettok.offset[1] = offset++;
 		rettok.nchars++;
 		rettok.markup = TEX_PARAGRAPH;
 
-		reduce = False; /* !!! why? */
+		reduce = ElvFalse; /* !!! why? */
 		goto End;
 	}
 	else if (rettok.text[0] <= ' ')
@@ -2827,7 +3149,7 @@ static TOKEN *texget(refp)
 		/* assume this whitespace will show, for computing line break */
 		rettok.width = 1;
 	}
-	else if (rettok.text[0] == '\\' && *refp && isalpha(**refp))
+	else if (rettok.text[0] == '\\' && *refp && elvalpha(**refp))
 	{
 		/* keyword -- collect the rest of the keyword name */
 		do
@@ -2838,7 +3160,7 @@ static TOKEN *texget(refp)
 				rettok.offset[rettok.nchars] = offset++;
 				rettok.nchars++;
 			}
-		} while (scannext(refp) && (isalpha(**refp) || **refp == '_'));
+		} while (scannext(refp) && (elvalpha(**refp) || **refp == '_'));
 
 		/* If name is followed by [], parse that */
 		if (*refp && **refp == '[')
@@ -3014,7 +3336,7 @@ static TOKEN *texget(refp)
 
 				  case '=':
 				  	/* include chars up to next newline */
-					if (curfont == 'f')
+					if (curfont == fontcode['f'])
 					{
 						rettok.markup = TEX_OUTPUT;
 						rettok.width = rettok.nchars-1;
@@ -3042,7 +3364,7 @@ static TOKEN *texget(refp)
 					 * intended to make equations readable
 					 * without cluttering up normal text.
 					 */
-					if (curfont == 'f')
+					if (curfont == fontcode['f'])
 					{
 						rettok.markup = TEX_OUTPUT;
 						rettok.width = rettok.nchars-1;
@@ -3055,7 +3377,7 @@ static TOKEN *texget(refp)
 				  	 */
 				  	if (scannext(refp))
 				  	{
-				  		if (isspace(**refp))
+				  		if (elvspace(**refp))
 				  		{
 							rettok.markup = TEX_OUTPUT;
 							rettok.width = rettok.nchars - 1;
@@ -3196,6 +3518,13 @@ static DMINFO *texinit(win)
 	dmtex.tagload = dmnormal.tagload;
 	dmtex.tagnext = dmnormal.tagnext;
 
+	/* initialize the fonts */
+	initfonts();
+
+	/* if merely initializing options, we're done */
+	if (!win)
+		return NULL;
+
 	/* allocate the info struct */
 	mui = (MUINFO *)safealloc(1, sizeof(MUINFO));
 	mui->get = texget;
@@ -3221,7 +3550,7 @@ static DMINFO *texinit(win)
 		 */
 		if (result == TWRAP_AFTER)
 		{
-			assert(first == True && col == 0);
+			assert(first == ElvTrue && col == 0);
 			storestate(token->offset[0], NULL);
 		}
 
@@ -3231,7 +3560,7 @@ static DMINFO *texinit(win)
 		 */
 		if (cursoffset == 0L 
 		 && !title
-		 && !isspace(token->text[0])
+		 && !elvspace(token->text[0])
 		 && !token->markup)
 		{
 			cursoffset = token->offset[0];
@@ -3243,7 +3572,7 @@ static DMINFO *texinit(win)
 		result = put(token);
 		if (result == TWRAP_BEFORE)
 		{
-			assert(first == True && col == 0);
+			assert(first == ElvTrue && col == 0);
 			storestate(token->offset[0], NULL);
 			(void)put(token);
 		}
@@ -3276,13 +3605,13 @@ static twrap_t put(token)
 	char	tmpfont;
 	CHAR	tmpch, lch, rch;
 	int	i, origcol;
-	BOOLEAN hascursor;	/* indicates whether this token contains cursor */
+	ELVBOOL hascursor;	/* indicates whether this token contains cursor */
 	twrap_t	result;
 
 	/* determine whether the cursor is in this token.  If the "list"
 	 * option is set, then pretend that all tokens contain the cursor.
 	 */
-	hascursor = (BOOLEAN)(list || (o_showmarkups && token->offset[0] <= cursoff && cursoff <= token->offset[token->nchars - 1]));
+	hascursor = (ELVBOOL)(list || (o_showmarkups && token->offset[0] <= cursoff && cursoff <= token->offset[token->nchars - 1]));
 
 #ifdef DEBUG_MARKUP
 	fprintf(stderr, "put(\"%s\") width=%d, hascursor=%s\n", token->text[0] == '\n' ? "\\n" : (char *)token->text, token->width, hascursor?"True":"False");
@@ -3297,44 +3626,44 @@ static twrap_t put(token)
 		 */
 		if (token->markup->BREAKLN != '-' && !first)
 		{
-			(*drawchar)(&newline, 1, 'n', anyspc ? spcoffset : -1);
-			reduce = (BOOLEAN)(col == 0);
+			(*drawchar)(newline, 1, 0, anyspc ? spcoffset : -1);
+			reduce = (ELVBOOL)(col == 0);
 			col = 0;
-			first = True;
+			first = ElvTrue;
 			return TWRAP_BEFORE;
 		}
 
 		/* do all the standard effects */
 		switch (token->markup->TITLE)
 		{
-		  case 'Y': title = True;	break;
-		  case 'N': title = False;	break;
+		  case 'Y': title = ElvTrue;	break;
+		  case 'N': title = ElvFalse;	break;
 		}
 		switch (token->markup->BREAKLN)
 		{
 		  case '0':
-			reduce = True;
+			reduce = ElvTrue;
 			break;
 
 		  case '1':
 			if (!reduce)
-				(*drawchar)(&newline, 1, 'n', anyspc ? spcoffset : -1);
-			reduce = True;
+				(*drawchar)(newline, 1, 0, anyspc ? spcoffset : -1);
+			reduce = ElvTrue;
 			break;
 
 		  case '2':
-			(*drawchar)(&newline, reduce ? 1 : 2, 'n', anyspc ? spcoffset : -1);
-			reduce = True;
+			(*drawchar)(newline, reduce ? 1 : 2, 0, anyspc ? spcoffset : -1);
+			reduce = ElvTrue;
 			break;
 
 		  case 'c':
-			(*drawchar)(&vtab, 1, 'n', -1);
-			reduce = True;
+			(*drawchar)(vtab, 1, 0, -1);
+			reduce = ElvTrue;
 			break;
 
 		  case 'p':
-			(*drawchar)(&formfeed, 1, 'n', -1);
-			reduce = True;
+			(*drawchar)(formfeed, 1, 0, -1);
+			reduce = ElvTrue;
 			break;
 		}
 		switch (token->markup->INDENT)
@@ -3351,10 +3680,19 @@ static twrap_t put(token)
 
 		  case '=':
 			/* set indentation to start of a table column */
-			if (col < tabstop)
-				indent = tabstop;
-			else
-				indent = col + 1 + 2 * tabstop - ((col + 1 + tabstop) % (2 * tabstop));
+			if (col >= tabstop)
+			{
+				do
+				{
+					indent += 2 * tabstop;
+				} while (indent < col + 1);
+			}
+			break;
+
+		  case '@':
+			/* set indentation to start of leftmost table column */
+			while (indent >= 3 * tabstop)
+				indent -= 2 * tabstop;
 			break;
 
 		  case '|':
@@ -3362,7 +3700,7 @@ static twrap_t put(token)
 			if (indent < tabstop)
 			{
 				indent = tabstop;
-				curfont = deffont = 'n';
+				curfont = deffont = 0;
 			}
 			break;
 
@@ -3399,30 +3737,47 @@ static twrap_t put(token)
 		switch (token->markup->FONT)
 		{
 		  case '=': curfont = deffont;				break;
-		  case '<': curfont = deffont; deffont = 'n';		break;
-		  case '~': deffont = curfont = (curfont=='n' ? 'f' : 'n'); break;
+		  case '<': curfont = deffont; deffont = 0;		break;
+		  case '~':
+			/* toggle curfont between fixed & proportional, using
+			 * deffont if possible.
+			 */
+			if (colorinfo[(int)curfont].da.bits & COLOR_PROP)
+				if (colorinfo[(int)deffont].da.bits & COLOR_PROP)
+					curfont = deffont = fontcode['f'];
+				else
+					curfont = deffont;
+			else
+				if (colorinfo[(int)deffont].da.bits & COLOR_PROP)
+					curfont = deffont;
+				else
+					curfont = deffont = fontcode['n'];
+			break;
+
 		  case 'n':
 		  case 'b':
 		  case 'u':
 		  case 'f':
 		  case 'e':
-		  case 'i': curfont = token->markup->FONT;		break;
+		  case 'd':
+		  case 'i': curfont = fontcode[(int)token->markup->FONT];break;
 		  case 'N':
 		  case 'B':
 		  case 'U':
 		  case 'F':
 		  case 'E':
-		  case 'I': curfont = deffont = tolower(token->markup->FONT); break;
+		  case 'D':
+		  case 'I': curfont = deffont = fontcode[(int)token->markup->FONT]; break;
 		}
 		switch (token->markup->FILL)
 		{
-		  case 'Y': graphic = prefmt = False;		break;
-		  case 'N': prefmt = True;			break;
-		  case '~': prefmt = (BOOLEAN)(curfont=='f');	break;
+		  case 'Y': graphic = prefmt = ElvFalse;		break;
+		  case 'N': prefmt = ElvTrue;				break;
+		  case '~': prefmt = (ELVBOOL)(curfont==fontcode['f']);	break;
 		}
 
 		/* If there is a function, call it too.  If the function
-		 * returns True, then act as though the markup caused a
+		 * returns ElvTrue, then act as though the markup caused a
 		 * newline.
 		 */
 		if (token->markup->fn)
@@ -3435,13 +3790,13 @@ static twrap_t put(token)
 		/* if the cursor isn't on this token, don't show it */
 		if (!hascursor)
 		{
-			first = False;
+			first = ElvFalse;
 			return TWRAP_NO;
 		}
 	}
 	else
 	{
-		reduce = False;
+		reduce = ElvFalse;
 	}
 
 	/* no token causes visible output when in "title" mode, unless the
@@ -3449,7 +3804,7 @@ static twrap_t put(token)
 	 */
 	if (title && !hascursor)
 	{
-		first = False;
+		first = ElvFalse;
 		return TWRAP_NO;
 	}
 
@@ -3462,9 +3817,14 @@ static twrap_t put(token)
 	 */
 	if (prefmt && token->text[0] == '\n' && first)
 	{
-		first = False;
-		anyspc = True;/*!!! Should this be False to avoid initial spc? */
+		first = ElvFalse;
+#if 0
+		anyspc = ElvTrue;
 		spcoffset = token->offset[0];
+		spcfont = curfont;
+#else
+		anyspc = ElvFalse;
+#endif
 		return TWRAP_NO;
 	}
 
@@ -3473,21 +3833,24 @@ static twrap_t put(token)
 		(*mui->escape)(token);
 
 	/* Is it whitespace?  Are we supposed to adjust the text formatting? */
-	if (token->nchars == 1 && isspace(token->text[0]) && !prefmt)
+	if (token->nchars == 1 && elvspace(token->text[0]) && !prefmt)
 	{
 		/* Just set a flag indicating that a space has been
 		 * encountered.  Also remember its offset if it is the first
 		 * space encountered, or if the cursor is on this space.
 		 */
 		if (!anyspc || hascursor)
+		{
 			spcoffset = token->offset[0];
-		anyspc = True;
-		first = False;
+			spcfont = curfont;
+		}
+		anyspc = ElvTrue;
+		first = ElvFalse;
 		return TWRAP_NO;
 	}
 
 	/* If not a markup, and it won't fit on the current line, then output
-	 * a '\n' and return True so it'll appear on the next line.
+	 * a '\n' and return ElvTrue so it'll appear on the next line.
 	 *
 	 * NOTE: In order to prevent orphan punctuation, if the current token
 	 * wasn't preceded by whitespace and it wouldn't cause a line wrap,
@@ -3497,27 +3860,27 @@ static twrap_t put(token)
 	else if (col + token->width + 1 > textwidth - (anyspc ? 4 : 0)
 		&& !prefmt && col != 0 && !token->markup)
 	{
-		(*drawchar)(&newline, 1, 'n', anyspc ? spcoffset : -1);
+		(*drawchar)(newline, 1, 0, anyspc ? spcoffset : -1);
 		col = 0;
-		anyspc = False;
-		first = True;
+		anyspc = ElvFalse;
+		first = ElvTrue;
 		return TWRAP_BEFORE;
 	}
 
 	/* if we need to adjust our indent, do it now */
 	if (col < indent)
 	{
-		(*drawchar)(&space, col - indent, 'n', anyspc ? spcoffset : -1);
+		(*drawchar)(space, col - indent, 0, anyspc ? spcoffset : -1);
 		col = indent;
-		anyspc = False;
+		anyspc = ElvFalse;
 	}
 
 	/* Output a space between tokens, usually. */
 	if (anyspc)
 	{
-		(*drawchar)(&space, 1, 'n', spcoffset);
+		(*drawchar)(space, 1, spcfont, spcoffset);
 		col++;
-		anyspc = False;
+		anyspc = ElvFalse;
 	}
 
 	/* remember our current column, so we can pretend visible markups are
@@ -3533,7 +3896,7 @@ static twrap_t put(token)
 		  case '\t':
 			/* convert to spaces */
 			token->width = tabstop - (col - indent) % tabstop;
-			(*drawchar)(&space, -token->width, curfont, token->offset[0]);
+			(*drawchar)(space, -token->width, curfont, token->offset[0]);
 			break;
 
 		  case '\n':
@@ -3542,10 +3905,10 @@ static twrap_t put(token)
 			 * However, we'll need to be on the lookout for this
 			 * same newline next time.
 			 */
-			(*drawchar)(&newline, 1, 'n', -1);
+			(*drawchar)(newline, 1, 0, -1);
 			col = 0;
-			anyspc = True;
-			first = True;
+			anyspc = ElvTrue;
+			first = ElvTrue;
 			return TWRAP_BEFORE;
 
 		  case '|':
@@ -3563,25 +3926,25 @@ static twrap_t put(token)
 					if (tmpch == '|')	tmpch = '5';
 					else if (tmpch == '.')	tmpch = '8';
 					else if (tmpch == '^')	tmpch = '2';
-					tmpfont = 'g';
+					tmpfont = fontcode['g'];
 				}
 				else if (lch == '-')
 				{
 					if (tmpch == '|')	tmpch = '6';
 					else if (tmpch == '.')	tmpch = '9';
 					else if (tmpch == '^')	tmpch = '3';
-					tmpfont = 'g';
+					tmpfont = fontcode['g'];
 				}
 				else if (rch == '-')
 				{
 					if (tmpch == '|')	tmpch = '4';
 					else if (tmpch == '.')	tmpch = '7';
 					else if (tmpch == '^')	tmpch = '1';
-					tmpfont = 'g';
+					tmpfont = fontcode['g'];
 				}
 				else if (tmpch == '|')
 				{
-					tmpfont = 'g';
+					tmpfont = fontcode['g'];
 				}
 			}
 			(*drawchar)(&tmpch, 1, tmpfont, token->offset[i]);
@@ -3591,7 +3954,7 @@ static twrap_t put(token)
 		  default:
 			if (token->text[i] < ' ')
 				token->text[i] = ' ';
-			(*drawchar)(&token->text[i], 1, token->markup ? 'e' : curfont, token->offset[i]);
+			(*drawchar)(&token->text[i], 1, token->markup ? fontcode['m'] : curfont, token->offset[i]);
 			col++;
 		}
 	}
@@ -3599,13 +3962,13 @@ static twrap_t put(token)
 	/* we won't need any more implied spaces between tokens until we hit
 	 * the next whitespace token in fill mode.
 	 */
-	anyspc = False;
+	anyspc = ElvFalse;
 
 	/* markup tokens aren't supposed to affect the logical column number */
 	col = origcol + token->width;
 
 	/* Done! */
-	first = False;
+	first = ElvFalse;
 	return TWRAP_NO;
 }
 
@@ -3621,6 +3984,7 @@ static long outcol;	/* physical column of wantoffset - initialize to -1 */
 static long wantcol;	/* desired column, whose offsets we'll be tracking */
 static long outoffset;	/* offset of char at a given column - init to -1 */
 static long prevoffset;	/* previous offset which was >= 0 */
+static long lastoffset;	/* offset of last non-blank character before wantcol */
 
 static void countchar(p, qty, font, offset)
 	CHAR	*p;	/* the character being output */
@@ -3661,16 +4025,20 @@ static void countchar(p, qty, font, offset)
 		{
 			if (outoffset == -1)
 			{
-				outoffset = prevoffset;
+				outoffset = lastoffset;
 			}
+			lastoffset = -1;
 			physcol = 0;
 		}
 		else
 		{
-			if (physcol >= wantcol && outoffset < 0)
+			if (physcol >= wantcol)
 			{
-				outoffset = prevoffset;
+				if (outoffset < 0)
+					outoffset = prevoffset;
 			}
+			else if (!elvspace(ch))
+				lastoffset = offset;
 			physcol++;
 		}
 	}
@@ -3697,7 +4065,7 @@ static void term(info)
 static long mark2col(w, mark, cmd)
 	WINDOW	w;	/* window where buffer is shown */
 	MARK	mark;	/* mark to convert */
-	BOOLEAN	cmd;	/* if True, we're in command mode; else input mode */
+	ELVBOOL	cmd;	/* if ElvTrue, we're in command mode; else input mode */
 {
 	CHAR	*p;	/* used for scanning */
 	TOKEN	*token;
@@ -3724,7 +4092,7 @@ static MARK move(w, from, linedelta, column, cmd)
 	MARK	from;		/* old location */
 	long	linedelta;	/* line movement */
 	long	column;		/* desired column number */
-	BOOLEAN	cmd;		/* if True, we're in command mode; else input mode */
+	ELVBOOL	cmd;		/* if ElvTrue, we're in command mode; else input mode */
 {
 	int	i, j;
 	CHAR	*p;
@@ -3748,23 +4116,20 @@ static MARK move(w, from, linedelta, column, cmd)
 	{
 		outoffset = mui->line[i].offset;
 	}
-	else if (column >= textwidth)
-	{
-		if (i < mui->nlines - 1)
-			outoffset = mui->line[i + 1].offset - 1;
-		else
-			outoffset = o_bufchars(markbuffer(from)) - 1;
-	}
 	else
 	{
 		j = start(w, marktmp(tmp, markbuffer(from), mui->line[i].offset), NULL);
 		assert(j == i);
 		wantcol = column;
 		scanalloc(&p, marktmp(tmp, markbuffer(from), mui->line[j].offset));
-		while ((token = (*mui->get)(&p)) != NULL && put(token) == TWRAP_NO && outoffset < 0)
+		while ((token = (*mui->get)(&p)) != NULL
+		    && put(token) == TWRAP_NO
+		    && outoffset < 0)
 		{
 		}
 		scanfree(&p);
+		if (outoffset < 0L)
+			outoffset = lastoffset;
 	}
 
 	/* return the found mark */
@@ -3788,6 +4153,7 @@ static MARK setup(win, top, cursor, bottom, info)
 	int	i;
 
 	/* we can optimize if "nolist noshowmarkup" */
+	i = (calcelement(o_listchars, toCHAR("markup")) != NULL);
 #ifdef DISPLAY_HTML
 	dmhtml.canopt =
 #endif
@@ -3797,7 +4163,7 @@ static MARK setup(win, top, cursor, bottom, info)
 #ifdef DISPLAY_TEX
 	dmtex.canopt =
 #endif
-		(BOOLEAN)(!o_list(win) && !o_showmarkups);
+		(ELVBOOL)(!(o_list(win) && i) && !o_showmarkups);
 	
 	/* find the line indicies of the top & bottom marks, and the cursor */
 	/* NOTE: This could have been implemented more efficiently! */
@@ -3852,6 +4218,9 @@ static MARK image(w, line, info, draw)
  static MARKBUF	tmp;
 	twrap_t	result;
 
+	/* initialize "result" just to keep the compiler happy */
+	result = TWRAP_BEFORE;
+
 	/* generate the line image, using the given "draw" function */
 	(void)start(w, line, draw);
 	scanalloc(&p, line);
@@ -3869,7 +4238,7 @@ static MARK image(w, line, info, draw)
 	 */
 	if (!token)
 	{
-		(*draw)(&newline, 1, 'n', anyspc ? spcoffset : -1);
+		(*draw)(newline, 1, 0, anyspc ? spcoffset : -1);
 	}
 
 	/* return the offset of the first token of the next line */
@@ -3897,6 +4266,7 @@ static void header(w, pagenum, info, draw)
 	int	mlen;	/* length of middle string */
 	long	gap1;	/* width of gap between left side & middle */
 	long	gap2;	/* width of gap between middle & right side */
+ static int	font_header;
 
 	assert(info == (DMINFO *)mui);
 
@@ -3904,12 +4274,22 @@ static void header(w, pagenum, info, draw)
 	if (!o_lpheader)
 		return;
 
+	/* if first time, then find the "header" font */
+	if (!font_header)
+	{
+		font_header = colorfind(toCHAR("header"));
+		colorset(font_header, toCHAR("underlined"), ElvFalse);
+	}
+
 	/* covert page number to text */
 	long2CHAR(pg, (long)pagenum);
 
 	/* find the title of the document */
-	title = mui->title ? mui->title
-			   : o_bufname(markbuffer(w->cursor));
+	title = mui->title;
+	if (!title)
+		title = o_filename(markbuffer(w->cursor));
+	if (!title)
+		title = o_bufname(markbuffer(w->cursor));
 
 	/* Find the widths of things */
 
@@ -3943,15 +4323,15 @@ static void header(w, pagenum, info, draw)
 	gap2 = textwidth - mlen - 2 * slen - gap1;
 
 	/* Output the parts of the headings */
-	(*draw)(sides, slen, 'u', -2L);
-	(*draw)(&space, -gap1, 'u', -2L);
-	(*draw)(middle, mlen, 'u', -2L);
-	(*draw)(&space, -gap2, 'u', -2L);
-	(*draw)(sides, slen, 'u', -2L);
+	(*draw)(sides, slen, font_header, -2L);
+	(*draw)(space, -gap1, font_header, -2L);
+	(*draw)(middle, mlen, font_header, -2L);
+	(*draw)(space, -gap2, font_header, -2L);
+	(*draw)(sides, slen, font_header, -2L);
 
 	/* End the header line, and then skip one or two more lines */
-	(*draw)(&newline, pagenum==1 ? -2L : -3L, 'n', -2L);
-	reduce = True;
+	(*draw)(newline, pagenum==1 ? -2L : -3L, 0, -2L);
+	reduce = ElvTrue;
 }
 #endif /* FEATURE_LPR */
 
@@ -3966,6 +4346,8 @@ static void storestate(offset, dest)
 	long	offset;
 	LINEINFO *dest;
 {
+	int	i;
+
 	/* if "dest" is NULL, then we'll be appending */
 	if (!dest)
 	{
@@ -3991,23 +4373,13 @@ static void storestate(offset, dest)
 	dest->state.graphic = graphic ? 1 : 0;
 	dest->state.midline = midline ? 1 : 0;
 	dest->state.reduce = reduce ? 1 : 0;
-	switch (deffont)
+	dest->state.deffont = dest->state.curfont = 0;
+	for (i = 0; fonttable[i]; i++)
 	{
-	  case 'b':	dest->state.deffont = 1;	break;
-	  case 'u':	dest->state.deffont = 2;	break;
-	  case 'i':	dest->state.deffont = 3;	break;
-	  case 'f':	dest->state.deffont = 4;	break;
-	  case 'e':	dest->state.deffont = 5;	break;
-	  default:	dest->state.deffont = 0;
-	}
-	switch (curfont)
-	{
-	  case 'b':	dest->state.curfont = 1;	break;
-	  case 'u':	dest->state.curfont = 2;	break;
-	  case 'i':	dest->state.curfont = 3;	break;
-	  case 'f':	dest->state.curfont = 4;	break;
-	  case 'e':	dest->state.curfont = 5;	break;
-	  default:	dest->state.curfont = 0;
+		 if (deffont == fontcode[(int)(fonttable[i])])
+			dest->state.deffont = i;
+		 if (curfont == fontcode[(int)(fonttable[i])])
+			dest->state.curfont = i;
 	}
 	dest->state.indent = indent;
 	dest->state.nest = nest;
@@ -4015,7 +4387,7 @@ static void storestate(offset, dest)
 }
 
 
-/* This function copies sets "mui" and the other parsing variables from the
+/* This function sets "mui" and the other parsing variables from the
  * line information of a given window, for a given starting point.  This
  * function also sets "drawchar" function pointer to a given value; if no
  * "drawchar" function is given, then it uses the internal dummy function
@@ -4038,25 +4410,25 @@ static int start(win, from, draw)
 	if (i > 0) i--; /* the above loop took us one line too far */
 
 	/* copy that line's parsing state into parsing variables */
-	prefmt = (BOOLEAN)mui->line[i].state.prefmt;
-	graphic = (BOOLEAN)mui->line[i].state.graphic;
-	midline = (BOOLEAN)mui->line[i].state.midline;
-	reduce = (BOOLEAN)mui->line[i].state.reduce;
-	deffont = "nbuife"[mui->line[i].state.deffont];
-	curfont = "nbuife"[mui->line[i].state.curfont];
+	prefmt = (ELVBOOL)mui->line[i].state.prefmt;
+	graphic = (ELVBOOL)mui->line[i].state.graphic;
+	midline = (ELVBOOL)mui->line[i].state.midline;
+	reduce = (ELVBOOL)mui->line[i].state.reduce;
+	deffont = fontcode[(int)(fonttable[mui->line[i].state.deffont])];
+	curfont = fontcode[(int)(fonttable[mui->line[i].state.curfont])];
 	indent = mui->line[i].state.indent;
 	nest = mui->line[i].state.nest;
 	listcnt = mui->line[i].state.listcnt;
 
 	/* initialize other variables, too */
-	first = True;
-	anyspc = False;
-	title = False; /* nothing that causes a linebreak can appear in title */
-	list = o_list(win);
+	first = ElvTrue;
+	anyspc = ElvFalse;
+	title = ElvFalse; /* nothing that causes a linebreak can appear in title */
+	list = (ELVBOOL)(o_list(win) && (calcelement(o_listchars, toCHAR("markup")) != NULL));
 	readonly = o_readonly(markbuffer(from));
 	textwidth = o_columns(win);
-	tabstop = o_tabstop(markbuffer(win->cursor));
-	listind = o_shiftwidth(markbuffer(win->cursor)) / 2;
+	tabstop = o_tabstop(markbuffer(win->cursor))[1];
+	listind = o_shiftwidth(markbuffer(win->cursor))[1] / 2;
 	if (listind < 2)
 		listind = 2;
 	col = 0;
@@ -4076,6 +4448,7 @@ static int start(win, from, draw)
 		wantcol = 0;
 		outoffset = -1;
 		prevoffset = -1;
+		lastoffset = -1;
 	}
 
 	return i;
@@ -4106,7 +4479,7 @@ static void findtitle(buf)
 	do
 	{
 		token = (*mui->get)(&p);
-	} while (token && isspace(token->text[0]));
+	} while (token && elvspace(token->text[0]));
 
 	/* if no token, then no title */
 	if (!token)
@@ -4130,7 +4503,7 @@ static void findtitle(buf)
 	while ((token = (*mui->get)(&p)) != NULL && (!token->markup || token->markup->TITLE == 'Y'))
 	{
 		/* if text, then append it to title, with a leading blank */
-		if (!token->markup && !isspace(token->text[0]))
+		if (!token->markup && !elvspace(token->text[0]))
 		{
 			if (mui->title)
 				buildCHAR(&mui->title, ' ');
@@ -4325,8 +4698,8 @@ DISPMODE dmhtml =
 {
 	"html",
 	"WWW hypertext",
-	False,	/* display generating can't be optimized */
-	False,	/* shouldn't use standard wordwrap */
+	ElvFalse,	/* display generating can't be optimized */
+	ElvFalse,	/* shouldn't use standard wordwrap */
 	0,	/* no window options */
 	NULL,
 	0,	/* no global options */
@@ -4356,8 +4729,8 @@ DISPMODE dmman =
 {
 	"man",
 	"nroff -man",
-	False,	/* display generating can't be optimized */
-	False,	/* shouldn't use standard wordwrap */
+	ElvFalse,	/* display generating can't be optimized */
+	ElvFalse,	/* shouldn't use standard wordwrap */
 	0,	/* no window options */
 	NULL,
 	0,	/* no global options */
@@ -4387,8 +4760,8 @@ DISPMODE dmtex =
 {
 	"tex",
 	"TeX",
-	False,	/* display generating can't be optimized */
-	False,	/* shouldn't use standard wordwrap */
+	ElvFalse,	/* display generating can't be optimized */
+	ElvFalse,	/* shouldn't use standard wordwrap */
 	0,	/* no window options */
 	NULL,
 	0,	/* no global options */

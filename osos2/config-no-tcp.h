@@ -35,14 +35,40 @@
 #define	DISPLAY_SYNTAX	/* syntax  generic syntax coloring */
 #undef 	PROTOCOL_HTTP	/* define to enable HTTP; undef to disable */
 #undef 	PROTOCOL_FTP	/* define to enable FTP; undef to disable */
-#define	FEATURE_SHOWTAG	/* the showtag option */
-#define	FEATURE_LPR	/* the :lpr command */
 #define	FEATURE_ALIAS	/* the :alias command */
+#define	FEATURE_ARRAY	/* subscripts in expressions */
+#define	FEATURE_BACKTICK /* the `program` notation in file names */
+#define	FEATURE_BROWSE	/* the :browse and :sbrowse commands */
+#define	FEATURE_CACHEDESC /* store syntax/markup descriptions in RAM */
+#define FEATURE_CALC	/* the calculator, and all cmds that use it */
+#define	FEATURE_COMPLETE /* filename completion */
+#define	FEATURE_FOLD	/* the :fold and :unfold commands */
+#define	FEATURE_G	/* most of the visual 'g' commands */
+#define	FEATURE_HLOBJECT /* the hlobject and hllayers options */
+#define	FEATURE_HLSEARCH  /* the hlsearch option */
+#define	FEATURE_INCSEARCH /* the incsearch option */
+#define	FEATURE_LITRE	/* faster searches for literal strings */
+#define	FEATURE_LPR	/* the :lpr command */
+#define	FEATURE_MAKE	/* the :make and :cc commands */
+#define	FEATURE_MAPDB	/* the map debugger */
+#define	FEATURE_MISC	/* lots of little things */
 #define	FEATURE_MKEXRC	/* the :mkexrc command */
-#define FEATURE_COMPLETE /* filename completion */
-#define FEATURE_RAM     /* using ram instead of disk for session files */
-#define FEATURE_LITRE	/* faster searches for literal strings */
-#define FEATURE_BACKTICK /* the `program` notation in file names */
+#define	FEATURE_NORMAL	/* vim-style :normal command */
+#define	FEATURE_PROTO	/* using aliases to add new protocols */
+#define	FEATURE_RAM     /* using ram instead of disk for session files */
+#undef	FEATURE_RCSID	/* include RCS Id strings for all source files */
+#define	FEATURE_REGION	/* the :region command */
+#define	FEATURE_SHOWTAG	/* the showtag option */
+#define	FEATURE_SMARTARGS /* show arguments when inputting a function call */
+#define	FEATURE_SPELL	/* spell checking */
+#define	FEATURE_SPLIT	/* :split and friends */
+#define	FEATURE_STDIN	/* ability to use "-" as a file, to read stdin */
+#define	FEATURE_TAGS	/* :tag command -- undef'ing will break ref & ctags */
+#define	FEATURE_TEXTOBJ	/* text objects */
+#define	FEATURE_V	/* the v/V/^V marking commands */
+#undef	FEATURE_XFT	/* antialiased fonts in X11 */
+#define	FEATURE_LISTCHARS /* the listchars option */
+#define	FEATURE_EQUALTILDE /* :let option =~ excmdline */
 
 
 /* The following provide custom implementation of some common functions which
@@ -77,4 +103,5 @@
 #undef	DEBUG_SESSION	/* define to debug the block cache; undef to disable */
 #undef	DEBUG_EVENT	/* define to trace events; undef to disable */
 #undef	DEBUG_MARKUP	/* define to debug markup display modes */
+#undef	DEBUG_REGEXP	/* define to debug regular expressions */
 

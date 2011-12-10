@@ -1,7 +1,6 @@
 /* options.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_options[] = "$Id: options.c,v 2.49 1998/11/29 19:35:12 steve Exp $";
 
 /* This file contains functions which manipulate options.
  *
@@ -10,6 +9,9 @@ char id_options[] = "$Id: options.c,v 2.49 1998/11/29 19:35:12 steve Exp $";
  */
 
 #include "elvis.h"
+#ifdef FEATURE_RCSID
+char id_options[] = "$Id: options.c,v 2.77 2003/10/17 17:41:23 steve Exp $";
+#endif
 
 #ifndef OPT_MAXCOLS
 # define OPT_MAXCOLS 7
@@ -49,15 +51,19 @@ typedef struct optstk_s
 	OPTDESC		*desc;	/* descriptions of options */
 	OPTVAL		*val;	/* values of options */
 	int		i;	/* index of the value being stored */
-	BOOLEAN		wasset;	/* was the OPT_SET flag set originally? */
+	ELVBOOL		wasset;	/* was the OPT_SET flag set originally? */
 	CHAR		*value;	/* original value of the option, as a string */
+	BUFFER		buffer;	/* original bufdefault -- this might not be */
+				/* valid anymore when values get restored */
 } OPTSTK;
 
 #if USE_PROTOTYPES
-static BOOLEAN optshow(char *name);
-static void optoutput(BOOLEAN domain, BOOLEAN all, BOOLEAN set, CHAR *outbuf, size_t outsize);
+static ELVBOOL optshow(char *name);
+static void optoutput(ELVBOOL domain, ELVBOOL all, ELVBOOL set, CHAR *outbuf, size_t outsize);
+# ifdef FEATURE_MISC
 static void savelocal(OPTDESC *desc, OPTVAL *val, int i);
 static OPTSTK *restorelocal(OPTSTK *item);
+# endif
 #endif
 
 
@@ -65,8 +71,10 @@ static OPTSTK *restorelocal(OPTSTK *item);
 static OPTDOMAIN	*head;
 
 
+#ifdef FEATURE_MISC
 /* stack of local options */
 static OPTSTK *stack = (OPTSTK *)1;
+#endif
 
 
 /* Check a number's validity.  If valid & different, then set val and return
@@ -136,6 +144,96 @@ int optisstring(desc, val, newval)
 	return 1;
 }
 
+
+/* Check a strings validity (all are valid) and set the option.  Return 1
+ * if different, or 0 if same.
+ */
+int optispacked(desc, val, newval)
+	OPTDESC	*desc;	/* description of the option */
+	OPTVAL	*val;	/* value of the option */
+	CHAR	*newval;/* value the option should have (as a string) */
+{
+	CHAR	*scan, *next;
+	ELVBOOL	takesvalue;
+	ELVBOOL	hasvalue;
+	CHAR	name[50];
+	char	*errormsg;
+
+	/* first make sure there are no duplicates */
+	for (scan = newval; *scan; scan = next)
+	{
+		next = calcelement(newval, scan);
+		if (next < scan)
+		{
+			errormsg = "[SS]$1.$2 appears more than once";
+			goto Error;
+		}
+		while (*next && *next++ != ',')
+		{
+		}
+	}
+
+	/* make sure each field is legal, and has a value if it should,
+	 * or doesn't have a value if it shouldn't
+	 */
+	for (scan = newval; *scan; scan = next)
+	{
+		/* locate this field in limit */
+		next = calcelement(toCHAR(desc->limit), scan);
+		if (!next)
+		{
+			errormsg = "[SS]$2 is unrecognized in $1";
+			goto Error;
+		}
+
+		/* determine whether this field takes a value */
+		takesvalue = (ELVBOOL)(*next == ':');
+
+		/* advance to next field in newval */
+		hasvalue = ElvFalse;
+		next = scan;
+		while (*next && *next++ != ',')
+		{
+			if (*next == ':')
+				hasvalue = ElvTrue;
+		}
+
+		/* complain if it has a value and shouldn't, or
+		 * vice versa.
+		 */
+		if (takesvalue != hasvalue)
+		{
+			/* output the error message */
+			if (takesvalue)
+				errormsg = "[SS]$1.$2 requires a value";
+			else
+				errormsg = "[SS]$1.$2 does not take a value";
+			goto Error;
+		}
+	}
+
+	/* the value is valid.  store it like a string */
+	return optisstring(desc, val, newval);
+
+Error:
+	/* an error was detected.  "scan" points to field name, and "errormsg"
+	 * is an appropriate error message, with [SS] arguments.
+	 */
+
+	/* extract the field name */
+	next = name;
+	while (next < &name[sizeof name - 1]
+	    && *scan != ',' && *scan != ':' && *scan)
+	{
+		*next++ = *scan++;
+	}
+	*next = '\0';
+
+	/* output the error message */
+	msg(MSG_ERROR, errormsg, desc->longname, name);
+	return -1;
+}
+
 /* Check a string's validity against a space-delimited list of legal values.
  * If valid & different, then set val to the string's first character, and
  * return 1; if valid & same, then return 0; else give error message and
@@ -179,6 +277,92 @@ int optisoneof(desc, val, newval)
 NoMatch:
 	msg(MSG_ERROR, "[ss]$1 must be one of {$2}", desc->longname, desc->limit);
 	return -1;
+}
+
+/* Check if a string is an acceptable list of tabstop positions, and update an
+ * option if they are.  Return 1 for success, -1 if error.
+ */
+int optistab(desc, val, newval)
+	OPTDESC	*desc;	/* description of the option */
+	OPTVAL	*val;	/* value of the option */
+	CHAR	*newval;/* value the option should have (as a string) */
+{
+	int	i, j = 0;
+	long	width, total;
+	short	*tab;
+
+	/* if no new value, then use the limit value.  If there is no limit,
+	 * then discard the settings.
+	 */
+	if (!newval || !*newval)
+	{
+		newval = toCHAR(desc->limit);
+		if (!newval)
+		{
+			if (!val->value.tab)
+				return 0;
+			if (val->flags & OPT_FREE)
+				safefree(val->value.tab);
+			val->value.tab = NULL;
+			return 1;
+		}
+	}
+
+	/* check the values, and compute the overall width for all but the last
+	 * term.
+	 */
+	for (i = 0, width = total = 0L; ; i++)
+	{
+		if (elvdigit(newval[i]))
+			width = width * 10 + newval[i] - '0';
+		else if (newval[i] == ',' || !newval[i])
+		{
+			if (width < 1 || (short)width != (long)width)
+			{
+				msg(MSG_ERROR, "[s]bad width in $1 list", desc->longname);
+				return -1;
+			}
+			if (!newval[i])
+				break;
+			total += width;
+			width = 0L;
+		}
+		else
+		{
+			msg(MSG_ERROR, "[s]value of $1 should be comma-delimited numbers", desc->longname);
+			return -1;
+		}
+	}
+
+	/* free the old list, if any, and allocate a new list */
+	if (val->value.tab && (val->flags & OPT_FREE))
+		safefree(val->value.tab);
+	tab = val->value.tab = (short *)safekept((int)(2 + total), sizeof(short));
+	val->flags |= OPT_FREE;
+
+	/* stuff the values into the array */
+	tab[0] = (short)total;
+	tab[1] = (short)width;
+	for (i = 0, width = total = 0L; newval[i]; i++)
+	{
+		if (elvdigit(newval[i]))
+			width = width * 10 + newval[i] - '0';
+		else
+		{
+			total += width;
+			tab[2 + (int)total - 1] = 1;
+			width = 0L;
+		}
+	}
+	for (i = tab[0]; --i >= 0;)
+	{
+		if (tab[2 + i] == 1)
+			j = 1;
+		else
+			tab[2 + i] = ++j;
+	}
+
+	return 1;
 }
 
 /* convert a "number" value to a string */
@@ -231,6 +415,46 @@ CHAR *opt1string(desc, val)
 
 	return buf;
 }
+
+/* convert a "tab" value to a string */
+CHAR *opttstring(desc, val)
+	OPTDESC	*desc;	/* description of the option */
+	OPTVAL	*val;	/* value of the option */
+{
+	static CHAR buf[100];
+	CHAR	*build;
+	short	*tab;
+	int	i;
+
+	/* get the value */
+	tab = val->value.tab;
+
+	/* if no value, return "" */
+	if (!tab)
+	{
+		buf[0] = '\0';
+		return buf;
+	}
+
+	/* build a list of specific tabstops */
+	for (build = buf, i = 0; i < tab[0]; i += tab[2 + i])
+	{
+		if (build != buf)
+			*build++ = ',';
+		long2CHAR(build, (long)tab[2 + i]);
+		while (*++build)
+		{
+		}
+	}
+
+	/* add the repeating width */
+	if (build != buf)
+		*build++ = ',';
+	long2CHAR(build, (long)tab[1]);
+
+	return buf;
+}
+
 
 /* Delete the options whose values are stored starting at val. */
 void optdelete(val)
@@ -313,20 +537,20 @@ void optfree(nopts, vals)
 	{
 		if (vals[i].flags & OPT_FREE)
 		{
-			safefree(vals[i].value.string);
+			safefree(vals[i].value.pointer);
 		}
 	}
 }
 
 
-/* This function sets the "show" flag for a given option.  Returns True if
- * successful, or False if the option doesn't exist.
+/* This function sets the "show" flag for a given option.  Returns ElvTrue if
+ * successful, or ElvFalse if the option doesn't exist.
  */
-static BOOLEAN optshow(name)
+static ELVBOOL optshow(name)
 	char	*name;	/* name of an option that should be shown */
 {
 	OPTDOMAIN *dom;
-	BOOLEAN	  ret = False;
+	ELVBOOL	  ret = ElvFalse;
 	int	  i;
 
 	/* for each domain of options... */
@@ -341,7 +565,7 @@ static BOOLEAN optshow(name)
 			 || !strcmp(dom->name, name))
 			{
 				dom->val[i].flags |= OPT_SHOW;
-				ret = True;
+				ret = ElvTrue;
 			}
 		}
 	}
@@ -364,9 +588,9 @@ static BOOLEAN optshow(name)
  *		   touched by a previous optshow() are output.)
  */
 static void optoutput(domain, all, set, outbuf, outsize)
-	BOOLEAN	  domain;	/* if True, include domain names */
-	BOOLEAN	  all;		/* if True, output all non-hidden options */
-	BOOLEAN	  set;		/* if True, output all changed options */
+	ELVBOOL	  domain;	/* if ElvTrue, include domain names */
+	ELVBOOL	  all;		/* if ElvTrue, output all non-hidden options */
+	ELVBOOL	  set;		/* if ElvTrue, output all changed options */
 	CHAR	  *outbuf;	/* where to place the values */
 	size_t	  outsize;	/* size of outbuf */
 {
@@ -564,7 +788,7 @@ static void optoutput(domain, all, set, outbuf, outsize)
 				str = (*scan->dom->desc[scan->idx].asstring)(
 					&scan->dom->desc[scan->idx],
 					&scan->dom->val[scan->idx]);
-				if (cmp + CHARlen(str) > scan->width)
+				if (cmp + CHARlen(str) > (unsigned)scan->width)
 				{
 					/* value too long, so just show part */
 					build = &outbuf[CHARlen(outbuf)];
@@ -662,20 +886,63 @@ CHAR *optgetstr(name, desc)
 	return (CHAR *)0;
 }
 
+#ifdef FEATURE_AUTOCMD
+/* Trigger OptChanged and/or OptSet events on an option.  You can leave either
+ * name or desc set to NULL, but not both.  If you have the OPTDESC pointer
+ * handy, then you should pass that and use NULL for the name; otherwise pass
+ * the option's long name and use NULL for desc.  Either way, you must pass a
+ * valid "val" pointer.
+ */
+void optautocmd(name, desc, val)
+	char	*name;	/* option's long name, or NULL t use desc & val */
+	OPTDESC	*desc;	/* description of option, if known */
+	OPTVAL	*val;	/* value of option */
+{
+	CHAR	noname[30];
+
+	/* if we have a name, look it up */
+	if (name && !optgetstr(toCHAR(name), &desc))
+		msg(MSG_FATAL, "[s]bufautocmd($1...) called for bad option name", name);
+
+	/* if no events for this option, then do nothing */
+	if (!desc->event)
+		return;
+
+	/* if supposed to send an event, then do that */
+	if (desc->event)
+	{
+		/* "OptChanged" */
+		(void)auperform(windefault, ElvFalse, NULL, AU_OPTCHANGED,
+			toCHAR(desc->longname));
+
+		/* "OptSet" */
+		if (!desc->asstring)
+		{
+			noname[0] = '\0';
+			if (!val->value.boolean)
+				CHARcpy(noname, "no");
+			CHARcat(noname, desc->longname);
+			(void)auperform(windefault, ElvFalse, NULL,
+				AU_OPTSET, noname);
+		}
+	}
+}
+#endif
+
 /* This function assigns a new value to an option.  For booleans, it expects
  * "true" or "false".  For invalid option names or inappropriate values it
- * outputs an error message and returns False.  If the value is NULL it
- * returns False without issueing an error message, on the assumption that
+ * outputs an error message and returns ElvFalse.  If the value is NULL it
+ * returns ElvFalse without issueing an error message, on the assumption that
  * whatever caused the NULL pointer already issued a message.
  */
-BOOLEAN optputstr(name, value, bang)
+ELVBOOL optputstr(name, value, bang)
 	CHAR	*name;	/* NUL-terminated name */
 	CHAR	*value;	/* NUL-terminated value */
-	BOOLEAN	bang;	/* don't set the OPT_SET flag? */
+	ELVBOOL	bang;	/* don't set the OPT_SET flag? */
 {
 	OPTDOMAIN *dom;	/* used for scanning through domains */
 	int	  i;	/* used for scanning through opts in a domain */
-	BOOLEAN	  ret;	/* return code */
+	ELVBOOL	  ret;	/* return code */
 	WINDOW	  w;
 
 	/* For each domain... */
@@ -696,19 +963,29 @@ BOOLEAN optputstr(name, value, bang)
 			{
 				if (!bang)
 					msg(MSG_ERROR, "[S]$1 is locked", name);
-				return False;
+				return ElvFalse;
 			}
 
 			/* if the option is unsafe and "safer" is set, fail */
-			if (o_safer && (dom->val[i].flags & OPT_UNSAFE) != 0)
+			if (o_security != 'n' /* normal */
+			 && (dom->val[i].flags & OPT_UNSAFE) != 0)
 			{
 				if (!bang)
 					msg(MSG_ERROR, "[S]unsafe to change $1", name);
-				return False;
+				return ElvFalse;
+			}
+
+			/* if we haven't save the default value before, and
+			 * this isn't a :set! command (with a bang) then save
+			 * the old value as the default.
+			 */
+			if (!dom->desc[i].dflt && !bang)
+			{
+				dom->desc[i].dflt = CHARkdup(optgetstr(toCHAR(dom->desc[i].longname), NULL));
 			}
 
 			/* convert it */
-			ret = True;
+			ret = ElvTrue;
 			if (dom->desc[i].isvalid) /* non-boolean? */
 			{
 				/* if the value is valid & different and we need
@@ -717,7 +994,7 @@ BOOLEAN optputstr(name, value, bang)
 				if ((*dom->desc[i].isvalid)(&dom->desc[i], &dom->val[i], value) == 1
 				 && dom->desc[i].store)
 				{
-					ret = (BOOLEAN)((*dom->desc[i].store)(&dom->desc[i], &dom->val[i], value) >= 0);
+					ret = (ELVBOOL)((*dom->desc[i].store)(&dom->desc[i], &dom->val[i], value) >= 0);
 				}
 			}
 			else
@@ -728,12 +1005,22 @@ BOOLEAN optputstr(name, value, bang)
 			/* set or clear the "set" flag */
 			if (!bang)
 			{
-				if (!dom->desc[i].dflt
-				    || CHARcmp(optgetstr(toCHAR(dom->desc[i].longname), NULL), dom->desc[i].dflt))
+				if (CHARcmp(optgetstr(toCHAR(dom->desc[i].longname), NULL), dom->desc[i].dflt))
 					dom->val[i].flags |= OPT_SET;
 				else
 					dom->val[i].flags &= ~OPT_SET;
 			}
+			else
+			{
+				/* store the new value as the default */
+				dom->desc[i].dflt = CHARkdup(optgetstr(toCHAR(dom->desc[i].longname), NULL));
+				dom->val[i].flags &= ~OPT_SET;
+			}
+
+#ifdef FEATURE_AUTOCMD
+			/* if supposed to send an event, then do that */
+			optautocmd(NULL, &dom->desc[i], &dom->val[i]);
+#endif
 
 			/* if the "redraw" flag is set, then force redraw */
 			if (dom->val[i].flags & (OPT_REDRAW|OPT_SCRATCH))
@@ -754,9 +1041,10 @@ BOOLEAN optputstr(name, value, bang)
 	/* if we get here, then we didn't find the option */
 	if (!bang)
 		msg(MSG_ERROR, "[S]bad option name $1", name);
-	return False;
+	return ElvFalse;
 }
 
+#ifdef FEATURE_MISC
 /* Save an option on the :local stack */
 static void savelocal(desc, val, i)
 	OPTDESC	*desc;	/* descriptions of the option's domain */
@@ -772,7 +1060,7 @@ static void savelocal(desc, val, i)
 	s->desc = desc;
 	s->val = val;
 	s->i = i;
-	s->wasset = (BOOLEAN)((val[i].flags & OPT_SET) != 0);
+	s->wasset = (ELVBOOL)((val[i].flags & OPT_SET) != 0);
 	if (desc[i].isvalid) /* non-boolean? */
 	{
 		if (desc[i].asstring)
@@ -789,6 +1077,7 @@ static void savelocal(desc, val, i)
 		s->value = o_false;
 	}
 	s->value = CHARdup(s->value);
+	s->buffer = (bufdefault && val == &bufdefault->filename) ? bufdefault : NULL;
 
 	/* insert it onto the stack */
 	s->next = stack;
@@ -805,11 +1094,32 @@ static OPTSTK *restorelocal(item)
 	OPTDESC	*desc = &item->desc[item->i];
 	OPTVAL	*val = &item->val[item->i];
 	OPTDOMAIN *d;
+	ELVBOOL	newbool, changed = ElvFalse;
+	BUFFER	b;
 
 	/* verify that the option is still active */
 	for (d = head; d; d = d->next)
 		if (d->val == item->val)
 			break;
+
+	/* if not active, maybe it is a buffer option that we can make
+	 * active again temporarily.
+	 */
+	b = NULL;
+	if (!d && item->buffer && bufdefault != item->buffer)
+	{
+		/* verify that the buffer still exists */
+		while ((b = buflist(b)) != NULL)
+			if (b == item->buffer)
+				break;
+		if (b)
+		{
+			/* It exists.  Make a 1-element group for it */
+			optinsert("local", 1, desc, val);
+		}
+	}
+
+	/* if active now, then restore it */
 	if (d)
 	{
 		/* restore the value */
@@ -818,15 +1128,18 @@ static OPTSTK *restorelocal(item)
 			/* if the value is valid & different and we need
 			 * to call a store function, then call it.
 			 */
-			if ((*desc->isvalid)(desc, val, item->value) == 1
-			 && desc->store)
+			if ((*desc->isvalid)(desc, val, item->value) == 1)
+
 			{
-				(void)(*desc->store)(desc, val, stack->value);
+				if (!desc->store || (*desc->store)(desc, val, stack->value) != 0)
+					changed = ElvTrue;
 			}
 		}
 		else
 		{
-			val->value.boolean = calctrue(stack->value);
+			newbool = calctrue(stack->value);
+			changed = (ELVBOOL)(newbool != val->value.boolean);
+			val->value.boolean = newbool;
 		}
 
 		/* restore the "was set" flag */
@@ -834,11 +1147,23 @@ static OPTSTK *restorelocal(item)
 			val->flags |= OPT_SET;
 		else
 			val->flags &= ~OPT_SET;
+
+#ifdef FEATURE_AUTOCMD
+		/* if supposed to send an event, then do that */
+		if (changed)
+			optautocmd(NULL, desc, val);
+#endif
 	}
 	else
 	{
 		msg(MSG_WARNING, "[s]can't restore local $1", desc->longname);
 	}
+
+	/* if we had to insert a temporary local group (to restore a buffer
+	 * option after we've switched buffers) then delete that group now.
+	 */
+	if (b)
+		optdelete(val);
 
 	/* free it */
 	next = item->next;
@@ -850,10 +1175,11 @@ static OPTSTK *restorelocal(item)
 }
 
 
-/* This function serves to purposes.  It should be called with NULL at the start
- * of a script or alias, to find the current location of the :local stack.  It
- * should be called again at the end of the script/alias to restore all local
- * variables from that stack.
+/* This function serves two purposes.  It should be called with NULL at the
+ * start of a script or alias, to find the current location of the :local
+ * stack.  It should be called again at the end of the script/alias, with the
+ * value returned by the first call, to restore all local variables from that
+ * stack.
  */
 void *optlocal(level)
 	void 	*level;	/* level of stack to pop to */
@@ -868,17 +1194,18 @@ void *optlocal(level)
 
 	return NULL;
 }
+#endif /* FEATURE_MISC */
 
-/* This function parses the arguments to a ":set" command.  Returns True if
+/* This function parses the arguments to a ":set" command.  Returns ElvTrue if
  * successful.  For errors, it issues an error message via msg() and returns
- * False.  If any options are to be output, their values will be stored in
+ * ElvFalse.  If any options are to be output, their values will be stored in
  * a null-terminated string in outbuf.
  *
  * If outbuf is NULL, then no options will be output, and any options mentioned
  * in the "args" string will be pushed onto the :local stack.
  */
-BOOLEAN optset(bang, args, outbuf, outsize)
-	BOOLEAN	  bang;		/* if True, any options displayed will include domain */
+ELVBOOL optset(bang, args, outbuf, outsize)
+	ELVBOOL	  bang;		/* if ElvTrue, any options displayed will include domain */
 	CHAR	  *args;	/* arguments of ":set" command */
 	CHAR	  *outbuf;	/* buffer for storing output string */
 	size_t	  outsize;	/* size of outbuf */
@@ -888,15 +1215,15 @@ BOOLEAN optset(bang, args, outbuf, outsize)
 	CHAR	  *scan;	/* used for moving through strings */
 	CHAR	  *build;	/* used for copying chars from "scan" */
 	CHAR	  *prefix;	/* pointer to "neg" or "no" at front of a boolean */
-	BOOLEAN	  quote;	/* boolean: inside '"' quotes? */
+	ELVBOOL	  quote;	/* boolean: inside '"' quotes? */
 	OPTDOMAIN *dom;		/* used for scanning through domains list */
-	BOOLEAN	  ret;		/* return code */
+	ELVBOOL	  ret;		/* return code */
 	WINDOW	  w;
-	BOOLEAN	  b;
+	ELVBOOL	  b;
         int       i;
 
 	/* be optimistic.  Begin by assuming this will succeed. */
-	ret = True;
+	ret = ElvTrue;
 
 	/* initialize "prefix" just to avoid a compiler warning */
 	prefix = NULL;
@@ -904,20 +1231,20 @@ BOOLEAN optset(bang, args, outbuf, outsize)
 	/* if no arguments, list values of any set options */
 	if (!*args)
 	{
-		optoutput(bang, False, True, outbuf, outsize);
-		return True;
+		optoutput(bang, ElvFalse, ElvTrue, outbuf, outsize);
+		return ElvTrue;
 	}
 
 	/* if "all", list values of all options */
 	if (!CHARcmp(args, toCHAR("all")))
 	{
-		optoutput(bang, True, False, outbuf, outsize);
-		return True;
+		optoutput(bang, ElvTrue, ElvFalse, outbuf, outsize);
+		return ElvTrue;
 	}
 	if (!CHARcmp(args, toCHAR("everything")))
 	{
-		optoutput(bang, True, True, outbuf, outsize);
-		return True;
+		optoutput(bang, ElvTrue, ElvTrue, outbuf, outsize);
+		return ElvTrue;
 	}
 
 	/* for each assignment... */
@@ -932,20 +1259,20 @@ BOOLEAN optset(bang, args, outbuf, outsize)
 			break;
 
 		/* after the name, find the value (if any) */
-		for (scan = name; isalnum(*scan); scan++)
+		for (scan = name; elvalnum(*scan); scan++)
 		{
 		}
 		if (*scan == '=')
 		{
 			*scan++ = '\0';
 			value = build = scan;
-			for (quote = False; *scan && (quote || !isspace(*scan)); scan++)
+			for (quote = ElvFalse; *scan && (quote || !elvspace(*scan)); scan++)
 			{
 				if (*scan == '"')
 				{
-					quote = (BOOLEAN)!quote;
+					quote = (ELVBOOL)!quote;
 				}
-				else if (*scan == '\\' && scan[1] && !isalnum(scan[1]))
+				else if (*scan == '\\' && scan[1] && !elvalnum(scan[1]))
 				{
 					*build++ = *++scan;
 				}
@@ -963,7 +1290,7 @@ BOOLEAN optset(bang, args, outbuf, outsize)
 			/* mark the option for showing */
 			*scan++ = '\0';
 			if (!optshow(tochar8(name)))
-				ret = False;
+				ret = ElvFalse;
 			continue;
 		}
 		else /* no "=" or "?" */
@@ -1002,7 +1329,7 @@ BreakBreak:
 		if (!dom)
 		{
 			msg(MSG_ERROR, "[S]bad option name $1", name);
-			ret = False;
+			ret = ElvFalse;
 			continue;
 		}
 
@@ -1013,13 +1340,22 @@ BreakBreak:
 			{
 				if (outbuf)
 					optshow(tochar8(name));
+#ifdef FEATURE_MISC
+				else if (dom->val[i].flags & OPT_LOCK)
+				{
+					msg(MSG_ERROR, "[S]$1 is locked", name);
+					name = scan;
+					ret = ElvFalse;
+					continue;
+				}
 				else
 					savelocal(dom->desc, dom->val, i);
+#endif
 			}
 			else
 			{
 				msg(MSG_ERROR, "[S]$1 is not a boolean option", name);
-				ret = False;
+				ret = ElvFalse;
 			}
 			continue;
 		}
@@ -1029,16 +1365,17 @@ BreakBreak:
 		{
 			msg(MSG_ERROR, "[S]$1 is locked", name);
 			name = scan;
-			ret = False;
+			ret = ElvFalse;
 			continue;
 		}
 
 		/* if unsafe, then complain */
-		if (o_safer && (dom->val[i].flags & OPT_UNSAFE) != 0)
+		if (o_security != 'n' /* normal */
+		 && (dom->val[i].flags & OPT_UNSAFE) != 0)
 		{
 			msg(MSG_ERROR, "[S]unsafe to change $1", name);
 			name = scan;
-			ret = False;
+			ret = ElvFalse;
 			continue;
 		}
 
@@ -1047,30 +1384,43 @@ BreakBreak:
 		{
 			msg(MSG_ERROR, "[S]$1 is a boolean option", name);
 			name = scan;
-			ret = False;
+			ret = ElvFalse;
 			continue;
 		}
 
+		/* if :set! and the option was already explicitly set, then
+		 * don't set it now.
+		 */
+		if (bang && (dom->val[i].flags & OPT_SET))
+		{
+			if (o_verbose >= 3)
+				msg(MSG_INFO, "[s]skipping \":set! $1\" because already set", dom->desc[i].longname);
+			name = scan;
+			continue;
+		}
+
+#ifdef FEATURE_MISC
 		/* if :local then save its original value */
 		if (!outbuf)
 			savelocal(dom->desc, dom->val, i);
+#endif
 
 		/* if boolean, set it */
 		if (!dom->desc[i].isvalid)
 		{
 			/* set the value */
 			if (prefix == name)
-				b = True;
+				b = ElvTrue;
 			else if (prefix[0] == 'n' && prefix[1] == 'o')
-				b = False;
+				b = ElvFalse;
 			else /* "neg" */
-				b = (BOOLEAN)!dom->val[i].value.boolean;
+				b = (ELVBOOL)!dom->val[i].value.boolean;
 
 			/* if there's a store function, then call it */
 			if (dom->desc[i].store)
 			{
 				if ((*dom->desc[i].store)(&dom->desc[i], &dom->val[i], b ? o_true : o_false) < 0)
-					ret = False;
+					ret = ElvFalse;
 			}
 			else
 				dom->val[i].value.boolean = b;
@@ -1084,7 +1434,7 @@ BreakBreak:
 			 && dom->desc[i].store)
 			{
 				if ((*dom->desc[i].store)(&dom->desc[i], &dom->val[i], value) < 0)
-					ret = False;
+					ret = ElvFalse;
 			}
 		}
 
@@ -1098,6 +1448,10 @@ BreakBreak:
 			else
 				dom->val[i].flags &= ~OPT_SET;
 
+#ifdef FEATURE_AUTOCMD
+			/* if supposed to send an event, then do that */
+			optautocmd(NULL, &dom->desc[i], &dom->val[i]);
+#endif
 		}
 
 		/* If the "redraw" flag is set, then force redrawing (or at
@@ -1116,7 +1470,7 @@ BreakBreak:
 	}
 
 	/* show any options which we're supposed to show */
-	optoutput(bang, False, False, outbuf, outsize);
+	optoutput(bang, ElvFalse, ElvFalse, outbuf, outsize);
 	return ret;
 }
 
@@ -1137,8 +1491,8 @@ OPTVAL *optval(name)
 		for (i = 0; i < dom->nopts; i++)
 		{
 			/* if this is the one we're looking for... */
-			if (!strcmp(dom->desc[i].longname, tochar8(name))
-			 || !strcmp(dom->desc[i].shortname, tochar8(name)))
+			if (!strcmp(dom->desc[i].longname, name)
+			 || !strcmp(dom->desc[i].shortname, name))
 			{
 				/* return the value struct */
 				return &dom->val[i];
@@ -1149,8 +1503,70 @@ OPTVAL *optval(name)
 	return NULL;
 }
 
+#ifdef FEATURE_AUTOCMD
+/* This function is used for setting the "event" flag of a specific option,
+ * or clearing the "event" flags for all options.  Returns the long name of
+ * the option -- the one that should be checked for in the pattern.
+ */
+char *optevent(name)
+	CHAR	*name;	/* the option that triggers events, NULL to clear all */
+{
+	OPTDOMAIN	*dom;
+	int		i;
+	static char	noname[30];
 
-# ifdef FEATURE_MKEXRC
+	/* for each domain of options... */
+	for (dom = head; dom; dom = dom->next)
+	{
+		/* for each option in that domain... */
+		for (i = 0; i < dom->nopts; i++)
+		{
+			/* if supposed to clear flags... */
+			if (!name)
+			{
+				/* clear it */
+				dom->desc[i].event = ElvFalse;
+			}
+			else if (!strcmp(dom->desc[i].longname, tochar8(name))
+			 || !strcmp(dom->desc[i].shortname, tochar8(name)))
+			{
+				/* set this particular option's flag */
+				dom->desc[i].event = ElvTrue;
+				return dom->desc[i].longname;
+			}
+		}
+	}
+
+	/* maybe it has a "no" prefix? */
+	if (!name || CHARncmp(name, toCHAR("no"), 2))
+		return NULL;
+	name += 2;
+
+	/* for each domain of options... */
+	for (dom = head; dom; dom = dom->next)
+	{
+		/* for each option in that domain... */
+		for (i = 0; i < dom->nopts; i++)
+		{
+			if (!strcmp(dom->desc[i].longname, tochar8(name))
+			 || !strcmp(dom->desc[i].shortname, tochar8(name)))
+			{
+				/* set this particular option's flag */
+				dom->desc[i].event = ElvTrue;
+				noname[0] = 'n';
+				noname[1] = 'o';
+				strcpy(noname+2, dom->desc[i].longname);
+				return noname;
+			}
+		}
+	}
+
+	/* not found - return NULL */
+	return NULL;
+}
+#endif /* FEATURE_AUTOCMD */
+
+#ifdef FEATURE_MKEXRC
 /* This function saves the values of some options.  It only does this for
  * options whose values have been changed, and which are in the "global",
  * "buf", "win", "syntax", or "lp" domains.
@@ -1163,15 +1579,12 @@ void optsave(custom)
 	int	  i, j, pass;
 	CHAR	  *str;
 	char	  *tmp;
-	BOOLEAN	  any;
 
 	/* make two passes - one for universal options, and one for options
 	 * which only apply to this GUI.
 	 */
 	for (pass = 1; pass <= 2; pass++)
 	{
-		any = False;
-
 		/* for each domain of options... */
 		for (dom = head; dom; dom = dom->next)
 		{
@@ -1201,26 +1614,17 @@ void optsave(custom)
 			for (i = 0; i < dom->nopts; i++)
 			{
 				/* if its value has been set... */
-				if ((dom->val[i].flags & (OPT_SET|OPT_LOCK|OPT_UNSAFE|OPT_NODFLT)) == OPT_SET)
+				if ((dom->val[i].flags & (OPT_SET|OPT_LOCK|OPT_NODFLT)) == OPT_SET)
 				{
-					/* if first item in pass 2, then add a
-					 * GUI test.
-					 */
-					if (pass == 2 && !any)
-					{
-						tmp = (char *)safealloc(40, sizeof(char));
-						sprintf(tmp, "\nif gui=\"%s\"\nthen {\n", tochar8(o_gui));/*}*/
-						bufreplace(marktmp(m, custom, o_bufchars(custom)), &m, toCHAR(tmp), (long)strlen(tmp));
-						safefree((void *)tmp);
-					}
-					any = True;
-
 					/* then add it to the custom buffer */
 					if (dom->desc[i].asstring)
 					{
 						str = (*dom->desc[i].asstring)(&dom->desc[i], &dom->val[i]);
-						tmp = (char *)safealloc(7 + strlen(dom->desc[i].longname) + 2 * CHARlen(str), sizeof(char));
-						strcpy(tmp, "set ");
+						tmp = (char *)safealloc(11 + strlen(dom->desc[i].longname) + 2 * CHARlen(str), sizeof(char));
+						if (pass == 2 || (dom->val[i].flags & OPT_UNSAFE))
+							strcpy(tmp, "try set ");
+						else
+							strcpy(tmp, "set ");
 						strcat(tmp, dom->desc[i].longname);
 						strcat(tmp, "=");
 						for (j = strlen(tmp); *str; )
@@ -1236,8 +1640,9 @@ void optsave(custom)
 					}
 					else
 					{
-						tmp = (char *)safealloc(8 + strlen(dom->desc[i].longname), sizeof(char));
-						sprintf(tmp, "set %s%s\n",
+						tmp = (char *)safealloc(12 + strlen(dom->desc[i].longname), sizeof(char));
+						sprintf(tmp, "%sset %s%s\n",
+							(pass == 2 || (dom->val[i].flags & OPT_UNSAFE)) ? "try " : "",
 							dom->val[i].value.boolean ? "" : "no",
 							dom->desc[i].longname);
 					}
@@ -1246,44 +1651,9 @@ void optsave(custom)
 				}
 			}
 		}
-
-		/* if this is pass 2 as we wrote anything, then close { */
-		if (pass == 2 && any)
-		{
-			bufreplace(marktmp(m, custom, o_bufchars(custom)), &m, toCHAR("}\n"), 2L);
-		}
 	}
 }
-# endif /* FEATURE_MKEXRC */
-
-
-/* This function stores the current values as default values, for every option.
- * It is called immediately after processing the "elvis.ini" file.  Later, the
- * default values will be used to detect which options have been changed.
- */
-void optsetdflt P_((void))
-{
-	OPTDOMAIN *dom;
-	int	  i;
-
-	/* for each domain of options... */
-	for (dom = head; dom; dom = dom->next)
-	{
-		/* for each option in that domain... */
-		for (i = 0; i < dom->nopts; i++)
-		{
-			/* skip if it shouldn't have a default value */
-			if (dom->val[i].flags & OPT_NODFLT)
-				continue;
-
-			/* store a dynamically-allocated copy of its value */
-			dom->desc[i].dflt = CHARkdup(optgetstr(toCHAR(dom->desc[i].longname), NULL));
-
-			/* clear the "set" flag */
-			dom->val[i].flags &= ~OPT_SET;
-		}
-	}
-}
+#endif /* FEATURE_MKEXRC */
 
 
 #ifdef FEATURE_COMPLETE
@@ -1305,15 +1675,15 @@ CHAR *optcomplete(win, m)
 	CHAR	*cp;
 	OPTDOMAIN *dom;
 	char	*name;
-	int	i, j, mlen, mcount;
-	BOOLEAN	isbool;
-	BOOLEAN	getvalue;
+	int	i, j, mlen = 0, mcount;
+	ELVBOOL	isbool = ElvFalse;
+	ELVBOOL	getvalue;
 
 	/* if the cursor is located immediately after a '=' then skip back
 	 * before the '=' so we can still get the option name.  Also set a
 	 * flag we can test later so we know how to treat that name.
 	 */
-	getvalue = False;
+	getvalue = ElvFalse;
 	scanalloc(&cp, m);
 	if (!scanprev(&cp))
 	{
@@ -1323,13 +1693,13 @@ CHAR *optcomplete(win, m)
 		return retbuf;
 	}
 	if (*cp == '=')
-		getvalue = True;
+		getvalue = ElvTrue;
 	else
 		scannext(&cp);
 
 	/* collect the characters of the partial name */
 	partial[0] = '\0';
-	for (plen = 0; scanprev(&cp) && isalnum(*cp) && plen < QTY(partial)-1; )
+	for (plen = 0; scanprev(&cp) && elvalnum(*cp) && plen < QTY(partial)-1; )
 	{
 		memmove(partial + 1, partial, QTY(partial) - 1);
 		partial[0] = *cp;
@@ -1378,7 +1748,7 @@ CHAR *optcomplete(win, m)
 			 && !strncmp(name, partial + 2, plen - 2))
 			{
 				mcount++;
-				isbool = True;
+				isbool = ElvTrue;
 				if (mcount == 1)
 				{
 					mlen = strlen(name) + 2;
@@ -1393,7 +1763,7 @@ CHAR *optcomplete(win, m)
 			else if (!strncmp(name, partial, plen))
 			{
 				mcount++;
-				isbool = (BOOLEAN)(!dom->desc[i].asstring);
+				isbool = (ELVBOOL)(!dom->desc[i].asstring);
 				if (mcount == 1)
 				{
 					mlen = strlen(name);

@@ -11,6 +11,10 @@
  */
 
 #include "elvis.h"
+#ifdef FEATURE_RCSID
+char id_tagsrch[] = "$Id: tagsrch.c,v 1.16 2003/10/17 17:41:23 steve Exp $";
+#endif
+#ifdef FEATURE_TAGS
 
 #define WEIGHT_SUCCESS	100
 #define WEIGHT_FAIL	95
@@ -42,7 +46,7 @@ typedef struct name_s
 static name_t *addrestrict(char *nametext, char *valuetext, _char_ oper);
 static long likelyhood(TAG *tag, name_t *head, name_t *map[]);
 static name_t *age(name_t *head);
-static BOOLEAN chkrestrict(TAG *tag);
+static ELVBOOL chkrestrict(TAG *tag);
 
 #endif /* USE PROTOTYPES */
 
@@ -66,7 +70,7 @@ static int	nmandatory;		/* number of mandatory restrictions */
 static char	*firstname, *lastname;
 static int	longname;
 static int	taglength;
-static BOOLEAN	fulllength;
+static ELVBOOL	fulllength;
 
 
 /* This function adds a name/value pair to the list of restrictions, and
@@ -319,7 +323,7 @@ static name_t *age(head)
 /* This function wipes out the restrictions list.  The succeeded and failed
  * attribute lists are unaffected.
  */
-void tsreset P_((void))
+void tsreset()
 {
 	name_t	*nextname;
 	value_t	*nextvalue;
@@ -453,8 +457,8 @@ void tsparse(text)
 }
 
 
-/* Check a given tag against the restrictions.  Return True if it satisfies. */
-static BOOLEAN chkrestrict(tag)
+/* Check a given tag against the restrictions.  Return ElvTrue if it satisfies. */
+static ELVBOOL chkrestrict(tag)
 	TAG	*tag;
 {
 	int	mandcnt;/* number of mandatory restrictions which matched */
@@ -496,7 +500,7 @@ static BOOLEAN chkrestrict(tag)
 		if (tag->attr[i])
 			mandcnt += name->weight;
 		else if (name->weight == 1)
-			return False;
+			return ElvFalse;
 
 		/* if optional and tag doesn't have it, ignore it */
 		if (!tag->attr[i])
@@ -520,7 +524,7 @@ static BOOLEAN chkrestrict(tag)
 			}
 		}
 		if (!value)
-			return False;
+			return ElvFalse;
 	}
 
 	/* As a special case, if there are tagaddress restrictions, then the
@@ -538,8 +542,8 @@ static BOOLEAN chkrestrict(tag)
 				continue;
 			for (scan = tag->TAGADDR + 1;
 			     scan[i] && 
-				(isalnum(scan[-1])
-					|| isalnum(scan[i])
+				(elvalnum(scan[-1])
+					|| elvalnum(scan[i])
 					|| *scan != *value->value
 			    		|| strncmp(scan, value->value, i));
 			     scan++)
@@ -553,7 +557,7 @@ static BOOLEAN chkrestrict(tag)
 
 		/* if no substring was found, then reject */
 		if (!value)
-			return False;
+			return ElvFalse;
 
 		/* If mandatory, count it */
 		if (name->weight > 0)
@@ -562,10 +566,10 @@ static BOOLEAN chkrestrict(tag)
 
 	/* if some mandatory values were missing, reject it */
 	if (mandcnt < nmandatory)
-		return False;
+		return ElvFalse;
 
 	/* if nothing wrong with it, then it is acceptable */
-	return True;
+	return ElvTrue;
 }
 
 
@@ -603,10 +607,11 @@ void tsfile(filename, maxlength)
 	long	maxlength;	/* maximum significant length, or 0 for all */
 {
 	CHAR	tagline[1000];	/* input buffer */
-	BOOLEAN	allnext;	/* does tagline[] contain the whole next line?*/
+	ELVBOOL	allnext;	/* does tagline[] contain the whole next line?*/
 	int	bytes;		/* number of bytes in tagline */
 	CHAR	*src, *dst;	/* for manipulating tagline[] */
 	TAG	*tag;		/* a tag parsed from tagline[] */
+	ELVBOOL	skipped;	/* have we already skipped as much as possible? */
 	int	i;
 
 	/* clobber the rmap[], smap[], and fmap[] arrays */
@@ -619,12 +624,12 @@ void tsfile(filename, maxlength)
 
 	/* choose a significant length */
 	if (maxlength == 0 || maxlength > longname)
-		taglength = longname, fulllength = True;
+		taglength = longname, fulllength = ElvTrue;
 	else
-		taglength = maxlength, fulllength = False;
+		taglength = maxlength, fulllength = ElvFalse;
 
 	/* open the file */
-	if (!ioopen(filename, 'r', True, False, 't'))
+	if (!ioopen(filename, 'r', ElvTrue, ElvFalse, 't'))
 	{
 		return;
 	}
@@ -638,14 +643,66 @@ void tsfile(filename, maxlength)
 
 	/* Compare the tag of each line against the tagname */
 	bytes = ioread(tagline, QTY(tagline) - 1);
+	skipped = ElvFalse;
 	while (bytes > taglength
 		&& (!lastname || CHARncmp(lastname, tagline, (size_t)taglength) >= 0))
 	{
+		/* Except for the first time, we would like to avoid scanning
+		 * all of the tag lines currently in the tagline[] buffer if we
+		 * know for a fact that the last tag in the buffer is before
+		 * the first tag that we care about.  (We can't do the first
+		 * block, because at that point we don't know for sure that
+		 * the tags are sorted.)
+		 */
+		if (*tagline != '!' && firstname && !skipped)
+		{
+			/* Locate the last complete tag name in the buffer */
+			for (src = &tagline[bytes], dst = NULL;
+			     --src > tagline && (src[-1] != '\n' || !dst);
+			     )
+			{
+				if (*src == '\t')
+					dst = src;
+			}
+
+			/* Is it before the first one we care about? */
+			if (dst && CHARncmp(src, firstname, (int)(dst - src)) < 0)
+			{
+				/* Yes, so we want to skip as much as possible.
+				 * Since we didn't bother to remember whether
+				 * we saw a newline before this, or where it
+				 * might have belonged, we'll just shift this
+				 * tag to the front of tagline[], and fill the
+				 * buffer after that.
+				 */
+				bytes = (int)(&tagline[bytes] - src);
+				memmove(tagline, src, bytes * sizeof(CHAR));
+				i = ioread(tagline + bytes, (int)QTY(tagline) - bytes - 1);
+				bytes += i;
+
+				/* If we managed to read some more text, then
+				 * we can loop and repeat the "skip" test with
+				 * the new data.  Otherwise (at the end of
+				 * the tags file) we must process the tagline
+				 * normally, without skipping.
+				 */
+				if (i > 0)
+					continue;
+			}
+			else
+			{
+				/* we never want to skip again, in this file */
+				skipped = ElvTrue;
+			}
+		}
+
 		/* disable firstname/lastname checks if tags file claims to
 		 * be unsorted.
 		 */
 		if (lastname && *tagline == '!' && !CHARncmp(tagline, toCHAR("!_TAG_FILE_SORTED\t0\t"), 20))
+		{
 			lastname = firstname = NULL;
+		}
 
 		/* find the end of this line */
 		for (src = tagline; src < &tagline[bytes] && *src != '\n'; src++)
@@ -689,10 +746,10 @@ void tsfile(filename, maxlength)
 		}
 
 		/* delete this line from tagline[] */
-		for (dst = tagline, src++, allnext = False; src < &tagline[bytes]; )
+		for (dst = tagline, src++, allnext = ElvFalse; src < &tagline[bytes]; )
 		{
 			if (*src == '\n')
-				allnext = True;
+				allnext = ElvTrue;
 			*dst++ = *src++;
 		}
 		bytes = (int)(dst - tagline);
@@ -708,3 +765,4 @@ void tsfile(filename, maxlength)
 	safefree(filename);
 	(void)ioclose();
 }
+#endif /* FEATURE_TAGS */

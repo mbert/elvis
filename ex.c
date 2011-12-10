@@ -1,28 +1,34 @@
 /* ex.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_ex[] = "$Id: ex.c,v 2.153 1999/10/08 18:03:03 steve Exp $";
 
 #include "elvis.h"
+#ifdef FEATURE_RCSID
+char id_ex[] = "$Id: ex.c,v 2.226 2003/10/19 23:13:33 steve Exp $";
+#endif
 
 #if USE_PROTOTYPES
 static void skipwhitespace(CHAR **refp);
-static BOOLEAN parsewindowid(CHAR **refp, EXINFO *xinf);
-static BOOLEAN parsebuffername(CHAR **refp, EXINFO *xinf);
-static BOOLEAN parseregexp(CHAR **refp, EXINFO *xinf, long flags);
-static BOOLEAN parsecommandname(CHAR **refp, EXINFO *xinf);
+static ELVBOOL parsewindowid(CHAR **refp, EXINFO *xinf);
+static ELVBOOL parsebuffername(CHAR **refp, EXINFO *xinf);
+static ELVBOOL parseregexp(CHAR **refp, EXINFO *xinf, long flags);
+static ELVBOOL parsecommandname(CHAR **refp, EXINFO *xinf);
 static void parsemulti(CHAR **refp, EXINFO *xinf);
 static void parsebang(CHAR **refp, EXINFO *xinf, long flags);
 static void parseplus(CHAR **refp, EXINFO *xinf, long flags);
-static void parseprintflag(CHAR **refp, EXINFO *xinf, long flags);
-static void parselhs(CHAR **refp, EXINFO *xinf, long flags);
-static void parserhs(CHAR **refp, EXINFO *xinf, long flags);
+static void parseprintflag(CHAR **refp, EXINFO *xinf, long flags, long quirks);
+static void parselhs(CHAR **refp, EXINFO *xinf, long flags, long quirks);
+static void parserhs(CHAR **refp, EXINFO *xinf, long flags, long quirks);
 static void parsecutbuffer(CHAR **refp, EXINFO *xinf, long flags);
 static void parsecount(CHAR **refp, EXINFO *xinf, long flags);
+static RESULT parsenested(CHAR	**refp, EXINFO	*xinf);
 static RESULT parsecmds(CHAR **refp, EXINFO *xinf, long flags);
-static BOOLEAN parsefileargs(CHAR **refp, EXINFO *xinf, long flags);
+static ELVBOOL parsefileargs(CHAR **refp, EXINFO *xinf, long flags);
 static RESULT parse(WINDOW win, CHAR **refp, EXINFO *xinf);
 static RESULT execute(EXINFO *xinf);
+# ifdef FEATURE_ALIAS
+static char *cname(int i);
+# endif
 #endif
 
 /* Minimum number of filename pointers to allocate at a time. */
@@ -61,16 +67,18 @@ static RESULT execute(EXINFO *xinf);
 #define d_File	  0x00200000L	/* default file is current file (else no default) */
 
 /* The following indicate other quirks of commands */
-#define q_Unsafe  0x00400000L	/* command can't be executed in .exrc script */
-#define q_Autop	  0x00800000L	/* autoprint current line */
-#define q_Zero	  0x01000000L	/* allow Target or Line to be 0 */
-#define q_Exrc	  0x02000000L	/* command may be run in a .exrc file */
-#define q_Undo	  0x04000000L	/* save an "undo" version before this command */
-#define q_Custom  0x08000000L	/* save options/maps after command */
-#define q_Ex	  0x10000000L	/* only allowed in ex mode, not vi's <:> cmd */
-#define q_CtrlV	  0x20000000L	/* use ^V for quote char, instead of \ */
-#define q_MayQuit 0x40000000L	/* may cause window to disappear */
-#define q_SwitchB 0x80000000L	/* may move cursor to a different buffer */
+#define q_Unsafe      0x0001L	/* command can't be executed if "safer" */
+#define q_FileUnsafe  0x0002L	/* command can't take filename if "safer" */
+#define q_Restricted  0x0004L	/* "Unsafe" flags only apply if "restricted" */
+#define q_Autop	      0x0008L	/* autoprint current line */
+#define q_Zero	      0x0010L	/* allow Target or Line to be 0 */
+#define q_Exrc	      0x0020L	/* command may be run in a .exrc file */
+#define q_Undo	      0x0040L	/* save an "undo" version before this command */
+#define q_Custom      0x0080L	/* save options/maps after command */
+#define q_Ex	      0x0100L	/* only allowed in ex mode, not vi's <:> cmd */
+#define q_CtrlV	      0x0200L	/* use ^V for quote char, instead of \ */
+#define q_MayQuit     0x0400L	/* may cause window to disappear */
+#define q_SwitchB     0x0800L	/* may move cursor to a different buffer */
 
 
 /* This array maps ex command names to command codes. The order in which
@@ -95,132 +103,232 @@ static struct
 	EXCMD	code;	/* enum code of the command */
 	RESULT	(*fn) P_((EXINFO *));
 			/* function which executes the command */
-	unsigned long	flags;	/* command line arguments, defaults, quirks */
+	long	flags;	/* command line arguments, defaults */
+	long	quirks;	/* command line quirks */
 }
 	cmdnames[] =
-{   /*	 cmd name	cmd code	function	arguments */
-/*!   */{"!",		EX_BANG,	ex_bang,	a_Range | a_Cmds | d_None | q_Exrc | q_Unsafe | q_Undo			},
+{   /*	 cmd name	cmd code	function	flags (describing arguments)            quirks */
+/*!   */{"!",		EX_BANG,	ex_bang,	a_Range | a_Cmds | d_None,		q_Exrc | q_Unsafe | q_Undo	},
 /*#   */{"#",		EX_NUMBER,	ex_print,	a_Range | a_Count | a_Pflag						},
-/*&   */{"&",		EX_SUBAGAIN,	ex_substitute,	a_Range | a_Rhs | q_Undo						},
-/*<   */{"<",		EX_SHIFTL,	ex_shift,	a_Range | a_Multi | a_Bang | a_Count | q_Autop | q_Undo			},
+/*&   */{"&",		EX_SUBAGAIN,	ex_substitute,	a_Range | a_Rhs,			q_Undo				},
+/*<   */{"<",		EX_SHIFTL,	ex_shift,	a_Range | a_Multi | a_Bang | a_Count,	q_Autop | q_Undo		},
 /*=   */{"=",		EX_EQUAL,	ex_file,	a_Range									},
-/*>   */{">",		EX_SHIFTR,	ex_shift,	a_Range | a_Multi | a_Bang | a_Count | q_Autop | q_Undo			},
+/*>   */{">",		EX_SHIFTR,	ex_shift,	a_Range | a_Multi | a_Bang | a_Count,	q_Autop | q_Undo		},
+#ifdef FEATURE_MISC
 /*@   */{"@",		EX_AT,		ex_at,		a_Buffer								},
-/*N   */{"Next",	EX_PREVIOUS,	ex_next,	a_Bang | q_Unsafe | q_SwitchB						},
-/*"   */{"\"",		EX_COMMENT,	ex_comment,	a_Cmds | q_Exrc								},
-/*a   */{"append",	EX_APPEND,	ex_append,	a_Line | a_Bang | a_Cmds | a_Text | q_Zero | q_Undo | q_Ex		},
-/*ab  */{"abbreviate",	EX_ABBR,	ex_map,		a_Bang | a_Lhs | a_Rhs | q_Exrc | q_Custom | q_Unsafe | q_CtrlV		},
-/*al  */{"all",		EX_ALL,		ex_all,		a_Bang | a_Cmds								},
-#ifdef FEATURE_ALIAS
-/*ali */{"alias",	EX_ALIAS,	ex_alias,	a_Lhs | a_Cmds | q_Exrc | q_Unsafe | q_Custom				},
 #endif
-/*ar  */{"args",	EX_ARGS,	ex_args,	a_Files | q_Exrc | q_Unsafe						},
-/*b   */{"buffer",	EX_BUFFER,	ex_buffer,	a_Bang | a_Rhs | q_SwitchB						},
-/*bb  */{"bbrowse",	EX_BBROWSE,	ex_buffer,	a_Bang | q_SwitchB							},
-/*br  */{"browse",	EX_BROWSE,	ex_browse,	a_Bang|a_Rhs | q_SwitchB						},
-/*bro */{"break",	EX_BREAK,	ex_map,		a_Bang | a_Lhs | q_CtrlV						},
-/*c   */{"change",	EX_CHANGE,	ex_append,	a_Range | a_Bang | a_Count | a_Text | q_Undo | q_Ex			},
-/*cha */{"chdir",	EX_CD,		ex_cd,		a_Bang | a_File | q_Exrc | q_Unsafe					},
-/*ca  */{"calculate",	EX_CALC,	ex_comment,	a_Cmds | q_Exrc								},
-/*cas */{"case",	EX_CASE,	ex_case,	a_Lhs | a_Cmds | q_Exrc							},
-/*cc  */{"cc",		EX_CC,		ex_make,	a_Bang | a_Rhs | q_Unsafe | q_SwitchB					},
-/*cd  */{"cd",		EX_CD,		ex_cd,		a_Bang | a_File | q_Exrc | q_Unsafe					},
-/*cl  */{"close",	EX_CLOSE,	ex_xit,		a_Bang | q_MayQuit							},
-/*co  */{"copy",	EX_COPY,	ex_move,	a_Range | a_Target | a_Pflag | q_Autop | q_Undo				},
-/*col */{"color",	EX_COLOR,	ex_color,	a_Rhs | q_Exrc | q_Custom						},
-/*d   */{"delete",	EX_DELETE,	ex_delete,	a_Range | a_Buffer | a_Count | a_Pflag | q_Undo | q_Autop		},
-/*de  */{"default",	EX_DEFAULT,	ex_case,	a_Cmds | q_Exrc								},
+/*N   */{"Next",	EX_PREVIOUS,	ex_next,	a_Bang,					q_Unsafe | q_SwitchB		},
+/*"   */{"\"",		EX_COMMENT,	ex_comment,	a_Cmds,					q_Exrc				},
+/*a   */{"append",	EX_APPEND,	ex_append,	a_Line | a_Bang | a_Cmds | a_Text,	q_Zero | q_Undo | q_Ex		},
+/*ab  */{"abbreviate",	EX_ABBR,	ex_map,		a_Bang | a_Lhs | a_Rhs,			q_Exrc|q_Custom|q_Unsafe|q_CtrlV},
+#ifdef FEATURE_MISC
+/*al  */{"all",		EX_ALL,		ex_all,		a_Bang | a_Cmds,			q_Exrc				},
+#endif
+#ifdef FEATURE_ALIAS
+/*ali */{"alias",	EX_ALIAS,	ex_alias,	a_Bang | a_Lhs | a_Cmds,		q_Exrc | q_Unsafe | q_Custom	},
+#endif
+/*ar  */{"args",	EX_ARGS,	ex_args,	a_Files,				q_Exrc | q_Unsafe		},
+#ifdef FEATURE_AUTOCMD
+/*au  */{"autocmd",	EX_AUTOCMD,	ex_autocmd,	a_Bang | a_Cmds,			q_Exrc | q_Unsafe | q_Custom	},
+/*aue */{"auevent",	EX_AUEVENT,	ex_auevent,	a_Bang | a_Rhs,				q_Exrc | q_Custom		},
+/*aug */{"augroup",	EX_AUGROUP,	ex_augroup,	a_Bang | a_Lhs,				q_Exrc | q_Unsafe		},
+#endif
+#ifdef FEATURE_MISC
+/*b   */{"buffer",	EX_BUFFER,	ex_buffer,	a_Bang | a_Rhs,				q_SwitchB			},
+/*bb  */{"bbrowse",	EX_BBROWSE,	ex_buffer,	a_Bang,					q_SwitchB			},
+#endif
+#ifdef FEATURE_BROWSE
+/*br  */{"browse",	EX_BROWSE,	ex_browse,	a_Bang|a_Rhs,				q_SwitchB			},
+#endif
+#ifdef FEATURE_MAPDB
+/*bre */{"break",	EX_BREAK,	ex_map,		a_Bang | a_Rhs,				q_CtrlV				},
+#endif
+/*c   */{"change",	EX_CHANGE,	ex_append,	a_Range | a_Bang | a_Count | a_Text,	q_Undo | q_Ex			},
+/*cha */{"chdir",	EX_CD,		ex_cd,		a_Bang | a_File,			q_Exrc | q_Unsafe		},
+#ifdef FEATURE_SPELL
+/*che */{"check",	EX_CHECK,	ex_check,	a_Bang | a_Rhs,				q_Exrc | q_Custom		},
+#endif
+#ifdef FEATURE_REGION
+/*chr */{"chregion",	EX_CHREGION,	ex_region,	a_Range | a_Rhs | a_Lhs							},
+#endif
+#ifdef FEATURE_CALC
+/*ca  */{"calculate",	EX_CALC,	ex_comment,	a_Cmds,					q_Exrc				},
+/*cas */{"case",	EX_CASE,	ex_case,	a_Lhs | a_Cmds,				q_Exrc				},
+#endif
+#ifdef FEATURE_MAKE
+/*cc  */{"cc",		EX_CC,		ex_make,	a_Bang | a_Rhs,				q_Unsafe | q_SwitchB		},
+#endif
+/*cd  */{"cd",		EX_CD,		ex_cd,		a_Bang | a_File,			q_Exrc | q_Unsafe		},
+/*cl  */{"close",	EX_CLOSE,	ex_xit,		a_Bang,					q_MayQuit			},
+/*co  */{"copy",	EX_COPY,	ex_move,	a_Range | a_Target | a_Pflag,		q_Autop | q_Undo		},
+/*col */{"color",	EX_COLOR,	ex_color,	a_Bang | a_Lhs | a_Rhs,			q_Exrc | q_Custom		},
+/*d   */{"delete",	EX_DELETE,	ex_delete,	a_Range | a_Buffer | a_Count | a_Pflag,	q_Undo | q_Autop		},
+#ifdef FEATURE_CALC
+/*de  */{"default",	EX_DEFAULT,	ex_case,	a_Cmds,					q_Exrc				},
+#endif
 /*di  */{"display",	EX_DISPLAY,	ex_display,	a_Rhs									},
-/*dig */{"digraph",	EX_DIGRAPH,	ex_digraph,	a_Bang | a_Rhs | q_Exrc | q_Custom					},
-/*do  */{"do",		EX_DO,		ex_do,		a_Cmds | q_Exrc			 					},
-/*e   */{"edit",	EX_EDIT,	ex_edit,	a_Bang | a_Plus | a_File | d_File | q_SwitchB				},
-/*ec  */{"echo",	EX_ECHO,	ex_comment,	a_Rhs | q_Exrc								},
-/*el  */{"else",	EX_ELSE,	ex_then,	a_Cmds | q_Exrc								},
-/*er  */{"errlist",	EX_ERRLIST,	ex_errlist,	a_Bang | a_File | a_Filter | q_SwitchB					},
-/*erro*/{"error",	EX_ERROR,	ex_message,	a_Rhs | q_Exrc								},
-/*ev  */{"eval",	EX_EVAL,	ex_if,		a_Cmds | q_Exrc								},
-/*ex  */{"ex",		EX_EDIT,	ex_edit,	a_Bang | a_Plus | a_File | d_File | q_Unsafe | q_SwitchB		},
-/*f   */{"file",	EX_FILE,	ex_file,	a_File | q_Unsafe							},
-/*g   */{"global",	EX_GLOBAL,	ex_global,	a_Range | a_Bang | a_RegExp | a_Cmds | d_All | q_Undo			},
-/*go  */{"goto",	EX_GOTO,	ex_comment,	a_Line | q_Zero | q_Autop | q_SwitchB					},
-/*gu  */{"gui",		EX_GUI,		ex_gui,		a_Cmds | q_Exrc								},
-/*h   */{"help",	EX_HELP,	ex_help,	a_Lhs | a_Rhs | q_SwitchB						},
-/*i   */{"insert",	EX_INSERT,	ex_append,	a_Line | a_Bang | a_Cmds | a_Text | q_Undo | q_Ex			},
-/*if  */{"if",		EX_IF,		ex_if,		a_Cmds | q_Exrc								},
-/*j   */{"join",	EX_INSERT,	ex_join,	a_Range | a_Bang | a_Count | d_2Lines | q_Autop | q_Undo		},
+/*dig */{"digraph",	EX_DIGRAPH,	ex_digraph,	a_Bang | a_Rhs,				q_Exrc | q_Custom		},
+#ifdef FEATURE_CALC
+/*do  */{"doloop",	EX_DO,		ex_do,		a_Cmds,					q_Exrc				},
+#endif
+#ifdef FEATURE_AUTOCMD
+/*doa */{"doautocmd",	EX_DOAUTOCMD,	ex_doautocmd,	a_Rhs,					q_Exrc				},
+#endif
+/*e   */{"edit",	EX_EDIT,	ex_edit,	a_Bang | a_Plus | a_File | d_File,	q_FileUnsafe | q_SwitchB	},
+/*ec  */{"echo",	EX_ECHO,	ex_comment,	a_Rhs,					q_Exrc				},
+/*el  */{"else",	EX_ELSE,	ex_then,	a_Cmds,					q_Exrc				},
+#ifdef FEATURE_MAKE
+/*er  */{"errlist",	EX_ERRLIST,	ex_errlist,	a_Bang | a_File | a_Filter,		q_SwitchB|q_FileUnsafe|q_Restricted},
+#endif
+/*erro*/{"error",	EX_ERROR,	ex_message,	a_Rhs,					q_Exrc				},
+#ifdef FEATURE_CALC
+/*ev  */{"eval",	EX_EVAL,	ex_if,		a_Cmds,					q_Exrc				},
+#endif
+/*ex  */{"ex",		EX_EDIT,	ex_edit,	a_Bang | a_Plus | a_File | d_File,	q_FileUnsafe | q_SwitchB	},
+/*f   */{"file",	EX_FILE,	ex_file,	a_Bang | a_File,			q_FileUnsafe			},
+#ifdef FEATURE_FOLD
+/*fo  */{"fold",	EX_FOLD,	ex_fold,	a_Range | a_Bang | a_Rhs 						},
+#endif
+#ifdef FEATURE_CALC
+/*for */{"foreach",	EX_FOR,		ex_while,	a_Lhs | a_Cmds,				q_Exrc				},
+#endif
+/*g   */{"global",	EX_GLOBAL,	ex_global,	a_Range|a_Bang|a_RegExp|a_Cmds|d_All,	q_Undo				},
+/*go  */{"goto",	EX_GOTO,	ex_comment,	a_Line,					q_Zero | q_Autop | q_SwitchB	},
+/*gu  */{"gui",		EX_GUI,		ex_gui,		a_Cmds,					q_Exrc				},
+#ifdef FEATURE_MISC
+/*h   */{"help",	EX_HELP,	ex_help,	a_Lhs | a_Rhs,				q_SwitchB			},
+#endif
+/*i   */{"insert",	EX_INSERT,	ex_append,	a_Line | a_Bang | a_Cmds | a_Text,	q_Undo | q_Ex			},
+#ifdef FEATURE_CALC
+/*if  */{"if",		EX_IF,		ex_if,		a_Cmds,					q_Exrc				},
+#endif
+/*j   */{"join",	EX_JOIN,	ex_join,	a_Range | a_Bang | a_Count | d_2Lines,	q_Autop | q_Undo		},
 /*k   */{"k",		EX_MARK,	ex_mark,	a_Line | a_Lhs								},
 /*l   */{"list",	EX_LIST,	ex_print,	a_Range | a_Count | a_Pflag						},
-/*la  */{"last",	EX_LAST,	ex_next,	q_Unsafe | q_SwitchB							},
-/*le  */{"let",		EX_LET,		ex_set,		a_Bang | a_Cmds | q_Exrc | q_Custom					},
-/*se  */{"local",	EX_LOCAL,	ex_set,		a_Rhs | q_Exrc				 				},
-/*lp  */{"lpr",		EX_LPR,		ex_lpr,		a_Range | a_Bang | a_Append | a_File | a_Filter | d_All | q_Unsafe			},
-/*m   */{"move",	EX_MOVE,	ex_move,	a_Range | a_Target | q_Autop | q_Undo					},
-/*ma  */{"mark",	EX_MARK,	ex_mark,	a_Line | a_Lhs								},
-/*mak */{"make",	EX_MAKE,	ex_make,	a_Bang | a_Rhs | q_Unsafe | q_SwitchB					},
-/*map */{"map",		EX_MAP,		ex_map,		a_Bang | a_Lhs | a_Rhs | q_Exrc | q_Custom | q_Unsafe | q_CtrlV		},
-/*me  */{"message",	EX_MESSAGE,	ex_message,	a_Rhs | q_Exrc								},
-/*mk  */{"mkexrc",	EX_MKEXRC,	ex_mkexrc,	a_Bang | a_File | q_Unsafe						},
-/*n   */{"next",	EX_NEXT,	ex_next,	a_Bang | a_Files | q_Unsafe | q_SwitchB					},
-/*ne  */{"new",		EX_SNEW,	ex_split,	q_Unsafe								},
-/*no  */{"normal",	EX_NORMAL,	ex_display										},
-/*nu  */{"number",	EX_NUMBER,	ex_print,	a_Range | a_Count | a_Pflag						},
-/*o   */{"open",	EX_OPEN,	ex_edit,	a_Bang | a_Plus | a_File						},
-/*on  */{"only",	EX_ONLY,	ex_qall,	a_Bang | d_None | q_Unsafe						},
-/*p   */{"print",	EX_PRINT,	ex_print,	a_Range | a_Count | a_Pflag						},
-/*pre */{"previous",	EX_PREVIOUS,	ex_next,	a_Bang | q_Unsafe | q_SwitchB						},
-/*pres*/{"preserve",	EX_PRESERVE,	ex_qall,	d_None | q_Unsafe | q_MayQuit						},
-/*po  */{"pop",		EX_POP,		ex_pop,		a_Bang | q_Unsafe | q_SwitchB						},
-/*pu  */{"put",		EX_PUT,		ex_put,		a_Line | q_Zero | a_Buffer | q_Undo					},
-/*q   */{"quit",	EX_QUIT,	ex_xit,		a_Bang | q_MayQuit							},
-/*qa  */{"qall",	EX_QALL,	ex_qall,	a_Bang | q_MayQuit							},
-/*r   */{"read",	EX_READ,	ex_read,	a_Line | a_File | a_Filter | q_Zero | q_Undo				},
-/*red */{"redo",	EX_REDO,	ex_undo,	a_Lhs | q_Autop								},
-/*rew */{"rewind",	EX_REWIND,	ex_next,	a_Bang | q_Unsafe | q_SwitchB						},
-/*s   */{"substitute",	EX_SUBSTITUTE,	ex_substitute,	a_Range|a_RegExp|a_RegSub|a_Rhs|a_Count|a_Pflag|q_Autop|q_Undo|q_Exrc	},
-/*sN  */{"sNext",	EX_SPREVIOUS,	ex_next,	q_Unsafe								},
-/*sa  */{"sall",	EX_SALL,	ex_sall,	q_Unsafe								},
-/*saf */{"safer",	EX_SAFER,	ex_source,	a_Bang | a_File | q_Exrc						},
-/*sbb */{"sbbrowse",	EX_SBBROWSE,	ex_buffer,	a_Bang									},
-/*sbr */{"sbrowse",	EX_SBROWSE,	ex_browse,	a_Bang|a_Rhs								},
-/*se  */{"set",		EX_SET,		ex_set,		a_Bang | a_Rhs | q_Exrc | q_Custom					},
-/*sh  */{"shell",	EX_SHELL,	ex_suspend,	q_Unsafe								},
-/*sl  */{"slast",	EX_SLAST,	ex_next,	q_Unsafe								},
-/*sn  */{"snext",	EX_SNEXT,	ex_next,	a_Files									},
-/*snew*/{"snew",	EX_SNEW,	ex_split,	q_Unsafe								},
-/*so  */{"source",	EX_SOURCE,	ex_source,	a_Bang | a_File | q_Exrc						},
-/*sp  */{"split",	EX_SPLIT,	ex_split,	a_Line | a_Plus | a_File | a_Filter					},
-/*sr  */{"srewind",	EX_SREWIND,	ex_next,	a_Bang | q_Unsafe							},
-/*st  */{"stop",	EX_STOP,	ex_suspend,	a_Bang | q_Unsafe							},
-/*sta */{"stag",	EX_STAG,	ex_tag,		a_Rhs									},
-/*stac*/{"stack",	EX_STACK,	ex_stack,	d_None									},
-/*su  */{"suspend",	EX_SUSPEND,	ex_suspend,	a_Bang | q_Unsafe							},
-/*sw  */{"switch",	EX_SWITCH,	ex_switch,	a_Cmds | q_Exrc								},
-/*t   */{"to",		EX_COPY,	ex_move,	a_Range | a_Target | a_Pflag | q_Autop | q_Undo				},
-/*ta  */{"tag",		EX_TAG,		ex_tag,		a_Bang | a_Rhs | q_Unsafe | q_SwitchB					},
-/*th  */{"then",	EX_THEN,	ex_then,	a_Cmds | q_Exrc			 					},
-/*try */{"try",		EX_TRY,		ex_then,	a_Cmds | q_Exrc			 					},
-/*u   */{"undo",	EX_UNDO,	ex_undo,	a_Lhs | q_Autop								},
-/*una */{"unabbreviate",EX_UNABBR,	ex_map,		a_Bang | a_Lhs | q_Exrc | q_Custom | q_CtrlV				},
-#ifdef FEATURE_ALIAS
-/*unal*/{"unalias",	EX_UNALIAS,	ex_alias,	a_Lhs | q_Exrc | q_Custom						},
+/*la  */{"last",	EX_LAST,	ex_next,	0,					q_Unsafe | q_SwitchB		},
+#ifdef FEATURE_CALC
+/*le  */{"let",		EX_LET,		ex_set,		a_Bang | a_Cmds,			q_Exrc | q_Custom		},
 #endif
-/*unb */{"unbreak",	EX_UNBREAK,	ex_map,		a_Bang | a_Lhs | q_CtrlV						},
-/*unm */{"unmap",	EX_UNMAP,	ex_map,		a_Bang | a_Lhs | q_Exrc | q_Custom | q_CtrlV				},
-/*v   */{"vglobal",	EX_VGLOBAL,	ex_global,	a_Range | a_Bang | a_RegExp | a_Cmds | d_All | q_Undo			},
-/*ve  */{"version",	EX_VERSION,	ex_version,	q_Exrc									},
-/*vi  */{"visual",	EX_VISUAL,	ex_edit,	a_Bang | a_Plus | a_File | q_SwitchB					},
-/*w   */{"write",	EX_WRITE,	ex_write,	a_Range | a_Bang | a_Append | a_File | a_Filter | d_All | q_Unsafe	},
-/*wa  */{"warning",	EX_WARNING,	ex_message,	a_Rhs | q_Exrc								},
-/*if  */{"while",	EX_WHILE,	ex_while,	a_Cmds | q_Exrc								},
-/*wi  */{"window",	EX_WINDOW,	ex_window,	a_Lhs									},
-/*wn  */{"wnext",	EX_WNEXT,	ex_next,	a_Bang | q_Unsafe | q_SwitchB						},
-/*wq  */{"wquit",	EX_WQUIT,	ex_xit,		a_Bang | a_File | d_File | q_MayQuit					},
-/*x   */{"xit",		EX_XIT,		ex_xit,		a_Bang | a_File  | q_MayQuit						},
-/*y   */{"yank",	EX_YANK,	ex_delete,	a_Range | a_Buffer | a_Count						},
-/*z   */{"z",		EX_Z,		ex_z,		a_Line | a_Rhs								},
-/*~   */{"~",		EX_SUBRECENT,	ex_substitute,	a_Range | a_Rhs | q_Undo						},
+#ifdef FEATURE_MISC
+/*se  */{"local",	EX_LOCAL,	ex_set,		a_Rhs,					q_Exrc		 		},
+#endif
+#ifdef FEATURE_LPR
+/*lp  */{"lpr",		EX_LPR,		ex_lpr,		a_Range|a_Bang|a_Append|a_File|a_Filter|d_All,	q_Unsafe		},
+#endif
+/*m   */{"move",	EX_MOVE,	ex_move,	a_Range | a_Target,			q_Autop | q_Undo		},
+/*ma  */{"mark",	EX_MARK,	ex_mark,	a_Line | a_Lhs								},
+#ifdef FEATURE_MAKE
+/*mak */{"make",	EX_MAKE,	ex_make,	a_Bang | a_Rhs,				q_Unsafe | q_SwitchB		},
+#endif
+/*map */{"map",		EX_MAP,		ex_map,		a_Bang | a_Rhs,				q_Exrc|q_Custom|q_Unsafe|q_CtrlV},
+/*me  */{"message",	EX_MESSAGE,	ex_message,	a_Rhs,					q_Exrc				},
+#ifdef FEATURE_MKEXRC
+/*mk  */{"mkexrc",	EX_MKEXRC,	ex_mkexrc,	a_Bang | a_File,			q_Unsafe			},
+#endif
+/*n   */{"next",	EX_NEXT,	ex_next,	a_Bang | a_Files,			q_Unsafe | q_SwitchB		},
+#ifdef FEATURE_SPLIT
+/*ne  */{"new",		EX_SNEW,	ex_split										},
+#endif
+/*no  */{"normal",	EX_NORMAL,	ex_display,	a_Range | a_Bang | a_Cmds | d_None,	q_Undo 				},
+#ifdef FEATURE_HLSEARCH
+/*noh */{"nohlsearch",	EX_NOHLSEARCH,	ex_nohlsearch										},
+#endif
+/*nu  */{"number",	EX_NUMBER,	ex_print,	a_Range | a_Count | a_Pflag						},
+/*o   */{"open",	EX_OPEN,	ex_edit,	a_Bang | a_Plus | a_File,		q_SwitchB | q_FileUnsafe	},
+/*on  */{"only",	EX_ONLY,	ex_qall,	a_Bang | d_None								},
+/*p   */{"print",	EX_PRINT,	ex_print,	a_Range | a_Count | a_Pflag						},
+/*pre */{"previous",	EX_PREVIOUS,	ex_next,	a_Bang,					q_Unsafe | q_SwitchB		},
+/*pres*/{"preserve",	EX_PRESERVE,	ex_qall,	d_None,					q_MayQuit			},
+/*po  */{"pop",		EX_POP,		ex_pop,		a_Bang,					q_SwitchB			},
+/*pu  */{"put",		EX_PUT,		ex_put,		a_Line,					q_Zero | a_Buffer | q_Undo	},
+/*pus */{"push",	EX_PUSH,	ex_edit,	a_Bang | a_Plus | a_File,		q_FileUnsafe | q_SwitchB	},
+/*q   */{"quit",	EX_QUIT,	ex_xit,		a_Bang,					q_MayQuit			},
+/*qa  */{"qall",	EX_QALL,	ex_qall,	a_Bang,					q_MayQuit			},
+/*r   */{"read",	EX_READ,	ex_read,	a_Line | a_File | a_Filter,		q_Zero|q_Undo|q_Unsafe|q_Restricted},
+/*red */{"redo",	EX_REDO,	ex_undo,	a_Lhs,					q_Autop				},
+#ifdef FEATURE_REGION
+/*reg */{"region",	EX_REGION,	ex_region,	a_Range | a_Lhs | a_Rhs							},
+#endif
+/*rew */{"rewind",	EX_REWIND,	ex_next,	a_Bang,					q_Unsafe | q_SwitchB		},
+/*s   */{"substitute",	EX_SUBSTITUTE,	ex_substitute,	a_Range|a_RegExp|a_RegSub|a_Rhs|a_Count|a_Pflag, q_Autop|q_Undo|q_Exrc	},
+#ifdef FEATURE_SPLIT
+/*sN  */{"sNext",	EX_SPREVIOUS,	ex_next,	0,					q_Unsafe			},
+/*sa  */{"sall",	EX_SALL,	ex_sall,	0									},
+#endif
+/*saf */{"safely",	EX_SAFELY,	ex_then,	a_Cmds,					q_Exrc				},
+#if defined(FEATURE_SPLIT) && defined(FEATURE_MISC)
+/*sbb */{"sbbrowse",	EX_SBBROWSE,	ex_buffer,	a_Bang									},
+#endif
+#ifdef FEATURE_BROWSE
+/*sbr */{"sbrowse",	EX_SBROWSE,	ex_browse,	a_Bang|a_Rhs								},
+#endif
+/*se  */{"set",		EX_SET,		ex_set,		a_Bang | a_Rhs,				q_Exrc | q_Custom		},
+/*sh  */{"shell",	EX_SHELL,	ex_suspend,	0,					q_Unsafe			},
+#ifdef FEATURE_SPLIT
+/*sl  */{"slast",	EX_SLAST,	ex_next,	0,					q_Unsafe			},
+/*sn  */{"snext",	EX_SNEXT,	ex_next,	a_Files,				q_Unsafe			},
+/*snew*/{"snew",	EX_SNEW,	ex_split,	0,					q_Unsafe			},
+#endif
+/*so  */{"source",	EX_SOURCE,	ex_source,	a_Bang | a_File,			q_Exrc | q_Unsafe | q_Restricted	},
+#ifdef FEATURE_SPLIT
+/*sp  */{"split",	EX_SPLIT,	ex_split,	a_Line | a_Plus | a_File | a_Filter,	q_FileUnsafe			},
+/*sr  */{"srewind",	EX_SREWIND,	ex_next,	a_Bang,					q_Unsafe			},
+#endif
+/*st  */{"stop",	EX_STOP,	ex_suspend,	a_Bang,					q_Unsafe | q_Restricted		},
+#ifdef FEATURE_SPLIT
+/*sta */{"stag",	EX_STAG,	ex_tag,		a_Rhs									},
+#endif
+#ifdef FEATURE_MISC
+/*stac*/{"stack",	EX_STACK,	ex_stack,	d_None									},
+#endif
+/*su  */{"suspend",	EX_SUSPEND,	ex_suspend,	a_Bang,					q_Unsafe | q_Restricted		},
+#ifdef FEATURE_CALC
+/*sw  */{"switch",	EX_SWITCH,	ex_switch,	a_Cmds,					q_Exrc				},
+#endif
+/*t   */{"to",		EX_COPY,	ex_move,	a_Range | a_Target | a_Pflag,		q_Autop | q_Undo		},
+/*ta  */{"tag",		EX_TAG,		ex_tag,		a_Bang | a_Rhs,				q_SwitchB			},
+/*th  */{"then",	EX_THEN,	ex_then,	a_Cmds,					q_Exrc			 	},
+/*try */{"try",		EX_TRY,		ex_then,	a_Cmds,					q_Exrc			 	},
+/*u   */{"undo",	EX_UNDO,	ex_undo,	a_Lhs,					q_Autop				},
+/*una */{"unabbreviate",EX_UNABBR,	ex_map,		a_Bang | a_Lhs,				q_Exrc | q_Custom | q_CtrlV	},
 #ifdef FEATURE_ALIAS
-/*~   */{" "/*dummy name*/,EX_DOALIAS,	ex_doalias,	a_Range | a_Bang | a_Rhs | q_Exrc 					},
+/*unal*/{"unalias",	EX_UNALIAS,	ex_alias,	a_Lhs,					q_Exrc | q_Custom		},
+#endif
+#ifdef FEATURE_MAPDB
+/*unb */{"unbreak",	EX_UNBREAK,	ex_map,		a_Bang | a_Rhs,				q_CtrlV				},
+#endif
+#ifdef FEATURE_FOLD
+/*unf */{"unfold",	EX_UNFOLD,	ex_fold,	a_Range | a_Bang | a_Rhs 						},
+#endif
+/*unm */{"unmap",	EX_UNMAP,	ex_map,		a_Bang | a_Rhs,				q_Exrc | q_Custom | q_CtrlV	},
+#ifdef FEATURE_REGION
+/*unr */{"unregion",	EX_UNREGION,	ex_region,	a_Range | a_Lhs								},
+#endif
+/*v   */{"vglobal",	EX_VGLOBAL,	ex_global,	a_Range|a_Bang|a_RegExp|a_Cmds|d_All,	q_Undo				},
+/*ve  */{"version",	EX_VERSION,	ex_version,	0,					q_Exrc								},
+/*vi  */{"visual",	EX_VISUAL,	ex_edit,	a_Bang | a_Plus | a_File,		q_FileUnsafe | q_SwitchB	},
+/*w   */{"write",	EX_WRITE,	ex_write,	a_Range|a_Bang|a_Append|a_File|a_Filter|d_All,	q_Unsafe		},
+/*wa  */{"warning",	EX_WARNING,	ex_message,	a_Rhs,					q_Exrc				},
+#ifdef FEATURE_CALC
+/*wh  */{"while",	EX_WHILE,	ex_while,	a_Cmds,					q_Exrc				},
+#endif
+#ifdef FEATURE_MISC
+/*wi  */{"window",	EX_WINDOW,	ex_window,	a_Lhs									},
+#endif
+/*wn  */{"wnext",	EX_WNEXT,	ex_next,	a_Bang,					q_SwitchB			},
+#ifdef FEATURE_SPELL
+/*wo  */{"words",	EX_WORDS,	ex_check,	a_Bang | a_Rhs,				q_Exrc | q_Custom		},
+/*wordf*/{"wordfile",	EX_WORDFILE,	ex_wordfile,	a_Bang | a_Files,			q_Exrc|q_Custom|q_FileUnsafe|q_Restricted},
+#endif
+/*wq  */{"wquit",	EX_WQUIT,	ex_xit,		a_Bang | a_File | d_File,		q_FileUnsafe | q_MayQuit	},
+/*x   */{"xit",		EX_XIT,		ex_xit,		a_Bang | a_File ,			q_FileUnsafe | q_MayQuit	},
+/*y   */{"yank",	EX_YANK,	ex_delete,	a_Range | a_Buffer | a_Count						},
+#ifdef FEATURE_MISC
+/*z   */{"z",		EX_Z,		ex_z,		a_Line | a_Rhs								},
+#endif
+/*~   */{"~",		EX_SUBRECENT,	ex_substitute,	a_Range | a_Rhs,			q_Undo				},
+#ifdef FEATURE_ALIAS
+/*~   */{" "/*dummy name*/,EX_DOALIAS,	ex_doalias,	a_Range | a_Bang | a_Rhs,		q_Exrc 				},
 #endif
 };
 
@@ -269,13 +377,13 @@ static void skipwhitespace(refp)
 
 /* This function attempts to parse a window ID.  If there is no window ID,
  * then it leaves xinf->win unchanged; else it sets xinf->win to the given
- * window.  Returns True unless there was an error.
+ * window.  Returns ElvTrue unless there was an error.
  *
  * This function also sets the default buffer to the default window's state
  * buffer, or the specified window's main buffer.  It is assumed that
  * xinf->window has already been initialized to the default window.
  */
-static BOOLEAN parsewindowid(refp, xinf)
+static ELVBOOL parsewindowid(refp, xinf)
 	CHAR	**refp;	/* pointer to the (CHAR *) used for scanning command */
 	EXINFO	*xinf;	/* info about the command being parsed */
 {
@@ -284,7 +392,7 @@ static BOOLEAN parsewindowid(refp, xinf)
 	WINDOW	win;
 
 	/* set default buffer, assuming default window. */
-	if (xinf->window->state->pop)
+	if (xinf->window->state && xinf->window->state->pop)
 		xinf->defaddr = *xinf->window->state->pop->cursor;
 	else
 		xinf->defaddr = *xinf->window->cursor;
@@ -295,14 +403,14 @@ static BOOLEAN parsewindowid(refp, xinf)
 	}
 
 	/* if doesn't start with a digit, ignore it */
-	if (!*refp || !isdigit(**refp))
+	if (!*refp || !elvdigit(**refp))
 	{
-		return True;
+		return ElvTrue;
 	}
 
 	/* convert the number */
 	start = scanmark(refp);
-	for (num = 0; *refp && isdigit(**refp); scannext(refp))
+	for (num = 0; *refp && elvdigit(**refp); scannext(refp))
 	{
 		num = num * 10 + **refp - '0';
 	}
@@ -311,7 +419,7 @@ static BOOLEAN parsewindowid(refp, xinf)
 	if (!*refp || **refp != ':' || num <= 0)
 	{
 		scanseek(refp, start);
-		return True;
+		return ElvTrue;
 	}
 
 	/* eat the ':' character */
@@ -326,13 +434,13 @@ static BOOLEAN parsewindowid(refp, xinf)
 	if (!win)
 	{
 		msg(MSG_ERROR, "bad window");
-		return False;
+		return ElvFalse;
 	}
 
 	/* use the named window */
 	xinf->window = win;
 	xinf->defaddr = *win->cursor;
-	return True;
+	return ElvTrue;
 }
 
 /* This function attempts to parse a single buffer name.  It returns True
@@ -342,50 +450,62 @@ static BOOLEAN parsewindowid(refp, xinf)
  * buffer's undo point.  (Else it is left set window's cursor, as set by
  * the parsewindowid() function.)
  */
-static BOOLEAN parsebuffername(refp, xinf)
+static ELVBOOL parsebuffername(refp, xinf)
 	CHAR	**refp;	/* pointer to the (CHAR *) used for scanning command */
 	EXINFO	*xinf;	/* info about the command being parsed */
 {
-	CHAR	bufname[100];/* buffer name, as a string */
-	int	len;
+	CHAR	*tmp;
+	CHAR	bufname[200];/* buffer name, as a string */
+	int	len, nest;
 	BUFFER	buf;
 
 	/* if the first character isn't '(' then this isn't a buffer name */
 	if (!*refp || **refp != '(')
 	{
-		return True;
+		return ElvTrue;
 	}
 
 	/* collect the characters into buffer */
-	for (len = 0;
-	     scannext(refp) && **refp != ')' && **refp != '\n'
-		&& **refp != '|' && len < QTY(bufname) - 1;
-	     )
+	for (len = 0, nest = 1; scannext(refp) && nest > 0; )
 	{
-		bufname[len++] = **refp;
+		/* Treat some characters specially */
+		if (**refp == '(')
+			nest++;
+		else if (**refp == ')')
+			nest--;
+		else if (**refp == '|' && nest == 1)
+			nest = 0;
+		else if (**refp == '\n')
+			break; /* and don't do scannext() in for-loop */
+
+		/* add this character, unless we hit end */
+		if (nest > 0)
+			bufname[len++] = **refp;
 	}
 	bufname[len] = '\0';
 
-	/* consume the closing ')', if any */
-	while (*refp && **refp != ')' && **refp != '\n' && **refp != '|')
+#ifdef FEATURE_CALC
+	/* if the name begins with a '=' then evaluate it */
+	if (*bufname == '=')
 	{
-		scannext(refp);
+		tmp = calculate(bufname + 1, NULL, CALC_ALL);
+		if (!tmp)
+			return ElvFalse;
 	}
-	if (*refp && **refp == ')')
-	{
-		scannext(refp);
-	}
+	else
+#endif
+		tmp = bufname;
 
 	/* try to find the buffer */
-	buf = buffind(bufname);
+	buf = buffind(tmp);
 	if (!buf)
 	{
-		msg(MSG_ERROR, "[S]no buffer named $1", bufname);
-		return False;
+		msg(MSG_ERROR, "[S]no buffer named $1", tmp);
+		return ElvFalse;
 	}
 	xinf->defaddr.buffer = buf;
 	marksetoffset(&xinf->defaddr, buf->docursor);
-	return True;
+	return ElvTrue;
 }
 
 
@@ -393,7 +513,7 @@ static BOOLEAN parsebuffername(refp, xinf)
  * that regular expression from the command line and compiles it.  If the
  * command also supports replacement text, then that is parsed too.
  */
-static BOOLEAN parseregexp(refp, xinf, flags)
+static ELVBOOL parseregexp(refp, xinf, flags)
 	CHAR	**refp;	/* pointer to the (CHAR *) used for scanning command */
 	EXINFO	*xinf;	/* info about the command being parsed */
 	long	flags;	/* bitmap of command attributes */
@@ -407,20 +527,20 @@ static BOOLEAN parseregexp(refp, xinf, flags)
 	 */
 	if ((flags & a_RegExp) == 0)
 	{
-		return True;
+		return ElvTrue;
 	}
 
 	/* get the delimiter character.  Can be any punctuation character
 	 * except '|'.  If no delimiter is given, then use an empty string.
 	 */
-	if (*refp && ispunct(**refp) && **refp != '|')
+	if (*refp && elvpunct(**refp) && **refp != '|')
 	{
 		/* remember the delimiter */
 		delim = **refp;
 		scannext(refp);
 
 		/* collect the characters of the regexp source code */
-		retext = (*refp && **refp) ? regbuild(delim, refp) : NULL;
+		retext = (*refp && **refp) ? regbuild(delim, refp, ElvTrue) : NULL;
 
 		/* if an empty regexp was explicitly given (":s//" rather than
 		 * ":s"), then remember that.  We need to distinguish between
@@ -456,13 +576,13 @@ static BOOLEAN parseregexp(refp, xinf, flags)
 	if (!xinf->re)
 	{
 		/* error message already written out by regcomp() */
-		return False;
+		return ElvFalse;
 	}
 
 	/* if no substitution text is needed, then we're done. */
 	if ((flags & a_RegSub) == 0)
 	{
-		return True;
+		return ElvTrue;
 	}
 
 	/* We do use replacement text.  If there was no regexp, then the
@@ -472,7 +592,7 @@ static BOOLEAN parseregexp(refp, xinf, flags)
 	if (!retext)
 	{
 		xinf->lhs = CHARdup(toCHAR(o_magic ? "~" : "\\~"));
-		return True;
+		return ElvTrue;
 	}
 
 	/* Collect characters up to the next delimiter to be the replacement
@@ -486,33 +606,7 @@ static BOOLEAN parseregexp(refp, xinf, flags)
 	}
 	else
 	{
-		for (; *refp && **refp != '\n' && **refp != delim; scannext(refp))
-		{
-			/* if backslash followed by delimiter, then just add
-			 * delimiter.  Else add both the backslash and whatever
-			 * other character followed it.
-			 */
-			if (**refp == '\\')
-			{
-				if (!scannext(refp))
-				{
-					buildCHAR(&xinf->lhs, '\\');
-				}
-				else if (**refp == delim)
-				{
-					buildCHAR(&xinf->lhs, delim);
-				}
-				else
-				{
-					buildCHAR(&xinf->lhs, '\\');
-					buildCHAR(&xinf->lhs, **refp);
-				}
-			}
-			else
-			{
-				buildCHAR(&xinf->lhs, **refp);
-			}
-		}
+		xinf->lhs = regbuild(delim, refp, ElvFalse);
 		if (!xinf->lhs)
 		{
 			/* zero-length string, if nothing else */
@@ -526,14 +620,14 @@ static BOOLEAN parseregexp(refp, xinf, flags)
 		}
 	}
 
-	return True;
+	return ElvTrue;
 }
 
 
 /* This function parses an address, and places the results in xinf->to.
- * Returns True unless there is an error.
+ * Returns ElvTrue unless there is an error.
  */
-BOOLEAN exparseaddress(refp, xinf)
+ELVBOOL exparseaddress(refp, xinf)
 	CHAR	**refp;	/* pointer to the (CHAR *) used for scanning command */
 	EXINFO	*xinf;	/* info about the command being parsed */
 {
@@ -544,12 +638,13 @@ BOOLEAN exparseaddress(refp, xinf)
 	long	start;	/* where search stared, so we can detect wrap */
 	long	buflines;/* number of lines in buffer */
 	MARKBUF	m;	/* start of a line */
+	MARK	mark;
 	CHAR	ch;
 	regexp	*re;
 
 	/* if nothing, do nothing */
 	if (!*refp)
-		return True;
+		return ElvTrue;
 
 	/* find the default line number */
 	bi = bufbufinfo(markbuffer(&xinf->defaddr));
@@ -570,14 +665,14 @@ BOOLEAN exparseaddress(refp, xinf)
 		if (o_bufchars(markbuffer(&xinf->defaddr)) <= 1)
 		{
 			msg(MSG_ERROR, "no match");
-			return False;
+			return ElvFalse;
 		}
 
 		/* parse & compile the regular expression */
 		delta = (**refp == '?') ? -1 : 1;
 		if (!parseregexp(refp, xinf, a_RegExp))
 		{
-			return False;
+			return ElvFalse;
 		}
 
 		/* allow the visual 'n' and 'N' commands to search for the
@@ -591,8 +686,8 @@ BOOLEAN exparseaddress(refp, xinf)
 				safefree(searchre);
 			}
 			searchre = xinf->re;
-			searchforward = (BOOLEAN)(delta > 0);
-			searchhasdelta = False;
+			searchforward = (ELVBOOL)(delta > 0);
+			searchhasdelta = ElvFalse;
 			xinf->re = NULL;
 		}
 
@@ -613,16 +708,16 @@ BOOLEAN exparseaddress(refp, xinf)
 			else if (lnum == 0)
 			{
 				msg(MSG_ERROR, "no match above");
-				return False;
+				return ElvFalse;
 			}
 			else if (lnum > buflines)
 			{
 				msg(MSG_ERROR, "no match below");
-				return False;
+				return ElvFalse;
 			}
 
 			/* see if this line contains the regexp */
-			if (regexec(re, marktmp(m, markbuffer(&xinf->defaddr), lowline(bi, lnum)), True))
+			if (regexec(re, marktmp(m, markbuffer(&xinf->defaddr), lowline(bi, lnum)), ElvTrue))
 			{
 				delta = 0;
 			}
@@ -633,13 +728,13 @@ BOOLEAN exparseaddress(refp, xinf)
 			if (lnum == start)
 			{
 				msg(MSG_ERROR, "no match");
-				return False;
+				return ElvFalse;
 			}
 
 			/* did the user cancel the search? */
-			if (guipoll(False))
+			if (guipoll(ElvFalse))
 			{
-				return False;
+				return ElvFalse;
 			}
 
 		} while (delta != 0);
@@ -653,28 +748,46 @@ BOOLEAN exparseaddress(refp, xinf)
 	  case '\'':
 	  case '`':
 		ch = **refp;
-		if (!scannext(refp) || **refp < 'a' || **refp > 'z')
+		if (!scannext(refp))
+		{
+			msg(MSG_ERROR, "incomplete mark name");
+			return ElvFalse;
+		}
+#ifdef FEATURE_AUTOCMD
+		if (**refp == '[')
+			mark = autop;
+		else if (**refp == ']')
+			mark = aubottom;
+		else
+#endif
+		if (**refp >= 'a' && **refp <= 'z')
+			mark = namedmark[**refp - 'a'];
+		else
 		{
 			msg(MSG_ERROR, "bad mark name");
-			return False;
+			return ElvFalse;
 		}
-		else if (!namedmark[**refp - 'a'])
+
+		/* sanity checks */
+		if (!mark)
 		{
 			msg(MSG_ERROR, "[C]'$1 unset", **refp);
-			return False;
+			return ElvFalse;
 		}
-		else if (markbuffer(&xinf->defaddr) != markbuffer(namedmark[**refp - 'a']))
+		if (markbuffer(&xinf->defaddr) != markbuffer(mark))
 		{
 			if (xinf->anyaddr)
 			{
 				msg(MSG_ERROR, "would span buffers");
-				return False;
+				return ElvFalse;
 			}
-			xinf->defaddr = *namedmark[**refp - 'a'];
+			xinf->defaddr = *mark;
 		}
-		lnum = markline(namedmark[**refp - 'a']);
+
+		/* use it */
+		lnum = markline(mark);
 		if (ch == '`')
-			xinf->fromoffset = markoffset(namedmark[**refp - 'a']);
+			xinf->fromoffset = markoffset(mark);
 		scannext(refp);
 		break;
 
@@ -688,14 +801,14 @@ BOOLEAN exparseaddress(refp, xinf)
 	  case '7':
 	  case '8':
 	  case '9':
-		for (lnum = 0; *refp && isdigit(**refp); scannext(refp))
+		for (lnum = 0; *refp && elvdigit(**refp); scannext(refp))
 		{
 			lnum = lnum * 10 + **refp - '0';
 		}
 		if (lnum < 0 || lnum > o_buflines(markbuffer(&xinf->defaddr)))
 		{
 			msg(MSG_ERROR, "bad line number");
-			return False;
+			return ElvFalse;
 		}
 		break;
 
@@ -711,24 +824,24 @@ BOOLEAN exparseaddress(refp, xinf)
 
 	/* followed by a delta? */
 	skipwhitespace(refp);
-	if (*refp && (**refp == '+' || **refp == '-' || isdigit(**refp)))
+	if (*refp && (**refp == '+' || **refp == '-' || elvdigit(**refp)))
 	{
 		/* delta implies whole-line addressing */
 		xinf->fromoffset = 0;
 
 		/* find the sign & magnitude of the delta */
 		sign = **refp;
-		if (isdigit(sign))
+		if (elvdigit(sign))
 			sign = '+';
 		else
 			scannext(refp);
 		for (delta = 1; **refp == sign; scannext(refp), delta++)
 		{
 		}
-		if (delta == 1 && *refp && isdigit(**refp))
+		if (delta == 1 && *refp && elvdigit(**refp))
 		{
 			for (delta = **refp - '0';
-			     scannext(refp) && isdigit(**refp);
+			     scannext(refp) && elvdigit(**refp);
 			     delta = delta * 10 + **refp - '0')
 			{
 			}
@@ -748,19 +861,19 @@ BOOLEAN exparseaddress(refp, xinf)
 	}
 
 	xinf->to = lnum;
-	return True;
+	return ElvTrue;
 }
 
 
 /* This parses a command name, and sets xinf->command accordingly.  Returns
- * True if everything is okay, or False if the command is unrecognized or
+ * ElvTrue if everything is okay, or ElvFalse if the command is unrecognized or
  * was given addresses but doesn't allow addresses.
  */
-static BOOLEAN parsecommandname(refp, xinf)
+static ELVBOOL parsecommandname(refp, xinf)
 	CHAR	**refp;	/* pointer to the (CHAR *) used for scanning command */
 	EXINFO	*xinf;	/* info about the command being parsed */
 {
-	BOOLEAN	anymatch;
+	ELVBOOL	anymatch;
 	int	matches;	/* number of commands that match so far */
 	int	firstmatch;	/* first command that matched */
 	char	cmdname[20];	/* command name */
@@ -783,20 +896,20 @@ static BOOLEAN parsecommandname(refp, xinf)
 	/* begin by checking for aliases */
 	start = scanmark(refp);
 #ifdef FEATURE_ALIAS
-	for (len = 0; len < QTY(cmdname) - 1 && *refp && isalnum(**refp); scannext(refp))
+	for (len = 0; len < QTY(cmdname) - 1 && *refp && elvalnum(**refp); scannext(refp))
 	{
 		cmdname[len++] = **refp;
 	}
 	cmdname[len] = '\0';
-	xinf->cmdname = exisalias(cmdname, False);
+	xinf->cmdname = exisalias(cmdname, ElvFalse);
 	if (xinf->cmdname)
 	{
 		xinf->cmdidx = QTY(cmdnames) - 1;
 		xinf->command = EX_DOALIAS;
-		return True;
+		return ElvTrue;
 	}
 	scanseek(refp, start);
-#endif /* FEATURE_DOALIAS */
+#endif /* FEATURE_ALIAS */
 
 	/* start with shortest possible command name, and extend the command
 	 * name as much as possible without eliminating all commands from
@@ -805,7 +918,7 @@ static BOOLEAN parsecommandname(refp, xinf)
 	 */
 	len = 0;
 	firstmatch = 0;
-	anymatch = False;
+	anymatch = ElvFalse;
 	do
 	{
 		/* copy the first (or next) character of the name into a buffer */
@@ -835,12 +948,12 @@ static BOOLEAN parsecommandname(refp, xinf)
 				if (matches == 1)
 				{
 					firstmatch = i;
-					anymatch = True;
+					anymatch = ElvTrue;
 				}
 			}
 		}
 
-	} while (matches > 0 && scannext(refp) && isalnum(**refp));
+	} while (matches > 0 && scannext(refp) && elvalnum(**refp));
 
 	/* at this point, if "matches" is zero and "firstmatch" has been set,
 	 * then we may have read one too many characters for the command name,
@@ -850,7 +963,7 @@ static BOOLEAN parsecommandname(refp, xinf)
 		&& anymatch
 		&& (strlen(cmdnames[firstmatch].name) == (unsigned)(len - 1)
 			|| !*refp
-			|| !isalpha(**refp)))
+			|| !elvalpha(**refp)))
 	{
 		len--;
 		markaddoffset(start, len);
@@ -863,7 +976,7 @@ static BOOLEAN parsecommandname(refp, xinf)
 	{
 		cmdname[len] = '\0';
 		msg(MSG_ERROR, "[s]bad command name $1", cmdname);
-		return False;
+		return ElvFalse;
 	}
 
 	/* so I guess we found a match. */
@@ -872,7 +985,7 @@ Found:
 	xinf->cmdidx = firstmatch;
 	xinf->command = cmdnames[firstmatch].code;
 	xinf->cmdname = cmdnames[firstmatch].name;
-	return True;
+	return ElvTrue;
 }
 
 
@@ -911,7 +1024,7 @@ static void parsebang(refp, xinf, flags)
 	if ((flags & a_Bang) != 0 && *refp && **refp == '!')
 	{
 		scannext(refp);
-		xinf->bang = True;
+		xinf->bang = ElvTrue;
 	}
 }
 
@@ -954,7 +1067,7 @@ static void parseplus(refp, xinf, flags)
 	else
 	{
 		/* collect following characters up to next whitespace or '|' */
-		while (*refp && !isspace(**refp) && **refp != '|')
+		while (*refp && !elvspace(**refp) && **refp != '|')
 		{
 			buildCHAR(&xinf->lhs, **refp);
 			scannext(refp);
@@ -966,10 +1079,11 @@ static void parseplus(refp, xinf, flags)
 /* This function parses an optional print flag and delta, if the command
  * supports them.
  */
-static void parseprintflag(refp, xinf, flags)
+static void parseprintflag(refp, xinf, flags, quirks)
 	CHAR	**refp;	/* pointer to the (CHAR *) used for scanning command */
 	EXINFO	*xinf;	/* info about the command being parsed */
-	long	flags;	/* bitmap of command attributes */
+	long	flags;	/* bitmap of command arguments */
+	long	quirks;	/* bitmap of command quirks */
 {
 	CHAR		sign;
 	static PFLAG	pflag = PF_NONE;
@@ -1028,7 +1142,7 @@ static void parseprintflag(refp, xinf, flags)
 	if (refp && (**refp == '+' || **refp == '-'))
 	{
 		sign = **refp;
-		while (scannext(refp) && isdigit(**refp))
+		while (scannext(refp) && elvdigit(**refp))
 		{
 			xinf->delta = xinf->delta * 10 + **refp - '0';
 		}
@@ -1045,7 +1159,7 @@ static void parseprintflag(refp, xinf, flags)
 NoFlag:	/* see if we're supposed to autoprint this command.  If so, then
 	 * assume the previous print flag is the default to use here.
 	 */
-	if ((flags & q_Autop) != 0
+	if ((quirks & q_Autop) != 0
 	 && o_autoprint
 	 && globaldepth == 0
 	 && xinf->window
@@ -1063,10 +1177,11 @@ NoFlag:	/* see if we're supposed to autoprint this command.  If so, then
 /* This function parses single word which doesn't contain any unquoted
  * whitespace (if the command supports this).
  */
-static void parselhs(refp, xinf, flags)
+static void parselhs(refp, xinf, flags, quirks)
 	CHAR	**refp;	/* pointer to the (CHAR *) used for scanning command */
 	EXINFO	*xinf;	/* info about the command being parsed */
-	long	flags;	/* bitmap of command attributes */
+	long	flags;	/* bitmap of command arguments */
+	long	quirks;	/* bitmap of command quirks */
 {
 	CHAR	quote;	/* quote character -- either ^V or \ */
 
@@ -1075,7 +1190,7 @@ static void parselhs(refp, xinf, flags)
 		return;
 
 	/* choose the proper quote character */
-	quote = (flags & q_CtrlV) ? ELVCTRL('V') : '\\';
+	quote = (quirks & q_CtrlV) ? ELVCTRL('V') : '\\';
 
 	/* collect characters up to next whitespace or end of command */
 	while (*refp && **refp != ' ' && **refp != '\t' && **refp != '\n'
@@ -1089,7 +1204,7 @@ static void parselhs(refp, xinf, flags)
 			{
 				buildCHAR(&xinf->lhs, quote);
 			}
-			else if (**refp == ' ' || **refp == '\t' || **refp == '|' || quote == ELVCTRL('V'))
+			else if (**refp == ' ' || **refp == '\t' || **refp == '|')
 			{
 				buildCHAR(&xinf->lhs, **refp);
 			}
@@ -1111,10 +1226,11 @@ static void parselhs(refp, xinf, flags)
 /* This function parses an optional print flag and delta, if the command
  * supports them.
  */
-static void parserhs(refp, xinf, flags)
+static void parserhs(refp, xinf, flags, quirks)
 	CHAR	**refp;	/* pointer to the (CHAR *) used for scanning command */
 	EXINFO	*xinf;	/* info about the command being parsed */
 	long	flags;	/* bitmap of command attributes */
+	long	quirks;	/* bitmap of command quirks */
 {
 	CHAR	quote;	/* quote character -- either ^V or \ */
 
@@ -1123,7 +1239,7 @@ static void parserhs(refp, xinf, flags)
 		return;
 
 	/* choose the proper quote character */
-	quote = (flags & q_CtrlV) ? ELVCTRL('V') : '\\';
+	quote = (quirks & q_CtrlV) ? ELVCTRL('V') : '\\';
 
 	/* collect characters up to end of command */
 	while (*refp && **refp != '\n' && **refp != '|')
@@ -1136,7 +1252,7 @@ static void parserhs(refp, xinf, flags)
 			{
 				buildCHAR(&xinf->rhs, quote);
 			}
-			else if (**refp == '|' || quote == ELVCTRL('V'))
+			else if (**refp == '|')
 			{
 				buildCHAR(&xinf->rhs, **refp);
 			}
@@ -1178,7 +1294,7 @@ static void parsecutbuffer(refp, xinf, flags)
 	/* if double-quote, then following character is buffer name.  Also,
 	 * letters letters, digits, <, and > don't require a " character.
 	 */
-	if (*refp && (isalnum(**refp) || **refp == '<' || **refp == '>' || (**refp == '"' && scannext(refp))))
+	if (*refp && (elvalnum(**refp) || **refp == '<' || **refp == '>' || (**refp == '"' && scannext(refp))))
 	{
 		xinf->cutbuf = **refp;
 		scannext(refp);
@@ -1194,7 +1310,7 @@ static void parsecount(refp, xinf, flags)
 	EXINFO	*xinf;	/* info about the command being parsed */
 	long	flags;	/* bitmap of command attributes */
 {
-	if ((flags & a_Count) == 0 || !*refp || !isdigit(**refp))
+	if ((flags & a_Count) == 0 || !*refp || !elvdigit(**refp))
 	{
 		/* no count given */
 		xinf->count = -1;
@@ -1206,10 +1322,64 @@ static void parsecount(refp, xinf, flags)
 		{
 			xinf->count = xinf->count * 10 + **refp - '0';
 			scannext(refp);
-		} while (*refp && isdigit(**refp));
+		} while (*refp && elvdigit(**refp));
 	}
 }
 
+
+/* This is a "helper" function for parsecmds().  This function parses { ... } */
+static RESULT parsenested(refp, xinf)
+	CHAR	**refp;	/* pointer to the (CHAR *) used for scanning command */
+	EXINFO	*xinf;	/* info about the command being parsed */
+{
+	CHAR	ch;
+	MARK	start;
+	int	nest;
+
+	/* if there was text before the {...}, then add a newline in between */
+	if (xinf->rhs)
+		buildCHAR(&xinf->rhs, '\n');
+
+	/* collect characters up to next } character which appears
+	 * at the front of a line.  Ignore blank lines.
+	 */
+	start = scanmark(refp);
+	for (ch = '\n', nest = 0; scannext(refp); )
+	{
+		if (ch == '\n' && **refp == '}')
+		{
+			if (nest == 0)
+				break;
+			nest--;
+		}
+		if (ch == '{' && **refp == '\n')
+			nest++;
+		if (ch == '\n' && (**refp == ' ' || **refp == '\t'))
+			continue;
+		if (ch != '\n' || **refp != '\n')
+			buildCHAR(&xinf->rhs, **refp);
+		ch = **refp;
+	}
+
+	/* if we hit end without finding } then we need more. */
+	if (!*refp)
+	{
+		/* if not interactive, then there won't be more so we
+		 * should give an error message.
+		 */
+		if (!markbuffer(start)
+		 || CHARcmp(o_bufname(markbuffer(start)), toCHAR(EX_BUF)))
+		{
+			msg(MSG_ERROR, "missing }");
+		}
+		return RESULT_MORE;
+	}
+
+	/* eat the closing } */
+	scannext(refp);
+
+	return RESULT_COMPLETE;
+}
 
 /* This function parses an optional command list, if the command supports them.
  * A command list is a string which may contain any characters except newline.
@@ -1222,77 +1392,44 @@ static RESULT parsecmds(refp, xinf, flags)
 	EXINFO	*xinf;	/* info about the command being parsed */
 	long	flags;	/* bitmap of command attributes */
 {
-	BOOLEAN	shell;	/* is this command for a shell? */
-	BOOLEAN	bol;	/* at front of a line? */
+	ELVBOOL	shell;	/* is this command for a shell? */
+	ELVBOOL	bol;	/* at front of a line? */
 	CHAR	*scan;
 	CHAR	ch;
 	MARKBUF	end;
 	MARK	start;
 	int	i;
-	int	nest;
 
 	/* if the command doesn't use cmds, then do nothing */
 	if ((flags & a_Cmds) == 0)
 		return RESULT_COMPLETE;
 
 	/* determine whether this command is for a shell or for ex */
-	shell = (BOOLEAN)(xinf->command == EX_BANG || (flags & a_Filter) != 0);
+	shell = (ELVBOOL)(xinf->command == EX_BANG || (flags & a_Filter) != 0);
 
 	/* skip whitespace */
 	skipwhitespace(refp);
 
-	/* ex commands allow a { ... } syntax */
-	if (!shell && *refp && **refp == '{')
-	{
-		/* collect characters up to next } character which appears
-		 * at the front of a line.  Ignore blank lines.
-		 */
-		for (ch = '\n', nest = 0; scannext(refp); )
-		{
-			if (ch == '\n' && **refp == '}')
-			{
-				if (nest == 0)
-					break;
-				nest--;
-			}
-			if (ch == '{' && **refp == '\n')
-				nest++;
-			if (ch == '\n' && (**refp == ' ' || **refp == '\t'))
-				continue;
-			if (ch != '\n' || **refp != '\n')
-				buildCHAR(&xinf->rhs, **refp);
-			ch = **refp;
-		}
-
-		/* if we hit end without finding } then we need more. */
-		if (!*refp)
-		{
-			return RESULT_MORE;
-		}
-
-		/* eat the closing } */
-		scannext(refp);
-
-		return RESULT_COMPLETE;
-	}
-
 	/* ex commands allow a ...backslash-newline... syntax */
 	if (!shell)
 	{
-		for (bol = False; *refp && **refp && **refp != '\n'; scannext(refp))
+		for (bol = ElvFalse; *refp && **refp && **refp != '\n'; scannext(refp))
 		{
 			/* if backslash which preceeds newline, then delete
 			 * the backslash and treat the newline literally.
 			 */
-			bol = False;
-			if (**refp == '\\')
+			bol = ElvFalse;
+			ch = **refp;
+			if (ch == '\\' || ch == '{')
 			{
 				if (!scannext(refp))
 					continue;
 				if (**refp != '\n')
-					buildCHAR(&xinf->rhs, '\\');
+					buildCHAR(&xinf->rhs, ch);
+				else if (ch == '{')
+					return parsenested(refp, xinf);
 				else
-					bol = True;
+					bol = ElvTrue;
 			}
 			buildCHAR(&xinf->rhs, **refp);
 		}
@@ -1303,7 +1440,7 @@ static RESULT parsecmds(refp, xinf, flags)
 	}
 
 	/* shell commands are more complex, due to substitutions... */
-	bol = True;
+	bol = ElvTrue;
 	while (*refp && **refp && **refp != '\n')
 	{
 		/* copy most characters literally, but perform
@@ -1346,7 +1483,7 @@ static RESULT parsecmds(refp, xinf, flags)
 					msg(MSG_ERROR, "can't use \\\\@ during initialization");
 				}
 				end = *xinf->window->cursor;
-				start = wordatcursor(&end);
+				start = wordatcursor(&end, ElvFalse);
 				if (!start)
 				{
 					msg(MSG_ERROR, "cursor not on word");
@@ -1394,7 +1531,7 @@ static RESULT parsecmds(refp, xinf, flags)
 		 */
 		if (*refp)
 			scannext(refp);
-		bol = False;
+		bol = ElvFalse;
 	}
 
 	/* if shell command, then remember it for later ! substitutions */
@@ -1411,24 +1548,46 @@ static RESULT parsecmds(refp, xinf, flags)
 }
 
 
+/* Convert a filenamerules string into a bitmap of rules */
+ELVFNR exfilenamerules(rulestr)
+	CHAR	*rulestr;	/* the rules string to convert */
+{
+	ELVFNR	rules = (ELVFNR)0;
+
+	if (calcelement(rulestr, toCHAR("tilde")))
+		rules |= ELVFNR_TILDE;
+	if (calcelement(rulestr, toCHAR("dollar")))
+		rules |= ELVFNR_DOLLAR;
+	if (calcelement(rulestr, toCHAR("paren")))
+		rules |= ELVFNR_PAREN;
+	if (calcelement(rulestr, toCHAR("wildcard")))
+		rules |= ELVFNR_WILDCARD;
+	if (calcelement(rulestr, toCHAR("special")))
+		rules |= ELVFNR_SPECIAL;
+	if (calcelement(rulestr, toCHAR("space")))
+		rules |= ELVFNR_SPACE;
+	return rules;
+}
+
 /* This is a "helper" function for parsefileargs().  This function adds a
  * single item to the list of filename arguments.  Optionally, it can
  * attempt to expand wildcards and recursively add each matching filename.
- * Returns True if successful, False if error.
+ * Returns ElvTrue if successful, ElvFalse if error.
  */
-BOOLEAN exaddfilearg(file, nfiles, filename, wild)
+ELVBOOL exaddfilearg(file, nfiles, filename, rules)
 	char	***file;	/* ptr to a dynamic array of char* pointers */
 	int	*nfiles;	/* number of files in file array */
 	char	*filename;	/* the filename (or wildcard expression) to add */
-	BOOLEAN	wild;		/* if True, expand wildcards */
+	ELVFNR	rules;		/* describes how names should be manipulated */
 {
 	char	*match;		/* a name matching a wildcard */
 	char	**old;		/* previous value of xinf->file pointer */
 	int	start;		/* index into xinf->file of wildcard's expansion */
-	BOOLEAN	mustfree=False;	/* if True, then free "match" before returning*/
-	char	slash;		/* local slash character */
+	ELVBOOL	mustfree=ElvFalse;	/* if ElvTrue, then free "match" before returning*/
+	int	i = 0;
+#if defined(ANY_UNIX) && defined(FEATURE_MISC)
 	char	tmp[256];
-	int	i;
+#endif
 
 	/* never use wildcards for URLs */
 	if (((match = urllocal(filename)) != NULL && match != filename)
@@ -1437,36 +1596,42 @@ BOOLEAN exaddfilearg(file, nfiles, filename, wild)
 #endif
 	)
 	{
-		wild = False;
+		rules = (ELVFNR)0;
 	}
 
-	/* are we supposed to match wildcards? */
-	if (wild)
+	if (rules & (ELVFNR_DOLLAR | ELVFNR_PAREN))
 	{
 		/* expand any environment variables */
-		filename = tochar8(calculate(toCHAR(filename), NULL, True));
+		filename = tochar8(calculate(toCHAR(filename), NULL,
+			 (ELVFNR)(((rules & ELVFNR_DOLLAR) ? CALC_DOLLAR : 0) | 
+				  ((rules & ELVFNR_PAREN) ? CALC_PAREN : 0))));
 		if (!filename)
-			return False;
+			return ElvFalse;
+	}
 
-		/* If this operating system uses backslashes between names,
-		 * then replace any forward slashes with backslashes.  This is
-		 * intended to allow MS-DOS users to type forward slashes in
-		 * their filenames, if they so prefer.
-		 */
-		slash = dirpath("a", "b")[1];
-		if (slash == '\\')
+	/* If this operating system uses backslashes between names,
+	 * then replace any forward slashes with backslashes.  This is
+	 * intended to allow MS-DOS users to type forward slashes in
+	 * their filenames, if they so prefer.
+	 */
+#if OSDIRDELIM != '/'
+# if defined(PROTOCOL_HTTP) || defined(PROTOCOL_FTP)
+	if (!urlremote(filename))
+# endif
+	{
+		for (i = 0; filename[i]; i++)
 		{
-			for (i = 0; filename[i]; i++)
+			if (filename[i] == '/')
 			{
-				if (filename[i] == '/')
-				{
-					filename[i] = '\\';
-				}
+				filename[i] = OSDIRDELIM;
 			}
 		}
+	}
+#endif /* OSDIRDELIM != '/' */
 
+	if (rules & ELVFNR_TILDE)
+	{
 		/* replace ~ with the name of the home directory */
-#if 1
 		match = NULL;
 		if (filename[0] == '~' && filename[1] == '+')
 			match = dircwd(), i = 2;
@@ -1474,43 +1639,36 @@ BOOLEAN exaddfilearg(file, nfiles, filename, wild)
 			match = tochar8(o_previousdir), i = 2;
 		else if (filename[0] == '~')
 			match = tochar8(o_home), i = 1;
-		if (match && filename[i] == slash && filename[i + 1])
+		if (match && filename[i] == OSDIRDELIM && filename[i + 1])
 		{
 			filename = safedup(dirpath(match, filename + i + 1));
-			mustfree = True;
+			mustfree = ElvTrue;
 		}
-		else if (match && (filename[i] == slash || !filename[i]))
+		else if (match && (filename[i] == OSDIRDELIM || !filename[i]))
 		{
 			filename = safedup(match);
-			mustfree = True;
+			mustfree = ElvTrue;
 		}
-# if ANY_UNIX
-		else if (filename[0] == '~' && isalpha(filename[1]))
+#if defined(ANY_UNIX) && defined(FEATURE_MISC)
+		else if (filename[0] == '~' && elvalpha(filename[1]))
 		{
 			filename = safedup(expanduserhome(tochar8(filename), tmp));
-			mustfree = True;
+			mustfree = ElvTrue;
 		}
-#endif /*ANY_UNIX*/
+#endif /* ANY_UNIX && FEATURE_MISC */
+	}
 
-#else
-		if (filename[0] == '~' && !isalpha(filename[1]))
-		{
-			filename = safedup(filename[1]
-				    ? dirpath(tochar8(o_home), &filename[2])
-				    : tochar8(o_home));
-			mustfree = True;
-		}
-#endif
-
+	if (rules & ELVFNR_WILDCARD)
+	{
 		/* If there are any matches... */
-		if ((match = dirfirst(filename, False)) != NULL)
+		if ((match = dirfirst(filename, ElvFalse)) != NULL)
 		{
 			/* for each match... */
 			start = *nfiles;
 			do
 			{
 				/* add the matching name */
-				exaddfilearg(file, nfiles, match, False);
+				exaddfilearg(file, nfiles, match, (ELVFNR)0);
 
 				/* ripple the new name back, to keep things sorted */
 				for (i = *nfiles - 1;
@@ -1522,12 +1680,6 @@ BOOLEAN exaddfilearg(file, nfiles, filename, wild)
 					(*file)[i - 1] = match;
 				}
 			} while ((match = dirnext()) != (char *)0);
-		}
-
-		/* if necessary, free the filename */
-		if (mustfree)
-		{
-			safefree(filename);
 		}
 	}
 	else /* literal filename */
@@ -1550,24 +1702,34 @@ BOOLEAN exaddfilearg(file, nfiles, filename, wild)
 		/* append the new filename */
 		(*file)[(*nfiles)++] = safedup(filename);
 	}
-	return True;
+
+	/* if necessary, free the filename */
+	if (mustfree)
+	{
+		safefree(filename);
+	}
+
+	return ElvTrue;
 }
 
 /* This function parses filenames, if the command supports them. */
-static BOOLEAN parsefileargs(refp, xinf, flags)
+static ELVBOOL parsefileargs(refp, xinf, flags)
 	CHAR	**refp;	/* pointer to the (CHAR *) used for scanning command */
 	EXINFO	*xinf;	/* info about the command being parsed */
 	long	flags;	/* bitmap of command attributes */
 {
 	CHAR	*filename;
-	CHAR	*scan;
-	CHAR	*expr, *val;
+	CHAR	*scan, *val;
+	ELVFNR	rules;
+#ifdef FEATURE_BACKTICK
+	CHAR	*expr;
 	int	i;
+#endif
 
 	/* if no filenames expected, or hit end of cmd, then do nothing */
 	if ((flags & (a_File|a_Files|a_Filter|a_Append)) == 0 || !*refp)
 	{
-		return True;
+		return ElvTrue;
 	}
 
 	/* If filter is allowed, and next character is a '!' the we have
@@ -1577,13 +1739,13 @@ static BOOLEAN parsefileargs(refp, xinf, flags)
 	{
 		/* skip the initial '!' */
 		if (!scannext(refp))
-			return True;	/* missing filter will be detected later */
+			return ElvTrue;	/* missing filter will be detected later */
 
 		/* begin the rhs argument with a bang */
 		buildCHAR(&xinf->rhs, (_CHAR_)'!');
 
 		/* collect characters up to next newline */
-		return (BOOLEAN)(RESULT_COMPLETE == parsecmds(refp, xinf, flags | a_Cmds));
+		return (ELVBOOL)(RESULT_COMPLETE == parsecmds(refp, xinf, flags | a_Cmds));
 	}
 
 	/* An initial backslash could have been used to quote a ! or > at
@@ -1601,14 +1763,17 @@ static BOOLEAN parsefileargs(refp, xinf, flags)
 		if (!*refp)
 		{
 			msg(MSG_ERROR, "oops");
-			return False;
+			return ElvFalse;
 		}
 		if (**refp != '!' && **refp != '>' &&
-			(**refp != '\\' || dirpath("a", "b")[1] == '\\'))
+			(**refp != '\\' || OSDIRDELIM == '\\'))
 		{
 			scanprev(refp);
 		}
 	}
+
+	/* parse the value of the filenamerules option */
+	rules = exfilenamerules(o_filenamerules);
 
 	/* collect each whitespace-delimited filename argument */
 	for (filename = val = NULL;
@@ -1619,12 +1784,19 @@ static BOOLEAN parsefileargs(refp, xinf, flags)
 		switch (**refp)
 		{
 		  case ' ':
+			if (filename && !(rules & ELVFNR_SPACE))
+			{
+				buildCHAR(&filename, **refp);
+				break;
+			}
+			/* else fall through... */
+
 		  case '\t':
 			/* do we have a filename? */
 			if (filename)
 			{
 				/* store the name */
-				if (!exaddfilearg(&xinf->file, &xinf->nfiles, tochar8(filename), True))
+				if (!exaddfilearg(&xinf->file, &xinf->nfiles, tochar8(filename), rules))
 					goto Error;
 
 				/* free the buildCHAR copy of the name */
@@ -1638,7 +1810,7 @@ static BOOLEAN parsefileargs(refp, xinf, flags)
 			scannext(refp);
 			if (!*refp)
 				break; /* hit end of string */
-			if (**refp == '*' && dirpath("a", "b")[1] == '\\')
+			if (**refp == '*' && OSDIRDELIM == '\\')
 			{
 				/* This operating system seems use backslashes
 				 * in filenames.  So an expression such as
@@ -1666,6 +1838,16 @@ static BOOLEAN parsefileargs(refp, xinf, flags)
 			break;
 
 		  case '#':
+			/* if filenamerules doesn't contain "special" just add char */
+			if (!(rules & ELVFNR_SPECIAL))
+			{
+				buildCHAR(&filename, **refp);
+				break;
+			}
+
+			/* replace # with name of alternate file, or a numbered
+			 * file.
+			 */
 			scan = buffilenumber(refp);
 			if (!scan)
 			{
@@ -1679,6 +1861,14 @@ static BOOLEAN parsefileargs(refp, xinf, flags)
 			break;
 
 		  case '%':
+			/* filenamerules doesn't contain "special" just add char */
+			if (!(rules & ELVFNR_SPECIAL))
+			{
+				buildCHAR(&filename, **refp);
+				break;
+			}
+
+			/* replace % with name of current file */
 			scan = o_filename(markbuffer(&xinf->defaddr));
 			if (scan)
 			{
@@ -1700,6 +1890,12 @@ static BOOLEAN parsefileargs(refp, xinf, flags)
 
 #ifdef FEATURE_BACKTICK
 		  case '`':
+			if (!(rules & ELVFNR_WILDCARD))
+			{
+				buildCHAR(&filename, **refp);
+				break;
+			}
+
 			/* build an expression which reads from a program */
 			expr = NULL; 
 			buildstr(&expr, "shell(\"");
@@ -1723,7 +1919,7 @@ static BOOLEAN parsefileargs(refp, xinf, flags)
 			buildstr(&expr, "\")");
 
 			/* evaluate the expression */
-			val = calculate(expr, NULL, False);
+			val = calculate(expr, NULL, CALC_ALL);
 			safefree(expr);
 			if (!val)
 				/* error message already given */
@@ -1734,7 +1930,7 @@ static BOOLEAN parsefileargs(refp, xinf, flags)
 			{
 				expr = filename;
 				filename = NULL;
-				for (i = 0; i < CHARlen(expr); i++)
+				for (i = 0; (unsigned)i < CHARlen(expr); i++)
 					buildCHAR(&filename, expr[i]);
 				safefree(expr);
 			}
@@ -1744,12 +1940,12 @@ static BOOLEAN parsefileargs(refp, xinf, flags)
 			 */
 			for (; *val; val++)
 			{
-				if (isspace(*val))
+				if (*val == '\t' || (*val == ' ' && (rules & ELVFNR_SPACE)))
 				{
 					if (filename)
 					{
 						/* store the name */
-						if (!exaddfilearg(&xinf->file, &xinf->nfiles, tochar8(filename), True))
+						if (!exaddfilearg(&xinf->file, &xinf->nfiles, tochar8(filename), rules))
 							goto Error;
 
 						/* free the buildCHAR copy of the name */
@@ -1785,7 +1981,7 @@ static BOOLEAN parsefileargs(refp, xinf, flags)
 	/* if we were working on a filename when we ended the loop, add it */
 	if (filename)
 	{
-		if (!exaddfilearg(&xinf->file, &xinf->nfiles, tochar8(filename), True))
+		if (!exaddfilearg(&xinf->file, &xinf->nfiles, tochar8(filename), rules))
 			goto Error;
 		safefree(filename);
 		filename = (CHAR *)0;
@@ -1803,13 +1999,14 @@ static BOOLEAN parsefileargs(refp, xinf, flags)
 	{
 		if (o_filename(markbuffer(&xinf->defaddr)) == NULL)
 		{ /* nishi */
-			msg(MSG_ERROR, "no file name");
+			msg(MSG_ERROR, "[S]no file name for $1",
+				o_bufname(markbuffer(&xinf->defaddr)));
 			goto Error;
 		}
-		exaddfilearg(&xinf->file, &xinf->nfiles, tochar8(o_filename(markbuffer(&xinf->defaddr))), False);
+		exaddfilearg(&xinf->file, &xinf->nfiles, tochar8(o_filename(markbuffer(&xinf->defaddr))), (ELVFNR)0);
 	}
 
-	return True;
+	return ElvTrue;
 
 
 Error:
@@ -1820,7 +2017,7 @@ Error:
 	{
 		safefree(filename);
 	}
-	return False;
+	return ElvFalse;
 }
 
 
@@ -1838,18 +2035,25 @@ static RESULT parse(win, refp, xinf)
 	MARKBUF	rngdef;	/* default range */
 	long	rngfrom;/* "from" line number of range */
 	long	rngto;	/* "to" line number of range */
-	long	flags;	/* bitmap of command attributes */
-	BOOLEAN	sel;	/* did address come from selection? */
+	long	flags;	/* bitmap of command arguments */
+	long	quirks;	/* bitmap of command quirks */
+	ELVBOOL	sel;	/* did address come from selection? */
 	CHAR	*p2;	/* a second scanning variable */
 	CHAR	*lntext;/* text of current line, used for trace */
 	RESULT	result;	/* result of parsing */
-	BOOLEAN	twoaddrs;/* have two addresses been seen on this line? */
+	ELVBOOL	twoaddrs;/* have two addresses been seen on this line? */
+	int	i;
+	MARK	m;
+#ifdef FEATURE_MAPDB
 	BUFFER	log;	/* log buffer, for debugging */
 	MARKBUF	logstart; /* start of the log buffer, for debugging */
 	MARKBUF	logend;	/* end of the log buffer, for debugging */
 	long	loglen;	/* length of log message */
 	CHAR	*logstr;/* start of string command, or NULL if from buffer */
-	int	i;
+#endif
+#ifdef FEATURE_V
+	long	oldreport;
+#endif
 
 	/* if verbose, then display this line in window, or on stderr */
 	if (o_verbose >= (win ? 5 : 3))
@@ -1870,7 +2074,7 @@ static RESULT parse(win, refp, xinf)
 	/* set defaults */
 	memset((char *)xinf, 0, sizeof *xinf);
 	xinf->window = win;
-	twoaddrs = False;
+	twoaddrs = ElvFalse;
 
 	/* skip leading ':' characters and whitespace */
 	while (*refp && (**refp == ':' || **refp == ' ' || **refp == '\t'))
@@ -1880,13 +2084,17 @@ static RESULT parse(win, refp, xinf)
 
 	/* remember where this command started */
 	orig = *scanmark(refp);
+#ifdef FEATURE_MAPDB
 	logstr = markbuffer(&orig) ? NULL : *refp;
+#endif
 
 	/* If no command was entered, then assume the command line should be
 	 * "+p", so the user can simply hit <Enter> to step through the file.
-	 * Only do this for interactively entered commands, though!
+	 * Only do this for interactively entered commands in ex mode, though!
 	 */
 	if ((!*refp || **refp == '\n')
+		&& win
+		&& 0 == (win->state->flags & (ELVIS_POP|ELVIS_ONCE|ELVIS_1LINE))
 		&& markbuffer(&orig) == buffind(toCHAR(EX_BUF)))
 	{
 		/* parse the "+p" command, unless at end of buffer */
@@ -1927,15 +2135,13 @@ static RESULT parse(win, refp, xinf)
 	}
 
 	/* parse addresses */
-	sel = False;
+	sel = ElvFalse;
+#ifdef FEATURE_V
+	xinf->putbacktop.buffer = NULL;
+#endif
 	if (xinf->defaddr.buffer)
 	{
 		skipwhitespace(refp);
-		if (xinf->window && xinf->window->seltop)
-		{
-			xinf->defaddr = *xinf->window->seltop;
-			sel = True;
-		}
 		xinf->to = markline(&xinf->defaddr);
 		xinf->from = xinf->to;
 		if (*refp && **refp == '%')
@@ -1943,11 +2149,10 @@ static RESULT parse(win, refp, xinf)
 			scannext(refp);
 			xinf->from = 1;
 			xinf->to = o_buflines(markbuffer(&xinf->defaddr));
-			xinf->anyaddr = True;
-			sel = False;
+			xinf->anyaddr = ElvTrue;
+			sel = ElvFalse;
 		}
-		else if ((xinf->window && xinf->window->seltop)
-			|| (*refp && strchr("./?'0123456789$+-,;", (char)**refp)))
+		else if ((*refp && strchr("./?'0123456789$+-,;", (char)**refp)))
 		{
 			do
 			{
@@ -1969,13 +2174,11 @@ static RESULT parse(win, refp, xinf)
 				if (!xinf->anyaddr)
 				{
 					xinf->from = xinf->to;
-					if (xinf->window && xinf->window->selbottom)
-						xinf->to = markline(xinf->window->selbottom);
-					xinf->anyaddr = True;
+					xinf->anyaddr = ElvTrue;
 				}
 				else
 				{
-					twoaddrs = True;
+					twoaddrs = ElvTrue;
 				}
 
 				/* if followed by a semicolon, then this
@@ -2008,14 +2211,57 @@ static RESULT parse(win, refp, xinf)
 				return RESULT_ERROR;
 			}
 		}
+#ifdef FEATURE_V
+		else if (xinf->window && xinf->window->seltop)
+		{
+			if (xinf->window->seltype == 'r')
+			{
+				/* remember where the rectangle begins */
+				xinf->putbackleft = xinf->window->selleft;
+				xinf->putbackright = xinf->window->selright;
+				xinf->putbacktop = *xinf->window->seltop;
+				xinf->putbackbottom = *(*win->md->move)(
+					xinf->window, xinf->window->selbottom,
+					1L, 0L, ElvFalse);
+				xinf->putbackchanges = markbuffer(&xinf->putbacktop)->changes;
 
-		/* if we used visible selection, then unmark it now */
+				/* move the text into a cut buffer */
+				xinf->defaddr.buffer = cutbuffer('_', ElvTrue);
+				xinf->defaddr.offset = 0L;
+				m = scanmark(refp);
+				scanfree(refp);
+				oldreport = o_report;
+				o_report = 0L;
+				cutyank('_', &xinf->putbacktop, &xinf->putbackbottom, 'r', 'y');
+				o_report = oldreport;
+				scanalloc(refp, m);
+				xinf->cbchanges = xinf->defaddr.buffer->changes;
+
+				/* use the entire cut buffer as the default */
+				xinf->from = 1L;
+				xinf->to = o_bufchars(xinf->defaddr.buffer);
+			}
+			else /* line or char */
+			{
+				/* act directly on the edit buffer */
+				xinf->defaddr = *xinf->window->seltop;
+				xinf->from = markline(xinf->window->seltop);
+				xinf->to = markline(xinf->window->selbottom);
+			}
+			xinf->anyaddr = ElvTrue;
+			twoaddrs = ElvTrue;
+			sel = ElvTrue;
+
+		}
+
+		/* if a visible selection was marked, then unmark it now */
 		if (xinf->window && xinf->window->seltop)
 		{
 			markfree(xinf->window->seltop);
 			markfree(xinf->window->selbottom);
 			xinf->window->seltop = xinf->window->selbottom = NULL;
 		}
+#endif /* FEATURE_V */
 	}
 
 	/* parse command name */
@@ -2025,14 +2271,17 @@ static RESULT parse(win, refp, xinf)
 		return RESULT_ERROR;
 	}
 	flags = cmdnames[xinf->cmdidx].flags;
+	quirks = cmdnames[xinf->cmdidx].quirks;
 
 	/* is the command legal in this context? */
-	if (!win && 0 == (flags & q_Exrc))
+	if (!win && 0 == (quirks & q_Exrc))
 	{
 		msg(MSG_ERROR, "[s]$1 is illegal during initialization", xinf->cmdname);
 		return RESULT_ERROR;
 	}
-	if (o_safer && 0 != (flags & q_Unsafe))
+	if (((0 == (quirks & q_Restricted)) ? o_security != 'n' /* !normal */
+					    : o_security == 'r')/* restricted */
+	 && 0 != (quirks & q_Unsafe))
 	{
 		msg(MSG_ERROR, "[s]$1 is unsafe", xinf->cmdname);
 		return RESULT_ERROR;
@@ -2047,7 +2296,7 @@ static RESULT parse(win, refp, xinf)
 		if (sel)
 		{
 			/* visible selection; pretend no addresses were given */
-			xinf->anyaddr = False;
+			xinf->anyaddr = ElvFalse;
 		}
 		else
 		{
@@ -2060,7 +2309,7 @@ static RESULT parse(win, refp, xinf)
 	/* if "from" is 0 for a command which doesn't allow 0, then
 	 * complain.
 	 */
-	if (xinf->anyaddr && xinf->from == 0 && 0 == (flags & q_Zero))
+	if (xinf->anyaddr && xinf->from == 0 && 0 == (quirks & q_Zero))
 	{
 		msg(MSG_ERROR, "[s]$1 doesn't allow address 0", xinf->cmdname);
 		return RESULT_ERROR;
@@ -2082,7 +2331,7 @@ static RESULT parse(win, refp, xinf)
 	if ((flags & (a_Pflag|a_Buffer)) == (a_Pflag|a_Buffer)
 		&& *refp && (**refp == 'p' || **refp == 'l' || **refp == '#'))
 	{
-		parseprintflag(refp, xinf, flags);
+		parseprintflag(refp, xinf, flags, quirks);
 	}
 
 	/* parse an optional '!' appended to the name */
@@ -2146,10 +2395,33 @@ static RESULT parse(win, refp, xinf)
 		xinf->to = rngto;
 	}
 
-	/* for some commands, parse an LHS and RHS */
-	parselhs(refp, xinf, flags);
+	/* for some commands, parse an LHS */
+	parselhs(refp, xinf, flags, quirks);
 	skipwhitespace(refp);
-	parserhs(refp, xinf, flags);
+
+#ifdef FEATURE_CALC /* if the :for command exists in this configuration... */
+	/* as a special case, ":for LHS in files" accepts files arguments */
+	if (xinf->command == EX_FOR && *refp && **refp == 'i')
+	{
+		scandup(&p2, refp);
+		if (scannext(&p2) && *p2 == 'n'
+		 && scannext(&p2) && (*p2 == ' ' || *p2 == '\t'))
+		{
+			/* move the scan pointer past "in " */
+			scannext(refp);
+			scannext(refp);
+			skipwhitespace(refp);
+
+			/* parse files instead of RHS */
+			flags &= ~a_Cmds;
+			flags |= a_Files;
+		}
+		scanfree(&p2);
+	}
+#endif /* FEATURE_CALC */
+
+	/* for some commands, parse a RHS */
+	parserhs(refp, xinf, flags, quirks);
 
 	/* for some commands, parse an optional cut buffer name,
 	 * optional count, optional "+arg", and optional print flag.
@@ -2161,7 +2433,7 @@ static RESULT parse(win, refp, xinf)
 	skipwhitespace(refp);
 	parseplus(refp, xinf, flags);
 	skipwhitespace(refp);
-	parseprintflag(refp, xinf, flags);
+	parseprintflag(refp, xinf, flags, quirks);
 
 	/* for some commands, parse file arguments.  This includes
 	 * filenames, "!cmd" filter commands, ">>" append tokens,
@@ -2170,6 +2442,14 @@ static RESULT parse(win, refp, xinf)
 	skipwhitespace(refp);
 	if (!parsefileargs(refp, xinf, flags))
 	{
+		return RESULT_ERROR;
+	}
+	if (((0 == (quirks & q_Restricted)) ? o_security != 'n' /* !normal */
+					    : o_security == 'r')/* restricted */
+	 && 0 != (quirks & q_FileUnsafe)
+	 && xinf->nfiles > 0)
+	{
+		msg(MSG_ERROR, "[s]$1 filename is unsafe", xinf->cmdname);
 		return RESULT_ERROR;
 	}
 
@@ -2192,9 +2472,9 @@ static RESULT parse(win, refp, xinf)
 	}
 
 	/* beware of EX-only commands */
-	if ((!win || 0 != (win->state->flags & (ELVIS_POP|ELVIS_ONCE|ELVIS_1LINE)))
-		&& 0 != (flags & q_Ex)
-		&& !xinf->rhs)
+	if (0 != (quirks & q_Ex)
+		&& !xinf->rhs
+		&& (!win || 0 != (win->state->flags & (ELVIS_POP|ELVIS_ONCE|ELVIS_1LINE))))
 	{
 		msg(MSG_ERROR, "[s]$1 is illegal in vi mode", xinf->cmdname);
 		return RESULT_ERROR;
@@ -2204,8 +2484,8 @@ static RESULT parse(win, refp, xinf)
 	 * that ":s/???/???/x" and ":!cmd" (with no addresses) are specifically
 	 * permitted.
 	 */
-	if (o_locked(markbuffer(&xinf->defaddr))
-	 && 0 != (flags & q_Undo)
+	if (0 != (quirks & q_Undo)
+	 && o_locked(markbuffer(&xinf->defaddr))
 	 && !(xinf->command == EX_SUBSTITUTE && xinf->rhs && CHARchr(xinf->rhs, 'x'))
 	 && !(xinf->command == EX_BANG && !xinf->anyaddr) )
 	{
@@ -2293,11 +2573,11 @@ static RESULT parse(win, refp, xinf)
 		xinf->newcurs = (MARK)0;
 	}
 
+#ifdef FEATURE_MAPDB
 	/* maybe add the commands to the map log */
-	if (o_maplog != 'o'
-		&& (logstr || !o_internal(markbuffer(scanmark(refp))) ) )
+	if (o_maplog != 'o' && (logstr || !o_internal(markbuffer(&orig)) ) )
 	{
-		log = bufalloc(toCHAR(TRACE_BUF), 0, True);
+		log = bufalloc(toCHAR(TRACE_BUF), 0, ElvTrue);
 		if (o_maplog == 'r')
 		{
 			bufreplace(marktmp(logstart, log, 0L), marktmp(logend, log, o_bufchars(log)), NULL, 0L);
@@ -2319,6 +2599,7 @@ static RESULT parse(win, refp, xinf)
 					&orig, scanmark(refp));
 		bufreplace(marktmp(logend, log, o_bufchars(log)), &logend, toCHAR("\n"), 1L);
 	}
+#endif /* FEATURE_MAPDB */
 
 	/* move the scan point past the command separator */
 	if (*refp)
@@ -2336,28 +2617,49 @@ static RESULT execute(xinf)
 	EXINFO	*xinf;	/* the parsed command to execute */
 {
 	MARK		pline;	/* line to autoprint */
-	BUFFER		custom;	/* the CUSTOM_BUF buffer */
-	MARKBUF		top, bottom;
 	RESULT		ret;
 	BUFFER		origdef;/* original value of bufdefault */
 	struct state_s	*state;
-	unsigned long	flags;
+	long		quirks;	/* bitmap of command quirks */
 	WINDOW		found;
+#ifdef FEATURE_V
+	long		oldreport;
+#endif
+#ifdef FEATURE_MAPDB
+	long		loglines = 0;
+	BUFFER		log;
+
+	if (o_maplog != 'o' && (log = buffind(toCHAR(TRACE_BUF))) != NULL)
+		loglines = o_buflines(log);
+#endif
+
+	/* Figure out the command's quirks.  Mostly this comes straight out of
+	 * the cmdname[] table, but it can also be influenced by whether the
+	 * command is running as part of an autocmd sequence.
+	 */
+	quirks = cmdnames[xinf->cmdidx].quirks;
+#ifdef FEATURE_AUTOCMD
+	if (aubusy)
+		quirks &= ~(q_SwitchB|q_MayQuit);
+#endif
+#ifdef FEATURE_PROTO
+	if (urlprotobusy)
+		quirks &= ~(q_SwitchB|q_MayQuit);
+#endif
 
 	/* If we need to save an "undo" version of the buffer, then
 	 * remember that fact.
 	 */
-	flags = cmdnames[xinf->cmdidx].flags;
 	if (xinf->window && xinf->window->cursor && globaldepth == 0)
-		bufwilldo(xinf->window->cursor, False);
-	if (globaldepth == 0 && (flags & q_Undo))
+		bufwilldo(xinf->window->cursor, ElvFalse);
+	if (globaldepth == 0 && (quirks & q_Undo))
 	{
 		if (xinf->destaddr)
-			bufwilldo(xinf->destaddr, True);
+			bufwilldo(xinf->destaddr, ElvTrue);
 		else if (xinf->window)
-			bufwilldo(xinf->window->cursor, True);
+			bufwilldo(xinf->window->cursor, ElvTrue);
 		else if (xinf->toaddr)
-			bufwilldo(xinf->toaddr, True);
+			bufwilldo(xinf->toaddr, ElvTrue);
 	}
 
 	/* if global command, then increment globaldepth */
@@ -2366,11 +2668,16 @@ static RESULT execute(xinf)
 		globaldepth++;
 	}
 
+	/* if some other command executed as part of global, then set its
+	 * "global" flag.  This is important for :g/re/s/re2/text/ commands.
+	 */
+	xinf->global = (ELVBOOL)(globaldepth > 0);
+
 	/* if quit command, then cause "wrote..." messages to be displayed
 	 * as INFO instead of the normal STATUS.  This is so they'll be queued
 	 * and can be printed someplace else after the window is closed.
 	 */
-	if (flags & q_MayQuit)
+	if (quirks & q_MayQuit)
 	{
 		bufmsgtype = MSG_INFO;
 	}
@@ -2380,7 +2687,9 @@ static RESULT execute(xinf)
 	 */
 	origdef = bufdefault;
 	if (xinf->window && markbuffer(&xinf->defaddr) !=
-		markbuffer(xinf->window->state->pop ? xinf->window->state->pop->cursor : xinf->window->cursor))
+		markbuffer(xinf->window->state && xinf->window->state->pop
+			? xinf->window->state->pop->cursor
+			: xinf->window->cursor))
 	{
 		bufoptions(markbuffer(&xinf->defaddr));
 	}
@@ -2422,11 +2731,51 @@ static RESULT execute(xinf)
 	/* most commands aren't allowed to switch buffers */
 	if (xinf->newcurs
 	 && markbuffer(xinf->window->cursor) != markbuffer(xinf->newcurs)
-	 && !(flags & q_SwitchB))
+	 && !(quirks & q_SwitchB))
 	{
 		markfree(xinf->newcurs);
 		xinf->newcurs = NULL;
 	}
+
+#ifdef FEATURE_V
+	/* if rectangle, then copy any changes back into the edit buffer */
+	if (xinf->putbacktop.buffer
+	 && xinf->putbackchanges == xinf->putbacktop.buffer->changes
+	 && xinf->cbchanges != xinf->defaddr.buffer->changes)
+	{
+		/* reselect the rectangle */
+		found = xinf->window;
+		found->seltop = markdup(&xinf->putbacktop);
+		found->selbottom = markdup(&xinf->putbackbottom);
+		found->selleft = xinf->putbackleft;
+		found->selright = xinf->putbackright;
+		found->seltype = 'r';
+
+		/* delete the rectangle */
+		oldreport = o_report;
+		o_report = 0;
+		cutyank('\0', found->seltop, found->selbottom, 'r', 'd');
+
+		/* unselect it again */
+		markfree(found->seltop);
+		markfree(found->selbottom);
+		found->seltop = found->selbottom = NULL;
+
+		/* paste the changed buffer */
+		pline = (xinf->window->md->move)(xinf->window,
+						 &xinf->putbacktop, 0L,
+						 xinf->putbackleft, ElvFalse);
+		pline = markdup(pline);
+		cutput('_', xinf->window, pline, ElvFalse, ElvFalse, ElvFalse);
+		markfree(pline);
+		o_report = oldreport;
+
+		/* Leave the cursor at the top of the changed line */
+		if (xinf->newcurs)
+			markfree(xinf->newcurs);
+		xinf->newcurs = markdup(&xinf->putbacktop);
+	}
+#endif /* FEATURE_V */
 
 	/* move the cursor to where it wants to be */
 	if (xinf->newcurs)
@@ -2441,15 +2790,51 @@ static RESULT execute(xinf)
 		 */
 		if (markbuffer(xinf->window->cursor) != markbuffer(xinf->newcurs))
 		{
+#ifdef FEATURE_MAPDB
+			/* maybe add a note to the map log */
+			if (o_maplog != 'o')
+			{
+				BUFFER	log;
+				MARKBUF	logstart, logend;
+				char	line[200];
+
+				/* allocate the buffer */
+				log = bufalloc(toCHAR(TRACE_BUF), 0, ElvTrue);
+
+				/* if "reset", truncate & switch to "append" */
+				if (o_maplog == 'r')
+				{
+					bufreplace(marktmp(logstart, log, 0L), marktmp(logend, log, o_bufchars(log)), NULL, 0L);
+					o_maplog = 'a';
+				}
+
+				/* add a line */
+				sprintf(line, "Buffer switch from (%s) to (%s) since log line %ld\n",
+					tochar8(o_bufname(markbuffer(xinf->window->cursor))),
+					tochar8(o_bufname(markbuffer(xinf->newcurs))),
+					loglines);
+				bufreplace(marktmp(logend, log, o_bufchars(log)),
+					&logend,
+					toCHAR(line),
+					(long)strlen(line));
+			}
+#endif /* FEATURE_MAPDB */
+
 			optprevfile(o_filename(markbuffer(xinf->window->cursor)),
 				    markline(xinf->window->cursor));
 			if (gui->retitle)
 			{
-				(*gui->retitle)(xinf->window->gw, tochar8(o_bufname(markbuffer(xinf->newcurs))));
+				(*gui->retitle)(xinf->window->gw,
+				 tochar8(o_filename(markbuffer(xinf->newcurs))
+				    ? o_filename(markbuffer(xinf->newcurs))
+				    : o_bufname(markbuffer(xinf->newcurs))));
 			}
 			marksetbuffer(state->cursor, markbuffer(xinf->newcurs));
-			dispset(xinf->window, tochar8(o_bufdisplay(markbuffer(xinf->newcurs))));
+			dispset(xinf->window, o_initialsyntax(markbuffer(xinf->newcurs))
+			    ? "syntax"
+			    : tochar8(o_bufdisplay(markbuffer(xinf->newcurs))));
 			bufoptions(markbuffer(xinf->newcurs));
+
 		}
 
 		/* other stuff is easy */
@@ -2459,7 +2844,7 @@ static RESULT execute(xinf)
 		marksetbuffer(state->bottom, markbuffer(xinf->newcurs));
 		marksetoffset(state->bottom, markoffset(xinf->newcurs));
 		markfree(xinf->newcurs);
-		xinf->window->wantcol = state->wantcol = (*xinf->window->md->mark2col)(xinf->window, xinf->window->cursor, True);
+		xinf->window->wantcol = state->wantcol = (*xinf->window->md->mark2col)(xinf->window, xinf->window->cursor, ElvTrue);
 
 		assert(markbuffer(state->cursor) == markbuffer(state->top));
 		assert(markbuffer(state->cursor) == markbuffer(state->bottom));
@@ -2476,7 +2861,7 @@ static RESULT execute(xinf)
 			markaddoffset(xinf->window->cursor, -1L);
 			marksetoffset(xinf->window->cursor,
 				markoffset((*xinf->window->md->move)
-					(xinf->window, xinf->window->cursor, 0L, 0L, False)));
+					(xinf->window, xinf->window->cursor, 0L, 0L, ElvFalse)));
 		}
 	}
 
@@ -2487,38 +2872,15 @@ static RESULT execute(xinf)
 		 * Also add delta.
 		 */
 		pline = (*xinf->window->md->move)(xinf->window,
-				xinf->window->cursor, xinf->delta, 0L, False);
+				xinf->window->cursor, xinf->delta, 0L, ElvFalse);
 
 		/* print the line */
 		exprintlines(xinf->window, pline, 1, xinf->pflag);
 	}
 
-# ifdef FEATURE_MKEXRC
-	/* if we're supposed to regenerate CUSTOM_BUF, then do so now */
-	if (flags & q_Custom)
-	{
-		/* find/create the buffer */
-		custom = bufalloc(toCHAR(CUSTOM_BUF), 0, True);
-		if (o_bufchars(custom) != 0)
-		{
-			bufreplace(marktmp(top, custom, 0),
-				marktmp(bottom, custom, o_bufchars(custom)),
-				NULL, 0);
-		}
-
-		/* add stuff into it */
-		optsave(custom);
-		mapsave(custom);
-		digsave(custom);
-		colorsave(custom);
-		/* abbrsave(custom); */
-		/* aliassave(custom); */
-		if (gui && gui->save)
-		{
-			(*gui->save)(custom, xinf->window->gw);
-		}
-	}
-# endif /* FEATURE_MKEXRC */
+	/* some commands force us to regenerate the CUSTOM_BUF script. */
+	if (quirks & q_Custom)
+		eventupdatecustom(ElvTrue);
 
 	/* free the data associated with that command */
 	exfree(xinf);
@@ -2614,11 +2976,15 @@ RESULT exstring(win, str, name)
 	CHAR	*p;	/* pointer used for scanning command line */
 	EXCTLSTATE oldctlstate;
 	RESULT	result;
+#ifdef FEATURE_MISC
 	void	*locals;
+#endif
 
 	/* commands run this way don't affect :if/:while/:switch expressions */
 	exctlsave(oldctlstate);
+#ifdef FEATURE_MISC
 	locals = optlocal(NULL);
+#endif
 
 	/* start reading commands */
 	scanstring(&p, str);
@@ -2629,7 +2995,14 @@ RESULT exstring(win, str, name)
 		/* remember its location, for error reporting */
 		msgscriptline(scanmark(&p), name);
 
-		/* parse and execute one ex command */
+		/* parse and execute one ex command.
+		 *
+		 * NOTE: Generally you shouldn't alter a buffer while a scan
+		 * is in progress, but in this case we're only scanning a
+		 * string, which shouldn't be affected by changing buffers,
+		 * so it's okay.  We don't need to suspend the scan while
+		 * we call execute().
+		 */
 		if (parse(win, &p, &xinfb) != RESULT_COMPLETE
 		 || execute(&xinfb) != RESULT_COMPLETE)
 		{
@@ -2647,7 +3020,9 @@ Fail:
 	/* and fall through... */
 
 Done:
+#ifdef FEATURE_MISC
 	(void)optlocal(locals);
+#endif
 	exctlrestore(oldctlstate);
 	return result;
 }
@@ -2665,7 +3040,7 @@ CHAR *exname(name)
 
 	/* non-alphabetic names get special treatment */
 	len = CHARlen(name);
-	if (len == 1 && !isalpha(*name))
+	if (len == 1 && !elvalpha(*name))
 	{
 		switch (*name)
 		{
@@ -2729,9 +3104,8 @@ long exprintlines(win, mark, qty, pflag)
 	long	last;	/* offset of start of last line */
 	long	lnum;	/* line number */
 	long	col;	/* output column number */
-	long	tabstop;/* size of tabs */
-	BOOLEAN	number;	/* show line number? */
-	BOOLEAN	list;	/* show all characters? */
+	ELVBOOL	number;	/* show line number? */
+	ELVBOOL	list;	/* show all characters? */
 	long	i;
 
 	/* initialize "last" just to silence a compiler warning */
@@ -2742,8 +3116,8 @@ long exprintlines(win, mark, qty, pflag)
 	{
 		return markoffset(mark);
 	}
-	number = (BOOLEAN)(pflag == PF_NUMBER || pflag == PF_NUMLIST);
-	list = (BOOLEAN)(pflag == PF_LIST || pflag == PF_NUMLIST);
+	number = (ELVBOOL)(pflag == PF_NUMBER || pflag == PF_NUMLIST);
+	list = (ELVBOOL)(pflag == PF_LIST || pflag == PF_NUMLIST);
 
 	/* If we'll be showing line numbers, then find the first one now */
 	if (number)
@@ -2752,11 +3126,8 @@ long exprintlines(win, mark, qty, pflag)
 			(COUNT *)0, (COUNT *)0, (LBLKNO *)0, &lnum);
 	}
 
-	/* compute tab size */
-	tabstop = o_tabstop(markbuffer(mark));
-
 	/* for each line... */
-	for (scanalloc(&scan, mark); scan && qty > 0 && !guipoll(False); scannext(&scan), qty--)
+	for (scanalloc(&scan, mark); scan && qty > 0 && !guipoll(ElvFalse); scannext(&scan), qty--)
 	{
 		/* remember where this line started */
 		last = markoffset(scanmark(&scan));
@@ -2778,7 +3149,7 @@ long exprintlines(win, mark, qty, pflag)
 			if (*scan == '\t' && !list)
 			{
 				/* expand tab into a bunch of spaces */
-				i = tabstop - (col % tabstop);
+				i = opt_totab(o_tabstop(markbuffer(mark)), col);
 				col += i;
 				memset(tmp, ' ', QTY(tmp));
 				while (i > QTY(tmp))
@@ -2836,6 +3207,20 @@ long exprintlines(win, mark, qty, pflag)
 
 
 #ifdef FEATURE_COMPLETE
+
+# ifdef FEATURE_ALIAS
+static char *cname(i)
+	int	i;
+{
+	if (i < QTY(cmdnames) - 1)
+		return cmdnames[i].name;
+	else
+		return exaliasname(i - (QTY(cmdnames) - 1));
+}
+# else
+#  define cname(i)	cmdnames[i].name
+#endif
+
 /* Return the remainder of a command name, buffer name, or tag name.  If file
  * name completion is appropriate, then return NULL.  If nothing can be
  * completed then just return a string containing a single tab character.
@@ -2854,15 +3239,16 @@ CHAR *excomplete(win, from, to)
  static CHAR	common[10];/* long enough for any ex command name */
  	MARKBUF	tmp;
 	CHAR	*cmdname;
+	char	*scan, *found;
 	int	len, mlen;
 	int	i, j, match;
-	BOOLEAN	filter;
+	ELVBOOL	filter;
 
 	(void)scanalloc(&s, from);
 	offset = markoffset(from);
 
 	/* skip leading ':' characters and whitespace */
-	while (*s && offset < markoffset(to) && (*s == ':' || isspace(*s)))
+	while (*s && offset < markoffset(to) && (*s == ':' || elvspace(*s)))
 	{
 		scannext(&s);
 		offset++;
@@ -2890,11 +3276,11 @@ CHAR *excomplete(win, from, to)
 	 * use a literal tab.  If at start of a ! command, then do filename
 	 * completion.
 	 */
-	if (!s || offset >= markoffset(to) || !isalpha(*s))
+	if (!s || offset >= markoffset(to) || !elvalpha(*s))
 	{
 		if (s && offset < markoffset(to) && *s == '!')
 		{
-			o_completebinary = True;
+			o_completebinary = ElvTrue;
 			cmdname = NULL;
 		}
 		else
@@ -2909,17 +3295,17 @@ CHAR *excomplete(win, from, to)
 	{
 		len = buildCHAR(&cmdname, *s);
 		offset++;
-	} while (scannext(&s) && offset < markoffset(to) && isalpha(*s));
+	} while (scannext(&s) && offset < markoffset(to) && elvalpha(*s));
 
 	/* if followed by whitespace and then a !, then remember that */
-	filter = False;
-	if (s && isspace(*s))
+	filter = ElvFalse;
+	if (s && elvspace(*s))
 	{
-		while (scannext(&s) && isspace(*s))
+		while (scannext(&s) && elvspace(*s))
 		{
 		}
 		if (s && *s == '!')
-			filter = True;
+			filter = ElvTrue;
 	}
 	scanfree(&s);
 
@@ -2929,17 +3315,18 @@ CHAR *excomplete(win, from, to)
 	if (offset == markoffset(to))
 	{
 		/* count the matches */
-		for (i = j = 0; i < QTY(cmdnames); i++)
-			if (!CHARncmp(cmdname, toCHAR(cmdnames[i].name), len))
+		match = mlen = 0;
+		for (i = j = 0; (scan = cname(i)) != NULL; i++)
+			if (!CHARncmp(cmdname, toCHAR(scan), len))
 			{
 				if (j == 0)
 				{
 					match = i;
-					mlen = strlen(cmdnames[match].name);
+					mlen = strlen(scan);
 				}
 				else
 				{
-					while (strncmp(cmdnames[i].name, cmdnames[match].name, mlen))
+					while (strncmp(scan, cname(match), mlen))
 						mlen--;
 				}
 				j++;
@@ -2957,10 +3344,11 @@ CHAR *excomplete(win, from, to)
 		 * to append a ! but the space is still nice because it
 		 * reassures the user that the name really is complete.
 		 */
+		found = cname(match);
 		if (j == 1)
 		{
-			for (i = 0, j = len; cmdnames[match].name[j]; i++, j++)
-				common[i] = cmdnames[match].name[j];
+			for (i = 0, j = len; found[j]; i++, j++)
+				common[i] = found[j];
 			common[i++] = ' ';
 			common[i] = '\0';
 			return common;
@@ -2970,14 +3358,14 @@ CHAR *excomplete(win, from, to)
 		 * If so, great!  If not, then list all matches.
 		 */
 		for (i = 0, j = len; j < mlen; j++, i++)
-			common[i] = cmdnames[match].name[j];
+			common[i] = found[j];
 		common[i] = '\0';
 		if (mlen == len)
 		{
-			for (i = j = 0; i < QTY(cmdnames); i++)
-				if (!strncmp(cmdnames[match].name, cmdnames[i].name, len))
+			for (i = j = 0; (scan = cname(i)) != NULL; i++)
+				if (!strncmp(found, scan, len))
 				{
-					mlen = strlen(cmdnames[i].name);
+					mlen = strlen(cname(i));
 					if (j + mlen + 1 >= o_columns(win))
 					{
 						drawextext(win, toCHAR("\n"), 1);
@@ -2986,7 +3374,7 @@ CHAR *excomplete(win, from, to)
 					else if (j != 0)
 						drawextext(win, blanks, 1);
 					drawextext(win,
-						toCHAR(cmdnames[i].name),
+						toCHAR(scan),
 						mlen);
 					j += mlen + 1;
 				}
@@ -3002,7 +3390,7 @@ CHAR *excomplete(win, from, to)
 
 #ifdef FEATURE_ALIAS
 	/* macros probably take filenames for args */
-	if (exisalias(tochar8(cmdname), False))
+	if (exisalias(tochar8(cmdname), ElvFalse))
 	{
 		safefree(cmdname);
 		return NULL;
@@ -3029,15 +3417,41 @@ CHAR *excomplete(win, from, to)
 	if (cmdnames[i].code == EX_SET)
 		return optcomplete(win, to);
 
+#ifdef FEATURE_TAGS
 	/* The :tag and :stag commands complete tag names.  I'm tempted to
 	 * add :browse and :sbrowse here, but that might be confusing.
 	 */
 	if (cmdnames[i].code == EX_TAG || cmdnames[i].code == EX_STAG)
 		return tagcomplete(win, to);
+#endif
 
 	/* The :cc and :make commands take filename arguments. */
 	if (cmdnames[i].code == EX_CC || cmdnames[i].code == EX_MAKE)
 		return NULL; /* do filename expansion */
+
+	/* The :color command takes some complex arguments. */
+	if (cmdnames[i].code == EX_COLOR)
+		return colorcomplete(win, marktmp(tmp, markbuffer(to), offset), to, ElvFalse);
+
+#ifdef FEATURE_SPELL
+	/* The :check command mostly uses font names. */
+	if (cmdnames[i].code == EX_CHECK)
+		return colorcomplete(win, marktmp(tmp, markbuffer(to), offset), to, ElvTrue);
+#endif
+
+#ifdef FEATURE_REGION
+	/* The :region and :unregion commands mostly use font names */
+	if (cmdnames[i].code == EX_REGION || cmdnames[i].code == EX_UNREGION)
+		return colorcomplete(win, marktmp(tmp, markbuffer(to), offset), to, ElvTrue);
+#endif
+
+#ifdef FEATURE_AUTOCMD
+	/* The :au and :doau commands take complex arguments.  We'll settle
+	 * for event name completion though.
+	 */
+	if (cmdnames[i].code == EX_AUTOCMD || cmdnames[i].code == EX_DOAUTOCMD)
+		return aucomplete(win, marktmp(tmp, markbuffer(to), offset), to);
+#endif
 
 	/* Many commands take ex commands as their arguments.  The a_Cmds
 	 * flag is set for these commands, but it is also set for a few
@@ -3045,13 +3459,13 @@ CHAR *excomplete(win, from, to)
 	 * arguments resemble an ex command.
 	 */
 	if ((cmdnames[i].flags & a_Cmds) != 0 || cmdnames[i].code == EX_HELP)
-		return  excomplete(win, marktmp(tmp, markbuffer(to), offset), to);
+		return excomplete(win, marktmp(tmp, markbuffer(to), offset), to);
 
 	/* does the command take filename arguments or a target address? */
 	if ((cmdnames[i].flags & (a_Target | a_Filter | a_File | a_Files)) != 0)
 	{
 		if (filter)
-			o_completebinary = True;
+			o_completebinary = ElvTrue;
 		return NULL;/* do filename expansion */
 	}
 

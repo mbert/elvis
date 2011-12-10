@@ -1,9 +1,11 @@
 /* guiopen.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_guiopen[] = "$Id: guiopen.c,v 2.22 1999/02/06 22:26:40 steve Exp $";
 
 #include "elvis.h"
+#ifdef FEATURE_RCSID
+char id_guiopen[] = "$Id: guiopen.c,v 2.30 2003/10/17 17:41:23 steve Exp $";
+#endif
 #ifdef GUI_OPEN
 # if ANY_UNIX
 #  include <unistd.h>
@@ -18,22 +20,22 @@ char id_guiopen[] = "$Id: guiopen.c,v 2.22 1999/02/06 22:26:40 steve Exp $";
 
 
 #if USE_PROTOTYPES
-static BOOLEAN creategw(char *name, char *firstcmd);
+static ELVBOOL creategw(char *name, char *firstcmd);
 static int init(int argc, char **argv);
 static int scriptinit(int argc, char **argv);
 static int test(void);
 static void beep(GUIWIN *gw);
-static void destroygw(GUIWIN *gw, BOOLEAN force);
+static void destroygw(GUIWIN *gw, ELVBOOL force);
 static void endtty(void);
 static void loop(void);
 static void scriptloop(void);
 static void quitloop(void);
-static BOOLEAN scriptmsg(GUIWIN *gw, MSGIMP imp, CHAR *text, int len);
+static ELVBOOL scriptmsg(GUIWIN *gw, MSGIMP imp, CHAR *text, int len);
 static void starttty(void);
 static void term(void);
 static void scriptterm(void);
 static void textline(GUIWIN *gw, CHAR *text, int len);
-static BOOLEAN oprgopen(char *command, BOOLEAN willread, BOOLEAN willwrite);
+static ELVBOOL oprgopen(char *command, ELVBOOL willread, ELVBOOL willwrite);
 static int oprgclose(void);
 #endif
 
@@ -60,10 +62,10 @@ static void endtty()
 /* start of GUI functions */
 
 GUIWIN *current;
-BOOLEAN	anycmd;
+ELVBOOL	anycmd;
 
-/* return True if available. */
-static int test P_((void))
+/* return ElvTrue if available. */
+static int test()
 {
 	return 1;
 }
@@ -82,7 +84,7 @@ static int init(argc, argv)
 	/* set anycmd if there is a "-c cmd" or "+cmd" argument. */
 	for (i = 1; i < argc && !anycmd; i++)
 	{
-		anycmd = (BOOLEAN)(argv[i][0] == '+' ||
+		anycmd = (ELVBOOL)(argv[i][0] == '+' ||
 				  (argv[i][0] == '-' && argv[i][1] == 'c'));
 	}
 	return argc;
@@ -90,11 +92,15 @@ static int init(argc, argv)
 
 
 /* Repeatedly get events (keystrokes), and call elvis' event functions */
-static void loop P_((void))
+static void loop()
 {
 	char	buf[10];
 	int	len;
 	MAPSTATE mst = MAP_CLEAR;
+ 
+	/* peform the -c command or -t tag */
+	if (mainfirstcmd(windefault))
+		return;
 
 	while (current)
 	{
@@ -114,7 +120,7 @@ static void loop P_((void))
 
 
 /* shut down the "open" interface */
-static void term P_((void))
+static void term()
 {
 	if (gui == &guiopen)
 		endtty();
@@ -131,7 +137,7 @@ static int scriptinit(argc, argv)
 	/* set anycmd if there is a "-c cmd" or "+cmd" argument. */
 	for (i = 1; i < argc && !anycmd; i++)
 	{
-		anycmd = (BOOLEAN)(argv[i][0] == '+' ||
+		anycmd = (ELVBOOL)(argv[i][0] == '+' ||
 				  (argv[i][0] == '-' && argv[i][1] == 'c'));
 	}
 	return argc;
@@ -141,7 +147,7 @@ static int scriptinit(argc, argv)
 /* This is the loop function for the "script" user interface.  It reads text
  * from stdin, and then executes it.  Finishes by deleting the only window.
  */
-static void scriptloop P_((void))
+static void scriptloop()
 {
 	BUFFER	script;
 	MARKBUF	start, end;
@@ -149,8 +155,12 @@ static void scriptloop P_((void))
 	char	inbuf[1024];
 	long	n;
 
+	/* peform the -c command or -t tag */
+	if (mainfirstcmd(windefault))
+		return;
+
 	/* create a buffer to hold the script */
-	script = bufalloc(NULL, 0, True);
+	script = bufalloc(NULL, 0, ElvTrue);
 
 	/* read from stdin, into a buffer */
 	while ((n = read(0, inbuf, sizeof(inbuf))) > 0)
@@ -160,7 +170,7 @@ static void scriptloop P_((void))
 	}
 
 	/* execute the script */
-	eventfocus(current);
+	eventfocus(current, ElvTrue);
 	result = experform(windefault, marktmp(start, script, 0L),
 				    marktmp(end, script, o_bufchars(script)));
 
@@ -173,8 +183,12 @@ static void scriptloop P_((void))
 /* This is the loop function for the "quit" user interface.  It immediately
  * deletes the only window, and then exits.
  */
-static void quitloop P_((void))
+static void quitloop()
 {
+	/* peform the -c command or -t tag */
+	if (mainfirstcmd(windefault))
+		return;
+
 	if (!anycmd)
 		msg(MSG_INFO, "session=(session)");
 	if (current)
@@ -183,21 +197,21 @@ static void quitloop P_((void))
 
 
 /* shut down the "script" or "quit" interface */
-static void scriptterm P_((void))
+static void scriptterm()
 {
 	/* nothing actions needed */
 }
 
 
 /* This function creates a window */
-static BOOLEAN creategw(name, firstcmd)
+static ELVBOOL creategw(name, firstcmd)
 	char	*name;		/* name of new window's buffer */
 	char	*firstcmd;	/* other parameters, if any */
 {
 	/* We can only have one window.  If we already made it, fail */
 	if (current)
 	{
-		return False;
+		return ElvFalse;
 	}
 
 	/* make elvis do its own initialization */
@@ -205,7 +219,7 @@ static BOOLEAN creategw(name, firstcmd)
 	if (!eventcreate(current, NULL, name, 24, 80))
 	{
 		/* elvis can't make it -- fail */
-		return False;
+		return ElvFalse;
 	}
 
 	/* if there is a firstcmd, then execute it */
@@ -215,14 +229,14 @@ static BOOLEAN creategw(name, firstcmd)
 		exstring(windefault, toCHAR(firstcmd), "+cmd");
 	}
 
-	return True;
+	return ElvTrue;
 }
 
 
 /* This function deletes a window */
 static void destroygw(gw, force)
 	GUIWIN	*gw;	/* window to be destroyed */
-	BOOLEAN	force;	/* if True, try harder */
+	ELVBOOL	force;	/* if ElvTrue, try harder */
 {
 	assert(gw == current);
 
@@ -252,24 +266,24 @@ static void textline(gw, text, len)
 
 
 /* This function is used by the "quit" gui to hide all messages except errors */
-static BOOLEAN scriptmsg(gw, imp, text, len)
+static ELVBOOL scriptmsg(gw, imp, text, len)
 	GUIWIN	*gw;	/* window which generated the message */
 	MSGIMP	imp;	/* message importance */
 	CHAR	*text;	/* the message itself */
 	int	len;	/* length of the message */
 {
 	if (imp == MSG_ERROR || imp == MSG_FATAL)
-		return False; /* so error is displayed normally */
+		return ElvFalse; /* so error is displayed normally */
 
 	/* other message types are ignored */
-	return True;
+	return ElvTrue;
 }
 
 
-static BOOLEAN oprgopen(command, willwrite, willread)
+static ELVBOOL oprgopen(command, willwrite, willread)
 	char	*command;
-	BOOLEAN	willwrite;
-	BOOLEAN	willread;
+	ELVBOOL	willwrite;
+	ELVBOOL	willread;
 {
 	/* switch the tty to normal mode */
 	ttynormal();
@@ -279,7 +293,7 @@ static BOOLEAN oprgopen(command, willwrite, willread)
 }
 
 
-static int oprgclose P_((void))
+static int oprgclose()
 {
 	int	ret;
 	
@@ -298,11 +312,11 @@ GUI guiopen =
 {
 	"open",		/* name */
 	"Generic interface with limited capabilities",
-	False,	 	/* exonly */
-	True,	 	/* newblank */
-	False,	 	/* minimizeclr */
-	True,		/* scrolllast */
-	False,		/* shiftrows */
+	ElvFalse,	 	/* exonly */
+	ElvTrue,	 	/* newblank */
+	ElvFalse,	 	/* minimizeclr */
+	ElvTrue,		/* scrolllast */
+	ElvFalse,		/* shiftrows */
 	3,		/* movecost */
 	0,		/* opts */
 	NULL,		/* optdescs */
@@ -333,13 +347,16 @@ GUI guiopen =
 	NULL,		/* clipwrite */
 	NULL,		/* clipread */
 	NULL,		/* clipclose */
-	NULL,		/* color */
+	coloransi,	/* color */
+	NULL,		/* colorfree */
+	NULL,		/* setbg */
 	NULL,	 	/* guicmd */
 	NULL,		/* tabcmd */
 	NULL,		/* save */
 	NULL,		/* wildcard */
 	oprgopen,	/* prgopen */
-	oprgclose	/* prgclose */
+	oprgclose,	/* prgclose */
+	NULL		/* stop */
 };
 
 
@@ -349,11 +366,11 @@ GUI guiscript =
 {
 	"script",	/* name */
 	"Reads a script from stdin",
-	True,	 	/* exonly */
-	True,	 	/* newblank */
-	False,	 	/* minimizeclr */
-	True,		/* scrolllast */
-	False,		/* shiftrows */
+	ElvTrue,	 	/* exonly */
+	ElvTrue,	 	/* newblank */
+	ElvFalse,	 	/* minimizeclr */
+	ElvTrue,		/* scrolllast */
+	ElvFalse,		/* shiftrows */
 	0,		/* movecost */
 	0,		/* opts */
 	NULL,		/* optdescs */
@@ -384,13 +401,16 @@ GUI guiscript =
 	NULL,		/* clipwrite */
 	NULL,		/* clipread */
 	NULL,		/* clipclose */
-	NULL,		/* color */
+	coloransi,	/* color */
+	NULL,		/* colorfree */
+	NULL,		/* setbg */
 	NULL,	 	/* guicmd */
 	NULL,		/* tabcmd */
 	NULL,		/* save */
 	NULL,		/* wildcard */
 	NULL,		/* prgopen */
-	NULL		/* prgclose */
+	NULL,		/* prgclose */
+	NULL		/* stop */
 };
 
 
@@ -400,11 +420,11 @@ GUI guiquit =
 {
 	"quit",		/* name */
 	"Quits immediately after processing \"-c cmd\"",
-	True,	 	/* exonly */
-	True,	 	/* newblank */
-	False,	 	/* minimizeclr */
-	True,		/* scrolllast */
-	False,		/* shiftrows */
+	ElvTrue,	 	/* exonly */
+	ElvTrue,	 	/* newblank */
+	ElvFalse,	 	/* minimizeclr */
+	ElvTrue,		/* scrolllast */
+	ElvFalse,		/* shiftrows */
 	3,		/* movecost */
 	0,		/* opts */
 	NULL,		/* optdescs */
@@ -435,12 +455,15 @@ GUI guiquit =
 	NULL,		/* clipwrite */
 	NULL,		/* clipread */
 	NULL,		/* clipclose */
-	NULL,		/* color */
+	coloransi,	/* color */
+	NULL,		/* colorfree */
+	NULL,		/* setbg */
 	NULL,	 	/* guicmd */
 	NULL,		/* tabcmd */
 	NULL,		/* save */
 	NULL,		/* wildcard */
 	NULL,		/* prgopen */
-	NULL		/* prgclose */
+	NULL,		/* prgclose */
+	NULL		/* stop */
 };
 #endif

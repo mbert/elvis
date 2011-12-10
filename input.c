@@ -1,9 +1,11 @@
 /* input.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_input[] = "$Id: input.c,v 2.65 1999/10/05 19:13:34 steve Exp $";
 
 #include "elvis.h"
+#ifdef FEATURE_RCSID
+char id_input[] = "$Id: input.c,v 2.83 2003/10/18 04:47:18 steve Exp $";
+#endif
 
 /* These data types are used to store the parsing state for input mode
  * commands.  This is very simple, since most commands are only one keystroke
@@ -29,12 +31,15 @@ typedef enum {
 	INP_EXPOSE,	/* ^R/^L - redraw the screen */
 	INP_PREVIOUS,	/* ^@ - insert a copy of previous text, then exit */
 	INP_AGAIN,	/* ^A - insert a copy of previous text, continue */
-	INP_PUT		/* ^P - insert a copy of anonymous cut buffer */
+	INP_PUT,	/* ^P - insert a copy of anonymous cut buffer */
+	INP_KEEP	/* ^Z - move rightward keeping chars -- undo a BS */
 } INPCMD;
 typedef struct
 {
-	BOOLEAN	setbottom;	/* Set bottom = cursor before drawing cursor? */
-	BOOLEAN	replacing;	/* True if we're in "replace" mode */
+	ELVBOOL	setbottom;	/* Set bottom = cursor before drawing cursor? */
+	ELVBOOL	replacing;	/* ElvTrue if we're in "replace" mode */
+	ELVBOOL	willdo;		/* ElvTrue if we're starting another change */
+	ELVBOOL hexlock;	/* ElvTrue if we're in hex lock mode */
 	INPCMD	cmd;		/* the command to perform */
 	CHAR	arg;		/* argument -- usually a key to insert */
 	CHAR	backsp;		/* char backspaced over, or '\0' */
@@ -43,9 +48,9 @@ typedef struct
 
 
 #if USE_PROTOTYPES
-static void cleanup(WINDOW win, BOOLEAN del, BOOLEAN backsp, BOOLEAN yank);
+static void cleanup(WINDOW win, ELVBOOL del, ELVBOOL backsp, ELVBOOL yank);
 static void addchar(MARK cursor, MARK top, MARK bottom, INPUTINFO *info);
-static BOOLEAN tryabbr(WINDOW win, _CHAR_ nextc);
+static ELVBOOL tryabbr(WINDOW win, _CHAR_ nextc);
 static RESULT perform(WINDOW win);
 static RESULT parse(_CHAR_ key, void *info);
 static ELVCURSOR shape(WINDOW win);
@@ -55,14 +60,14 @@ static ELVCURSOR shape(WINDOW win);
 /* This function deletes everything between "cursor" and "bottom" of the
  * current state.  This is used, for example, when the user hits <Esc>
  * after using "cw" to change a long word into a short one.  It should be
- * called for the INP_ONEVI command with backsp=False, and before INP_MULTIVI
- * backup=True.
+ * called for the INP_ONEVI command with backsp=ElvFalse, and before INP_MULTIVI
+ * backup=ElvTrue.
  */
 static void cleanup(win, del, backsp, yank)
 	WINDOW	win;	/* window where input took place */
-	BOOLEAN	del;	/* if True, delete text after the cursor */
-	BOOLEAN	backsp;	/* if True, move to the left */
-	BOOLEAN	yank;	/* if True, yank input text into ". buffer */
+	ELVBOOL	del;	/* if ElvTrue, delete text after the cursor */
+	ELVBOOL	backsp;	/* if ElvTrue, move to the left */
+	ELVBOOL	yank;	/* if ElvTrue, yank input text into ". buffer */
 {
 	/* delete the excess in the edited region */
 	if (del && markoffset(win->state->cursor) < markoffset(win->state->bottom)
@@ -81,7 +86,7 @@ static void cleanup(win, del, backsp, yank)
 	/* save the newly input text in the "previous input" buffer */
 	if (yank)
 	{
-		cutyank('.', win->state->top, win->state->bottom, 'c', False);
+		cutyank('.', win->state->top, win->state->bottom, 'c', 'y');
 	}
 
 	/* move the cursor back one character, unless it is already at the
@@ -143,9 +148,9 @@ static void addchar(cursor, top, bottom, info)
 /* This function attempts to expand an abbreviation at the cursor location,
  * if there is one.  If so, it deletes the short form, and pushes the long
  * form and following character back onto the type-ahead buffer.  Else it
- * returns False.
+ * returns ElvFalse.
  */
-static BOOLEAN tryabbr(win, nextc)
+static ELVBOOL tryabbr(win, nextc)
 	WINDOW	win;	/* window where abbreviation may need expanding */
 	_CHAR_	nextc;	/* character after the word */
 {
@@ -158,7 +163,7 @@ static BOOLEAN tryabbr(win, nextc)
 #if 0 /* this would prevent abbrs from being expanded on command lines */
 	if((win->state->flags & (ELVIS_POP|ELVIS_ONCE|ELVIS_1LINE)) ==
 		 (ELVIS_POP|ELVIS_ONCE|ELVIS_1LINE)) { /* nishi */
-	    return False;
+	    return ElvFalse;
 	}
 #endif
 
@@ -171,7 +176,7 @@ static BOOLEAN tryabbr(win, nextc)
 	 * easier.
 	 */
 	for (scanalloc(&cp, win->state->cursor), build = NULL;
-	     cp && scanprev(&cp) && !isspace(*cp);
+	     cp && scanprev(&cp) && !elvspace(*cp);
 	     )
 	{
 		buildCHAR(&build, *cp);
@@ -179,7 +184,7 @@ static BOOLEAN tryabbr(win, nextc)
 	scanfree(&cp);
 	if (build)
 	{
-		cp = mapabbr(build, &slen, &llen, (BOOLEAN)(win->state->acton != NULL));
+		cp = mapabbr(build, &slen, &llen, (ELVBOOL)(win->state->acton != NULL));
 		if (cp)
 		{
 			/* yes, we have an abbreviation! */
@@ -194,7 +199,7 @@ static BOOLEAN tryabbr(win, nextc)
 			/* replace the short form with the plain text part of
 			 * the long form.
 			 */
-			cleanup(win, True, False, False);
+			cleanup(win, ElvTrue, ElvFalse, ElvFalse);
 			(void)marktmp(from, markbuffer(win->state->cursor), markoffset(win->state->cursor) - slen);
 			(void)marktmp(to, markbuffer(win->state->cursor), markoffset(win->state->cursor));
 			bufreplace(&from, &to, cp, tlen);
@@ -214,8 +219,8 @@ static BOOLEAN tryabbr(win, nextc)
 					/* stuff the long form, and the user's
 					 * non-alnum character, into the queue
 					 */
-					mapunget(cbuf, 1, False);
-					mapunget(cp, (int)llen, False);
+					mapunget(cbuf, 1, ElvFalse);
+					mapunget(cp, (int)llen, ElvFalse);
 				}
 				else
 				{
@@ -231,11 +236,11 @@ static BOOLEAN tryabbr(win, nextc)
 			marksetoffset(win->state->bottom, markoffset(&from));
 			marksetoffset(win->state->cursor, markoffset(&from));
 			safefree(build);
-			return True;
+			return ElvTrue;
 		}
 		safefree(build);
 	}
-	return False;
+	return ElvFalse;
 }
 
 
@@ -254,9 +259,12 @@ static RESULT perform(win)
 	EXINFO	  xinfb;
 	VIINFO	  vinfb;
 	long	  col, len;
-	BOOLEAN	  oldcb;
+	ELVBOOL	  oldcb;
 #ifdef FEATURE_COMPLETE
+#ifdef FEATURE_TAGS
 	CHAR	  *end;
+#endif
+	ELVBOOL	  usetab;
 	union
 	{
 		char	  partial[256];
@@ -268,6 +276,9 @@ static RESULT perform(win)
 	safeinspect();
 
 	/* initially assume there is no matching parenthesis */
+#ifdef FEATURE_TEXTOBJ
+	win->matchend =
+#endif
 	win->match = -4;
 
 	/* if cursor has been moved outside the top & bottom, then reset
@@ -317,7 +328,7 @@ static RESULT perform(win)
 		 * we're editing some other buffer such as regexp history.
 		 * Assume only the ex history buffer has inputtab=ex.)
 		 */
-		if (!isalnum(ii->arg)
+		if (!elvalnum(ii->arg)
 		 && ii->arg != '_'
 		 && (state->acton == NULL || o_inputtab(markbuffer(cursor)) == 'e'))
 		{
@@ -335,7 +346,7 @@ static RESULT perform(win)
 		addchar(cursor, state->top, state->bottom, ii);
 
 		/* if it wasn't whitespace, then maybe do wordwrap */
-		if (!isspace(ii->arg)
+		if (!elvspace(ii->arg)
 		 && cursor == win->cursor
 		 && win->md->wordwrap
 		 && o_textwidth(markbuffer(cursor)) > 0
@@ -343,7 +354,7 @@ static RESULT perform(win)
 		{
 			/* Figure out where the current word started */
 			for (scanalloc(&cp, cursor);
-			     cp && scanprev(&cp) && !isspace(*cp);
+			     cp && scanprev(&cp) && !elvspace(*cp);
 			     )
 			{
 			}
@@ -364,7 +375,7 @@ static RESULT perform(win)
 
 			/* scan backward over any whitespace */
 			for (len = markoffset(&to) - markoffset(tmp);
-			     len > 0 && scanprev(&cp) && isspace(*cp);
+			     len > 0 && scanprev(&cp) && elvspace(*cp);
 			     len--)
 			{
 			}
@@ -393,28 +404,95 @@ static RESULT perform(win)
 		/* remember digraph hints */
 		ii->backsp = '\0';
 		ii->prev = ii->arg;
-		
-		/* If the character was a parenthesis, and the showmatch
-		 * option is set, then try to locate its match.
-		 */
-		if (o_showmatch(win) && CHARchr(toCHAR(")}]"), ii->arg))
+
+		/* maybe delete old text */
+		if (calcelement(o_cleantext, toCHAR("input")))
+			cleanup(win, ElvTrue, ElvFalse, ElvFalse);
+
+#ifdef DISPLAY_SYNTAX
+# ifdef FEATURE_SMARTARGS
+		/* Give smartargs a chance */
+		dmssmartargs(win);
+# endif
+#endif
+
+		/* are we supposed to highlight matching chars? */
+		if (o_showmatch(win) && !win->state->acton)
 		{
-			from = *cursor;
-			assert(markoffset(cursor) > 0);
-			markaddoffset(cursor, -1);
-			memset((char *)&vinfb, 0, sizeof vinfb);
-			vinfb.command = '%';
-			if (m_absolute(win, &vinfb) == RESULT_COMPLETE)
+#ifdef FEATURE_TEXTOBJ
+			/* before doing the usual match, maybe we should make
+			 * a special effort for XML tag pairs.
+			 */
+			if (ii->arg == '>' && o_matchchar
+			 && (CHARchr(o_matchchar, 'x') || CHARchr(o_matchchar, 'X')))
 			{
-				win->match = markoffset(cursor);
+				MARKBUF	start, end;
+
+				/* look for a tag pair ending at the cursor */
+				from = *cursor;
+				assert(markoffset(cursor) > 0);
+				markaddoffset(cursor, -1);
+				memset((char *)&vinfb, 0, sizeof vinfb);
+				vinfb.command = 'a';
+				vinfb.key2 = CHARchr(o_matchchar, 'x') ? 'x' : 'X';
+				if (vitextobj(win, &vinfb, &start, &end) == RESULT_COMPLETE
+				 && markoffset(&end) == markoffset(&from))
+				{
+					/* the match starts at <tag> */
+					win->match = markoffset(&start);
+					win->matchend = win->match;
+
+					/* scan for the end of the <tag> */
+					scanalloc(&cp, &start);
+					while (cp && *cp != '>')
+						scannext(&cp);
+					if (cp)
+					{
+						win->matchend = markoffset(scanmark(&cp));
+
+						/* if followed by \n, include that */
+						scannext(&cp);
+						while (cp && (*cp == ' ' || *cp == '\t'))
+							scannext(&cp);
+						if (cp && *cp == '\n')
+							win->matchend = markoffset(scanmark(&cp));
+					}
+					scanfree(&cp);
+
+					/* match really ends after that char */
+					win->matchend++;
+				}
+				assert(markbuffer(cursor) == markbuffer(&from));
+				*cursor = from;
 			}
-			assert(markbuffer(cursor) == markbuffer(&from));
-			*cursor = from;
+			else
+#endif /* FEATURE_TEXTOBJ */
+
+			/* If the character was a parenthesis then try to
+			 * locate its match. [{(
+			 */
+			if (CHARchr(toCHAR(")}]"), ii->arg))
+			{
+				from = *cursor;
+				assert(markoffset(cursor) > 0);
+				markaddoffset(cursor, -1);
+				memset((char *)&vinfb, 0, sizeof vinfb);
+				vinfb.command = '%';
+				if (m_absolute(win, &vinfb) == RESULT_COMPLETE)
+				{
+					win->match = markoffset(cursor);
+#ifdef FEATURE_TEXTOBJ
+					win->matchend = win->match + 1;
+#endif
+				}
+				assert(markbuffer(cursor) == markbuffer(&from));
+				*cursor = from;
+			}
 		}
 		break;
 
 	  case INP_NEWLINE:
-		cleanup(win, True, False, False);
+		cleanup(win, ElvTrue, ElvFalse, ElvFalse);
 		if (!tryabbr(win, '\n'))
 		{
 			ii->arg = '\n';
@@ -448,10 +526,12 @@ static RESULT perform(win)
 				do
 				{
 					addchar(cursor, state->top, state->bottom, ii);
-				} while ((++col) % o_tabstop(markbuffer(cursor)) != 0);
+					col++;
+				} while (!opt_istab(o_tabstop(markbuffer(cursor)), col));
 				break;
 #ifdef FEATURE_COMPLETE
 			  case 'i':
+#ifdef FEATURE_TAGS
 				/* try to find a matching tag name */
 				cp = tagcomplete(win, cursor);
 
@@ -468,6 +548,9 @@ static RESULT perform(win)
 				end = CHARchr(cp, ' ');
 				if (end)
 					*end = '\0';
+#else
+				cp = toCHAR("\t");
+#endif
 
 				/* Now... if we have anything to add, add it */
 				if (*cp)
@@ -527,6 +610,7 @@ static RESULT perform(win)
 				}
 
 				/* collect the partial name into char array */
+				usetab = (ELVBOOL)!calcelement(o_filenamerules, toCHAR("space"));
 				littlecp = &name.partial[QTY(name.partial)];
 				*--littlecp = '\0';
 				ch = scanchar(tmp);
@@ -534,7 +618,8 @@ static RESULT perform(win)
 				peek = scanchar(tmp);
 				while (markoffset(tmp) > markoffset(state->top)
 					&& ch != '\n' && ch && ch != '\t' &&
-					(!(ch == ' ' || ch == '<' || ch == '>' || ch == '(' || ch == ')')
+					(ch != ' ' || usetab || peek == '\\') &&
+					(!(ch == '<' || ch == '>' || ch == '(' || ch == ')')
 						|| peek == '\\'))
 				{
 					*--littlecp = ch;
@@ -564,13 +649,23 @@ static RESULT perform(win)
 				     *littlecp != '\0';
 				     littlecp++, col++)
 				{
-					if (strchr(" <>#%", *littlecp) != NULL
-					 || (littlecp[0] == '\\' && !isalnum(littlecp[1]) && littlecp[1] != '\0'))
-						*cp++ = '\\', col++;
-					if (*littlecp == '\t')
-						*cp++ = ' ';
-					else
+					if (usetab)
+					{
+						if (strchr("<>#%", *littlecp) != NULL
+						 || (littlecp[0] == '\\' && !elvalnum(littlecp[1]) && littlecp[1] != '\0'))
+							*cp++ = '\\', col++;
 						*cp++ = *littlecp;
+					}
+					else
+					{
+						if (strchr(" <>#%", *littlecp) != NULL
+						 || (littlecp[0] == '\\' && !elvalnum(littlecp[1]) && littlecp[1] != '\0'))
+							*cp++ = '\\', col++;
+						if (*littlecp == '\t')
+							*cp++ = ' ';
+						else
+							*cp++ = *littlecp;
+					}
 				}
 				*cp = '\0';
 				bufreplace(tmp, win->state->bottom, name.full, col);
@@ -585,15 +680,15 @@ static RESULT perform(win)
 		break;
 
 	  case INP_ONEVI:
-		cleanup(win, True, False, True);
+		cleanup(win, ElvTrue, ElvFalse, ElvTrue);
 		vipush(win, ELVIS_ONCE, NULL);
 		ii->backsp = ii->prev = '\0';
-		ii->setbottom = True;
+		ii->setbottom = ii->willdo = ElvTrue;
 		break;
 
 	  case INP_MULTIVI:
 		(void)tryabbr(win, '\0');
-		cleanup(win, True, True, True);
+		cleanup(win, ElvTrue, ElvTrue, ElvTrue);
 		win->state->flags |= ELVIS_POP;
 		ii->backsp = ii->prev = '\0';
 
@@ -629,12 +724,16 @@ static RESULT perform(win)
 			/* backspace within the newly typed text */
 			markaddoffset(cursor, -1);
 			ii->backsp = ii->prev;
+
+			/* maybe clean up */
+			if (calcelement(o_cleantext, win->state->acton ? toCHAR("ex") : toCHAR("bs")))
+				cleanup(win, ElvTrue, ElvFalse, ElvFalse);
 		}
 		else if (win->state->acton != NULL
 			&& (win->state->flags & ELVIS_1LINE) != 0)
 		{
 			/* backspace out of an ex command line or regexp line */
-			cleanup(win, True, True, True);
+			cleanup(win, ElvTrue, ElvTrue, ElvTrue);
 			win->state->flags |= ELVIS_POP;
 			win->state->pop->flags &= ~(ELVIS_MORE | ELVIS_ONCE);
 			if (win->state->pop->perform == _viperform)
@@ -660,7 +759,7 @@ static RESULT perform(win)
 
 			/* if on whitespace, then back up to non-whitespace */
 			while (markoffset(win->state->top) < markoffset(win->state->cursor)
-			    && isspace(*cp))
+			    && elvspace(*cp))
 			{
 				markaddoffset(cursor, -1);
 				scanprev(&cp);
@@ -668,18 +767,22 @@ static RESULT perform(win)
 
 			/* back up to whitespace */
 			while (markoffset(win->state->top) < markoffset(win->state->cursor)
-			    && !isspace(*cp))
+			    && !elvspace(*cp))
 			{
 				markaddoffset(cursor, -1);
 				scanprev(&cp);
 			}
 
 			/* if we hit whitespace, then leave cursor after it */
-			if (isspace(*cp))
+			if (elvspace(*cp))
 			{
 				markaddoffset(cursor, 1);
 			}
 			scanfree(&cp);
+
+			/* maybe clean up */
+			if (calcelement(o_cleantext, win->state->acton ? toCHAR("ex") : toCHAR("bs")))
+				cleanup(win, ElvTrue, ElvFalse, ElvFalse);
 		}
 		else
 		{
@@ -692,10 +795,10 @@ static RESULT perform(win)
 		/* find the start of this line, or if the cursor is already
 		 * there, then the start of the preceding line.
 		 */
-		tmp = (*win->md->move)(win, cursor, 0, 0, False);
+		tmp = (*win->md->move)(win, cursor, 0, 0, ElvFalse);
 		if (markoffset(tmp) == markoffset(cursor))
 		{
-			tmp = (*win->md->move)(win, cursor, -1, 0, False);
+			tmp = (*win->md->move)(win, cursor, -1, 0, ElvFalse);
 		}
 
 		/* move to either the start of the line or the top of the
@@ -704,10 +807,18 @@ static RESULT perform(win)
 		if (markoffset(tmp) > markoffset(win->state->top))
 		{
 			marksetoffset(cursor, markoffset(tmp));
+
+			/* maybe clean up */
+			if (calcelement(o_cleantext, win->state->acton ? toCHAR("ex") : toCHAR("bs")))
+				cleanup(win, ElvTrue, ElvFalse, ElvFalse);
 		}
 		else if (markoffset(state->top) < markoffset(cursor))
 		{
 			marksetoffset(cursor, markoffset(state->top));
+
+			/* maybe clean up */
+			if (calcelement(o_cleantext, win->state->acton ? toCHAR("ex") : toCHAR("bs")))
+				cleanup(win, ElvTrue, ElvFalse, ElvFalse);
 		}
 		else
 		{
@@ -718,21 +829,32 @@ static RESULT perform(win)
 
 	  case INP_SHIFTL:
 	  case INP_SHIFTR:
-		/* build a :< or :> ex command */
+		/* delete any text which has been backspaced -- if it happened
+		 * to be whitespace then it could confuse the shift commands.
+		 */
+		cleanup(win, ElvTrue, ElvFalse, ElvFalse);
+
+		/* remember the cursor position, relative to end of buffer */
+		len = o_bufchars(markbuffer(cursor)) - markoffset(cursor);
+		assert(len >= 0);
+
+		/* build a :<! or :>! ex command */
 		memset((char *)&xinfb, 0, sizeof xinfb);
 		xinfb.defaddr = *cursor;
 		xinfb.from = xinfb.to = markline(cursor);
-		xinfb.fromaddr = marktmp(from, markbuffer(cursor), lowline(bufbufinfo(markbuffer(cursor)), xinfb.from));
-		xinfb.toaddr = marktmp(to, markbuffer(cursor), lowline(bufbufinfo(markbuffer(cursor)), xinfb.to + 1));;
+		xinfb.fromaddr = marktmp(from, markbuffer(cursor),
+			lowline(bufbufinfo(markbuffer(cursor)), xinfb.from));
+		xinfb.toaddr = marktmp(to, markbuffer(cursor),
+			lowline(bufbufinfo(markbuffer(cursor)), xinfb.to + 1));
 		xinfb.command = (ii->cmd == INP_SHIFTL) ? EX_SHIFTL : EX_SHIFTR;
 		xinfb.multi = 1;
-		xinfb.bang = True;
+		xinfb.bang = ElvTrue;
 
 		/* execute the command */
-		len = o_bufchars(markbuffer(cursor)) - markoffset(cursor);
-		assert(len >= 0);
 		(void)ex_shift(&xinfb);
 		ii->backsp = ii->prev = '\0';
+
+		/* restore the cursor position, relative to end of buffer */
 		assert(o_bufchars(markbuffer(cursor)) >= len);
 		marksetoffset(cursor, o_bufchars(markbuffer(cursor)) - len);
 		break;
@@ -744,12 +866,12 @@ static RESULT perform(win)
 	  case INP_PREVIOUS:
 	  case INP_AGAIN:
 	  case INP_PUT:
-		cleanup(win, True, False, False);
+		cleanup(win, ElvTrue, ElvFalse, ElvFalse);
 
 		/* Copy the text.  Be careful not to change the "top" mark. */
 		from = *state->top;
 		tmp = cutput((ii->cmd == INP_PUT ? '1' : '.'),
-					win, cursor, False, True, True);
+					win, cursor, ElvFalse, ElvTrue, ElvTrue);
 		marksetoffset(state->top, markoffset(&from));
 
 		/* if successful, tweak the "cursor" and "bottom" marks. */
@@ -759,20 +881,26 @@ static RESULT perform(win)
 			marksetoffset(state->bottom, markoffset(cursor));
 			if (ii->cmd == INP_PREVIOUS)
 			{
-				cleanup(win, True, True, True);
+				cleanup(win, ElvTrue, ElvTrue, ElvTrue);
 				state->flags |= ELVIS_POP;
 			}
 		}
 		ii->backsp = ii->prev = '\0';
 		break;
 
+	  case INP_KEEP:
+		if (markoffset(cursor) < markoffset(state->bottom))
+			markaddoffset(cursor, 1L);
+		else
+			guibeep(win);
+		break;
 	}
 
 	/* set wantcol to the cursor's current column */
 	win->wantcol = dispmark2col(win);
 
 	/* prepare for next command */
-	ii->cmd = INP_NORMAL;
+	ii->cmd = ii->hexlock ? INP_HEX1 : INP_NORMAL;
 
 	return RESULT_COMPLETE;
 }
@@ -793,8 +921,12 @@ static RESULT parse(key, info)
 	{
 		marksetoffset(windefault->state->bottom,
 			markoffset(windefault->state->cursor));
-		ii->setbottom = False;
+		ii->setbottom = ElvFalse;
 	}
+
+	/* maybe start a new "undo" level for the next input key */
+	if (ii->willdo)
+		bufwilldo(windefault->state->cursor, ElvTrue);
 
 	/* parse the input command */
 	if (ii->cmd == INP_HEX1 || ii->cmd == INP_HEX2)
@@ -811,6 +943,37 @@ static RESULT parse(key, info)
 		else if (key >= 'A' && key <= 'F')
 		{
 			key -= 'A' - 10;
+		}
+		else if (key == ELVCTRL('X'))
+		{
+			/* toggle hexlock */
+			if (ii->hexlock)
+			{
+				ii->hexlock = ElvFalse;
+				ii->cmd = INP_NORMAL;
+			}
+			else
+			{
+				ii->hexlock = ElvTrue;
+				ii->cmd = INP_HEX1;
+			}
+			return RESULT_MORE;
+		}
+		else if (key == '\b')
+		{
+			/* backspace, but don't alter hexlock */
+		  	ii->arg = key;
+		  	ii->cmd = INP_BACKSPACE;
+			return RESULT_COMPLETE;
+		}
+		else if (ii->hexlock)
+		{
+			/* any other non-hex character terminates hexlock,
+			 * and then gets processed normally.
+			 */
+			ii->hexlock = ElvFalse;
+			ii->cmd = INP_NORMAL;
+			return parse(key, info);
 		}
 		else
 		{
@@ -875,6 +1038,7 @@ static RESULT parse(key, info)
 		  case ELVCTRL('V'):	ii->cmd = INP_QUOTE, sym = '^';	break;
 		  case ELVCTRL('W'):	ii->cmd = INP_BACKWORD;		break;
 		  case ELVCTRL('X'):	ii->cmd = INP_HEX1, sym = '$';	break;
+		  case ELVCTRL('Z'):	ii->cmd = INP_KEEP;		break;
 		  case ELVCTRL('['):	ii->cmd = INP_MULTIVI;		break;
 		  default:		ii->cmd = INP_NORMAL;
 		}
@@ -910,10 +1074,9 @@ static ELVCURSOR shape(win)
 	/* if in the middle of ^V, then always CURSOR_QUOTE */
 	if (info->cmd == INP_QUOTE)
 	{
-		state->mapflags &= ~(MAP_INPUT|MAP_COMMAND);
+		state->mapflags |= MAP_DISABLE;
 		return CURSOR_QUOTE;
 	}
-	state->mapflags |= MAP_INPUT;
 
 	/* decide whether to insert or replace */
 	if (markoffset(state->top) <= markoffset(cursor)
@@ -922,7 +1085,8 @@ static ELVCURSOR shape(win)
 		if (info->setbottom)
 		{
 			marksetoffset(state->bottom, markoffset(cursor));
-			info->setbottom = False;
+			info->setbottom = ElvFalse;
+			bufwilldo(cursor, ElvTrue);
 			return CURSOR_INSERT;
 		}
 		return CURSOR_REPLACE;
@@ -931,11 +1095,11 @@ static ELVCURSOR shape(win)
 	{
 		if (scanchar(cursor) != '\n')
 		{
-			info->setbottom = False;
+			info->setbottom = ElvFalse;
 			return CURSOR_REPLACE;
 		}
 	}
-	info->setbottom = False;
+	info->setbottom = ElvFalse;
 	return CURSOR_INSERT;
 }
 
@@ -964,12 +1128,12 @@ void inputpush(win, flags, mode)
 	win->state->mapflags |= MAP_INPUT;
 	if (mode == 'R')
 	{
-		((INPUTINFO *)win->state->info)->replacing = True;
+		((INPUTINFO *)win->state->info)->replacing = ElvTrue;
 		win->state->modename = "Replace";
 	}
 	else
 	{
-		((INPUTINFO *)win->state->info)->replacing = False;
+		((INPUTINFO *)win->state->info)->replacing = ElvFalse;
 		win->state->modename = " Input ";
 	}
 }
@@ -996,15 +1160,15 @@ void inputtoggle(win, mode)
 	switch (mode)
 	{
 	  case 't':
-		((INPUTINFO *)state->info)->replacing = (BOOLEAN)!((INPUTINFO *)state->info)->replacing;
+		((INPUTINFO *)state->info)->replacing = (ELVBOOL)!((INPUTINFO *)state->info)->replacing;
 		break;
 
 	  case 'R':
-		((INPUTINFO *)state->info)->replacing = True;
+		((INPUTINFO *)state->info)->replacing = ElvTrue;
 		break;
 
 	  default:
-		((INPUTINFO *)state->info)->replacing = False;
+		((INPUTINFO *)state->info)->replacing = ElvFalse;
 	}
 
 	if (((INPUTINFO *)state->info)->replacing)
@@ -1025,11 +1189,11 @@ void inputchange(win, from, to, linemd)
 	WINDOW	win;	/* window to be affected */
 	MARK	from;	/* new start of edit bounds */
 	MARK	to;	/* new end of edit bounds */
-	BOOLEAN	linemd;	/* replace old text with a new line? */
+	ELVBOOL	linemd;	/* replace old text with a new line? */
 {
 	MARKBUF	tmp;
 	CHAR	ch;
-	BOOLEAN	ctrl_o = False;	/* JohnW 19/06/96 */
+	ELVBOOL	ctrl_o = ElvFalse;	/* JohnW 19/06/96 */
 
 	assert(markbuffer(from) == markbuffer(win->state->cursor));
 	assert(markbuffer(from) == markbuffer(to));
@@ -1044,7 +1208,7 @@ void inputchange(win, from, to, linemd)
 	}
 	else
 	{
-		ctrl_o = True;
+		ctrl_o = ElvTrue;
 	}
 
 	/* replace the last char with '$', if there is a last char
@@ -1056,7 +1220,7 @@ void inputchange(win, from, to, linemd)
 		/* do nothing */
 	}
 	else if (ctrl_o || /* JohnW 19/06/96 */
-		markoffset(to) > markoffset(dispmove(win, 0, INFINITY)))
+		calcelement(o_cleantext, markoffset(to) > markoffset(dispmove(win, 0, INFINITY)) ? toCHAR("long") : toCHAR("short")))
 	{
 		/* delete the old text */
 		if (linemd)
@@ -1109,14 +1273,14 @@ void inputbeforeenter(win)
 	}
 
 	/* Delete stuff from after the cursor */
-	cleanup(win, True, False, False);
+	cleanup(win, ElvTrue, ElvFalse, ElvFalse);
 
 	/* Attempt to expand an abbreviation at the end of the line */
 	(void)tryabbr(win, '\0');
 
 	/* adjust the endpoints of the edited area to be whole lines */
 	marksetoffset(win->state->top,
-		markoffset((*dmnormal.move)(win, win->state->top, 0, 0, False)));
+		markoffset((*dmnormal.move)(win, win->state->top, 0, 0, ElvFalse)));
 	marksetoffset(win->state->bottom,
-		markoffset((*dmnormal.move)(win, win->state->bottom, 0, INFINITY, False)));
+		markoffset((*dmnormal.move)(win, win->state->bottom, 0, INFINITY, ElvFalse)));
 }

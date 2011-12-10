@@ -21,6 +21,9 @@
 
 
 #include "elvis.h"
+#ifdef FEATURE_RCSID
+char id_tinytcap[] = "$Id: tinytcap.c,v 2.26 2001/10/23 01:37:09 steve Exp $";
+#endif
 #ifdef NEED_TGETENT
 # include <stdlib.h>
 # include <stdio.h>	/* for 'sprintf()' */
@@ -140,7 +143,7 @@ static char *termcap[] =
 :s1=#T:s2=#U:s3=#V:s4=#W:s5=#X:s6=#Y:s7=#Z:s8=#[:s9=#\\:s0=#]:\
 :c1=#^:c2=#_:c3=#`:c4=#a:c5=#b:c6=#c:c7=#d:c8=#e:c9=#f:c0=#g:\
 :a1=#h:a2=#i:a3=#j:a4=#k:a5=#l:a6=#m:a7=#n:a8=#o:a9=#p:a0=#q:\
-:kd=#P:kh=#G:kH=#O:kI=#R:kD=#S:kl=#K:kN=#Q:kP=#I:kr=#M:ku=#H:k+=#):\
+:kd=#P:kh=#G:kH=#O:kI=#R:kD=#S:kl=#K:kN=#Q:kP=#I:kr=#M:ku=#H:k+=#):kB=#\011\
 :li#25:md=\033[1m:me=\033[m:nd=\033[C:se=\033[m:so=\033[7m:\
 :ti=\033[?1h:te=\033[?1l:\
 :ue=\033[m:up=\033[A:us=\033[4m:\

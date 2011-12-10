@@ -2,9 +2,11 @@
 
 /* Copyright 1997 by Steve Kirkendall */
 
-char id_xmisc[] = "$Id: xmisc.c,v 2.9 1997/11/12 02:10:36 steve Exp $";
 
 #include "elvis.h"
+#ifdef FEATURE_RCSID
+char id_xmisc[] = "$Id: xmisc.c,v 2.24 2003/10/17 17:41:23 steve Exp $";
+#endif
 #ifdef GUI_X11
 # include "guix11.h"
 
@@ -12,6 +14,23 @@ char id_xmisc[] = "$Id: xmisc.c,v 2.9 1997/11/12 02:10:36 steve Exp $";
 static X_LOADEDFONT	*fonts;		/* list of allocated fonts */
 static X_LOADEDCOLOR	*colors;	/* list of allocated colors */
 
+#ifdef FEATURE_XFT
+XftColor *x_xftpixel(pixel)
+	long	pixel;
+{
+	static X_LOADEDCOLOR *cp;
+
+	/* same as last time? */
+	if (cp && cp->pixel == (unsigned long)pixel)
+		return &cp->xftcolor;
+
+	/* scan for the pixel */
+	for (cp = colors; cp->pixel != (unsigned long)pixel; cp = cp->next);
+	{
+	}
+	return &cp->xftcolor;
+}
+#endif
 
 /* This function loads a font if it isn't already loaded. */
 X_LOADEDFONT *x_loadfont(name)
@@ -19,6 +38,7 @@ X_LOADEDFONT *x_loadfont(name)
 {
 	X_LOADEDFONT *font;
 	XFontStruct *info;
+	char	longname[100], *delim;
 
 	/* see if it is already loaded */
 	for (font = fonts; font && strcmp(name, font->name); font = font->next)
@@ -32,8 +52,45 @@ X_LOADEDFONT *x_loadfont(name)
 		return font;
 	}
 
-	/* else load the font into a new stucture */
-	info = XLoadQueryFont(x_display, name);
+	/* Okay, we need to load the font.  There are three possibilities
+	 * for the font format: A long X name such as "*-courier-medium-*-18-*"
+	 * an alias such as "10x20", or elvis' shorthand "courier*18" notation.
+	 * The normal XLoadQueryFont() function handles the first two.
+	 */
+	strcpy(longname, name);
+	info = XLoadQueryFont(x_display, longname);
+	if (!info
+	 && (delim = strchr(name, '*')) != NULL
+	 && strchr(delim + 1, '*') == NULL)
+	{
+		if (strchr(delim, 'i'))
+		{
+			sprintf(longname, "-*-%.*s-%s-i-*--%d-*-*-*-*-*-%s",
+				(int)(delim - name), name,
+				strchr(delim, 'b') ? "bold" : "medium",
+				atoi(delim + 1),
+				o_xencoding ? tochar8(o_xencoding) : "*-*");
+			info = XLoadQueryFont(x_display, longname);
+			if (!info)
+			{
+				sprintf(longname, "-*-%.*s-%s-o-*--%d-*-*-*-*-*-%s",
+					(int)(delim - name), name,
+					strchr(delim, 'b') ? "bold" : "medium",
+					atoi(delim + 1),
+					o_xencoding ? tochar8(o_xencoding) : "*-*");
+				info = XLoadQueryFont(x_display, longname);
+			}
+		}
+		else
+		{
+			sprintf(longname, "-*-%.*s-%s-r-*--%d-*-*-*-*-*-%s",
+				(int)(delim - name), name,
+				strchr(delim, 'b') ? "bold" : "medium",
+				atoi(delim + 1),
+				o_xencoding ? tochar8(o_xencoding) : "*-*");
+			info = XLoadQueryFont(x_display, longname);
+		}
+	}
 	if (!info)
 	{
 		msg(MSG_ERROR, "[s]can't load font $1", name);
@@ -42,8 +99,10 @@ X_LOADEDFONT *x_loadfont(name)
 	font = (X_LOADEDFONT *)safekept(1, sizeof(X_LOADEDFONT));
 	font->fontinfo = info;
 	font->name = safekdup(name);
-	font->height = info->descent + info->ascent;
 	font->links = 1;
+#ifdef FEATURE_XFT
+	font->xftfont = XftFontOpenXlfd(x_display, x_screen, longname);
+#endif
 
 	/* link the new structure into the list, and return it */
 	font->next = fonts;
@@ -93,20 +152,27 @@ void x_unloadfont(font)
 	/* free its resources */
 	safefree(font->name);
 	XFreeFont(x_display, font->fontinfo);
+#ifdef FEATURE_XFT
+	if (font->xftfont)
+		XftFontClose(x_display, font->xftfont);
+#endif
 	safefree(font);
 }
 
 
 /* This function allocates a color */
-unsigned long x_loadcolor(name, def)
+unsigned long x_loadcolor(name, def, rgb)
 	CHAR		*name;	/* name of color to load */
 	unsigned long	def;	/* default color, if can't load named color */
+	unsigned char	rgb[3];	/* the color's RGB components */
 {
 	XColor		exact, color;
 	X_LOADEDCOLOR	*scan;
 
-	/* if mono, or no name, then just use the default */
-	if (x_mono || !name || !*name)
+	/* if no name, or anything other than "black" or "white" for monochrome
+	 * screens, then just use the default
+	 */
+	if (!name || !*name || (x_mono && CHARcmp(name, toCHAR("black")) && CHARcmp(name, toCHAR("white"))))
 		goto UseDefault;
 
 	/* was this color name used before? */
@@ -114,7 +180,7 @@ unsigned long x_loadcolor(name, def)
 	{
 		if (!CHARcmp(name, scan->name))
 		{
-			scan->links++;
+			memcpy(rgb, scan->rgb, sizeof scan->rgb);
 			return scan->pixel;
 		}
 	}
@@ -131,7 +197,7 @@ unsigned long x_loadcolor(name, def)
 	{
 		if (scan->pixel == color.pixel)
 		{
-			scan->links++;
+			memcpy(rgb, scan->rgb, sizeof scan->rgb);
 			return scan->pixel;
 		}
 	}
@@ -140,7 +206,13 @@ unsigned long x_loadcolor(name, def)
 	scan = safekept(1, sizeof(*scan));
 	scan->name = CHARkdup(name);
 	scan->pixel = color.pixel;
-	scan->links = 1;
+	scan->rgb[0] = (unsigned char)(color.red >> 8);
+	scan->rgb[1] = (unsigned char)(color.green >> 8);
+	scan->rgb[2] = (unsigned char)(color.blue >> 8);
+#ifdef FEATURE_XFT
+	XftColorAllocName(x_display, x_visual, x_colormap, tochar8(name), &scan->xftcolor);
+#endif
+	memcpy(rgb, scan->rgb, sizeof scan->rgb);
 	scan->next = colors;
 	colors = scan;
 	return color.pixel;
@@ -151,7 +223,7 @@ UseDefault:
 	{
 		if (scan->pixel == def)
 		{
-			scan->links++;
+			memcpy(rgb, scan->rgb, sizeof scan->rgb);
 			return def;
 		}
 	}
@@ -160,13 +232,20 @@ UseDefault:
 	scan = safekept(1, sizeof *scan);
 	scan->name = toCHAR(def == x_black ? "black" : "white");
 	scan->pixel = def;
-	scan->links = 1;
+#ifdef FEATURE_XFT
+	XftColorAllocName(x_display, x_visual, x_colormap, tochar8(scan->name), &scan->xftcolor);
+#endif
 	scan->next = colors;
+	memset(scan->rgb, def==x_black ? 0 : 255, sizeof scan->rgb);
+	memcpy(rgb, scan->rgb, sizeof scan->rgb);
 	colors = scan;
 	return def;
 }
 
 
+/* This function frees a color.  The color is guaranteed to be one which
+ * isn't needed anymore.
+ */
 void x_unloadcolor(pixel)
 	unsigned long	pixel;	/* a color to free */
 {
@@ -179,21 +258,25 @@ void x_unloadcolor(pixel)
 	}
 
 	/* find the color */
-	for (lag = NULL, scan = colors; scan->pixel != pixel; lag = scan, scan = scan->next)
+	for (lag = NULL, scan = colors;
+	     scan && scan->pixel != pixel;
+	     lag = scan, scan = scan->next)
 	{
-		assert(scan->next);
 	}
 
-	/* decrement the link counter.  If other windows are using it,
-	 * then leave it.
+	/* if not found, then do nothing.  This can happen when you change the
+	 * cursor color, since its default is neither black nor white.
 	 */
-	if (--scan->links > 0)
+	if (!scan)
 	{
 		return;
 	}
 
 	/* free it */
 	XFreeColors(x_display, x_colormap, &pixel, 1, 0);
+#ifdef FEATURE_XFT
+	XftColorFree(x_display, x_visual, x_colormap, &scan->xftcolor);
+#endif
 	safefree(scan->name);
 	if (lag)
 		lag->next = scan->next;
@@ -248,7 +331,9 @@ void x_drawbevel(xw, win, x, y, w, h, dir, height)
 	}
 
 	/* set the foreground color to the scrollbar's color */
-	gcv.foreground = (win == xw->sb.win ? xw->sb.fgscroll : xw->tb.face);
+	gcv.foreground = (win == xw->sb.win ? colorinfo[x_scrollcolors].bg :
+			  win == xw->st.win ? colorinfo[x_statuscolors].bg :
+					      colorinfo[x_toolcolors].bg);
 	gcv.fill_style = FillSolid;
 	XChangeGC(x_display, xw->gc, GCForeground|GCFillStyle, &gcv);
 	xw->fg = gcv.foreground;

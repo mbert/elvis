@@ -5,10 +5,9 @@
 */
 
 #define CHAR    Char
-#define BOOLEAN Boolean
 #include "elvis.h" 
 #undef CHAR
-#undef BOOLEAN 
+#undef ELVBOOL 
 
 #if defined (GUI_WIN32)
 
@@ -19,31 +18,33 @@
 
 extern GUI guiquit;
 GUI_WINDOW      gw_def_win;
+#ifdef FEATURE_IMAGE
+HBITMAP		normalimage;
+HBITMAP		idleimage;
+HICON		gwcustomicon;
+#endif
 
-static struct {
-    char            *name;
-    COLORREF        color;
-} color_table[] = {
-        { "black",      RGB (  0,  0,  0) },
-        { "blue",       RGB (  0,  0,128) },
-        { "cyan",       RGB (  0,128,128) },
-        { "green",      RGB (  0,128,  0) },
-        { "red",        RGB (128,  0,  0) },
-        { "magenta",    RGB (128,  0,128) },
-        { "brown",      RGB (128,128,  0) },
-        { "gray",       RGB (128,128,128) },
-        { "darkgray",   RGB ( 64, 64, 64) },
-        { "lightblue",  RGB (  0,  0,255) },
-        { "lightcyan",  RGB (  0,255,255) },
-        { "lightgreen", RGB (  0,255,  0) },
-        { "lightred",   RGB (255,  0,  0) },
-        { "lightgray",  RGB (192,192,192) },
-        { "yellow",     RGB (255,255,  0) },
-        { "white",      RGB (255,255,255) },
-        { "lightmagenta",RGB (255,  0,  255) },
-        { 0,            RGB (  0,  0,  0) },
-        /*  ADB - Add as temp store for bgc */
-        { 0,            RGB (  0,  0,  0) }
+GUI_COLORTBL colortbl[] =
+{
+	/* standard colors, should be available everywhere */
+        { "black",       {  0,  0,  0} },
+        { "blue",        {  0,  0,128} },
+        { "cyan",        {  0,128,128} },
+        { "green",       {  0,128,  0} },
+        { "red",         {128,  0,  0} },
+        { "magenta",     {128,  0,128} },
+        { "brown",       {128,128,  0} },
+        { "gray",        {128,128,128} },
+        { "darkgray",    { 64, 64, 64} },
+        { "lightblue",   {  0,  0,255} },
+        { "lightcyan",   {  0,255,255} },
+        { "lightgreen",  {  0,255,  0} },
+        { "lightred",    {255,  0,  0} },
+        { "lightgray",   {192,192,192} },
+        { "yellow",      {255,255,  0} },
+        { "white",       {255,255,255} },
+        { "lightmagenta",{255,  0,255} },
+	{ NULL }
 };
 
 static char vkeyUp[]     = { '\xFF',      VK_UP      , '\0' };
@@ -62,6 +63,7 @@ static char vkeyCHome[]  = { '\xFF', 'C', VK_HOME    , '\0' };
 static char vkeyCEnd[]   = { '\xFF', 'C', VK_END     , '\0' };
 static char vkeyIns[]    = { '\xFF',      VK_INSERT  , '\0' };
 static char vkeyDel[]    = { '\xFF',      VK_DELETE  , '\0' };
+static char vkeySTab[]   = { '\xFF', 'S', VK_TAB     , '\0' };
 static char vkeyF1[]     = { '\xFF',      VK_F1      , '\0' };
 static char vkeyF2[]     = { '\xFF',      VK_F2      , '\0' };
 static char vkeyF3[]     = { '\xFF',      VK_F3      , '\0' };
@@ -116,18 +118,19 @@ static struct vkey gwkeys[] = {
         { "<Down>",       "j",     MAP_ALL, vkeyDown      },
         { "<Left>",       "h",     MAP_ALL, vkeyLeft      },
         { "<Right>",      "l",     MAP_ALL, vkeyRight     },
-        { "<CLeft>",      "B",     MAP_ALL, vkeyCLeft     },
-        { "<CRight>",     "W",     MAP_ALL, vkeyCRight    },
+        { "<C-Left>",     "B",     MAP_ALL, vkeyCLeft     },
+        { "<C-Right>",    "W",     MAP_ALL, vkeyCRight    },
         { "<PgUp>",       "\x02",  MAP_ALL, vkeyPgUp      },
         { "<PgDn>",       "\x06",  MAP_ALL, vkeyPgDn      },
         { "<Home>",       "^",     MAP_ALL, vkeyHome      },
         { "<End>",        "$",     MAP_ALL, vkeyEnd       },
-        { "<CPgUp>",      "1G",    MAP_ALL, vkeyCPgUp     },
-        { "<CPgDn>",      "G",     MAP_ALL, vkeyCPgDn     },
-        { "<CHome>",      "1G",    MAP_ALL, vkeyCHome     },
-        { "<CEnd>",       "G",     MAP_ALL, vkeyCEnd      },
+        { "<C-PgUp>",     "1G",    MAP_ALL, vkeyCPgUp     },
+        { "<C-PgDn>",     "G",     MAP_ALL, vkeyCPgDn     },
+        { "<C-Home>",     "1G",    MAP_ALL, vkeyCHome     },
+        { "<C-End>",      "G",     MAP_ALL, vkeyCEnd      },
         { "<Insert>",     "i",     MAP_ALL, vkeyIns       },
         { "<Delete>",     "x",     MAP_ALL, vkeyDel       },
+        { "<STab>",       "g\t",   MAP_COMMAND, vkeySTab  },
         { "#1",           0,       MAP_ALL, vkeyF1        },
         { "#2",           0,       MAP_ALL, vkeyF2        },
         { "#3",           0,       MAP_ALL, vkeyF3        },
@@ -185,18 +188,22 @@ static OPTDESC gw_opt_desc[] = {
     { "statusbar",      "stb",  NULL,       NULL, NULL, optstorestb },
     { "menubar",        "mbar", NULL,       NULL, NULL, optstoremnu },
     { "font",           "fnt",  optsstring, optisfont },
-    { "normalstyle",    "nfn",  optsstring, optisstring, "n b i u bi bu iu biu", optstoreattr },
-    { "fixedstyle",     "ffn",  optsstring, optisstring, "n b i u bi bu iu biu", optstoreattr },
-    { "boldstyle",      "bfn",  optsstring, optisstring, "n b i u bi bu iu biu", optstoreattr },
-    { "emphasizedstyle","efn",  optsstring, optisstring, "n b i u bi bu iu biu", optstoreattr },
-    { "italicstyle",    "ifn",  optsstring, optisstring, "n b i u bi bu iu biu", optstoreattr },
-    { "underlinedstyle","ufn",  optsstring, optisstring, "n b i u bi bu iu biu", optstoreattr }
+    { "propfont",       "pfnt", optsstring, optisfont },
+    { "titleformat",	"title",optsstring, optisstring },
+    { "scrollbgimage",	"sbi",	NULL,	    NULL}
 };
+
+static OPTDESC gw_optglob_desc[] = {
+    { "iconimage",	"ii",	optsstring, optisicon }
+};
+static OPTVAL gw_optglob_val[QTY(gw_optglob_desc)];
 
 static HGLOBAL  clip_hGlob = NULL;
 static char     *clip_data = 0;
 static int      clip_len = 0;
 static int      clip_offset = 0;
+
+static int      guidefont;
 
 static void gwretitle (GUIWIN *gw, char *name);
 static void gwscrollbar(GUIWIN *gw, long top, long bottom, long total);
@@ -207,7 +214,6 @@ static void gwscrollbar(GUIWIN *gw, long top, long bottom, long total);
 */
 
 static int gwtest (void)
-                    
 {
     /* always available */
     return 1;
@@ -219,10 +225,9 @@ static int gwtest (void)
 */
 
 static int gwinit (int argc, char *argv[])
-
 {
     register int        i;
-    COLORREF            bgwincolor;
+    long		color;
 
     gw_def_win.nextp = NULL;
 
@@ -234,42 +239,41 @@ static int gwinit (int argc, char *argv[])
                        (unsigned char *)gwkeys[i].cooked, 
                        strlen ((char *)gwkeys[i].cooked),
                        (unsigned char *)gwkeys[i].label, 
-                       gwkeys[i].flags);
+                       gwkeys[i].flags, NULL);
 
     /* set default values for options */
-    optpreset (o_scrollbar (&gw_def_win), True, OPT_REDRAW);
-    optpreset (o_toolbar (&gw_def_win), True, OPT_REDRAW);
-    optpreset (o_statusbar (&gw_def_win), True, OPT_REDRAW);
-    optpreset (o_menubar (&gw_def_win), True, OPT_REDRAW);
-    optpreset (o_font (&gw_def_win), CHARdup (DEFAULT_FONT), OPT_REDRAW);
-    optpreset (o_normalstyle (&gw_def_win), CHARdup( "n"), OPT_REDRAW);
-    optpreset (o_fixedstyle (&gw_def_win), CHARdup ("n"), OPT_REDRAW);
-    optpreset (o_boldstyle (&gw_def_win), CHARdup ("b"), OPT_REDRAW);
-    optpreset (o_emphasizedstyle (&gw_def_win), CHARdup ("b"), OPT_REDRAW);
-    optpreset (o_italicstyle (&gw_def_win), CHARdup ("i"), OPT_REDRAW);
-    optpreset (o_underlinedstyle (&gw_def_win), CHARdup ("u"), OPT_REDRAW);
+    optpreset (o_scrollbar (&gw_def_win), ElvTrue, OPT_REDRAW|OPT_HIDE);
+    optpreset (o_toolbar (&gw_def_win), ElvTrue, OPT_REDRAW|OPT_HIDE);
+    optpreset (o_statusbar (&gw_def_win), ElvTrue, OPT_REDRAW|OPT_HIDE);
+    optpreset (o_menubar (&gw_def_win), ElvTrue, OPT_REDRAW|OPT_HIDE);
+    optpreset (o_font (&gw_def_win), DEFAULT_FONT, OPT_REDRAW|OPT_HIDE);
+    optpreset (o_propfont (&gw_def_win), DEFAULT_PROPFONT, OPT_REDRAW|OPT_HIDE);
+    optpreset (o_titleformat (&gw_def_win), DEFAULT_TITLEFORMAT, OPT_HIDE);
+    optpreset (o_scrollbgimage (&gw_def_win), ElvTrue, OPT_REDRAW|OPT_HIDE);
+
+    /* install the global options */
+    optinsert("win32", QTY(gw_optglob_desc), gw_optglob_desc, gw_optglob_val);
 
     /* install default options */
     optinsert("guiwin", NUM_OPTIONS, gw_opt_desc, (OPTVAL *)&gw_def_win.options);
 
-    /* set the default colors */
-    bgwincolor = (COLORREF)GetSysColor (COLOR_WINDOW);
-    gw_def_win.colors.fgcolor = (COLORREF)0x00000000;
-    gw_def_win.colors.bgcolor = (COLORREF)bgwincolor;
-    gw_def_win.colors.ffgcolor = (COLORREF)0x00000000;
-    gw_def_win.colors.fbgcolor = (COLORREF)bgwincolor;
-    gw_def_win.colors.bfgcolor = (COLORREF)0x00000000;
-    gw_def_win.colors.bbgcolor = (COLORREF)bgwincolor;
-    gw_def_win.colors.efgcolor = (COLORREF)0x00000000;
-    gw_def_win.colors.ebgcolor = (COLORREF)bgwincolor;
-    gw_def_win.colors.ifgcolor = (COLORREF)0x00000000;
-    gw_def_win.colors.ibgcolor = (COLORREF)bgwincolor;
-    gw_def_win.colors.ufgcolor = (COLORREF)0x00000000;
-    gw_def_win.colors.ubgcolor = (COLORREF)bgwincolor;
-
     /* install the default printer */
     gw_get_default_printer ();
-    
+
+    /* install default "normal" colors. */
+    colorinfo[COLOR_FONT_NORMAL].fg = color = GetSysColor(COLOR_WINDOWTEXT);
+    colorinfo[COLOR_FONT_NORMAL].da.fg_rgb[0] = color & 0xff;
+    colorinfo[COLOR_FONT_NORMAL].da.fg_rgb[1] = (color >> 8) & 0xff;
+    colorinfo[COLOR_FONT_NORMAL].da.fg_rgb[2] = (color >> 16) & 0xff;
+    colorinfo[COLOR_FONT_NORMAL].bg = color = GetSysColor(COLOR_WINDOW);
+    colorinfo[COLOR_FONT_NORMAL].da.bg_rgb[0] = color & 0xff;
+    colorinfo[COLOR_FONT_NORMAL].da.bg_rgb[1] = (color >> 8) & 0xff;
+    colorinfo[COLOR_FONT_NORMAL].da.bg_rgb[2] = (color >> 16) & 0xff;
+    colorinfo[COLOR_FONT_NORMAL].da.bits = COLOR_FG|COLOR_BG;
+
+    /* locate the "guide" color */
+    guidefont = colorfind("guide");
+
     return argc;
 }
 
@@ -279,26 +283,49 @@ static int gwinit (int argc, char *argv[])
 */
 
 static void gwloop (void)
-
 {
     MSG             msg;
     GUI_WINDOW      *gwp;
 
-	/* if -Gquit, and there were no errors, then try to destroy the windows */
-    if (gui == &guiquit && o_exitcode == 0 && gw_def_win.nextp)
-		eventex(gw_def_win.nextp, "qall", False);
+    /* the default window options aren't editable once we have real windows */
+    optdelete((OPTVAL *)&gw_def_win.options);
 
-    while (gw_def_win.nextp != NULL) {
+    /* peform the -c command or -t tag */
+    if (mainfirstcmd(windefault))
+	return;
+
+    /* if -Gquit, and there were no errors, then try to destroy the windows */
+    if (gui == &guiquit && o_exitcode == 0 && gw_def_win.nextp)
+	eventex(gw_def_win.nextp, "qall", ElvFalse);
+
+    msg.message = 0;
+    while (gw_def_win.nextp != NULL)
+    {
+	/* NOTE: For some reason, WinElvis receives an incessant stream of
+	 * 0x0118 messages when it should be idle.  I have no idea why, or
+	 * even what 0x0118 means.  I know 0x0117 is WM_ITEMMENUPOPUP and
+	 * 0x011f is WM_MENUSELECT, but 0x0118 isn't defined in <winuser.h>
+	 *
+	 * Those messages are harmless, except that they interfere with the
+	 * blinking of the cursor.  If elvis doesn't update screens after a
+	 * 0x0118 message, then the cursor blinks and everything looks good.
+	 * I wish I know why this is happening, but for now I'm content to
+	 * simply have this work-around.
+	 *
+	 * This behavior is new in 2.2g-beta; it didn't occur in 2.2f-beta.
+	 * I tried restoring the 2.2f versions of the guiwin32/* files, but
+	 * that had no effect.
+	 */
+
+        /* repaint the windows */
+        if (msg.message != WM_PAINT && msg.message != 0x0118)
+	    for (gwp = gw_def_win.nextp; gwp != NULL; gwp = gwp->nextp)
+		gw_redraw_win (gwp);
 
         /* process Windows messages */
         GetMessage (&msg, NULL, 0, 0);
-		TranslateMessage (&msg);
-		DispatchMessage (&msg);
-
-        /* repaint the windows */
-        if (msg.message != WM_PAINT)
-			for (gwp = gw_def_win.nextp; gwp != NULL; gwp = gwp->nextp)
-				gw_redraw_win (gwp);
+	TranslateMessage (&msg);
+	DispatchMessage (&msg);
     }
 }
 
@@ -308,20 +335,19 @@ static void gwloop (void)
 ** wpoll  -- check if some input pending from the keyboard.
 */
 
-static Boolean gwwpoll (Boolean reset)
-
+static ELVBOOL gwwpoll(ELVBOOL reset)
 {
     MSG     msg;
 
     /* if reset, do nothing */
     if (reset)
-        return False;
+        return ElvFalse;
 
     /* check if something on the message queue */
     if (PeekMessage (&msg, NULL, WM_KEYDOWN, WM_KEYDOWN, PM_NOREMOVE))
-        return True;
+        return ElvTrue;
 
-    return False;
+    return ElvFalse;
 }
 
 /* ------------------------------------------------------------------------
@@ -329,9 +355,10 @@ static Boolean gwwpoll (Boolean reset)
 ** term  --  cleanup the gui.
 */
 
-static void gwterm (void)
-
+static void gwterm(void)
 {
+    if (gwcustomicon)
+	DestroyIcon(gwcustomicon);
 }
 
 /* ------------------------------------------------------------------------
@@ -339,8 +366,7 @@ static void gwterm (void)
 ** creategw  --  create a new gui window.
 */
 
-static Boolean gwcreategw (char *name, char *firstcmd)
-
+static ELVBOOL gwcreategw(char *name, char *firstcmd)
 {
     GUI_WINDOW      *gwp;
     DWORD           dwStyle = WS_CHILD | WS_CLIPSIBLINGS |
@@ -348,21 +374,16 @@ static Boolean gwcreategw (char *name, char *firstcmd)
 
     /* allocate a new GUI_WINDOW */
     if ((gwp = calloc (1, sizeof (GUI_WINDOW))) == NULL)
-        return False;
-
+        return ElvFalse;
     gwp->nextp = gw_def_win.nextp;
     gw_def_win.nextp = gwp;
+    gwp->bg = colorinfo[COLOR_FONT_NORMAL].bg;
 
     /* set default options */
-    gwp->colors = gw_def_win.colors;
     gwp->options = gw_def_win.options;
-    o_font (gwp) = CHARdup (o_font (&gw_def_win));
-    o_normalstyle (gwp) = CHARdup (o_normalstyle (&gw_def_win));
-    o_fixedstyle (gwp) = CHARdup (o_fixedstyle (&gw_def_win));
-    o_boldstyle (gwp) = CHARdup (o_boldstyle (&gw_def_win));
-    o_emphasizedstyle (gwp) = CHARdup (o_emphasizedstyle (&gw_def_win));
-    o_italicstyle (gwp) = CHARdup (o_italicstyle (&gw_def_win));
-    o_underlinedstyle (gwp) = CHARdup (o_underlinedstyle (&gw_def_win));
+    o_font(gwp) = CHARdup(o_font(&gw_def_win));
+    o_propfont(gwp) = CHARdup(o_propfont(&gw_def_win));
+    o_titleformat(gwp) = CHARdup(o_titleformat(&gw_def_win));
 
     /* create the Windows windows */
     gwp->frameHWnd = CreateWindow ("ElvisFrameWnd", "WinElvis",
@@ -406,6 +427,7 @@ static Boolean gwcreategw (char *name, char *firstcmd)
                 gwp->numrows, gwp->numcols);
 
     /* make window active */
+    eventfocus((GUIWIN *)gwp, ElvTrue);
     gwp->active = 1;
 
     /* show the window */
@@ -418,14 +440,14 @@ static Boolean gwcreategw (char *name, char *firstcmd)
     if (!gw_printing_ok)
         gw_disable_printing (gwp);
 
-	/* if there is a firstcmd, then execute it */
-	if (firstcmd)
-	{
-		winoptions(winofgw((GUIWIN *)gwp));
-		exstring(windefault, toCHAR(firstcmd), "+cmd");
-	}
+    /* if there is a firstcmd, then execute it */
+    if (firstcmd)
+    {
+	winoptions(winofgw((GUIWIN *)gwp));
+	exstring(windefault, toCHAR(firstcmd), "+cmd");
+    }
 
-    return True;
+    return ElvTrue;
 }
 
 /* ------------------------------------------------------------------------
@@ -433,7 +455,7 @@ static Boolean gwcreategw (char *name, char *firstcmd)
 ** destroygw  --  destroy a existing gui window.
 */
 
-static void gwdestroygw (GUIWIN *gw, Boolean force)
+static void gwdestroygw (GUIWIN *gw, ELVBOOL force)
 
 {
     GUI_WINDOW      *gwp = (GUI_WINDOW *)gw;
@@ -460,15 +482,11 @@ static void gwdestroygw (GUIWIN *gw, Boolean force)
     /* reclaim the GUI_WINDOW */
     for (winp = &gw_def_win; winp->nextp != gwp; winp = winp->nextp)
         ;
-	winp->nextp = gwp->nextp;
+    winp->nextp = gwp->nextp;
 
     safefree (o_font (gwp));
-    safefree (o_normalstyle (gwp));
-    safefree (o_fixedstyle (gwp));
-    safefree (o_boldstyle (gwp));
-    safefree (o_emphasizedstyle (gwp));
-    safefree (o_italicstyle (gwp));
-    safefree (o_underlinedstyle (gwp));
+    safefree (o_propfont (gwp));
+    safefree (o_titleformat (gwp));
     free (gwp);
 }
 
@@ -477,7 +495,7 @@ static void gwdestroygw (GUIWIN *gw, Boolean force)
 ** focusg  --  set window focus.
 */
 
-static Boolean gwfocusgw (GUIWIN *gw)
+static ELVBOOL gwfocusgw (GUIWIN *gw)
 
 {
     GUI_WINDOW      *gwp = (GUI_WINDOW *)gw;
@@ -485,7 +503,7 @@ static Boolean gwfocusgw (GUIWIN *gw)
     /* set the focus to the frame window, will do the rest itself */
     SetFocus (gwp->frameHWnd);
 
-    return True;
+    return ElvTrue;
 }
 
 /* -----------------------------------------------------------------------
@@ -497,10 +515,35 @@ static void gwretitle (GUIWIN *gw, char *name)
 
 {
     GUI_WINDOW      *gwp = (GUI_WINDOW *)gw;
+#if 0
     char            title[_MAX_PATH + 20];
+    BUFFER	    buf;
 
-	sprintf (title, "WinElvis - [%s]", name);
+    buf = buffind(toCHAR(name));
+    if (buf && o_filename(buf))
+    	name = tochar8(o_filename(buf));
+    sprintf (title, "WinElvis - [%s]", name);
     SetWindowText (gwp->frameHWnd, title);
+#else
+    Char *argv[2];
+    Char *title;
+    ELVBOOL wasmsg;
+
+    /* evaluate the titleformat string */
+    argv[0] = (Char *)name;
+    argv[1] = NULL;
+    title = o_titleformat(gwp);
+    if (!title)
+    	title = (Char *)"$1";
+    wasmsg = msghide(ElvTrue);
+    title = calculate(title, argv, CALC_MSG);
+    msghide(wasmsg);
+    if (title && *title)
+    	name = (char *)title;
+
+    /* change the window's title */
+    SetWindowText (gwp->frameHWnd, name);
+#endif
 }
 
 /* ------------------------------------------------------------------------
@@ -518,10 +561,11 @@ static void gwmoveto(GUIWIN *gw, int column, int row)
     gwp->curcol = column;
 
     /* set new position if active view */
-    if (gwp->cursor_type != CURSOR_NONE && gwp->clientHWnd == GetFocus ()) {
-		HideCaret (gwp->clientHWnd);
-		gw_set_cursor(gwp, FALSE);
-		ShowCaret (gwp->clientHWnd);
+    if (gwp->cursor_type != CURSOR_NONE && gwp->clientHWnd == GetFocus ())
+    {
+	HideCaret (gwp->clientHWnd);
+	gw_set_cursor(gwp, FALSE);
+	ShowCaret (gwp->clientHWnd);
     }
 }
 
@@ -530,113 +574,216 @@ static void gwmoveto(GUIWIN *gw, int column, int row)
 ** draw  --  display text on the screen.
 */
 
-static void gwdraw(GUIWIN *gw, _char_ font, Char *text, int len)
+static void gwdraw(GUIWIN *gw, long fg, long bg, int bits, Char *text, int len)
 
 {
     register int    i;
     GUI_WINDOW      *gwp = (GUI_WINDOW *)gw;
-    COLORREF        fgc;
-    COLORREF        bgc;
-    COLORREF        tmpc;
+    COLORREF        fgc, bgc;
+    HBRUSH	    hBrush, hPrevBrush;
+    HPEN            hPen, hPrevPen;
+    HDC		    hDC;
     HFONT           hFont;
-    Char            ungraphic[256];
     RECT            rect;
     int             ileft;
+    int             xleft, xcenter, xright, ytop, ycenter, ybottom, radius;
+    UINT	    options;
 
-    /* select font & colors */
+    /* Italics are slanted rightward from the bottom of the character cell.
+     * We'd like for them to look slanted from the center of the characters,
+     * and we can achieve that effect by shifting italic text slightly leftward.
+     */
     ileft = 0;
-    switch (font) {
-        case 'b':
-            fgc = gwp->colors.bfgcolor;
-            bgc = gwp->colors.bbgcolor;
-            hFont = gwp->fonts.bfont;
-            break;
-        case 'f':
-            fgc = gwp->colors.ffgcolor;
-            bgc = gwp->colors.fbgcolor;
-            hFont = gwp->fonts.ffont;
-            break;
-        case 'e':
-            fgc = gwp->colors.efgcolor;
-            bgc = gwp->colors.ebgcolor;
-            hFont = gwp->fonts.efont;
-            break;
-        case 'i':
-            fgc = gwp->colors.ifgcolor;
-            bgc = gwp->colors.ibgcolor;
-            hFont = gwp->fonts.ifont;
-            if (o_italicstyle(gwp) && strchr(o_italicstyle(gwp), 'i'))
-                ileft = (gwp->ycsize - 3) / 6; /* just a guess */
-            break;
-        case 'u':
-            fgc = gwp->colors.ufgcolor;
-            bgc = gwp->colors.ubgcolor;
-            hFont = gwp->fonts.ufont;
-            break;
-        case 'g':
-            fgc = gwp->colors.fgcolor;
-            bgc = gwp->colors.bgcolor;
-            hFont = gwp->fonts.nfont;
-            for (i = 0; i < len && i < QTY (ungraphic); i++)
-                if (text[i] < '1' || text[i] > '9')
-                    ungraphic[i] = text[i];
-                else
-                    ungraphic[i] = '+';
-            len = i;
-            text = ungraphic;
-            break;
-        default:
-            fgc = gwp->colors.fgcolor;
-            bgc = gwp->colors.bgcolor;
-            hFont = gwp->fonts.nfont;
-            break;
-    }
+    if ((bits & COLOR_GRAPHIC) != COLOR_GRAPHIC && (bits & COLOR_ITALIC))
+	ileft = (gwp->ycsize - 3) / 6; /* just a guess */
   
-    /* check if inverse attribute */
-    if (isupper (font)) {
-        tmpc = fgc;
-        fgc = bgc;
-        bgc = tmpc;
-    }
+    /* Convert fg and bg args into COLORREF values */
+    fgc = (COLORREF)fg;
+    bgc = (COLORREF)bg;
 
-    /* compute update RECT */
+    /* compute the update RECT */
     rect.top = gwp->currow * gwp->ycsize;
     rect.left = gwp->curcol * gwp->xcsize + gwp->xcsize / 2;
     rect.bottom = rect.top + gwp->ycsize;
     rect.right = rect.left + gwp->xcsize * len;
 
-    /* create a DC */
-    if (gwp->dc == NULL) {
-        gwp->dc = GetDC (gwp->clientHWnd);
-        SetMapMode (gwp->dc, MM_TEXT);
-	}
-
-    /* create a brush */
-    if (gwp->hBrush == NULL)
-		gwp->hBrush = CreateSolidBrush (gwp->colors.bgcolor);
+    /* Get the window's DC */
+    hDC = GetDC (gwp->clientHWnd);
+    SetMapMode (hDC, MM_TEXT);
 
     /* hide caret */
     if (gwp->cursor_type != CURSOR_NONE && gwp->clientHWnd == GetFocus ())
+    {
+	HideCaret (gwp->clientHWnd);
+	gwp->cursor_type = CURSOR_NONE;
+    }
+
+    /* graphic chars are a special case */
+    if ((bits & COLOR_GRAPHIC) == COLOR_GRAPHIC)
+    {
+	/* Strip out the COLOR_GRAPHIC bits */
+	bits &= ~COLOR_GRAPHIC;
+
+	/* Erase the area */
+#ifdef FEATURE_IMAGE
+	if (normalimage && (long)bgc == colorinfo[COLOR_FONT_NORMAL].bg)
 	{
-		HideCaret (gwp->clientHWnd);
-		gwp->cursor_type = CURSOR_NONE;
+	    gw_erase_rect(hDC, &rect, normalimage, gwp->scrolled);
+	}
+	else if (idleimage && (long)bgc == colorinfo[COLOR_FONT_IDLE].bg)
+	{
+	    gw_erase_rect(hDC, &rect, idleimage, gwp->scrolled);
+	}
+	else
+#endif
+	{
+	    hBrush = CreateSolidBrush (bgc);
+	    FillRect (hDC, &rect, hBrush);
+	    DeleteObject(hBrush);
 	}
 
-    /* prepare DC & output text */
-	SetTextColor (gwp->dc, fgc);
-	SetBkColor (gwp->dc, bgc);
-	SelectObject (gwp->dc, hFont);
-	ExtTextOut (gwp->dc, rect.left - ileft, rect.top, ETO_OPAQUE | ETO_CLIPPED,
-	           &rect, (char *)text, len, gwp->font_size_array);
+	/* Select the foreground color */
+	hPen = CreatePen(PS_SOLID, 0, fgc);
+	hPrevPen = SelectObject(hDC, hPen);
+
+	/* Find special points in the first character cell */
+	radius = gwp->xcsize / 3;
+	xleft = rect.left;
+	xright = xleft + gwp->xcsize;
+	xcenter = (xleft + xright) / 2;
+	ytop = rect.top;
+	ybottom = rect.bottom;
+	ycenter = (ytop + ybottom) / 2;
+
+	/* For each graphic character... */
+	for (i = 0; i < len; text++, i++)
+	{
+	    /* Draw line segments, as appropriate for this character */
+	    if (strchr("123456|", *text))
+	    {
+		MoveToEx(hDC, xcenter, ytop, NULL);
+		LineTo(hDC, xcenter, ycenter);
+	    }
+	    if (strchr("456789|", *text))
+	    {
+		MoveToEx(hDC, xcenter, ycenter, NULL);
+		LineTo(hDC, xcenter, ybottom);
+	    }
+	    if (strchr("235689-", *text))
+	    {
+		MoveToEx(hDC, xleft, ycenter, NULL);
+		LineTo(hDC, xcenter, ycenter);
+	    }
+	    if (strchr("124578-", *text))
+	    {
+		MoveToEx(hDC, xcenter, ycenter, NULL);
+		LineTo(hDC, xright, ycenter);
+	    }
+	    if (*text == 'o')
+	    {
+		Arc(hDC, xcenter - radius, ycenter - radius,
+			xcenter + radius, ycenter + radius,
+			xcenter - radius, ycenter,  xcenter - radius, ycenter);
+	    }
+	    if (*text == '*')
+	    {
+		HBRUSH	oldbrush, newbrush;
+		newbrush = CreateSolidBrush(fgc);
+		oldbrush = SelectObject(hDC, newbrush);
+		Pie(hDC, xcenter - radius, ycenter - radius,
+			xcenter + radius, ycenter + radius,
+			xcenter - radius, ycenter,  xcenter - radius, ycenter);
+		SelectObject(hDC, oldbrush);
+		DeleteObject(newbrush);
+	    }
+
+	    /* Advance the points to the next cell */
+	    xleft = xright;
+	    xcenter += gwp->xcsize;
+	    xright += gwp->xcsize;
+	}
+
+	/* Restore foreground color to its previous value, so we can delete
+	 * the local hPen object.
+	 */
+	SelectObject(hDC, hPrevPen);
+	DeleteObject(hPen);
+    }
+    else
+    {
+	/* Find a font with the right bold/italic/underlined attributes */
+	i = 0;
+	if (bits & COLOR_BOLD) i += 1;
+	if (bits & COLOR_ITALIC) i += 2;
+	if (bits & COLOR_UNDERLINED) i += 4;
+	hFont = gwp->fonts[i];
+
+	/* prepare DC & output text */
+	SetTextColor(hDC, fgc);
+	SetBkColor(hDC, bgc);
+	SetBkMode(hDC, OPAQUE);
+	SelectObject(hDC, hFont);
+	options = ETO_OPAQUE | ETO_CLIPPED;
+#ifdef FEATURE_IMAGE
+	if (normalimage && (long)bgc == colorinfo[COLOR_FONT_NORMAL].bg)
+	{
+	    gw_erase_rect(hDC, &rect, normalimage, gwp->scrolled);
+	    options = ETO_CLIPPED;
+	    SetBkMode(hDC, TRANSPARENT);
+	}
+	else if (idleimage && (long)bgc == colorinfo[COLOR_FONT_IDLE].bg)
+	{
+	    gw_erase_rect(hDC, &rect, idleimage, gwp->scrolled);
+	    options = ETO_CLIPPED;
+	    SetBkMode(hDC, TRANSPARENT);
+	}
+#endif
+	ExtTextOut(hDC, rect.left - ileft, rect.top, options, &rect,
+	    (char *)text, len, gwp->font_size_array);
+#ifdef FEATURE_IMAGE
+	SetBkColor(hDC, bgc);
+	SetBkMode(hDC, OPAQUE);
+#endif
+    }
+
+    /* If COLOR_BOXED then draw a rectangle around the text */
+    if (bits & (COLOR_BOXED | COLOR_LEFTBOX | COLOR_RIGHTBOX))
+    {
+	/* Select the foreground color */
+	hPen = CreatePen(PS_SOLID, 0, fgc);
+	hPrevPen = SelectObject(hDC, hPen);
+
+	/* Draw the rectangle */
+	if (bits & COLOR_BOXED)
+	{
+	    MoveToEx(hDC, rect.left, rect.top, NULL);
+	    LineTo(hDC, rect.right, rect.top);
+	    MoveToEx(hDC, rect.left, rect.bottom - 1, NULL);
+	    LineTo(hDC, rect.right, rect.bottom - 1);
+	}
+        if (bits & COLOR_RIGHTBOX)
+	{
+	    MoveToEx(hDC, rect.right - 1, rect.top, NULL);
+	    LineTo(hDC, rect.right - 1, rect.bottom);
+	}
+        if (bits & COLOR_LEFTBOX)
+	{
+	    MoveToEx(hDC, rect.left, rect.top, NULL);
+	    LineTo(hDC, rect.left, rect.bottom);
+	}
+
+	/* Restore foreground color to its previous value, so we can delete
+	 * the local hPen object.
+	 */
+	SelectObject(hDC, hPrevPen);
+	DeleteObject(hPen);
+    }
+
+    /* release the window's device context */
+    ReleaseDC(gwp->clientHWnd, hDC);
 
     /* update cursor position */
     gwp->curcol += len;
-#if 0
-    if (gwp->clientHWnd == GetFocus ()) {
-		gw_set_cursor (gwp, FALSE);
-		ShowCaret (gwp->clientHWnd);
-	}
-#endif
 }
 
 /* ------------------------------------------------------------------------
@@ -644,12 +791,24 @@ static void gwdraw(GUIWIN *gw, _char_ font, Char *text, int len)
 ** scroll  --  insert or delete rows into the window.
 */
 
-static Boolean gwscroll (GUIWIN *gw, int qty, Boolean notlast)
+static ELVBOOL gwscroll (GUIWIN *gw, int qty, ELVBOOL notlast)
 
 {
     GUI_WINDOW      *gwp = (GUI_WINDOW *)gw;
     int             rows = gwp->numrows - gwp->currow;
     RECT            rect;
+
+#ifdef FEATURE_IMAGE
+    /* if we're using background images, then don't scroll because it would
+     * shred the background image.
+     */
+    if ((normalimage || idleimage)
+     && (!o_scrollbgimage(gwp) || gwp->currow != 0 || !notlast))
+	return ElvFalse;
+
+    /* adjust the number of scrolled pixels, for the background image */
+    gwp->scrolled -= qty * gwp->ycsize;
+#endif
 
     /* adjust number of rows */
     if (notlast)
@@ -662,17 +821,17 @@ static Boolean gwscroll (GUIWIN *gw, int qty, Boolean notlast)
     rect.right = gwp->xsize;
 
     /* hide caret */
-    if (gwp->cursor_type == CURSOR_NONE && gwp->clientHWnd == GetFocus ())
-	{
-		HideCaret (gwp->clientHWnd);
-		gwp->cursor_type = CURSOR_NONE;
-	}
+    if (gwp->cursor_type != CURSOR_NONE && gwp->clientHWnd == GetFocus())
+    {
+	HideCaret (gwp->clientHWnd);
+	gwp->cursor_type = CURSOR_NONE;
+    }
 
     /* scroll window */
     ScrollWindowEx (gwp->clientHWnd, 0, qty * gwp->ycsize, &rect,
-                    &rect, NULL, NULL, 0);
+                    &rect, NULL, NULL, SW_INVALIDATE);
 
-    return True;
+    return ElvTrue;
 }
 
 /* ------------------------------------------------------------------------
@@ -680,11 +839,13 @@ static Boolean gwscroll (GUIWIN *gw, int qty, Boolean notlast)
 ** clrtoeol  --  clear to end of line.
 */
 
-static Boolean gwclrtoeol(GUIWIN *gw)
+static ELVBOOL gwclrtoeol(GUIWIN *gw)
 
 {
     GUI_WINDOW      *gwp = (GUI_WINDOW *)gw;
     RECT            rect;
+    HBRUSH	    brush;
+    HDC		    hDC;
 
     /* compute update RECT */
     rect.top = gwp->currow * gwp->ycsize;
@@ -692,28 +853,37 @@ static Boolean gwclrtoeol(GUIWIN *gw)
     rect.bottom = rect.top + gwp->ycsize;
     rect.right = gwp->xsize;
 
-    /* create a DC */
-    if (gwp->dc == NULL) {
-        gwp->dc = GetDC (gwp->clientHWnd);
-        SetMapMode (gwp->dc, MM_TEXT);
-	}
-
-    /* create a brush */
-    if (gwp->hBrush == NULL)
-		gwp->hBrush = CreateSolidBrush (gwp->colors.bgcolor);
-
     /* hide caret */
     if (gwp->cursor_type != CURSOR_NONE && gwp->clientHWnd == GetFocus ())
-	{
-		HideCaret (gwp->clientHWnd);
-		gwp->cursor_type = CURSOR_NONE;
-	}
+    {
+	HideCaret (gwp->clientHWnd);
+	gwp->cursor_type = CURSOR_NONE;
+    }
 
-    /* fill the rectangle with the bg color */
-    SelectObject (gwp->dc, gwp->hBrush);
-    FillRect (gwp->dc, &rect, gwp->hBrush);
+    /* get the window's DC */
+    hDC = GetDC (gwp->clientHWnd);
+    SetMapMode (hDC, MM_TEXT);
 
-    return True;
+#ifdef FEATURE_IMAGE
+    if (normalimage && (long)gwp->bg == colorinfo[COLOR_FONT_NORMAL].bg)
+    {
+	gw_erase_rect(hDC, &rect, normalimage, gwp->scrolled);
+    }
+    else if (idleimage && (long)gwp->bg == colorinfo[COLOR_FONT_IDLE].bg)
+    {
+	gw_erase_rect(hDC, &rect, idleimage, gwp->scrolled);
+    }
+    else
+#endif
+    {
+	/* fill the rectangle with the bg color */
+	brush = CreateSolidBrush(gwp->bg);
+	FillRect (hDC, &rect, brush);
+	DeleteObject(brush);
+    }
+
+    ReleaseDC(gwp->clientHWnd, hDC);
+    return ElvTrue;
 }
 
 /* ------------------------------------------------------------------------
@@ -782,9 +952,9 @@ static void gwscrollbar(GUIWIN *gw, long top, long bottom, long total)
     scrollinfo.nTrackPos = top;
     gwp->thumbsize = scrollinfo.nPage;
     SetScrollInfo (gwp->clientHWnd, SB_VERT, &scrollinfo, TRUE);
-if (o_verbose >= 3)
-msg(MSG_STATUS, "[ddd], nMin=0, nMax=$1, nPage=$2, nPos=$3",
-(long)scrollinfo.nMax, (long)scrollinfo.nPage, (long)scrollinfo.nPos);
+    if (o_verbose >= 3)
+	msg(MSG_STATUS, "[ddd], nMin=0, nMax=$1, nPage=$2, nPos=$3",
+	(long)scrollinfo.nMax, (long)scrollinfo.nPage, (long)scrollinfo.nPos);
 #else /* Win16, or Win32 with MSVC++ 2.0 */
     SetScrollRange (gwp->clientHWnd, SB_VERT, 0, total, FALSE);
     SetScrollPos (gwp->clientHWnd, SB_VERT, top, TRUE);
@@ -795,16 +965,16 @@ msg(MSG_STATUS, "[ddd], nMin=0, nMax=$1, nPage=$2, nPos=$3",
 **
 ** status  --  format the status line.
 */
-static Boolean gwstatus (GUIWIN *gw, Char *cmd, long line, long column, _CHAR_ learn, char *mode)
+static ELVBOOL gwstatus (GUIWIN *gw, Char *cmd, long line, long column, _CHAR_ learn, char *mode)
 
 {
     GUI_WINDOW       *gwp = (GUI_WINDOW *)gw;
 
     if (!o_statusbar (gwp))
-        return False;
+        return ElvFalse;
 
     gw_upd_status_bar (gwp, cmd, line, column, (char)learn, mode);
-    return True;
+    return ElvTrue;
 }
 
 /* ------------------------------------------------------------------------
@@ -817,10 +987,10 @@ static int gwkeylabel (Char *given, int givenlen, Char **label, Char **rawptr)
 {
     register int        i;
 
-    // compare the given text to each key's strings
+    /* compare the given text to each key's strings */
     for (i = 0; gwkeys[i].label != 0; i++) {
     
-        // does given string match key label or raw characters?
+        /* does given string match key label or raw characters? */
         if ((!strncmp (gwkeys[i].label, tochar8 (given), (size_t)givenlen) && !gwkeys[i].label[givenlen])
          || (!strncmp (gwkeys[i].rawin, tochar8 (given), (size_t)givenlen) && !gwkeys[i].rawin[givenlen]))
         {
@@ -840,28 +1010,28 @@ static int gwkeylabel (Char *given, int givenlen, Char **label, Char **rawptr)
 ** clipopen  --  open the clipboard.
 */
 
-static Boolean gwclipopen (Boolean forwrite)
+static ELVBOOL gwclipopen (ELVBOOL forwrite)
 
 {
     GUI_WINDOW      *gwp;
-    BUFFER          buf = cutbuffer ('>', False);
+    BUFFER          buf = cutbuffer ('>', ElvFalse);
 
     /* check is something to do */
     if (!forwrite &&
         !IsClipboardFormatAvailable (CF_TEXT) &&
         !IsClipboardFormatAvailable (CF_OEMTEXT))
-        return False;
+        return ElvFalse;
 
     if (forwrite && buf == NULL)
-        return False;
+        return ElvFalse;
 
     /* get the active view */
     if ((gwp = gw_find_client (GetFocus ())) == NULL)
-        return False;
+        return ElvFalse;
 
     /* open the clipboard */
     if (!OpenClipboard (gwp->clientHWnd))
-        return False;
+        return ElvFalse;
 
     /* allocate memory if writing */
 	if (forwrite) {
@@ -869,7 +1039,7 @@ static Boolean gwclipopen (Boolean forwrite)
         clip_hGlob = GlobalAlloc (GMEM_MOVEABLE | GMEM_DDESHARE,
                                   (DWORD)clip_len + 1);
         if (clip_hGlob == NULL)
-            return False;
+            return ElvFalse;
 
         clip_data = (char *)GlobalLock (clip_hGlob);
         clip_offset = 0;
@@ -877,7 +1047,7 @@ static Boolean gwclipopen (Boolean forwrite)
     }
 
     /* indicate success */
-    return True;
+    return ElvTrue;
 }
 
 /* -----------------------------------------------------------------------
@@ -968,132 +1138,256 @@ static void gwclipclose (void)
 
 /* ------------------------------------------------------------------------
 **
-** color  --
+** color  -- Convert a color name to a COLORREF value.
 */
 
-static Boolean gwcolor (GUIWIN *gw, _char_ font, Char *fg, Char *bg)
-
+static ELVBOOL gwcolor (int fontcode, Char *colornam, ELVBOOL isfg, long *colorptr, unsigned char rgb[3])
 {
-    GUI_WINDOW          *gwp = (GUI_WINDOW *)gw;
-    register int        i;
-    int                 fgc = -1,
-                        bgc = -1;
+    register int        i, j;
+    int			r, g, b;
+    char		*rgbfile;
+    char		rgbname[100];
+    FILE		*fp;
+#ifdef FEATURE_IMAGE
+    HBITMAP		newimg;
+    long		average;
+    char		*imagefile;
 
-    /* select the window */
-    if (gwp == NULL)
-        gwp = &gw_def_win;
+    /* split the name into a "colornam" part and an "imagefile" part */
+    imagefile = colornam;
+    if (*imagefile == '#')
+	imagefile++;
+    while (*imagefile && !elvpunct(*imagefile))
+	imagefile++;
+    while (*imagefile && imagefile > colornam && !elvspace(*imagefile))
+	imagefile--;
+    if (!*imagefile)
+	imagefile = NULL;
+    else if (imagefile > colornam)
+	*imagefile++ = '\0';
+    else
+	colornam = "";
+#endif
 
-    // select FG color
-    if (fg == NULL)
-        return False;
-    for (i = 0; color_table[i].name != 0; i++)
-        if (strcmp (color_table[i].name, fg) == 0) {
-            fgc = i;
-            break;
-        }
-#if 1
-    /*  ADB 22/12/98 - No name specified.  Check RGB setting.  If valid then
-        store in penultimate array slot.  RGB settings in array are not
-        relevant if name=NULL so we can use it to save settings.  It is
-        assigned to correct font colour lower down */
-    /*  SK 25/1/99 - Tweaked to use X11-style color specifiers: #RRGGBB in hex*/
-    if (fgc == -1)
+    /* parse the color name */
+    if (*colornam == '#')
     {
-        unsigned int    R, G, B;
-        int             Colours;
+	/* Accept X11's "#rrggbb" or "#rgb" notations */
+	if (sscanf(tochar8(colornam), "#%2x%*2x%2x%*2x%2x", &r, &g, &b) == 3)
+	    /* do nothing */;
+	else if (sscanf(tochar8(colornam), "#%2x%2x%2x", &r, &g, &b) == 3)
+	    /* do nothing */;
+	else if (sscanf(tochar8(colornam), "#%1x%1x%1x", &r, &g, &b) == 3)
+	{
+	    r *= 17;
+	    g *= 17;
+	    b *= 17;
+	}
+	else
+	{
+	    msg(MSG_ERROR, "[S]bad color notation $1", colornam);
+	    return ElvFalse;
+	}
+    }
+    else if (!*colornam)
+    {
+	r = g = b = -1;
+    }
+    else
+    {
+	/* Normalize the color name by converting to lowercase and removing
+	 * whitespace.  We can safely modify the colornam[] buffer in-place.
+	 */
+	for (i = j = 0; colornam[i]; i++)
+	    if (!elvspace(colornam[i]))
+	    colornam[j++] = elvtolower(colornam[i]);
+	colornam[j] = '\0';
 
-        Colours = sscanf(fg, "#%2x%2x%2x", &R, &G, &B);
-        if (Colours == 3 && R <=255 && G <= 255 & B <= 255)
-        {
-            fgc = i;
-            color_table[fgc].color = RGB(R, G, B);
-        }
+	/* look up the color */
+	for (i = 0;
+	     colortbl[i].name && CHARcmp(toCHAR(colortbl[i].name), colornam);
+	     i++)
+	{
+	}
+	if (colortbl[i].name)
+	{
+	    /* Use the found color */
+	    r = colortbl[i].rgb[0];
+	    g = colortbl[i].rgb[1];
+	    b = colortbl[i].rgb[2];
+	}
+	else /* not found -- try "rgb.txt" */
+	{
+	    /* search for the color in the "rgb.txt" file */
+	    *rgbname = '\0';
+	    rgbfile = iopath(o_elvispath, "rgb.txt", ElvFalse);
+	    if (rgbfile) {
+		fp = fopen(rgbfile, "r");
+		if (fp) {
+		    while (fscanf(fp, "%d %d %d %s", &r, &g, &b, &rgbname) == 4
+			    && CHARcmp(tochar8(rgbname), colornam))
+		    {
+		    }
+		    fclose(fp);
+		}
+	    }
+
+	    /* if we didn't find it there, then fail */
+	    if (CHARcmp(tochar8(rgbname), colornam)) {
+		if (isfg) {
+		    memcpy(rgb, colorinfo[COLOR_FONT_NORMAL].da.fg_rgb, 3);
+		    *colorptr = colorinfo[COLOR_FONT_NORMAL].fg;
+		} else {
+		    memcpy(rgb, colorinfo[COLOR_FONT_NORMAL].da.bg_rgb, 3);
+		    *colorptr = colorinfo[COLOR_FONT_NORMAL].bg;
+		}
+		msg(MSG_ERROR, "[S]unknown color $1", colornam);
+		return ElvFalse;
+	    }
+	}
+    }
+
+#ifdef FEATURE_IMAGE
+    if (imagefile && isfg)
+    {
+	msg(MSG_ERROR, "Can't use images for foreground");
+	return ElvFalse;
     }
 #endif
-    if (fgc == -1)
-        return False;
 
-    // select BG color
-    if (bg != NULL) {
-        for (i = 0; color_table[i].name != 0; i++)
-            if (strcmp (color_table[i].name, bg) == 0) {
-                bgc = i;
-                break;
-            }
-#if 1
-        /*  ADB 22/12/98 - No name specified.  Check RGB setting.  If valid then
-            store in penultimate array slot.  RGB settings in array are not
-            relevant if name=NULL so we can use it to save settings.  It is
-            assigned to correct font colour lower down */
-	/*  SK 25/1/99 - Tweaked to use X11-style color specifiers: #RRGGBB */
-        if (bgc == -1)
-        {
-            unsigned int    R, G, B;
-            int             Colours;
-
-            Colours = sscanf(bg, "#%2x%2x%2x", &R, &G, &B);
-            if (Colours == 3 && R <=255 && G <= 255 & B <= 255)
-            {
-                bgc = i + 1;
-                color_table[bgc].color = RGB(R, G, B);
-            }
-        }
+    /* if no image or color, then fail */
+    if (
+#ifdef FEATURE_IMAGE
+	!imagefile &&
 #endif
-        if (bgc == -1)
-            return False;
-    }
-    
-    // save the new colors.
-    switch (font) {
-        case 'b':
-            gwp->colors.bfgcolor = color_table[fgc].color;
-            if (bgc != -1)
-                gwp->colors.bbgcolor = color_table[bgc].color;
-            break;
-        case 'f':
-            gwp->colors.ffgcolor = color_table[fgc].color;
-            if (bgc != -1)
-                gwp->colors.fbgcolor = color_table[bgc].color;
-            break;
-        case 'e':
-            gwp->colors.efgcolor = color_table[fgc].color;
-            if (bgc != -1)
-                gwp->colors.ebgcolor = color_table[bgc].color;
-            break;
-        case 'i':
-            gwp->colors.ifgcolor = color_table[fgc].color;
-            if (bgc != -1)
-                gwp->colors.ibgcolor = color_table[bgc].color;
-            break;
-        case 'u':
-            gwp->colors.ufgcolor = color_table[fgc].color;
-            if (bgc != -1)
-                gwp->colors.ubgcolor = color_table[bgc].color;
-            break;
-        default:
-            gwp->colors.fgcolor = color_table[fgc].color;
-            if (bgc != -1)
-                gwp->colors.bgcolor = color_table[bgc].color;
-            break;
+		      r < 0)
+    {
+        msg(MSG_ERROR, "missing color name");
+        return ElvFalse;
     }
 
-    /* redraw the window. */
-    if (gw != NULL)
-        InvalidateRect (gwp->clientHWnd, NULL, TRUE);
+#ifdef FEATURE_IMAGE
+    /* if image name was given for "normal" or "idle" font, then load image */
+    if (imagefile && (fontcode==COLOR_FONT_NORMAL || fontcode==COLOR_FONT_IDLE))
+    {
+	/* decide whether to use a tint */
+	if (r >= 0)
+	    average = RGB(r, g, b);
+	else
+	    average = -1;
 
-    return True;
+	/* load the image */
+	newimg = gw_load_xpm(imagefile, average, &average, NULL);
+	if (newimg)
+	{
+	    /* use the average colors */
+	    r = GetRValue(average);
+	    g = GetGValue(average);
+	    b = GetBValue(average);
+
+	    /* if there was an old image, discard it now */
+	    if (fontcode == COLOR_FONT_NORMAL && normalimage)
+		gw_unload_xpm(normalimage);
+	    if (fontcode == COLOR_FONT_IDLE && idleimage)
+		gw_unload_xpm(idleimage);
+
+	    /* store the new image */
+	    if (fontcode == COLOR_FONT_NORMAL)
+		normalimage = newimg;
+	    else
+		idleimage = newimg;
+	}
+	else
+	{
+	    return ElvFalse;
+	}
+    }
+    if (!imagefile && fontcode==COLOR_FONT_NORMAL && normalimage && !isfg)
+    {
+	gw_unload_xpm(normalimage);
+        normalimage = NULL;
+    }
+    if (!imagefile && fontcode==COLOR_FONT_IDLE && idleimage && !isfg)
+    {
+	gw_unload_xpm(idleimage);
+	idleimage = NULL;
+    }
+#endif
+
+    /* Success!  Store the color and return ElvTrue */
+    *colorptr = RGB(r, g, b);
+    rgb[0] = r;
+    rgb[1] = g;
+    rgb[2] = b;
+    return ElvTrue;
 }                               
+
+/* --------------------------------------------------------------------
+**
+** gwsetbg  --  Change a window's background color.
+*/
+
+void gwsetbg(GUIWIN *gw, long bg)
+{
+    GUI_WINDOW  *gwp = (GUI_WINDOW *)gw;
+    RECT        rect;
+    HDC		hDC;
+    HBRUSH	hBrush;
+
+    /* store the new background color */
+    gwp->bg = (COLORREF)bg;
+
+    /* get the window's DC */
+    hDC = GetDC (gwp->clientHWnd);
+    SetMapMode (hDC, MM_TEXT);
+
+    /* hide caret */
+    if (gwp->cursor_type != CURSOR_NONE && gwp->clientHWnd == GetFocus ())
+    {
+	HideCaret (gwp->clientHWnd);
+	gwp->cursor_type = CURSOR_NONE;
+    }
+
+    /* The portable part of elvis already knows it needs to redraw the text
+     * area, but it doesn't know about blank areas around the outside of the
+     * window.  The simplest way to color those areas is to simply fill the
+     * whole window.
+     */
+    rect.left = 0;
+    rect.top = 0;
+    rect.right = gwp->xsize + gwp->xcsize * 2;
+    rect.bottom = gwp->ysize + gwp->ycsize;
+#ifdef FEATURE_IMAGE
+    if (normalimage && bg == colorinfo[COLOR_FONT_NORMAL].bg)
+    {
+	gw_erase_rect(hDC, &rect, normalimage, gwp->scrolled);
+    }
+    else if (idleimage && bg == colorinfo[COLOR_FONT_IDLE].bg)
+    {
+	gw_erase_rect(hDC, &rect, idleimage, gwp->scrolled);
+    }
+    else
+#endif
+    {
+	hBrush = CreateSolidBrush(gwp->bg);
+	FillRect(hDC, &rect, hBrush);
+	DeleteObject(hBrush);
+    }
+
+    /* release the window's DC */
+    ReleaseDC(gwp->clientHWnd, hDC);
+}
 
 /* --------------------------------------------------------------------
 **
 ** gwstop  --  start a shell.
 */
 
-static RESULT gwstop (Boolean alwaysform)
+static RESULT gwstop (ELVBOOL alwaysform)
 
 {
     PROCESS_INFORMATION	    proc;
-    STARTUPINFO		        start;
+    STARTUPINFO	            start;
 
     /* save the buffers, if we're supposed to */
     eventsuspend ();
@@ -1119,11 +1413,11 @@ GUI guiwin32 =
 {
    "windows",  /* name */
    "MS-Windows graphic interface",
-   False,   /* exonly */
-   False,   /* newblank */
-   True, /* minimizeclr */
-   False,   /* scrolllast */
-   False,   /* shiftrows */
+   ElvFalse,   /* exonly */
+   ElvFalse,   /* newblank */
+   ElvTrue, /* minimizeclr */
+   ElvFalse,   /* scrolllast */
+   ElvFalse,   /* shiftrows */
    1, /* movecost */
    NUM_OPTIONS, /* nopts */
    gw_opt_desc, /* optdescs */
@@ -1154,7 +1448,9 @@ GUI guiwin32 =
    gwclipwrite,
    gwclipread,
    gwclipclose,
-   gwcolor,   /* color */
+   gwcolor,
+   NULL, /* freecolor */
+   gwsetbg,
    NULL, /* guicmd */
    NULL, /* tabcmd */
    NULL, /* save */
@@ -1171,11 +1467,11 @@ GUI guiquit =
 {
    "quit",  /* name */
    "Run `-c cmd' in a window, then quit",
-   False,   /* exonly */
-   False,   /* newblank */
-   True, /* minimizeclr */
-   False,   /* scrolllast */
-   False,   /* shiftrows */
+   ElvFalse,   /* exonly */
+   ElvFalse,   /* newblank */
+   ElvTrue, /* minimizeclr */
+   ElvFalse,   /* scrolllast */
+   ElvFalse,   /* shiftrows */
    1, /* movecost */
    NUM_OPTIONS, /* nopts */
    gw_opt_desc, /* optdescs */
@@ -1206,7 +1502,9 @@ GUI guiquit =
    gwclipwrite,
    gwclipread,
    gwclipclose,
-   gwcolor,   /* color */
+   gwcolor,
+   NULL, /* freecolor */
+   gwsetbg,
    NULL, /* guicmd */
    NULL, /* tabcmd */
    NULL, /* save */
@@ -1216,4 +1514,4 @@ GUI guiquit =
    gwstop  /* gwstop */
 };
 #endif
-/* ex:se ts=4 sw=4: */
+/* ex:se sw=4 smarttab: */

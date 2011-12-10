@@ -1,7 +1,6 @@
 /* exsubst.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_exsubst[] = "$Id: exsubst.c,v 2.7 1999/02/06 22:26:40 steve Exp $";
 
 /* This file contains code which implements the :s command.  The most
  * challenging variation of that command is the interactive form -- specified
@@ -22,6 +21,9 @@ char id_exsubst[] = "$Id: exsubst.c,v 2.7 1999/02/06 22:26:40 steve Exp $";
  */
 
 #include "elvis.h"
+#ifdef FEATURE_RCSID
+char id_exsubst[] = "$Id: exsubst.c,v 2.22 2003/10/17 17:41:23 steve Exp $";
+#endif
 
 typedef struct
 {
@@ -32,9 +34,10 @@ typedef struct
 
 	/* options */
  	PFLAG	pflag;	 /* printing flag */
-	BOOLEAN	global;	 /* boolean: substitute globally in line? */
-	BOOLEAN	execute; /* boolean: execute instead of substitute? */
-	BOOLEAN	confirm; /* boolean: ask for confirmation first? */
+	ELVBOOL	global;	 /* boolean: substitute globally in line? */
+	ELVBOOL	execute; /* boolean: execute instead of substitute? */
+	ELVBOOL	confirm; /* boolean: ask for confirmation first? */
+	ELVBOOL errors;	 /* boolean: is a failed search an error? */
 	long	instance;/* numeric: which instance in each line to sub */
 
     /* THE FOLLOWING ARE RESET FOR EACH SEARCH */
@@ -52,12 +55,12 @@ typedef struct
 	long	chline;	/* # of lines changed */
 	long	chsub;	/* # of substitutions made */
 	long	cursoff;/* offset of last change, so cursor can be left there */
-	BOOLEAN	ex;	/* revert to ex mode afterward? */
+	ELVBOOL	ex;	/* revert to ex mode afterward? */
 } subst_t;
 
 static void print P_((subst_t *subst));
-static BOOLEAN findnext P_((subst_t *subst));
-static BOOLEAN dosubst P_((WINDOW win, subst_t *subst));
+static ELVBOOL findnext P_((subst_t *subst));
+static ELVBOOL dosubst P_((WINDOW win, subst_t *subst));
 static RESULT parse P_((_CHAR_ key, void *info));
 static RESULT perform P_((WINDOW win));
 static ELVCURSOR shape P_((WINDOW win));
@@ -84,14 +87,14 @@ static void print(subst)
 		fromoff = markoffset(subst->from);
 		marksetoffset(subst->from, subst->printoff);
 		pline = (*subst->win->md->move)(subst->win,
-					subst->from, 0L, 0L, False);
+					subst->from, 0L, 0L, ElvFalse);
 		marksetoffset(subst->from, fromoff);
 		subst->printoff = -1L;
 	}
 	else
 	{
 		pline = (*subst->win->md->move)(subst->win,
-					subst->from, 0L, 0L, False);
+					subst->from, 0L, 0L, ElvFalse);
 	}
 
 	/* print the line */
@@ -99,12 +102,12 @@ static void print(subst)
 }
 
 /* Find the next matching instance for a given substitution.  If one is found,
- * return True; else return False.  When a match is found, the contents of
+ * return ElvTrue; else return ElvFalse.  When a match is found, the contents of
  * the subst argument are modified to reflect its location.  In particular,
  * subst->re->startp[0] gives its start offset, and subst->re->end[0] gives
  * its end offset.
  */
-static BOOLEAN findnext(subst)
+static ELVBOOL findnext(subst)
 	subst_t	*subst;	/* info about the substitution */
 {
 	/* if previous line was supposed to be printed but hasn't been,
@@ -117,11 +120,11 @@ static BOOLEAN findnext(subst)
 	while (markoffset(subst->from) < markoffset(subst->to))
 	{
 		/* if the user is impatient, then stop */
-		if (guipoll(False))
-			return False;
+		if (guipoll(ElvFalse))
+			return ElvFalse;
 
 		/* for each instance within the line... */
-		while (regexec(subst->re, subst->from, (BOOLEAN)(subst->thisinst == 0))
+		while (regexec(subst->re, subst->from, (ELVBOOL)(subst->thisinst == 0))
 		    && (subst->global || subst->thisinst < subst->instance))
 		{
 			/* increment the instance counter */
@@ -168,8 +171,8 @@ static BOOLEAN findnext(subst)
 				}
 
 
-				/* Return True to do substitution */
-				return True;
+				/* Return ElvTrue to do substitution */
+				return ElvTrue;
 			}
 
 			/* Move "posn" to the end of the matched region.  If
@@ -205,50 +208,54 @@ static BOOLEAN findnext(subst)
 	if (subst->printoff >= 0)
 		print(subst);
 
-	return False;
+	return ElvFalse;
 }
 
 
-/* Perform a substitution, or if subst->execute is True then execute the
- * text which would have been substituted.  Returns True if successful, or
- * False if there is an error in the replacement text.
+/* Perform a substitution, or if subst->execute is ElvTrue then execute the
+ * text which would have been substituted.  Returns ElvTrue if successful, or
+ * ElvFalse if there is an error in the replacement text.
  */
-static BOOLEAN dosubst(win, subst)
+static ELVBOOL dosubst(win, subst)
 	WINDOW	win;
 	subst_t	*subst;	/* info about the substitution */
 {
 	CHAR	*newtext;
 	MARK	oldcursor;
 	MARK	cursor;
-	BOOLEAN	oldsaveregexp;
+	ELVBOOL	oldsaveregexp;
 
 	/* remember the offset of this change so we can move the cursor later */
 	subst->cursoff = subst->re->startp[0];
 
 	/* Either execute the replacement, or perform the substitution */
-	newtext = regsub(subst->re, subst->rplc, (BOOLEAN)!subst->execute);
+	newtext = regsub(subst->re, subst->rplc, (ELVBOOL)!subst->execute);
 	if (!newtext)
 	{
-		return False;
+		return ElvFalse;
 	}
 	if (subst->execute)
 	{
 		/* move the window's cursor to the matching line */
-		if (win && win->state->pop)
+		if (win)
 		{
 			assert(subst->re->buffer == markbuffer(subst->from));
-			cursor = win->state->pop->cursor;
+			if (win->state->pop)
+				cursor = win->state->pop->cursor;
+			else
+				cursor = win->cursor;
 			oldcursor = markdup(cursor);
 			marksetoffset(cursor, subst->re->startp[0]);
 			marksetbuffer(cursor, subst->re->buffer);
+			bufoptions(subst->re->buffer);
 		}
 		else
-			oldcursor = NULL;
+			cursor = oldcursor = NULL;
 
 		/* temporarily turn off the saveregexp option */
 		oldsaveregexp = o_saveregexp;
 #if 0
-		o_saveregexp = False;
+		o_saveregexp = ElvFalse;
 #endif
 
 		/* execute the command */
@@ -270,7 +277,7 @@ static BOOLEAN dosubst(win, subst)
 	/* increment the substitution change counter */
 	subst->chsub++;
 
-	return True;
+	return ElvTrue;
 }
 
 
@@ -283,12 +290,14 @@ static RESULT parse(key, info)
 	void	*info;
 {
 	subst_t	*subst = (subst_t *)info;
-	VIINFO	vinf;
 	WINDOW	win;
+#ifdef FEATURE_V
+	VIINFO	vinf;
 
 	/* unhighlight the previous match */
 	vinf.command = ELVCTRL('[');
 	v_visible(subst->win, &vinf);
+#endif
 
 	/* be lenient about keystrokes */
 	if (key == 'N' || key == 'n')
@@ -304,13 +313,17 @@ static RESULT parse(key, info)
 	  case 'y':
 		/* perform this substitution */
 		if (!dosubst(subst->win, subst))
+		{
+			markbuffer(subst->win->cursor)->willdo = ElvFalse;
 			return RESULT_ERROR;
+		}
 		/* fall through... */
 
 	  case 'n':
 		/* find the next match */
 		if (findnext(subst))
 		{
+#ifdef FEATURE_V
 			/* highlight the next match */
 			if (subst->re->endp[0] > subst->re->startp[0])
 			{
@@ -321,6 +334,7 @@ static RESULT parse(key, info)
 				v_visible(subst->win, NULL);
 			}
 			else /* matching text is 0 characters long */
+#endif /* FEATURE_V */
 			{
 				/* at least move the cursor there */
 				marksetoffset(subst->win->cursor, subst->re->startp[0]);
@@ -330,10 +344,10 @@ static RESULT parse(key, info)
 		}
 	}
 
-	/* Either the user cancelled or there are no other matches, so we're
+	/* Either the user canceled or there are no other matches, so we're
 	 * done.  Announce the results.
 	 */
-	if (subst->chline >= o_report && o_report != 0)
+	if ((subst->chline >= o_report && o_report != 0) || subst->confirm)
 	{
 		msg(MSG_INFO, "[dd]$1 substitutions on $2 lines", subst->chsub, subst->chline);
 	}
@@ -342,6 +356,9 @@ static RESULT parse(key, info)
 	markfree(subst->from);
 	markfree(subst->to);
 	safefree(subst->rplc);
+#ifdef FEATURE_AUTOCMD
+	markbuffer(subst->win->cursor)->eachedit = ElvFalse;
+#endif
 
 	/* Either pop the confirm state (if we started it from visual mode)
 	 * or replace the confirm state with an ex state (if we started from
@@ -391,8 +408,10 @@ RESULT	ex_substitute(xinf)
 	CHAR	*opt;	/* substitution options */
 	long	count;	/* numeric option: which instance in each line to sub */
 	BUFFER	buf;
-	VIINFO	vinf;
 	STATE	*state, *s;
+#ifdef FEATURE_V
+	VIINFO	vinf;
+#endif
 
 
 	assert(xinf->command == EX_SUBSTITUTE
@@ -405,9 +424,10 @@ RESULT	ex_substitute(xinf)
 	if (!o_edcompatible || xinf->bang)
 	{
 		subst.pflag = xinf->pflag;
-		subst.global = False;
-		subst.execute = False;
-		subst.confirm = False;
+		subst.global = ElvFalse;
+		subst.execute = ElvFalse;
+		subst.confirm = ElvFalse;
+		subst.errors = ElvTrue;
 		subst.instance = 0;
 	}
 	else if (xinf->pflag != PF_NONE)
@@ -463,15 +483,19 @@ RESULT	ex_substitute(xinf)
 		switch (*opt)
 		{
 		  case 'g':
-			subst.global = (BOOLEAN)!subst.global;
+			subst.global = (ELVBOOL)!subst.global;
 			break;
 
 		  case 'x':
-			subst.execute = (BOOLEAN)!subst.execute;
+			subst.execute = (ELVBOOL)!subst.execute;
 			break;
 
 		  case 'c':
-			subst.confirm = (BOOLEAN)!subst.confirm;
+			subst.confirm = (ELVBOOL)!subst.confirm;
+			break;
+
+		  case 'e':
+			subst.errors = (ELVBOOL)!subst.errors;
 			break;
 
 		  case 'p':
@@ -493,7 +517,7 @@ RESULT	ex_substitute(xinf)
 			{
 				subst.instance *= 10;
 				subst.instance += *opt++ - '0';
-			} while (isdigit(*opt));
+			} while (elvdigit(*opt));
 			opt--;
 			break;
 
@@ -511,12 +535,12 @@ RESULT	ex_substitute(xinf)
 			do
 			{
 				count = count * 10 + *opt++ - '0';
-			} while (isdigit(*opt));
+			} while (elvdigit(*opt));
 			opt--;
 			break;
 
 		  default:
-			if (!isspace(*opt))
+			if (!elvspace(*opt))
 			{
 				msg(MSG_ERROR, "[C]unsupported flag '$1'", *opt);
 				return RESULT_ERROR;
@@ -564,7 +588,7 @@ RESULT	ex_substitute(xinf)
 	if (subst.instance == 0 && !subst.global)
 	{
 		if (o_gdefault && !o_edcompatible)
-			subst.global = True;
+			subst.global = ElvTrue;
 		else
 			subst.instance = 1;
 	}
@@ -593,6 +617,13 @@ RESULT	ex_substitute(xinf)
 
 	/* make the scanned buffer be the one used by this window */
 	bufoptions(buf);
+
+#ifdef FEATURE_AUTOCMD
+	/* we want to trigger Edit events for change, even though we only save
+	 * an undo version before the first change.
+	 */
+	buf->eachedit = ElvTrue;
+#endif
 
 	/* for each line in the range... */
 	subst.from = markdup(xinf->fromaddr);
@@ -646,7 +677,7 @@ RESULT	ex_substitute(xinf)
 					s->flags |= ELVIS_BOTTOM;
 
 				/* remember to switch back later */
-				subst.ex = True;
+				subst.ex = ElvTrue;
 			}
 
 			/* initialize the remaining fields of the state */
@@ -658,6 +689,7 @@ RESULT	ex_substitute(xinf)
 			*((subst_t *)state->info) = subst;
 			state->modename = "Yes/No";
 
+#ifdef FEATURE_V
 			/* highlight the first match */
 			if (subst.re->endp[0] > subst.re->startp[0])
 			{
@@ -668,6 +700,7 @@ RESULT	ex_substitute(xinf)
 				v_visible(subst.win, NULL);
 			}
 			else /* matching text is 0 characters long */
+#endif
 			{
 				/* at least move the cursor there */
 				marksetoffset(subst.win->cursor, subst.re->startp[0]);
@@ -682,6 +715,9 @@ RESULT	ex_substitute(xinf)
 		markfree(subst.from);
 		markfree(subst.to);
 		safefree(subst.rplc);
+#ifdef FEATURE_AUTOCMD
+		buf->eachedit = ElvFalse;
+#endif
 		return RESULT_ERROR;
 	}
 	else /* non-interactive */
@@ -693,6 +729,9 @@ RESULT	ex_substitute(xinf)
 				markfree(subst.from);
 				markfree(subst.to);
 				safefree(subst.rplc);
+#ifdef FEATURE_AUTOCMD
+				buf->eachedit = ElvFalse;
+#endif
 				return RESULT_ERROR;
 			}
 
@@ -701,24 +740,23 @@ RESULT	ex_substitute(xinf)
 		markfree(subst.to);
 		safefree(subst.rplc);
 	}
+#ifdef FEATURE_AUTOCMD
+	buf->eachedit = ElvFalse;
+#endif
 
-	/* If done from within a ":g" command, or used with "x" flag,
-	 * or if ":set report=0" then finish silently.
-	 */
-	if (xinf->global || subst.execute || (o_report == 0 && subst.chsub > 0))
-	{
+	/* If used with "e", then finish silently and never cause an error */
+	if (!subst.errors)
 		return RESULT_COMPLETE;
-	}
+
+	/* if used with "x" flag", or if ":set report=0" then finish silently */
+	if (subst.execute || o_report == 0)
+		return subst.chsub > 0 ? RESULT_COMPLETE : RESULT_ERROR;
 
 	/* Reporting */
 	if (subst.chsub == 0)
-	{
 		msg(MSG_WARNING, "substitution failed");
-	}
 	else if (subst.chline >= o_report)
-	{
 		msg(MSG_INFO, "[dd]$1 substitutions on $2 lines", subst.chsub, subst.chline);
-	}
 
 	/* leave the cursor at the location of the last change */
 	if (subst.chsub > 0)

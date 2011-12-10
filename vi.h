@@ -4,7 +4,7 @@
 
 
 /* This is a list of all possible parsing phases */
-typedef enum {VI_CUTBUF, VI_START, VI_COUNT2, VI_KEY2, VI_QUOTE, VI_HEX1, VI_HEX2, VI_COMPLETE} PHASE;
+typedef enum {VI_CUTBUF, VI_START, VI_AFTERG, VI_COUNT2, VI_KEY2, VI_QUOTE, VI_HEX1, VI_HEX2, VI_COMPLETE} PHASE;
 
 /* These are the "tweak" flags */
 #define TWEAK_DOT	0x0001	/* remember command so <.> can repeat it */
@@ -47,18 +47,22 @@ typedef struct
 	CHAR	command;	/* a command keystroke */
 	CHAR	key2;		/* argument keystroke, if appropriate */
 	PHASE	phase;		/* parsing phase */
-	BOOLEAN	control_o;	/* previous char was ^O */
+	ELVBOOL	control_o;	/* previous char was ^O */
 	unsigned short tweak;	/* tweak flags */
 } VIINFO;
 
 /* This macro is used to set the default count value */
 #define DEFAULT(x)	if (vinf->count == 0) vinf->count = (x)
 
-/* This macro returns True if the window's current state is "multiple vi
+/* This macro converts a non-'g' ascii command into a 'g' command. */
+#define ELVG(x)		((x) | 0x80)
+#define ELVUNG(x)	((x) & ~0x80)
+
+/* This macro returns ElvTrue if the window's current state is "multiple vi
  * command mode."  Note that the _viperform() function is declared globally
  * solely so that it can be referenced by this macro.
  */
-#define viiscmd(win)	(BOOLEAN)((win)->state->perform == _viperform \
+#define viiscmd(win)	(ELVBOOL)((win)->state->perform == _viperform \
 			    && ((win)->state->flags & ELVIS_ONCE) == 0)
 BEGIN_EXTERNC
 extern RESULT	_viperform P_((WINDOW win));
@@ -69,4 +73,10 @@ extern void	vipush P_((WINDOW win, ELVISSTATE flags, MARK cursor));
 extern void	viinitcmd P_((VIINFO *info));
 extern RESULT	viperform P_((WINDOW win, VIINFO *vinf));
 extern CHAR	*viname P_((CHAR *name));
+#ifdef FEATURE_NORMAL
+extern RESULT	vinormal P_((WINDOW win, int nkeys, CHAR *keys));
+#endif
+#ifdef FEATURE_TEXTOBJ
+extern RESULT vitextobj(WINDOW win, VIINFO *vinf, MARKBUF *from, MARKBUF *to);
+#endif
 END_EXTERNC

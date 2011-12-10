@@ -60,6 +60,7 @@ CLEAN :
 	-@erase ".\WinRel\guicurs.obj"
 	-@erase ".\WinRel\cut.obj"
 	-@erase ".\WinRel\regexp.obj"
+	-@erase ".\WinRel\region.obj"
 	-@erase ".\WinRel\url.obj"
 	-@erase ".\WinRel\options.obj"
 	-@erase ".\WinRel\dmnormal.obj"
@@ -103,6 +104,7 @@ CLEAN :
 	-@erase ".\WinRel\scan.obj"
 	-@erase ".\WinRel\tag.obj"
 	-@erase ".\WinRel\session.obj"
+	-@erase ".\WinRel\spell.obj"
 	-@erase ".\WinRel\optglob.obj"
 	-@erase ".\WinRel\guiopen.obj"
 	-@erase ".\WinRel\mark.obj"
@@ -112,7 +114,11 @@ CLEAN :
 	-@erase ".\WinRel\message.obj"
 	-@erase ".\WinRel\dmhex.obj"
 	-@erase ".\WinRel\exconfig.obj"
+	-@erase ".\WinRel\fold.obj"
 	-@erase ".\WinRel\ftp.obj"
+	-@erase ".\WinRel\color.obj"
+	-@erase ".\WinRel\descr.obj"
+	-@erase ".\WinRel\autocmd.obj"
 
 "$(OUTDIR)" :
     if not exist "$(OUTDIR)/$(NULL)" mkdir "$(OUTDIR)"
@@ -148,6 +154,7 @@ LINK32_OBJS= \
 	"$(INTDIR)/guicurs.obj" \
 	"$(INTDIR)/cut.obj" \
 	"$(INTDIR)/regexp.obj" \
+	"$(INTDIR)/region.obj" \
 	"$(INTDIR)/url.obj" \
 	"$(INTDIR)/options.obj" \
 	"$(INTDIR)/dmnormal.obj" \
@@ -191,6 +198,7 @@ LINK32_OBJS= \
 	"$(INTDIR)/scan.obj" \
 	"$(INTDIR)/tag.obj" \
 	"$(INTDIR)/session.obj" \
+	"$(INTDIR)/spell.obj" \
 	"$(INTDIR)/optglob.obj" \
 	"$(INTDIR)/guiopen.obj" \
 	"$(INTDIR)/mark.obj" \
@@ -200,7 +208,11 @@ LINK32_OBJS= \
 	"$(INTDIR)/message.obj" \
 	"$(INTDIR)/dmhex.obj" \
 	"$(INTDIR)/exconfig.obj" \
-	"$(INTDIR)/ftp.obj"
+	"$(INTDIR)/fold.obj" \
+	"$(INTDIR)/ftp.obj" \
+	"$(INTDIR)/color.obj" \
+	"$(INTDIR)/descr.obj" \
+	"$(INTDIR)/autocmd.obj"
 
 "$(OUTDIR)\elvis.exe" : "$(OUTDIR)" $(DEF_FILE) $(LINK32_OBJS)
     $(LINK32) @<<
@@ -265,6 +277,7 @@ CLEAN :
 	-@erase ".\WinDebug\tagsrch.obj"
 	-@erase ".\WinDebug\osprg.obj"
 	-@erase ".\WinDebug\regexp.obj"
+	-@erase ".\WinDebug\region.obj"
 	-@erase ".\WinDebug\http.obj"
 	-@erase ".\WinDebug\more.obj"
 	-@erase ".\WinDebug\ex.obj"
@@ -281,13 +294,18 @@ CLEAN :
 	-@erase ".\WinDebug\exedit.obj"
 	-@erase ".\WinDebug\exsubst.obj"
 	-@erase ".\WinDebug\session.obj"
+	-@erase ".\WinDebug\spell.obj"
 	-@erase ".\WinDebug\optglob.obj"
 	-@erase ".\WinDebug\tag.obj"
 	-@erase ".\WinDebug\mark.obj"
 	-@erase ".\WinDebug\regsub.obj"
 	-@erase ".\WinDebug\dmsyntax.obj"
 	-@erase ".\WinDebug\osblock.obj"
+	-@erase ".\WinDebug\fold.obj"
 	-@erase ".\WinDebug\ftp.obj"
+	-@erase ".\WinDebug\color.obj"
+	-@erase ".\WinDebug\descr.obj"
+	-@erase ".\WinDebug\autocmd.obj"
 	-@erase ".\WinDebug\elvis.ilk"
 	-@erase ".\WinDebug\elvis.pdb"
 
@@ -356,6 +374,7 @@ LINK32_OBJS= \
 	"$(INTDIR)/tagsrch.obj" \
 	"$(INTDIR)/osprg.obj" \
 	"$(INTDIR)/regexp.obj" \
+	"$(INTDIR)/region.obj" \
 	"$(INTDIR)/http.obj" \
 	"$(INTDIR)/more.obj" \
 	"$(INTDIR)/ex.obj" \
@@ -372,13 +391,18 @@ LINK32_OBJS= \
 	"$(INTDIR)/exedit.obj" \
 	"$(INTDIR)/exsubst.obj" \
 	"$(INTDIR)/session.obj" \
+	"$(INTDIR)/spell.obj" \
 	"$(INTDIR)/optglob.obj" \
 	"$(INTDIR)/tag.obj" \
 	"$(INTDIR)/mark.obj" \
 	"$(INTDIR)/regsub.obj" \
 	"$(INTDIR)/dmsyntax.obj" \
 	"$(INTDIR)/osblock.obj" \
-	"$(INTDIR)/ftp.obj"
+	"$(INTDIR)/fold.obj" \
+	"$(INTDIR)/ftp.obj" \
+	"$(INTDIR)/color.obj" \
+	"$(INTDIR)/descr.obj" \
+	"$(INTDIR)/autocmd.obj"
 
 "$(OUTDIR)\elvis.exe" : "$(OUTDIR)" $(DEF_FILE) $(LINK32_OBJS)
     $(LINK32) @<<
@@ -431,6 +455,7 @@ DEP_CPP_MOVE_=\
 	".\options.h"\
 	".\optglob.h"\
 	".\session.h"\
+	".\spell.h"\
 	".\lowbuf.h"\
 	".\message.h"\
 	".\buffer.h"\
@@ -453,7 +478,9 @@ DEP_CPP_MOVE_=\
 	".\input.h"\
 	".\vi.h"\
 	".\regexp.h"\
+	".\region.h"\
 	".\ex.h"\
+	".\fold.h"\
 	".\move.h"\
 	".\vicmd.h"\
 	".\operator.h"\
@@ -466,6 +493,9 @@ DEP_CPP_MOVE_=\
 	".\tag.h"\
 	".\tagsrch.h"\
 	".\tagelvis.h"\
+	".\color.h"\
+	".\descr.h"\
+	".\autocmd.h"\
 	".\need.h"\
 	".\misc.h"\
 	
@@ -488,6 +518,7 @@ DEP_CPP_SEARC=\
 	".\options.h"\
 	".\optglob.h"\
 	".\session.h"\
+	".\spell.h"\
 	".\lowbuf.h"\
 	".\message.h"\
 	".\buffer.h"\
@@ -510,7 +541,9 @@ DEP_CPP_SEARC=\
 	".\input.h"\
 	".\vi.h"\
 	".\regexp.h"\
+	".\region.h"\
 	".\ex.h"\
+	".\fold.h"\
 	".\move.h"\
 	".\vicmd.h"\
 	".\operator.h"\
@@ -523,6 +556,9 @@ DEP_CPP_SEARC=\
 	".\tag.h"\
 	".\tagsrch.h"\
 	".\tagelvis.h"\
+	".\color.h"\
+	".\descr.h"\
+	".\autocmd.h"\
 	".\need.h"\
 	".\misc.h"\
 	
@@ -545,6 +581,7 @@ DEP_CPP_LP_C4=\
 	".\options.h"\
 	".\optglob.h"\
 	".\session.h"\
+	".\spell.h"\
 	".\lowbuf.h"\
 	".\message.h"\
 	".\buffer.h"\
@@ -567,7 +604,9 @@ DEP_CPP_LP_C4=\
 	".\input.h"\
 	".\vi.h"\
 	".\regexp.h"\
+	".\region.h"\
 	".\ex.h"\
+	".\fold.h"\
 	".\move.h"\
 	".\vicmd.h"\
 	".\operator.h"\
@@ -580,6 +619,9 @@ DEP_CPP_LP_C4=\
 	".\tag.h"\
 	".\tagsrch.h"\
 	".\tagelvis.h"\
+	".\color.h"\
+	".\descr.h"\
+	".\autocmd.h"\
 	".\need.h"\
 	".\misc.h"\
 	
@@ -602,6 +644,7 @@ DEP_CPP_GUITC=\
 	".\options.h"\
 	".\optglob.h"\
 	".\session.h"\
+	".\spell.h"\
 	".\lowbuf.h"\
 	".\message.h"\
 	".\buffer.h"\
@@ -624,7 +667,9 @@ DEP_CPP_GUITC=\
 	".\input.h"\
 	".\vi.h"\
 	".\regexp.h"\
+	".\region.h"\
 	".\ex.h"\
+	".\fold.h"\
 	".\move.h"\
 	".\vicmd.h"\
 	".\operator.h"\
@@ -637,6 +682,9 @@ DEP_CPP_GUITC=\
 	".\tag.h"\
 	".\tagsrch.h"\
 	".\tagelvis.h"\
+	".\color.h"\
+	".\descr.h"\
+	".\autocmd.h"\
 	".\need.h"\
 	".\misc.h"\
 	
@@ -659,6 +707,7 @@ DEP_CPP_DISPL=\
 	".\options.h"\
 	".\optglob.h"\
 	".\session.h"\
+	".\spell.h"\
 	".\lowbuf.h"\
 	".\message.h"\
 	".\buffer.h"\
@@ -681,7 +730,9 @@ DEP_CPP_DISPL=\
 	".\input.h"\
 	".\vi.h"\
 	".\regexp.h"\
+	".\region.h"\
 	".\ex.h"\
+	".\fold.h"\
 	".\move.h"\
 	".\vicmd.h"\
 	".\operator.h"\
@@ -694,6 +745,9 @@ DEP_CPP_DISPL=\
 	".\tag.h"\
 	".\tagsrch.h"\
 	".\tagelvis.h"\
+	".\color.h"\
+	".\descr.h"\
+	".\autocmd.h"\
 	".\need.h"\
 	".\misc.h"\
 	
@@ -716,6 +770,7 @@ DEP_CPP_MORE_=\
 	".\options.h"\
 	".\optglob.h"\
 	".\session.h"\
+	".\spell.h"\
 	".\lowbuf.h"\
 	".\message.h"\
 	".\buffer.h"\
@@ -738,7 +793,9 @@ DEP_CPP_MORE_=\
 	".\input.h"\
 	".\vi.h"\
 	".\regexp.h"\
+	".\region.h"\
 	".\ex.h"\
+	".\fold.h"\
 	".\move.h"\
 	".\vicmd.h"\
 	".\operator.h"\
@@ -751,6 +808,9 @@ DEP_CPP_MORE_=\
 	".\tag.h"\
 	".\tagsrch.h"\
 	".\tagelvis.h"\
+	".\color.h"\
+	".\descr.h"\
+	".\autocmd.h"\
 	".\need.h"\
 	".\misc.h"\
 	
@@ -773,6 +833,7 @@ DEP_CPP_DIGRA=\
 	".\options.h"\
 	".\optglob.h"\
 	".\session.h"\
+	".\spell.h"\
 	".\lowbuf.h"\
 	".\message.h"\
 	".\buffer.h"\
@@ -795,7 +856,9 @@ DEP_CPP_DIGRA=\
 	".\input.h"\
 	".\vi.h"\
 	".\regexp.h"\
+	".\region.h"\
 	".\ex.h"\
+	".\fold.h"\
 	".\move.h"\
 	".\vicmd.h"\
 	".\operator.h"\
@@ -808,6 +871,9 @@ DEP_CPP_DIGRA=\
 	".\tag.h"\
 	".\tagsrch.h"\
 	".\tagelvis.h"\
+	".\color.h"\
+	".\descr.h"\
+	".\autocmd.h"\
 	".\need.h"\
 	".\misc.h"\
 	
@@ -830,6 +896,7 @@ DEP_CPP_STATE=\
 	".\options.h"\
 	".\optglob.h"\
 	".\session.h"\
+	".\spell.h"\
 	".\lowbuf.h"\
 	".\message.h"\
 	".\buffer.h"\
@@ -852,7 +919,9 @@ DEP_CPP_STATE=\
 	".\input.h"\
 	".\vi.h"\
 	".\regexp.h"\
+	".\region.h"\
 	".\ex.h"\
+	".\fold.h"\
 	".\move.h"\
 	".\vicmd.h"\
 	".\operator.h"\
@@ -865,6 +934,9 @@ DEP_CPP_STATE=\
 	".\tag.h"\
 	".\tagsrch.h"\
 	".\tagelvis.h"\
+	".\color.h"\
+	".\descr.h"\
+	".\autocmd.h"\
 	".\need.h"\
 	".\misc.h"\
 	
@@ -887,6 +959,7 @@ DEP_CPP_OSPRG=\
 	".\options.h"\
 	".\optglob.h"\
 	".\session.h"\
+	".\spell.h"\
 	".\lowbuf.h"\
 	".\message.h"\
 	".\buffer.h"\
@@ -909,7 +982,9 @@ DEP_CPP_OSPRG=\
 	".\input.h"\
 	".\vi.h"\
 	".\regexp.h"\
+	".\region.h"\
 	".\ex.h"\
+	".\fold.h"\
 	".\move.h"\
 	".\vicmd.h"\
 	".\operator.h"\
@@ -922,6 +997,9 @@ DEP_CPP_OSPRG=\
 	".\tag.h"\
 	".\tagsrch.h"\
 	".\tagelvis.h"\
+	".\color.h"\
+	".\descr.h"\
+	".\autocmd.h"\
 	".\need.h"\
 	".\misc.h"\
 	
@@ -945,6 +1023,7 @@ DEP_CPP_GUIOP=\
 	".\options.h"\
 	".\optglob.h"\
 	".\session.h"\
+	".\spell.h"\
 	".\lowbuf.h"\
 	".\message.h"\
 	".\buffer.h"\
@@ -967,7 +1046,9 @@ DEP_CPP_GUIOP=\
 	".\input.h"\
 	".\vi.h"\
 	".\regexp.h"\
+	".\region.h"\
 	".\ex.h"\
+	".\fold.h"\
 	".\move.h"\
 	".\vicmd.h"\
 	".\operator.h"\
@@ -980,6 +1061,9 @@ DEP_CPP_GUIOP=\
 	".\tag.h"\
 	".\tagsrch.h"\
 	".\tagelvis.h"\
+	".\color.h"\
+	".\descr.h"\
+	".\autocmd.h"\
 	".\need.h"\
 	".\misc.h"\
 	
@@ -1002,6 +1086,7 @@ DEP_CPP_TCAPH=\
 	".\options.h"\
 	".\optglob.h"\
 	".\session.h"\
+	".\spell.h"\
 	".\lowbuf.h"\
 	".\message.h"\
 	".\buffer.h"\
@@ -1024,7 +1109,9 @@ DEP_CPP_TCAPH=\
 	".\input.h"\
 	".\vi.h"\
 	".\regexp.h"\
+	".\region.h"\
 	".\ex.h"\
+	".\fold.h"\
 	".\move.h"\
 	".\vicmd.h"\
 	".\operator.h"\
@@ -1037,6 +1124,9 @@ DEP_CPP_TCAPH=\
 	".\tag.h"\
 	".\tagsrch.h"\
 	".\tagelvis.h"\
+	".\color.h"\
+	".\descr.h"\
+	".\autocmd.h"\
 	".\need.h"\
 	".\misc.h"\
 	
@@ -1060,6 +1150,7 @@ DEP_CPP_GUI_C=\
 	".\options.h"\
 	".\optglob.h"\
 	".\session.h"\
+	".\spell.h"\
 	".\lowbuf.h"\
 	".\message.h"\
 	".\buffer.h"\
@@ -1082,7 +1173,9 @@ DEP_CPP_GUI_C=\
 	".\input.h"\
 	".\vi.h"\
 	".\regexp.h"\
+	".\region.h"\
 	".\ex.h"\
+	".\fold.h"\
 	".\move.h"\
 	".\vicmd.h"\
 	".\operator.h"\
@@ -1095,6 +1188,9 @@ DEP_CPP_GUI_C=\
 	".\tag.h"\
 	".\tagsrch.h"\
 	".\tagelvis.h"\
+	".\color.h"\
+	".\descr.h"\
+	".\autocmd.h"\
 	".\need.h"\
 	".\misc.h"\
 	
@@ -1117,6 +1213,7 @@ DEP_CPP_VICMD=\
 	".\options.h"\
 	".\optglob.h"\
 	".\session.h"\
+	".\spell.h"\
 	".\lowbuf.h"\
 	".\message.h"\
 	".\buffer.h"\
@@ -1139,7 +1236,9 @@ DEP_CPP_VICMD=\
 	".\input.h"\
 	".\vi.h"\
 	".\regexp.h"\
+	".\region.h"\
 	".\ex.h"\
+	".\fold.h"\
 	".\move.h"\
 	".\vicmd.h"\
 	".\operator.h"\
@@ -1152,6 +1251,9 @@ DEP_CPP_VICMD=\
 	".\tag.h"\
 	".\tagsrch.h"\
 	".\tagelvis.h"\
+	".\color.h"\
+	".\descr.h"\
+	".\autocmd.h"\
 	".\need.h"\
 	".\misc.h"\
 	
@@ -1174,6 +1276,7 @@ DEP_CPP_MISC_=\
 	".\options.h"\
 	".\optglob.h"\
 	".\session.h"\
+	".\spell.h"\
 	".\lowbuf.h"\
 	".\message.h"\
 	".\buffer.h"\
@@ -1196,7 +1299,9 @@ DEP_CPP_MISC_=\
 	".\input.h"\
 	".\vi.h"\
 	".\regexp.h"\
+	".\region.h"\
 	".\ex.h"\
+	".\fold.h"\
 	".\move.h"\
 	".\vicmd.h"\
 	".\operator.h"\
@@ -1209,6 +1314,9 @@ DEP_CPP_MISC_=\
 	".\tag.h"\
 	".\tagsrch.h"\
 	".\tagelvis.h"\
+	".\color.h"\
+	".\descr.h"\
+	".\autocmd.h"\
 	".\need.h"\
 	".\misc.h"\
 	
@@ -1231,6 +1339,7 @@ DEP_CPP_OPERA=\
 	".\options.h"\
 	".\optglob.h"\
 	".\session.h"\
+	".\spell.h"\
 	".\lowbuf.h"\
 	".\message.h"\
 	".\buffer.h"\
@@ -1253,7 +1362,9 @@ DEP_CPP_OPERA=\
 	".\input.h"\
 	".\vi.h"\
 	".\regexp.h"\
+	".\region.h"\
 	".\ex.h"\
+	".\fold.h"\
 	".\move.h"\
 	".\vicmd.h"\
 	".\operator.h"\
@@ -1266,6 +1377,9 @@ DEP_CPP_OPERA=\
 	".\tag.h"\
 	".\tagsrch.h"\
 	".\tagelvis.h"\
+	".\color.h"\
+	".\descr.h"\
+	".\autocmd.h"\
 	".\need.h"\
 	".\misc.h"\
 	
@@ -1288,6 +1402,7 @@ DEP_CPP_EXACT=\
 	".\options.h"\
 	".\optglob.h"\
 	".\session.h"\
+	".\spell.h"\
 	".\lowbuf.h"\
 	".\message.h"\
 	".\buffer.h"\
@@ -1310,7 +1425,9 @@ DEP_CPP_EXACT=\
 	".\input.h"\
 	".\vi.h"\
 	".\regexp.h"\
+	".\region.h"\
 	".\ex.h"\
+	".\fold.h"\
 	".\move.h"\
 	".\vicmd.h"\
 	".\operator.h"\
@@ -1323,6 +1440,9 @@ DEP_CPP_EXACT=\
 	".\tag.h"\
 	".\tagsrch.h"\
 	".\tagelvis.h"\
+	".\color.h"\
+	".\descr.h"\
+	".\autocmd.h"\
 	".\need.h"\
 	".\misc.h"\
 	
@@ -1345,6 +1465,7 @@ DEP_CPP_REGEX=\
 	".\options.h"\
 	".\optglob.h"\
 	".\session.h"\
+	".\spell.h"\
 	".\lowbuf.h"\
 	".\message.h"\
 	".\buffer.h"\
@@ -1367,7 +1488,9 @@ DEP_CPP_REGEX=\
 	".\input.h"\
 	".\vi.h"\
 	".\regexp.h"\
+	".\region.h"\
 	".\ex.h"\
+	".\fold.h"\
 	".\move.h"\
 	".\vicmd.h"\
 	".\operator.h"\
@@ -1380,11 +1503,77 @@ DEP_CPP_REGEX=\
 	".\tag.h"\
 	".\tagsrch.h"\
 	".\tagelvis.h"\
+	".\color.h"\
+	".\descr.h"\
+	".\autocmd.h"\
 	".\need.h"\
 	".\misc.h"\
 	
 
 "$(INTDIR)\regexp.obj" : $(SOURCE) $(DEP_CPP_REGEX) "$(INTDIR)"
+
+
+# End Source File
+################################################################################
+# Begin Source File
+
+SOURCE=.\region.c
+DEP_CPP_REGEX=\
+	".\elvis.h"\
+	".\config.h"\
+	".\elvctype.h"\
+	".\version.h"\
+	".\oswin32\osdef.h"\
+	".\safe.h"\
+	".\options.h"\
+	".\optglob.h"\
+	".\session.h"\
+	".\spell.h"\
+	".\lowbuf.h"\
+	".\message.h"\
+	".\buffer.h"\
+	".\mark.h"\
+	".\buffer2.h"\
+	".\options2.h"\
+	".\scan.h"\
+	".\opsys.h"\
+	".\map.h"\
+	".\gui.h"\
+	".\display.h"\
+	".\draw.h"\
+	".\state.h"\
+	".\window.h"\
+	".\gui2.h"\
+	".\display2.h"\
+	".\draw2.h"\
+	".\state2.h"\
+	".\event.h"\
+	".\input.h"\
+	".\vi.h"\
+	".\regexp.h"\
+	".\region.h"\
+	".\ex.h"\
+	".\fold.h"\
+	".\move.h"\
+	".\vicmd.h"\
+	".\operator.h"\
+	".\cut.h"\
+	".\elvisio.h"\
+	".\lp.h"\
+	".\calc.h"\
+	".\more.h"\
+	".\digraph.h"\
+	".\tag.h"\
+	".\tagsrch.h"\
+	".\tagelvis.h"\
+	".\color.h"\
+	".\descr.h"\
+	".\autocmd.h"\
+	".\need.h"\
+	".\misc.h"\
+	
+
+"$(INTDIR)\region.obj" : $(SOURCE) $(DEP_CPP_REGEX) "$(INTDIR)"
 
 
 # End Source File
@@ -1402,6 +1591,7 @@ DEP_CPP_LPESC=\
 	".\options.h"\
 	".\optglob.h"\
 	".\session.h"\
+	".\spell.h"\
 	".\lowbuf.h"\
 	".\message.h"\
 	".\buffer.h"\
@@ -1424,7 +1614,9 @@ DEP_CPP_LPESC=\
 	".\input.h"\
 	".\vi.h"\
 	".\regexp.h"\
+	".\region.h"\
 	".\ex.h"\
+	".\fold.h"\
 	".\move.h"\
 	".\vicmd.h"\
 	".\operator.h"\
@@ -1437,6 +1629,9 @@ DEP_CPP_LPESC=\
 	".\tag.h"\
 	".\tagsrch.h"\
 	".\tagelvis.h"\
+	".\color.h"\
+	".\descr.h"\
+	".\autocmd.h"\
 	".\need.h"\
 	".\misc.h"\
 	
@@ -1459,6 +1654,7 @@ DEP_CPP_INPUT=\
 	".\options.h"\
 	".\optglob.h"\
 	".\session.h"\
+	".\spell.h"\
 	".\lowbuf.h"\
 	".\message.h"\
 	".\buffer.h"\
@@ -1481,7 +1677,9 @@ DEP_CPP_INPUT=\
 	".\input.h"\
 	".\vi.h"\
 	".\regexp.h"\
+	".\region.h"\
 	".\ex.h"\
+	".\fold.h"\
 	".\move.h"\
 	".\vicmd.h"\
 	".\operator.h"\
@@ -1494,6 +1692,9 @@ DEP_CPP_INPUT=\
 	".\tag.h"\
 	".\tagsrch.h"\
 	".\tagelvis.h"\
+	".\color.h"\
+	".\descr.h"\
+	".\autocmd.h"\
 	".\need.h"\
 	".\misc.h"\
 	
@@ -1516,6 +1717,7 @@ DEP_CPP_DMNOR=\
 	".\options.h"\
 	".\optglob.h"\
 	".\session.h"\
+	".\spell.h"\
 	".\lowbuf.h"\
 	".\message.h"\
 	".\buffer.h"\
@@ -1538,7 +1740,9 @@ DEP_CPP_DMNOR=\
 	".\input.h"\
 	".\vi.h"\
 	".\regexp.h"\
+	".\region.h"\
 	".\ex.h"\
+	".\fold.h"\
 	".\move.h"\
 	".\vicmd.h"\
 	".\operator.h"\
@@ -1551,6 +1755,9 @@ DEP_CPP_DMNOR=\
 	".\tag.h"\
 	".\tagsrch.h"\
 	".\tagelvis.h"\
+	".\color.h"\
+	".\descr.h"\
+	".\autocmd.h"\
 	".\need.h"\
 	".\misc.h"\
 	
@@ -1573,6 +1780,7 @@ DEP_CPP_DMSYN=\
 	".\options.h"\
 	".\optglob.h"\
 	".\session.h"\
+	".\spell.h"\
 	".\lowbuf.h"\
 	".\message.h"\
 	".\buffer.h"\
@@ -1595,7 +1803,9 @@ DEP_CPP_DMSYN=\
 	".\input.h"\
 	".\vi.h"\
 	".\regexp.h"\
+	".\region.h"\
 	".\ex.h"\
+	".\fold.h"\
 	".\move.h"\
 	".\vicmd.h"\
 	".\operator.h"\
@@ -1608,6 +1818,9 @@ DEP_CPP_DMSYN=\
 	".\tag.h"\
 	".\tagsrch.h"\
 	".\tagelvis.h"\
+	".\color.h"\
+	".\descr.h"\
+	".\autocmd.h"\
 	".\need.h"\
 	".\misc.h"\
 	
@@ -1630,6 +1843,7 @@ DEP_CPP_OPTIO=\
 	".\options.h"\
 	".\optglob.h"\
 	".\session.h"\
+	".\spell.h"\
 	".\lowbuf.h"\
 	".\message.h"\
 	".\buffer.h"\
@@ -1652,7 +1866,9 @@ DEP_CPP_OPTIO=\
 	".\input.h"\
 	".\vi.h"\
 	".\regexp.h"\
+	".\region.h"\
 	".\ex.h"\
+	".\fold.h"\
 	".\move.h"\
 	".\vicmd.h"\
 	".\operator.h"\
@@ -1665,6 +1881,9 @@ DEP_CPP_OPTIO=\
 	".\tag.h"\
 	".\tagsrch.h"\
 	".\tagelvis.h"\
+	".\color.h"\
+	".\descr.h"\
+	".\autocmd.h"\
 	".\need.h"\
 	".\misc.h"\
 	
@@ -1687,6 +1906,7 @@ DEP_CPP_CALC_=\
 	".\options.h"\
 	".\optglob.h"\
 	".\session.h"\
+	".\spell.h"\
 	".\lowbuf.h"\
 	".\message.h"\
 	".\buffer.h"\
@@ -1709,7 +1929,9 @@ DEP_CPP_CALC_=\
 	".\input.h"\
 	".\vi.h"\
 	".\regexp.h"\
+	".\region.h"\
 	".\ex.h"\
+	".\fold.h"\
 	".\move.h"\
 	".\vicmd.h"\
 	".\operator.h"\
@@ -1722,6 +1944,9 @@ DEP_CPP_CALC_=\
 	".\tag.h"\
 	".\tagsrch.h"\
 	".\tagelvis.h"\
+	".\color.h"\
+	".\descr.h"\
+	".\autocmd.h"\
 	".\need.h"\
 	".\misc.h"\
 	
@@ -1745,6 +1970,7 @@ DEP_CPP_OSTEX=\
 	".\options.h"\
 	".\optglob.h"\
 	".\session.h"\
+	".\spell.h"\
 	".\lowbuf.h"\
 	".\message.h"\
 	".\buffer.h"\
@@ -1767,7 +1993,9 @@ DEP_CPP_OSTEX=\
 	".\input.h"\
 	".\vi.h"\
 	".\regexp.h"\
+	".\region.h"\
 	".\ex.h"\
+	".\fold.h"\
 	".\move.h"\
 	".\vicmd.h"\
 	".\operator.h"\
@@ -1780,6 +2008,9 @@ DEP_CPP_OSTEX=\
 	".\tag.h"\
 	".\tagsrch.h"\
 	".\tagelvis.h"\
+	".\color.h"\
+	".\descr.h"\
+	".\autocmd.h"\
 	".\need.h"\
 	".\misc.h"\
 	
@@ -1803,6 +2034,7 @@ DEP_CPP_VI_C30=\
 	".\options.h"\
 	".\optglob.h"\
 	".\session.h"\
+	".\spell.h"\
 	".\lowbuf.h"\
 	".\message.h"\
 	".\buffer.h"\
@@ -1825,7 +2057,9 @@ DEP_CPP_VI_C30=\
 	".\input.h"\
 	".\vi.h"\
 	".\regexp.h"\
+	".\region.h"\
 	".\ex.h"\
+	".\fold.h"\
 	".\move.h"\
 	".\vicmd.h"\
 	".\operator.h"\
@@ -1838,6 +2072,9 @@ DEP_CPP_VI_C30=\
 	".\tag.h"\
 	".\tagsrch.h"\
 	".\tagelvis.h"\
+	".\color.h"\
+	".\descr.h"\
+	".\autocmd.h"\
 	".\need.h"\
 	".\misc.h"\
 	
@@ -1860,6 +2097,7 @@ DEP_CPP_NEED_=\
 	".\options.h"\
 	".\optglob.h"\
 	".\session.h"\
+	".\spell.h"\
 	".\lowbuf.h"\
 	".\message.h"\
 	".\buffer.h"\
@@ -1882,7 +2120,9 @@ DEP_CPP_NEED_=\
 	".\input.h"\
 	".\vi.h"\
 	".\regexp.h"\
+	".\region.h"\
 	".\ex.h"\
+	".\fold.h"\
 	".\move.h"\
 	".\vicmd.h"\
 	".\operator.h"\
@@ -1895,6 +2135,9 @@ DEP_CPP_NEED_=\
 	".\tag.h"\
 	".\tagsrch.h"\
 	".\tagelvis.h"\
+	".\color.h"\
+	".\descr.h"\
+	".\autocmd.h"\
 	".\need.h"\
 	".\misc.h"\
 	
@@ -1917,6 +2160,7 @@ DEP_CPP_WINDO=\
 	".\options.h"\
 	".\optglob.h"\
 	".\session.h"\
+	".\spell.h"\
 	".\lowbuf.h"\
 	".\message.h"\
 	".\buffer.h"\
@@ -1939,7 +2183,9 @@ DEP_CPP_WINDO=\
 	".\input.h"\
 	".\vi.h"\
 	".\regexp.h"\
+	".\region.h"\
 	".\ex.h"\
+	".\fold.h"\
 	".\move.h"\
 	".\vicmd.h"\
 	".\operator.h"\
@@ -1952,6 +2198,9 @@ DEP_CPP_WINDO=\
 	".\tag.h"\
 	".\tagsrch.h"\
 	".\tagelvis.h"\
+	".\color.h"\
+	".\descr.h"\
+	".\autocmd.h"\
 	".\need.h"\
 	".\misc.h"\
 	
@@ -1974,6 +2223,7 @@ DEP_CPP_IO_C36=\
 	".\options.h"\
 	".\optglob.h"\
 	".\session.h"\
+	".\spell.h"\
 	".\lowbuf.h"\
 	".\message.h"\
 	".\buffer.h"\
@@ -1996,7 +2246,9 @@ DEP_CPP_IO_C36=\
 	".\input.h"\
 	".\vi.h"\
 	".\regexp.h"\
+	".\region.h"\
 	".\ex.h"\
+	".\fold.h"\
 	".\move.h"\
 	".\vicmd.h"\
 	".\operator.h"\
@@ -2009,6 +2261,9 @@ DEP_CPP_IO_C36=\
 	".\tag.h"\
 	".\tagsrch.h"\
 	".\tagelvis.h"\
+	".\color.h"\
+	".\descr.h"\
+	".\autocmd.h"\
 	".\need.h"\
 	".\misc.h"\
 	
@@ -2033,6 +2288,7 @@ DEP_CPP_OSDIR=\
 	".\options.h"\
 	".\optglob.h"\
 	".\session.h"\
+	".\spell.h"\
 	".\lowbuf.h"\
 	".\message.h"\
 	".\buffer.h"\
@@ -2055,7 +2311,9 @@ DEP_CPP_OSDIR=\
 	".\input.h"\
 	".\vi.h"\
 	".\regexp.h"\
+	".\region.h"\
 	".\ex.h"\
+	".\fold.h"\
 	".\move.h"\
 	".\vicmd.h"\
 	".\operator.h"\
@@ -2068,6 +2326,9 @@ DEP_CPP_OSDIR=\
 	".\tag.h"\
 	".\tagsrch.h"\
 	".\tagelvis.h"\
+	".\color.h"\
+	".\descr.h"\
+	".\autocmd.h"\
 	".\need.h"\
 	".\misc.h"\
 	
@@ -2091,6 +2352,7 @@ DEP_CPP_SAFE_=\
 	".\options.h"\
 	".\optglob.h"\
 	".\session.h"\
+	".\spell.h"\
 	".\lowbuf.h"\
 	".\message.h"\
 	".\buffer.h"\
@@ -2113,7 +2375,9 @@ DEP_CPP_SAFE_=\
 	".\input.h"\
 	".\vi.h"\
 	".\regexp.h"\
+	".\region.h"\
 	".\ex.h"\
+	".\fold.h"\
 	".\move.h"\
 	".\vicmd.h"\
 	".\operator.h"\
@@ -2126,6 +2390,9 @@ DEP_CPP_SAFE_=\
 	".\tag.h"\
 	".\tagsrch.h"\
 	".\tagelvis.h"\
+	".\color.h"\
+	".\descr.h"\
+	".\autocmd.h"\
 	".\need.h"\
 	".\misc.h"\
 	
@@ -2148,6 +2415,7 @@ DEP_CPP_REGSU=\
 	".\options.h"\
 	".\optglob.h"\
 	".\session.h"\
+	".\spell.h"\
 	".\lowbuf.h"\
 	".\message.h"\
 	".\buffer.h"\
@@ -2170,7 +2438,9 @@ DEP_CPP_REGSU=\
 	".\input.h"\
 	".\vi.h"\
 	".\regexp.h"\
+	".\region.h"\
 	".\ex.h"\
+	".\fold.h"\
 	".\move.h"\
 	".\vicmd.h"\
 	".\operator.h"\
@@ -2183,6 +2453,9 @@ DEP_CPP_REGSU=\
 	".\tag.h"\
 	".\tagsrch.h"\
 	".\tagelvis.h"\
+	".\color.h"\
+	".\descr.h"\
+	".\autocmd.h"\
 	".\need.h"\
 	".\misc.h"\
 	
@@ -2205,6 +2478,7 @@ DEP_CPP_EX_C3e=\
 	".\options.h"\
 	".\optglob.h"\
 	".\session.h"\
+	".\spell.h"\
 	".\lowbuf.h"\
 	".\message.h"\
 	".\buffer.h"\
@@ -2227,7 +2501,9 @@ DEP_CPP_EX_C3e=\
 	".\input.h"\
 	".\vi.h"\
 	".\regexp.h"\
+	".\region.h"\
 	".\ex.h"\
+	".\fold.h"\
 	".\move.h"\
 	".\vicmd.h"\
 	".\operator.h"\
@@ -2240,6 +2516,9 @@ DEP_CPP_EX_C3e=\
 	".\tag.h"\
 	".\tagsrch.h"\
 	".\tagelvis.h"\
+	".\color.h"\
+	".\descr.h"\
+	".\autocmd.h"\
 	".\need.h"\
 	".\misc.h"\
 	
@@ -2262,6 +2541,7 @@ DEP_CPP_BUFFE=\
 	".\options.h"\
 	".\optglob.h"\
 	".\session.h"\
+	".\spell.h"\
 	".\lowbuf.h"\
 	".\message.h"\
 	".\buffer.h"\
@@ -2284,7 +2564,9 @@ DEP_CPP_BUFFE=\
 	".\input.h"\
 	".\vi.h"\
 	".\regexp.h"\
+	".\region.h"\
 	".\ex.h"\
+	".\fold.h"\
 	".\move.h"\
 	".\vicmd.h"\
 	".\operator.h"\
@@ -2297,6 +2579,9 @@ DEP_CPP_BUFFE=\
 	".\tag.h"\
 	".\tagsrch.h"\
 	".\tagelvis.h"\
+	".\color.h"\
+	".\descr.h"\
+	".\autocmd.h"\
 	".\need.h"\
 	".\misc.h"\
 	
@@ -2319,6 +2604,7 @@ DEP_CPP_EVENT=\
 	".\options.h"\
 	".\optglob.h"\
 	".\session.h"\
+	".\spell.h"\
 	".\lowbuf.h"\
 	".\message.h"\
 	".\buffer.h"\
@@ -2341,7 +2627,9 @@ DEP_CPP_EVENT=\
 	".\input.h"\
 	".\vi.h"\
 	".\regexp.h"\
+	".\region.h"\
 	".\ex.h"\
+	".\fold.h"\
 	".\move.h"\
 	".\vicmd.h"\
 	".\operator.h"\
@@ -2354,6 +2642,9 @@ DEP_CPP_EVENT=\
 	".\tag.h"\
 	".\tagsrch.h"\
 	".\tagelvis.h"\
+	".\color.h"\
+	".\descr.h"\
+	".\autocmd.h"\
 	".\need.h"\
 	".\misc.h"\
 	
@@ -2376,6 +2667,7 @@ DEP_CPP_SESSI=\
 	".\options.h"\
 	".\optglob.h"\
 	".\session.h"\
+	".\spell.h"\
 	".\lowbuf.h"\
 	".\message.h"\
 	".\buffer.h"\
@@ -2398,7 +2690,9 @@ DEP_CPP_SESSI=\
 	".\input.h"\
 	".\vi.h"\
 	".\regexp.h"\
+	".\region.h"\
 	".\ex.h"\
+	".\fold.h"\
 	".\move.h"\
 	".\vicmd.h"\
 	".\operator.h"\
@@ -2411,11 +2705,77 @@ DEP_CPP_SESSI=\
 	".\tag.h"\
 	".\tagsrch.h"\
 	".\tagelvis.h"\
+	".\color.h"\
+	".\descr.h"\
+	".\autocmd.h"\
 	".\need.h"\
 	".\misc.h"\
 	
 
 "$(INTDIR)\session.obj" : $(SOURCE) $(DEP_CPP_SESSI) "$(INTDIR)"
+
+
+# End Source File
+################################################################################
+# Begin Source File
+
+SOURCE=.\spell.c
+DEP_CPP_SPELL=\
+	".\elvis.h"\
+	".\config.h"\
+	".\elvctype.h"\
+	".\version.h"\
+	".\oswin32\osdef.h"\
+	".\safe.h"\
+	".\options.h"\
+	".\optglob.h"\
+	".\session.h"\
+	".\spell.h"\
+	".\lowbuf.h"\
+	".\message.h"\
+	".\buffer.h"\
+	".\mark.h"\
+	".\buffer2.h"\
+	".\options2.h"\
+	".\scan.h"\
+	".\opsys.h"\
+	".\map.h"\
+	".\gui.h"\
+	".\display.h"\
+	".\draw.h"\
+	".\state.h"\
+	".\window.h"\
+	".\gui2.h"\
+	".\display2.h"\
+	".\draw2.h"\
+	".\state2.h"\
+	".\event.h"\
+	".\input.h"\
+	".\vi.h"\
+	".\regexp.h"\
+	".\region.h"\
+	".\ex.h"\
+	".\fold.h"\
+	".\move.h"\
+	".\vicmd.h"\
+	".\operator.h"\
+	".\cut.h"\
+	".\elvisio.h"\
+	".\lp.h"\
+	".\calc.h"\
+	".\more.h"\
+	".\digraph.h"\
+	".\tag.h"\
+	".\tagsrch.h"\
+	".\tagelvis.h"\
+	".\color.h"\
+	".\descr.h"\
+	".\autocmd.h"\
+	".\need.h"\
+	".\misc.h"\
+	
+
+"$(INTDIR)\spell.obj" : $(SOURCE) $(DEP_CPP_SPELL) "$(INTDIR)"
 
 
 # End Source File
@@ -2433,6 +2793,7 @@ DEP_CPP_GUICU=\
 	".\options.h"\
 	".\optglob.h"\
 	".\session.h"\
+	".\spell.h"\
 	".\lowbuf.h"\
 	".\message.h"\
 	".\buffer.h"\
@@ -2455,7 +2816,9 @@ DEP_CPP_GUICU=\
 	".\input.h"\
 	".\vi.h"\
 	".\regexp.h"\
+	".\region.h"\
 	".\ex.h"\
+	".\fold.h"\
 	".\move.h"\
 	".\vicmd.h"\
 	".\operator.h"\
@@ -2468,6 +2831,9 @@ DEP_CPP_GUICU=\
 	".\tag.h"\
 	".\tagsrch.h"\
 	".\tagelvis.h"\
+	".\color.h"\
+	".\descr.h"\
+	".\autocmd.h"\
 	".\need.h"\
 	".\misc.h"\
 	
@@ -2490,6 +2856,7 @@ DEP_CPP_DMMAR=\
 	".\options.h"\
 	".\optglob.h"\
 	".\session.h"\
+	".\spell.h"\
 	".\lowbuf.h"\
 	".\message.h"\
 	".\buffer.h"\
@@ -2512,7 +2879,9 @@ DEP_CPP_DMMAR=\
 	".\input.h"\
 	".\vi.h"\
 	".\regexp.h"\
+	".\region.h"\
 	".\ex.h"\
+	".\fold.h"\
 	".\move.h"\
 	".\vicmd.h"\
 	".\operator.h"\
@@ -2525,6 +2894,9 @@ DEP_CPP_DMMAR=\
 	".\tag.h"\
 	".\tagsrch.h"\
 	".\tagelvis.h"\
+	".\color.h"\
+	".\descr.h"\
+	".\autocmd.h"\
 	".\need.h"\
 	".\misc.h"\
 	
@@ -2547,6 +2919,7 @@ DEP_CPP_MARK_=\
 	".\options.h"\
 	".\optglob.h"\
 	".\session.h"\
+	".\spell.h"\
 	".\lowbuf.h"\
 	".\message.h"\
 	".\buffer.h"\
@@ -2569,7 +2942,9 @@ DEP_CPP_MARK_=\
 	".\input.h"\
 	".\vi.h"\
 	".\regexp.h"\
+	".\region.h"\
 	".\ex.h"\
+	".\fold.h"\
 	".\move.h"\
 	".\vicmd.h"\
 	".\operator.h"\
@@ -2582,6 +2957,9 @@ DEP_CPP_MARK_=\
 	".\tag.h"\
 	".\tagsrch.h"\
 	".\tagelvis.h"\
+	".\color.h"\
+	".\descr.h"\
+	".\autocmd.h"\
 	".\need.h"\
 	".\misc.h"\
 	
@@ -2604,6 +2982,7 @@ DEP_CPP_OPTGL=\
 	".\options.h"\
 	".\optglob.h"\
 	".\session.h"\
+	".\spell.h"\
 	".\lowbuf.h"\
 	".\message.h"\
 	".\buffer.h"\
@@ -2626,7 +3005,9 @@ DEP_CPP_OPTGL=\
 	".\input.h"\
 	".\vi.h"\
 	".\regexp.h"\
+	".\region.h"\
 	".\ex.h"\
+	".\fold.h"\
 	".\move.h"\
 	".\vicmd.h"\
 	".\operator.h"\
@@ -2639,6 +3020,9 @@ DEP_CPP_OPTGL=\
 	".\tag.h"\
 	".\tagsrch.h"\
 	".\tagelvis.h"\
+	".\color.h"\
+	".\descr.h"\
+	".\autocmd.h"\
 	".\need.h"\
 	".\misc.h"\
 	
@@ -2661,6 +3045,7 @@ DEP_CPP_LPPS_=\
 	".\options.h"\
 	".\optglob.h"\
 	".\session.h"\
+	".\spell.h"\
 	".\lowbuf.h"\
 	".\message.h"\
 	".\buffer.h"\
@@ -2683,7 +3068,9 @@ DEP_CPP_LPPS_=\
 	".\input.h"\
 	".\vi.h"\
 	".\regexp.h"\
+	".\region.h"\
 	".\ex.h"\
+	".\fold.h"\
 	".\move.h"\
 	".\vicmd.h"\
 	".\operator.h"\
@@ -2696,6 +3083,9 @@ DEP_CPP_LPPS_=\
 	".\tag.h"\
 	".\tagsrch.h"\
 	".\tagelvis.h"\
+	".\color.h"\
+	".\descr.h"\
+	".\autocmd.h"\
 	".\need.h"\
 	".\misc.h"\
 	
@@ -2718,6 +3108,7 @@ DEP_CPP_MESSA=\
 	".\options.h"\
 	".\optglob.h"\
 	".\session.h"\
+	".\spell.h"\
 	".\lowbuf.h"\
 	".\message.h"\
 	".\buffer.h"\
@@ -2740,7 +3131,9 @@ DEP_CPP_MESSA=\
 	".\input.h"\
 	".\vi.h"\
 	".\regexp.h"\
+	".\region.h"\
 	".\ex.h"\
+	".\fold.h"\
 	".\move.h"\
 	".\vicmd.h"\
 	".\operator.h"\
@@ -2753,6 +3146,9 @@ DEP_CPP_MESSA=\
 	".\tag.h"\
 	".\tagsrch.h"\
 	".\tagelvis.h"\
+	".\color.h"\
+	".\descr.h"\
+	".\autocmd.h"\
 	".\need.h"\
 	".\misc.h"\
 	
@@ -2775,6 +3171,7 @@ DEP_CPP_DMHEX=\
 	".\options.h"\
 	".\optglob.h"\
 	".\session.h"\
+	".\spell.h"\
 	".\lowbuf.h"\
 	".\message.h"\
 	".\buffer.h"\
@@ -2797,7 +3194,9 @@ DEP_CPP_DMHEX=\
 	".\input.h"\
 	".\vi.h"\
 	".\regexp.h"\
+	".\region.h"\
 	".\ex.h"\
+	".\fold.h"\
 	".\move.h"\
 	".\vicmd.h"\
 	".\operator.h"\
@@ -2810,6 +3209,9 @@ DEP_CPP_DMHEX=\
 	".\tag.h"\
 	".\tagsrch.h"\
 	".\tagelvis.h"\
+	".\color.h"\
+	".\descr.h"\
+	".\autocmd.h"\
 	".\need.h"\
 	".\misc.h"\
 	
@@ -2832,6 +3234,7 @@ DEP_CPP_CUT_C=\
 	".\options.h"\
 	".\optglob.h"\
 	".\session.h"\
+	".\spell.h"\
 	".\lowbuf.h"\
 	".\message.h"\
 	".\buffer.h"\
@@ -2854,7 +3257,9 @@ DEP_CPP_CUT_C=\
 	".\input.h"\
 	".\vi.h"\
 	".\regexp.h"\
+	".\region.h"\
 	".\ex.h"\
+	".\fold.h"\
 	".\move.h"\
 	".\vicmd.h"\
 	".\operator.h"\
@@ -2867,6 +3272,9 @@ DEP_CPP_CUT_C=\
 	".\tag.h"\
 	".\tagsrch.h"\
 	".\tagelvis.h"\
+	".\color.h"\
+	".\descr.h"\
+	".\autocmd.h"\
 	".\need.h"\
 	".\misc.h"\
 	
@@ -2889,6 +3297,7 @@ DEP_CPP_EXCON=\
 	".\options.h"\
 	".\optglob.h"\
 	".\session.h"\
+	".\spell.h"\
 	".\lowbuf.h"\
 	".\message.h"\
 	".\buffer.h"\
@@ -2911,7 +3320,9 @@ DEP_CPP_EXCON=\
 	".\input.h"\
 	".\vi.h"\
 	".\regexp.h"\
+	".\region.h"\
 	".\ex.h"\
+	".\fold.h"\
 	".\move.h"\
 	".\vicmd.h"\
 	".\operator.h"\
@@ -2924,6 +3335,9 @@ DEP_CPP_EXCON=\
 	".\tag.h"\
 	".\tagsrch.h"\
 	".\tagelvis.h"\
+	".\color.h"\
+	".\descr.h"\
+	".\autocmd.h"\
 	".\need.h"\
 	".\misc.h"\
 	
@@ -2946,6 +3360,7 @@ DEP_CPP_EXMAK=\
 	".\options.h"\
 	".\optglob.h"\
 	".\session.h"\
+	".\spell.h"\
 	".\lowbuf.h"\
 	".\message.h"\
 	".\buffer.h"\
@@ -2968,7 +3383,9 @@ DEP_CPP_EXMAK=\
 	".\input.h"\
 	".\vi.h"\
 	".\regexp.h"\
+	".\region.h"\
 	".\ex.h"\
+	".\fold.h"\
 	".\move.h"\
 	".\vicmd.h"\
 	".\operator.h"\
@@ -2981,6 +3398,9 @@ DEP_CPP_EXMAK=\
 	".\tag.h"\
 	".\tagsrch.h"\
 	".\tagelvis.h"\
+	".\color.h"\
+	".\descr.h"\
+	".\autocmd.h"\
 	".\need.h"\
 	".\misc.h"\
 	
@@ -3003,6 +3423,7 @@ DEP_CPP_TINYT=\
 	".\options.h"\
 	".\optglob.h"\
 	".\session.h"\
+	".\spell.h"\
 	".\lowbuf.h"\
 	".\message.h"\
 	".\buffer.h"\
@@ -3025,7 +3446,9 @@ DEP_CPP_TINYT=\
 	".\input.h"\
 	".\vi.h"\
 	".\regexp.h"\
+	".\region.h"\
 	".\ex.h"\
+	".\fold.h"\
 	".\move.h"\
 	".\vicmd.h"\
 	".\operator.h"\
@@ -3038,6 +3461,9 @@ DEP_CPP_TINYT=\
 	".\tag.h"\
 	".\tagsrch.h"\
 	".\tagelvis.h"\
+	".\color.h"\
+	".\descr.h"\
+	".\autocmd.h"\
 	".\need.h"\
 	".\misc.h"\
 	
@@ -3060,6 +3486,7 @@ DEP_CPP_LPOVR=\
 	".\options.h"\
 	".\optglob.h"\
 	".\session.h"\
+	".\spell.h"\
 	".\lowbuf.h"\
 	".\message.h"\
 	".\buffer.h"\
@@ -3082,7 +3509,9 @@ DEP_CPP_LPOVR=\
 	".\input.h"\
 	".\vi.h"\
 	".\regexp.h"\
+	".\region.h"\
 	".\ex.h"\
+	".\fold.h"\
 	".\move.h"\
 	".\vicmd.h"\
 	".\operator.h"\
@@ -3095,6 +3524,9 @@ DEP_CPP_LPOVR=\
 	".\tag.h"\
 	".\tagsrch.h"\
 	".\tagelvis.h"\
+	".\color.h"\
+	".\descr.h"\
+	".\autocmd.h"\
 	".\need.h"\
 	".\misc.h"\
 	
@@ -3117,6 +3549,7 @@ DEP_CPP_MAIN_=\
 	".\options.h"\
 	".\optglob.h"\
 	".\session.h"\
+	".\spell.h"\
 	".\lowbuf.h"\
 	".\message.h"\
 	".\buffer.h"\
@@ -3139,7 +3572,9 @@ DEP_CPP_MAIN_=\
 	".\input.h"\
 	".\vi.h"\
 	".\regexp.h"\
+	".\region.h"\
 	".\ex.h"\
+	".\fold.h"\
 	".\move.h"\
 	".\vicmd.h"\
 	".\operator.h"\
@@ -3152,6 +3587,9 @@ DEP_CPP_MAIN_=\
 	".\tag.h"\
 	".\tagsrch.h"\
 	".\tagelvis.h"\
+	".\color.h"\
+	".\descr.h"\
+	".\autocmd.h"\
 	".\need.h"\
 	".\misc.h"\
 	
@@ -3174,6 +3612,7 @@ DEP_CPP_EXEDI=\
 	".\options.h"\
 	".\optglob.h"\
 	".\session.h"\
+	".\spell.h"\
 	".\lowbuf.h"\
 	".\message.h"\
 	".\buffer.h"\
@@ -3196,7 +3635,9 @@ DEP_CPP_EXEDI=\
 	".\input.h"\
 	".\vi.h"\
 	".\regexp.h"\
+	".\region.h"\
 	".\ex.h"\
+	".\fold.h"\
 	".\move.h"\
 	".\vicmd.h"\
 	".\operator.h"\
@@ -3209,6 +3650,9 @@ DEP_CPP_EXEDI=\
 	".\tag.h"\
 	".\tagsrch.h"\
 	".\tagelvis.h"\
+	".\color.h"\
+	".\descr.h"\
+	".\autocmd.h"\
 	".\need.h"\
 	".\misc.h"\
 	
@@ -3231,6 +3675,7 @@ DEP_CPP_EXEDI=\
 	".\options.h"\
 	".\optglob.h"\
 	".\session.h"\
+	".\spell.h"\
 	".\lowbuf.h"\
 	".\message.h"\
 	".\buffer.h"\
@@ -3253,7 +3698,9 @@ DEP_CPP_EXEDI=\
 	".\input.h"\
 	".\vi.h"\
 	".\regexp.h"\
+	".\region.h"\
 	".\ex.h"\
+	".\fold.h"\
 	".\move.h"\
 	".\vicmd.h"\
 	".\operator.h"\
@@ -3266,6 +3713,9 @@ DEP_CPP_EXEDI=\
 	".\tag.h"\
 	".\tagsrch.h"\
 	".\tagelvis.h"\
+	".\color.h"\
+	".\descr.h"\
+	".\autocmd.h"\
 	".\need.h"\
 	".\misc.h"\
 	
@@ -3274,7 +3724,6 @@ DEP_CPP_EXEDI=\
 
 
 # End Source File
-################################################################################
 ################################################################################
 # Begin Source File
 
@@ -3289,6 +3738,7 @@ DEP_CPP_LOWBU=\
 	".\options.h"\
 	".\optglob.h"\
 	".\session.h"\
+	".\spell.h"\
 	".\lowbuf.h"\
 	".\message.h"\
 	".\buffer.h"\
@@ -3311,7 +3761,9 @@ DEP_CPP_LOWBU=\
 	".\input.h"\
 	".\vi.h"\
 	".\regexp.h"\
+	".\region.h"\
 	".\ex.h"\
+	".\fold.h"\
 	".\move.h"\
 	".\vicmd.h"\
 	".\operator.h"\
@@ -3324,6 +3776,9 @@ DEP_CPP_LOWBU=\
 	".\tag.h"\
 	".\tagsrch.h"\
 	".\tagelvis.h"\
+	".\color.h"\
+	".\descr.h"\
+	".\autocmd.h"\
 	".\need.h"\
 	".\misc.h"\
 	
@@ -3346,6 +3801,7 @@ DEP_CPP_DRAW_=\
 	".\options.h"\
 	".\optglob.h"\
 	".\session.h"\
+	".\spell.h"\
 	".\lowbuf.h"\
 	".\message.h"\
 	".\buffer.h"\
@@ -3368,7 +3824,9 @@ DEP_CPP_DRAW_=\
 	".\input.h"\
 	".\vi.h"\
 	".\regexp.h"\
+	".\region.h"\
 	".\ex.h"\
+	".\fold.h"\
 	".\move.h"\
 	".\vicmd.h"\
 	".\operator.h"\
@@ -3381,6 +3839,9 @@ DEP_CPP_DRAW_=\
 	".\tag.h"\
 	".\tagsrch.h"\
 	".\tagelvis.h"\
+	".\color.h"\
+	".\descr.h"\
+	".\autocmd.h"\
 	".\need.h"\
 	".\misc.h"\
 	
@@ -3403,6 +3864,7 @@ DEP_CPP_SCAN_=\
 	".\options.h"\
 	".\optglob.h"\
 	".\session.h"\
+	".\spell.h"\
 	".\lowbuf.h"\
 	".\message.h"\
 	".\buffer.h"\
@@ -3425,7 +3887,9 @@ DEP_CPP_SCAN_=\
 	".\input.h"\
 	".\vi.h"\
 	".\regexp.h"\
+	".\region.h"\
 	".\ex.h"\
+	".\fold.h"\
 	".\move.h"\
 	".\vicmd.h"\
 	".\operator.h"\
@@ -3438,6 +3902,9 @@ DEP_CPP_SCAN_=\
 	".\tag.h"\
 	".\tagsrch.h"\
 	".\tagelvis.h"\
+	".\color.h"\
+	".\descr.h"\
+	".\autocmd.h"\
 	".\need.h"\
 	".\misc.h"\
 	
@@ -3460,6 +3927,7 @@ DEP_CPP_MAP_C=\
 	".\options.h"\
 	".\optglob.h"\
 	".\session.h"\
+	".\spell.h"\
 	".\lowbuf.h"\
 	".\message.h"\
 	".\buffer.h"\
@@ -3482,7 +3950,9 @@ DEP_CPP_MAP_C=\
 	".\input.h"\
 	".\vi.h"\
 	".\regexp.h"\
+	".\region.h"\
 	".\ex.h"\
+	".\fold.h"\
 	".\move.h"\
 	".\vicmd.h"\
 	".\operator.h"\
@@ -3495,6 +3965,9 @@ DEP_CPP_MAP_C=\
 	".\tag.h"\
 	".\tagsrch.h"\
 	".\tagelvis.h"\
+	".\color.h"\
+	".\descr.h"\
+	".\autocmd.h"\
 	".\need.h"\
 	".\misc.h"\
 	
@@ -3518,6 +3991,7 @@ DEP_CPP_OSBLO=\
 	".\options.h"\
 	".\optglob.h"\
 	".\session.h"\
+	".\spell.h"\
 	".\lowbuf.h"\
 	".\message.h"\
 	".\buffer.h"\
@@ -3540,7 +4014,9 @@ DEP_CPP_OSBLO=\
 	".\input.h"\
 	".\vi.h"\
 	".\regexp.h"\
+	".\region.h"\
 	".\ex.h"\
+	".\fold.h"\
 	".\move.h"\
 	".\vicmd.h"\
 	".\operator.h"\
@@ -3553,6 +4029,9 @@ DEP_CPP_OSBLO=\
 	".\tag.h"\
 	".\tagsrch.h"\
 	".\tagelvis.h"\
+	".\color.h"\
+	".\descr.h"\
+	".\autocmd.h"\
 	".\need.h"\
 	".\misc.h"\
 	
@@ -3576,6 +4055,7 @@ DEP_CPP_TAGSR=\
 	".\options.h"\
 	".\optglob.h"\
 	".\session.h"\
+	".\spell.h"\
 	".\lowbuf.h"\
 	".\message.h"\
 	".\buffer.h"\
@@ -3598,7 +4078,9 @@ DEP_CPP_TAGSR=\
 	".\input.h"\
 	".\vi.h"\
 	".\regexp.h"\
+	".\region.h"\
 	".\ex.h"\
+	".\fold.h"\
 	".\move.h"\
 	".\vicmd.h"\
 	".\operator.h"\
@@ -3611,6 +4093,9 @@ DEP_CPP_TAGSR=\
 	".\tag.h"\
 	".\tagsrch.h"\
 	".\tagelvis.h"\
+	".\color.h"\
+	".\descr.h"\
+	".\autocmd.h"\
 	".\need.h"\
 	".\misc.h"\
 	
@@ -3633,6 +4118,7 @@ DEP_CPP_TAG_C=\
 	".\options.h"\
 	".\optglob.h"\
 	".\session.h"\
+	".\spell.h"\
 	".\lowbuf.h"\
 	".\message.h"\
 	".\buffer.h"\
@@ -3655,7 +4141,9 @@ DEP_CPP_TAG_C=\
 	".\input.h"\
 	".\vi.h"\
 	".\regexp.h"\
+	".\region.h"\
 	".\ex.h"\
+	".\fold.h"\
 	".\move.h"\
 	".\vicmd.h"\
 	".\operator.h"\
@@ -3668,6 +4156,9 @@ DEP_CPP_TAG_C=\
 	".\tag.h"\
 	".\tagsrch.h"\
 	".\tagelvis.h"\
+	".\color.h"\
+	".\descr.h"\
+	".\autocmd.h"\
 	".\need.h"\
 	".\misc.h"\
 	
@@ -3690,6 +4181,7 @@ DEP_CPP_TAGEL=\
 	".\options.h"\
 	".\optglob.h"\
 	".\session.h"\
+	".\spell.h"\
 	".\lowbuf.h"\
 	".\message.h"\
 	".\buffer.h"\
@@ -3712,7 +4204,9 @@ DEP_CPP_TAGEL=\
 	".\input.h"\
 	".\vi.h"\
 	".\regexp.h"\
+	".\region.h"\
 	".\ex.h"\
+	".\fold.h"\
 	".\move.h"\
 	".\vicmd.h"\
 	".\operator.h"\
@@ -3725,6 +4219,9 @@ DEP_CPP_TAGEL=\
 	".\tag.h"\
 	".\tagsrch.h"\
 	".\tagelvis.h"\
+	".\color.h"\
+	".\descr.h"\
+	".\autocmd.h"\
 	".\need.h"\
 	".\misc.h"\
 	
@@ -3747,6 +4244,7 @@ DEP_CPP_OSNET=\
 	".\options.h"\
 	".\optglob.h"\
 	".\session.h"\
+	".\spell.h"\
 	".\lowbuf.h"\
 	".\message.h"\
 	".\buffer.h"\
@@ -3769,7 +4267,9 @@ DEP_CPP_OSNET=\
 	".\input.h"\
 	".\vi.h"\
 	".\regexp.h"\
+	".\region.h"\
 	".\ex.h"\
+	".\fold.h"\
 	".\move.h"\
 	".\vicmd.h"\
 	".\operator.h"\
@@ -3782,6 +4282,9 @@ DEP_CPP_OSNET=\
 	".\tag.h"\
 	".\tagsrch.h"\
 	".\tagelvis.h"\
+	".\color.h"\
+	".\descr.h"\
+	".\autocmd.h"\
 	".\need.h"\
 	".\misc.h"\
 	
@@ -3805,6 +4308,7 @@ DEP_CPP_URL_C=\
 	".\options.h"\
 	".\optglob.h"\
 	".\session.h"\
+	".\spell.h"\
 	".\lowbuf.h"\
 	".\message.h"\
 	".\buffer.h"\
@@ -3827,7 +4331,9 @@ DEP_CPP_URL_C=\
 	".\input.h"\
 	".\vi.h"\
 	".\regexp.h"\
+	".\region.h"\
 	".\ex.h"\
+	".\fold.h"\
 	".\move.h"\
 	".\vicmd.h"\
 	".\operator.h"\
@@ -3840,6 +4346,9 @@ DEP_CPP_URL_C=\
 	".\tag.h"\
 	".\tagsrch.h"\
 	".\tagelvis.h"\
+	".\color.h"\
+	".\descr.h"\
+	".\autocmd.h"\
 	".\need.h"\
 	".\misc.h"\
 	
@@ -3862,6 +4371,7 @@ DEP_CPP_HTTP_=\
 	".\options.h"\
 	".\optglob.h"\
 	".\session.h"\
+	".\spell.h"\
 	".\lowbuf.h"\
 	".\message.h"\
 	".\buffer.h"\
@@ -3884,7 +4394,9 @@ DEP_CPP_HTTP_=\
 	".\input.h"\
 	".\vi.h"\
 	".\regexp.h"\
+	".\region.h"\
 	".\ex.h"\
+	".\fold.h"\
 	".\move.h"\
 	".\vicmd.h"\
 	".\operator.h"\
@@ -3897,11 +4409,77 @@ DEP_CPP_HTTP_=\
 	".\tag.h"\
 	".\tagsrch.h"\
 	".\tagelvis.h"\
+	".\color.h"\
+	".\descr.h"\
+	".\autocmd.h"\
 	".\need.h"\
 	".\misc.h"\
 	
 
 "$(INTDIR)\http.obj" : $(SOURCE) $(DEP_CPP_HTTP_) "$(INTDIR)"
+
+
+# End Source File
+################################################################################
+# Begin Source File
+
+SOURCE=.\fold.c
+DEP_CPP_FTP_C=\
+	".\elvis.h"\
+	".\config.h"\
+	".\elvctype.h"\
+	".\version.h"\
+	".\oswin32\osdef.h"\
+	".\safe.h"\
+	".\options.h"\
+	".\optglob.h"\
+	".\session.h"\
+	".\spell.h"\
+	".\lowbuf.h"\
+	".\message.h"\
+	".\buffer.h"\
+	".\mark.h"\
+	".\buffer2.h"\
+	".\options2.h"\
+	".\scan.h"\
+	".\opsys.h"\
+	".\map.h"\
+	".\gui.h"\
+	".\display.h"\
+	".\draw.h"\
+	".\state.h"\
+	".\window.h"\
+	".\gui2.h"\
+	".\display2.h"\
+	".\draw2.h"\
+	".\state2.h"\
+	".\event.h"\
+	".\input.h"\
+	".\vi.h"\
+	".\regexp.h"\
+	".\region.h"\
+	".\ex.h"\
+	".\fold.h"\
+	".\move.h"\
+	".\vicmd.h"\
+	".\operator.h"\
+	".\cut.h"\
+	".\elvisio.h"\
+	".\lp.h"\
+	".\calc.h"\
+	".\more.h"\
+	".\digraph.h"\
+	".\tag.h"\
+	".\tagsrch.h"\
+	".\tagelvis.h"\
+	".\color.h"\
+	".\descr.h"\
+	".\autocmd.h"\
+	".\need.h"\
+	".\misc.h"\
+	
+
+"$(INTDIR)\fold.obj" : $(SOURCE) $(DEP_CPP_FTP_C) "$(INTDIR)"
 
 
 # End Source File
@@ -3919,6 +4497,7 @@ DEP_CPP_FTP_C=\
 	".\options.h"\
 	".\optglob.h"\
 	".\session.h"\
+	".\spell.h"\
 	".\lowbuf.h"\
 	".\message.h"\
 	".\buffer.h"\
@@ -3941,7 +4520,9 @@ DEP_CPP_FTP_C=\
 	".\input.h"\
 	".\vi.h"\
 	".\regexp.h"\
+	".\region.h"\
 	".\ex.h"\
+	".\fold.h"\
 	".\move.h"\
 	".\vicmd.h"\
 	".\operator.h"\
@@ -3954,11 +4535,203 @@ DEP_CPP_FTP_C=\
 	".\tag.h"\
 	".\tagsrch.h"\
 	".\tagelvis.h"\
+	".\color.h"\
+	".\descr.h"\
+	".\autocmd.h"\
 	".\need.h"\
 	".\misc.h"\
 	
 
 "$(INTDIR)\ftp.obj" : $(SOURCE) $(DEP_CPP_FTP_C) "$(INTDIR)"
+
+
+# End Source File
+################################################################################
+# Begin Source File
+
+SOURCE=.\color.c
+DEP_CPP_COLOR=\
+	".\elvis.h"\
+	".\config.h"\
+	".\elvctype.h"\
+	".\version.h"\
+	".\oswin32\osdef.h"\
+	".\safe.h"\
+	".\options.h"\
+	".\optglob.h"\
+	".\session.h"\
+	".\spell.h"\
+	".\lowbuf.h"\
+	".\message.h"\
+	".\buffer.h"\
+	".\mark.h"\
+	".\buffer2.h"\
+	".\options2.h"\
+	".\scan.h"\
+	".\opsys.h"\
+	".\map.h"\
+	".\gui.h"\
+	".\display.h"\
+	".\draw.h"\
+	".\state.h"\
+	".\window.h"\
+	".\gui2.h"\
+	".\display2.h"\
+	".\draw2.h"\
+	".\state2.h"\
+	".\event.h"\
+	".\input.h"\
+	".\vi.h"\
+	".\regexp.h"\
+	".\region.h"\
+	".\ex.h"\
+	".\fold.h"\
+	".\move.h"\
+	".\vicmd.h"\
+	".\operator.h"\
+	".\cut.h"\
+	".\elvisio.h"\
+	".\lp.h"\
+	".\calc.h"\
+	".\more.h"\
+	".\digraph.h"\
+	".\tag.h"\
+	".\tagsrch.h"\
+	".\tagelvis.h"\
+	".\color.h"\
+	".\descr.h"\
+	".\autocmd.h"\
+	".\need.h"\
+	".\misc.h"\
+	
+
+"$(INTDIR)\color.obj" : $(SOURCE) $(DEP_CPP_FTP_C) "$(INTDIR)"
+
+
+# End Source File
+################################################################################
+# Begin Source File
+
+SOURCE=.\descr.c
+DEP_CPP_COLOR=\
+	".\elvis.h"\
+	".\config.h"\
+	".\elvctype.h"\
+	".\version.h"\
+	".\oswin32\osdef.h"\
+	".\safe.h"\
+	".\options.h"\
+	".\optglob.h"\
+	".\session.h"\
+	".\spell.h"\
+	".\lowbuf.h"\
+	".\message.h"\
+	".\buffer.h"\
+	".\mark.h"\
+	".\buffer2.h"\
+	".\options2.h"\
+	".\scan.h"\
+	".\opsys.h"\
+	".\map.h"\
+	".\gui.h"\
+	".\display.h"\
+	".\draw.h"\
+	".\state.h"\
+	".\window.h"\
+	".\gui2.h"\
+	".\display2.h"\
+	".\draw2.h"\
+	".\state2.h"\
+	".\event.h"\
+	".\input.h"\
+	".\vi.h"\
+	".\regexp.h"\
+	".\region.h"\
+	".\ex.h"\
+	".\fold.h"\
+	".\move.h"\
+	".\vicmd.h"\
+	".\operator.h"\
+	".\cut.h"\
+	".\elvisio.h"\
+	".\lp.h"\
+	".\calc.h"\
+	".\more.h"\
+	".\digraph.h"\
+	".\tag.h"\
+	".\tagsrch.h"\
+	".\tagelvis.h"\
+	".\color.h"\
+	".\descr.h"\
+	".\autocmd.h"\
+	".\need.h"\
+	".\misc.h"\
+	
+
+"$(INTDIR)\descr.obj" : $(SOURCE) $(DEP_CPP_FTP_C) "$(INTDIR)"
+
+
+# End Source File
+################################################################################
+# Begin Source File
+
+SOURCE=.\autocmd.c
+DEP_CPP_COLOR=\
+	".\elvis.h"\
+	".\config.h"\
+	".\elvctype.h"\
+	".\version.h"\
+	".\oswin32\osdef.h"\
+	".\safe.h"\
+	".\options.h"\
+	".\optglob.h"\
+	".\session.h"\
+	".\spell.h"\
+	".\lowbuf.h"\
+	".\message.h"\
+	".\buffer.h"\
+	".\mark.h"\
+	".\buffer2.h"\
+	".\options2.h"\
+	".\scan.h"\
+	".\opsys.h"\
+	".\map.h"\
+	".\gui.h"\
+	".\display.h"\
+	".\draw.h"\
+	".\state.h"\
+	".\window.h"\
+	".\gui2.h"\
+	".\display2.h"\
+	".\draw2.h"\
+	".\state2.h"\
+	".\event.h"\
+	".\input.h"\
+	".\vi.h"\
+	".\regexp.h"\
+	".\region.h"\
+	".\ex.h"\
+	".\fold.h"\
+	".\move.h"\
+	".\vicmd.h"\
+	".\operator.h"\
+	".\cut.h"\
+	".\elvisio.h"\
+	".\lp.h"\
+	".\calc.h"\
+	".\more.h"\
+	".\digraph.h"\
+	".\tag.h"\
+	".\tagsrch.h"\
+	".\tagelvis.h"\
+	".\color.h"\
+	".\descr.h"\
+	".\autocmd.h"\
+	".\need.h"\
+	".\misc.h"\
+	
+
+"$(INTDIR)\autocmd.obj" : $(SOURCE) $(DEP_CPP_FTP_C) "$(INTDIR)"
 
 
 # End Source File

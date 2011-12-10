@@ -43,7 +43,7 @@ typedef struct dialog_s
 	int	nfields;/* number of fields */
 	X_BUTTON *button;/* list of buttons */
 
-	BOOLEAN	pinned;	/* is this dialog pinned (persistent) ? */
+	ELVBOOL	pinned;	/* is this dialog pinned (persistent) ? */
 	int	current;/* currently highlighted field -- -1 to start */
 	int	cursor;	/* cursor position within the current field */
 	int	shift;	/* shift amount of the current text field */
@@ -59,9 +59,6 @@ typedef struct dialog_s
 
 	Window	win;	/* X11 window of the dialog */
 	GC	gc;	/* X11 graphic context */
-	long	bg;	/* X11 background color */
-	long	face;	/* X11 button/field color */
-	long	fglabel;/* X11 text color */
 } dialog_t;
 
 
@@ -69,3 +66,4 @@ extern void x_dl_add P_((X11WIN *xw, char *name, char *desc, char *excmd, char *
 extern void x_dl_delete P_((dialog_t *dia));
 extern void x_dl_destroy P_((X11WIN *xw));
 extern void x_dl_event P_((Window w, XEvent *event));
+extern void x_dl_docolor P_((X11WIN *xw));

@@ -32,7 +32,7 @@ static int	fd;
  * should be preserved.  Returns 0 if successful, -1 if no permission,
  * -2 if not a regular file (e.g., a directory), or -3 for other errors.
  */
-int txtopen(char *filename, _char_ rwa, BOOLEAN binary)
+int txtopen(char *filename, _char_ rwa, ELVBOOL binary)
 {
 	int	flags;
 

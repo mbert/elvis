@@ -58,10 +58,10 @@ static void growram(void)
 #endif
 
 
-/* This function creates a new block file, and returns True if successful,
- * or False if failed because the file was already busy.
+/* This function creates a new block file, and returns ElvTrue if successful,
+ * or ElvFalse if failed because the file was already busy.
  */
-BOOLEAN blkopen(BOOLEAN force, BLK *buf)
+ELVBOOL blkopen(ELVBOOL force, BLK *buf)
 {
 	char	sesname[100];
 	char	*sespath;
@@ -82,7 +82,7 @@ BOOLEAN blkopen(BOOLEAN force, BLK *buf)
 		ramblock[0] = _vmalloc((size_t)o_blksize);
 		vm = _vload(ramblock[0], _VM_DIRTY);
 		memcpy(vm, buf, (size_t)o_blksize);
-		return True;
+		return ElvTrue;
 	}
 #endif
 
@@ -141,15 +141,15 @@ BOOLEAN blkopen(BOOLEAN force, BLK *buf)
 			}	
 
 			/* If the user wants to cancel, then fail */
-			if (chosengui->poll && (*chosengui->poll)(False))
-				return False;
+			if (chosengui->poll && (*chosengui->poll)(ElvFalse))
+				return ElvFalse;
 		}
 		if (i > 999)
 		{
 			msg(MSG_FATAL, "could not find default session file");
 		}
 		optpreset(o_session, CHARdup(toCHAR(sesname)), OPT_LOCK|OPT_FREE);
-		o_tempsession = (BOOLEAN)!o_recovering;
+		o_tempsession = (ELVBOOL)!o_recovering;
 	}
 
 	/* Try to open the session file */
@@ -182,7 +182,7 @@ BOOLEAN blkopen(BOOLEAN force, BLK *buf)
 	else
 	{
 		/* if the session existed before elvis, it'll exist after */
-		o_tempsession = False;
+		o_tempsession = ElvFalse;
 	}
 
 	/* Read the first block & mark the session file as being "in use".
@@ -195,14 +195,14 @@ BOOLEAN blkopen(BOOLEAN force, BLK *buf)
 	}
 	if (buf->super.inuse && !force)
 	{
-		return False;
+		return ElvFalse;
 	}
 	buf->super.inuse = 1;
 	lseek(fd, 0L, 0);
 	(void)write(fd, buf, sizeof buf->super);
 
 	/* done! */
-	return True;
+	return ElvTrue;
 }
 
 

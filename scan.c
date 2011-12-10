@@ -1,9 +1,11 @@
 /* scan.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_scan[] = "$Id: scan.c,v 2.17 1999/09/30 18:18:34 steve Exp $";
 
 #include "elvis.h"
+#ifdef FEATURE_RCSID
+char id_scan[] = "$Id: scan.c,v 2.26 2003/10/17 17:41:23 steve Exp $";
+#endif
 
 #ifdef FEATURE_LITRE
 static	struct scan_s saved;
@@ -19,11 +21,31 @@ struct scan_s *scan__top;
  * scan context instead of allocating a new one, to reduce the number of
  * calls to safealloc().
  */
-static struct scan_s *recycle;
+#ifndef DEBUG_ALLOC
+static struct scan_s *recycle = (struct scan_s *)0;
+#endif
 
 
 /* This variable is used by the scanmark() macro */
 MARKBUF	scan__markbuf;
+
+
+#ifdef DEBUG_SCAN
+/* This checks the scan stack, to make sure we aren't scanning a buffer.
+ * The lowbuf.c:lockchars() function calls this, since scanning and modifying
+ * should never be done at the same time.  Scanning strings is allowed though.
+ */
+void scan__nobuf P_((void))
+{
+	struct scan_s *s;
+
+	for (s = scan__top; s; s = s->next)
+		if (s->buffer)
+			abort();
+}
+#endif /* DEBUG_ALLOC */
+
+
 
 /* This function creates a new scan context, and starts the scanning at
  * a given mark.  The scan context must be freed by a later scanfree()
@@ -32,7 +54,7 @@ MARKBUF	scan__markbuf;
  * appropriate CHAR in the buffer.  The value of that pointer is returned.
  * If the seek is past either end of the buffer, *cp is set to NULL.
  */
-#ifndef DEBUG_ALLOC
+#ifndef DEBUG_SCAN
 CHAR	*scanalloc(cp, start)
 #else
 CHAR	*_scanalloc(file, line, cp, start)
@@ -59,18 +81,16 @@ CHAR	*_scanalloc(file, line, cp, start)
 		newp = (struct scan_s *)safealloc(1, sizeof *newp);
 	}
 #else
-	newp = (struct scan_s *)_safealloc(file, line, False, 1, sizeof *newp);
+	newp = (struct scan_s *)_safealloc(file, line, ElvFalse, 1, sizeof *newp);
 #endif
 	newp->next = scan__top;
 	scan__top = newp;
 
 	/* initialize it */
 	newp->ptr = cp;
-#ifdef DEBUG_ALLOC
-# ifdef DEBUG_SCAN
+#ifdef DEBUG_SCAN
 	newp->file = file;
 	newp->line = line;
-# endif
 #endif
 	return scanseek(cp, start);
 }
@@ -81,7 +101,13 @@ CHAR	*_scanalloc(file, line, cp, start)
  * it possible to write functions which can scan a string or the contents of a
  * buffer with equal ease.
  */
+#ifdef DEBUG_SCAN
+CHAR	*_scanstring(file, line, cp, str)
+	char	*file;
+	int	line;
+#else
 CHAR	*scanstring(cp, str)
+#endif
 	CHAR	**cp;	/* address of pointer which will be used for scanning */
 	CHAR	*str;	/* NUL-terminated string to scan */
 {
@@ -90,6 +116,7 @@ CHAR	*scanstring(cp, str)
 	assert(str != NULL && cp != NULL);
 
 	/* allocate a new scan context */
+#ifndef DEBUG_ALLOC
 	if (recycle)
 	{
 		newp = recycle;
@@ -100,6 +127,9 @@ CHAR	*scanstring(cp, str)
 	{
 		newp = (struct scan_s *)safealloc(1, sizeof *newp);
 	}
+#else
+	newp = (struct scan_s *)_safealloc(file, line, ElvFalse, 1, sizeof *newp);
+#endif
 	newp->next = scan__top;
 	scan__top = newp;
 
@@ -111,6 +141,10 @@ CHAR	*scanstring(cp, str)
 	newp->rightedge = str + CHARlen(str);
 	newp->ptr = cp;
 	newp->leoffset = 0;
+#ifdef DEBUG_SCAN
+	newp->file = file;
+	newp->line = line;
+#endif
 
 	/* initialize *cp to point to the start of the string */
 	*cp = str;
@@ -122,7 +156,13 @@ CHAR	*scanstring(cp, str)
  * existing scan context.  I.e., it is like scanalloc(&new, scanmark(&old))
  * However, this function is usually much faster.
  */
+#ifdef DEBUG_SCAN
+CHAR *_scandup(file, line, cp, oldp)
+	char	*file;
+	int	line;
+#else
 CHAR *scandup(cp, oldp)
+#endif
 	CHAR	**cp;	/* address of pointer to use in new scan context */
 	CHAR	**oldp;	/* address of pointer used in existing scan context */
 {
@@ -131,6 +171,7 @@ CHAR *scandup(cp, oldp)
 	assert(scan__top && scan__top->ptr == oldp);
 
 	/* allocate a new scan context */
+#ifndef DEBUG_ALLOC
 	if (recycle)
 	{
 		newp = recycle;
@@ -141,6 +182,9 @@ CHAR *scandup(cp, oldp)
 	{
 		newp = (struct scan_s *)safealloc(1, sizeof *newp);
 	}
+#else
+	newp = (struct scan_s *)_safealloc(file, line, ElvFalse, 1, sizeof *newp);
+#endif
 	newp->next = scan__top;
 	scan__top = newp;
 
@@ -152,6 +196,10 @@ CHAR *scandup(cp, oldp)
 	newp->rightedge = newp->next->rightedge;
 	newp->ptr = cp;
 	newp->leoffset = newp->next->leoffset;
+#ifdef DEBUG_SCAN
+	newp->file = file;
+	newp->line = line;
+#endif
 
 	/* initialize *cp to point to the correct character */
 	*cp = *oldp;
@@ -159,7 +207,7 @@ CHAR *scandup(cp, oldp)
 	/* lock the block that *cp points to. */
 	if (newp->blkno)
 	{
-		seslock(newp->blkno, False, SES_CHARS);
+		seslock(newp->blkno, ElvFalse, SES_CHARS);
 	}
 
 	return *cp;
@@ -192,7 +240,7 @@ void	scanfree(cp)
 	/* free its resources */
 	if (context->blkno)
 	{
-		sesunlock(context->blkno, False);
+		sesunlock(context->blkno, ElvFalse);
 	}
 #ifndef DEBUG_ALLOC
 	context->next = recycle;
@@ -246,6 +294,19 @@ CHAR	*scanseek(cp, restart)
 	{
 		/* BUFFER */
 
+#if 1 /* I think this is safe, but not very helpful */
+		/* if seeking within the same block, then it's easy */
+		if (markbuffer(restart) == scan__top->buffer
+		 && markoffset(restart) >= scan__top->leoffset
+		 && scan__top->leoffset +
+		   (int)(scan__top->rightedge - scan__top->leftedge)
+				> markoffset(restart))
+		{
+			*cp = &scan__top->leftedge[markoffset(restart) - scan__top->leoffset];
+			return *cp;
+		}
+#endif
+
 		/* if seeking to a non-existent offset, return NULL */
 		if (markoffset(restart) < 0
 		 || markoffset(restart) >= o_bufchars(markbuffer(restart)))
@@ -260,9 +321,11 @@ CHAR	*scanseek(cp, restart)
 
 		/* find the chars block.  If this scan context happens to be
 		 * nested inside another one and we're seeking into the same
-		 * block, then we can optimize this a lot.
+		 * block, then we can optimize this a lot if the block is
+		 * already locked.
 		 */
 		if (scan__top->next
+		 && scan__top->next->blkno != 0
 		 && scan__top->next->buffer == scan__top->buffer
 		 && scan__top->next->leoffset <= markoffset(restart)
 		 && scan__top->next->leoffset +
@@ -304,9 +367,9 @@ CHAR	*scanseek(cp, restart)
 		{
 			if (scan__top->blkno)
 			{
-				sesunlock(scan__top->blkno, False);
+				sesunlock(scan__top->blkno, ElvFalse);
 			}
-			seslock(nextblkno, False, SES_CHARS);
+			seslock(nextblkno, ElvFalse, SES_CHARS);
 			scan__top->blkno = nextblkno;
 		}
 
@@ -411,7 +474,7 @@ CHAR	*scan__prev(cp)
 	{
 		if (scan__top->blkno != 0)
 		{
-			sesunlock(scan__top->blkno, False);
+			sesunlock(scan__top->blkno, ElvFalse);
 			scan__top->blkno = 0;
 		}
 		*cp = NULL;
@@ -450,13 +513,13 @@ CHAR scanchar(mark)
 	assert(right != 0);
 
 	/* lock the block */
-	seslock(blkno, False, SES_CHARS);
+	seslock(blkno, ElvFalse, SES_CHARS);
 
 	/* fetch the character */
 	ch = sesblk(blkno)->chars.chars[left];
 
 	/* unlock the block */
-	sesunlock(blkno, False);
+	sesunlock(blkno, ElvFalse);
 
 	return ch;
 }

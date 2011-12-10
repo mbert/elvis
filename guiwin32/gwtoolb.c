@@ -5,10 +5,9 @@
 */
 
 #define CHAR    Char
-#define BOOLEAN Boolean
 #include "elvis.h" 
 #undef CHAR
-#undef BOOLEAN 
+#undef ELVBOOL 
 
 #if defined (GUI_WIN32)
 
@@ -53,7 +52,9 @@ void gw_create_toolbar (GUI_WINDOW *gwp)
 
 {
     RECT        rect;
+#if _MSC_VER <= 900
     int         i;
+#endif
     
     /* check that we can do it. */
     if (!o_toolbar (gwp))

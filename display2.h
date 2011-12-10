@@ -1,13 +1,26 @@
 /* display2.h */
 /* Copyright 1995 by Steve Kirkendall */
 
+/* Define DISPLAY_ANYMARKUP if any markup modes are used */
+#ifndef DISPLAY_ANYMARKUP
+# if defined(DISPLAY_HTML) || defined(DISPLAY_MAN) || defined(DISPLAY_TEX)
+#  define DISPLAY_ANYMARKUP
+# endif
+#endif
+
+/* Define DISPLAY_ANYDESCR if any markup or syntax modes are used */
+#ifndef DISPLAY_ANYDESCR
+# if defined(DISPLAY_SYNTAX) || defined(DISPLAY_ANYMARKUP)
+#  define DISPLAY_ANYDESCR
+# endif
+#endif
 
 struct dispmode_s
 {
 	char	*name;
 	char	*desc;
-	BOOLEAN	canopt;
-	BOOLEAN	wordwrap;
+	ELVBOOL	canopt;
+	ELVBOOL	wordwrap;
 	int	nwinopts;
 	OPTDESC	*winoptd;
 	int	nglobopts;
@@ -15,9 +28,9 @@ struct dispmode_s
 	OPTVAL	*globoptv;
 	DMINFO	*(*init) P_((WINDOW win));
 	void	(*term) P_((DMINFO *info));
-	long	(*mark2col) P_((WINDOW w, MARK mark, BOOLEAN cmd));
-	MARK	(*move) P_((WINDOW w, MARK from, long linedelta, long column, BOOLEAN cmd));
-	MARK	(*wordmove) P_((MARK from, long count, BOOLEAN backward, BOOLEAN whitespace));
+	long	(*mark2col) P_((WINDOW w, MARK mark, ELVBOOL cmd));
+	MARK	(*move) P_((WINDOW w, MARK from, long linedelta, long column, ELVBOOL cmd));
+	MARK	(*wordmove) P_((MARK from, long count, ELVBOOL backward, ELVBOOL whitespace));
 	MARK	(*setup) P_((WINDOW w, MARK top, long cursor, MARK bottom, DMINFO *info));
 	MARK	(*image) P_((WINDOW w, MARK line, DMINFO *info,
 			void (*draw)(CHAR *p, long qty, _char_ font, long offset)));
@@ -49,8 +62,8 @@ extern DISPMODE	*allmodes[];
 
 BEGIN_EXTERNC
 extern void	displist P_((WINDOW win));
-extern BOOLEAN	dispset P_((WINDOW win, char *newmode));
-extern void	dispinit P_((BOOLEAN before));
+extern ELVBOOL	dispset P_((WINDOW win, char *newmode));
+extern void	dispinit P_((ELVBOOL before));
 extern void	dispoptions P_((DISPMODE *mode, DMINFO *info));
 extern MARK	dispmove P_((WINDOW win, long linedelta, long wantcol));
 extern long	dispmark2col P_((WINDOW win));
@@ -60,8 +73,13 @@ extern void	dispindent P_((WINDOW w, MARK line, long linedelta));
 extern void	dmmuadjust P_((MARK from, MARK to, long delta));
 #endif
 #ifdef DISPLAY_SYNTAX
-extern CHAR	*dmsknown P_((char *filename));
 extern CHAR	dmspreprocessor P_((WINDOW win));
-extern BOOLEAN	dmskeyword P_((WINDOW win, CHAR *word));
+extern ELVBOOL	dmskeyword P_((WINDOW win, CHAR *word));
+# ifdef FEATURE_SMARTARGS
+extern void	dmssmartargs P_((WINDOW win));
+# endif
 #endif
+extern int	dmnlistchars P_((_CHAR_ ch, long offset, long col, short *tabstop, void(*draw)(CHAR *p, long qty, _char_ font, long offset)));
+
+
 END_EXTERNC

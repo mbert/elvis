@@ -1,9 +1,11 @@
 /* digraph.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_digraph[] = "$Id: digraph.c,v 2.8 1997/11/12 03:02:43 steve Exp $";
 
 #include "elvis.h"
+#ifdef FEATURE_RCSID
+char id_digraph[] = "$Id: digraph.c,v 2.12 2003/10/17 17:41:23 steve Exp $";
+#endif
 #ifndef NO_DIGRAPH
 
 static void adjustctype P_((_CHAR_ ch));
@@ -16,7 +18,7 @@ typedef struct dig_s
 	struct dig_s	*next;		/* another digraph */
 	CHAR		in1, in2;	/* the input characters of this digraph */
 	CHAR		out;		/* the character they form */
-	BOOLEAN		save;		/* user-defined? */
+	ELVBOOL		save;		/* user-defined? */
 } DIGRAPH;
 
 
@@ -115,51 +117,51 @@ static void adjustctype(ch)
 	}
 
 	/* what kind of change? */
-	if (dp && ((isupper(dp->in1) && !islower(dp->in2)) || isupper(dp->in2)))
+	if (dp && ((elvupper(dp->in1) && !elvlower(dp->in2)) || elvupper(dp->in2)))
 	{
 		/* making it uppercase */
 		setupper(ch);
 		clrlower(ch);
 		clrpunct(ch);
-		tmp = digraph(tolower(dp->in1), tolower(dp->in2));
+		tmp = digraph(elvtolower(dp->in1), elvtolower(dp->in2));
 		if (tmp >= 0x80)
 		{
 			/* we can make an uppercase/lowercase pair */
-			toupper(tmp) = ch;
-			tolower(ch) = tmp;
+			elvtoupper(tmp) = ch;
+			elvtolower(ch) = tmp;
 		}
 	}
-	else if (dp && ((!isupper(dp->in1) && islower(dp->in2)) || islower(dp->in1)))
+	else if (dp && ((!elvupper(dp->in1) && elvlower(dp->in2)) || elvlower(dp->in1)))
 	{
 		/* making it lowercase */
 		setlower(ch);
 		clrupper(ch);
 		clrpunct(ch);
-		tmp = digraph(toupper(dp->in1), toupper(dp->in2));
+		tmp = digraph(elvtoupper(dp->in1), elvtoupper(dp->in2));
 		if (tmp >= 0x80)
 		{
 			/* we can make an uppercase/lowercase pair */
-			tolower(tmp) = ch;
-			toupper(ch) = tmp;
+			elvtolower(tmp) = ch;
+			elvtoupper(ch) = tmp;
 		}
 	}
 	else
 	{
 		/* deleting it, or making it punctuation */
-		if (isupper(ch))
+		if (elvupper(ch))
 		{
 			clrupper(ch);
-			tmp = tolower(ch);
-			tolower(ch) = ch;
-			toupper(tmp) = tmp;
+			tmp = elvtolower(ch);
+			elvtolower(ch) = ch;
+			elvtoupper(tmp) = tmp;
 			clrupper(ch);
 		}
-		else if (tolower(ch))
+		else if (elvtolower(ch))
 		{
 			clrlower(ch);
-			tmp = toupper(ch);
-			toupper(ch) = ch;
-			tolower(tmp) = tmp;
+			tmp = elvtoupper(ch);
+			elvtoupper(ch) = ch;
+			elvtolower(tmp) = tmp;
 			clrlower(ch);
 		}
 		setpunct(ch);
@@ -214,7 +216,7 @@ CHAR digraph(in1, in2)
  */
 void digaction(win, bang, extra)
 	WINDOW	win;	/* window to write to, if listing */
-	BOOLEAN	bang;	/* list all, or define non-ASCII */
+	ELVBOOL	bang;	/* list all, or define non-ASCII */
 	CHAR	*extra;	/* NULL to list, "xx" to delete, "xxy" to add */
 {
 	int		dig;
@@ -312,7 +314,7 @@ void digaction(win, bang, extra)
 	dp->in1 = extra[0];
 	dp->in2 = extra[1];
 	dp->out = dig;
-	dp->save = (BOOLEAN)(win != (WINDOW)0);
+	dp->save = (ELVBOOL)(win != (WINDOW)0);
 # ifdef NEED_CTYPE
 	adjustctype(dig);
 # endif

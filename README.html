@@ -1,61 +1,45 @@
 <html><head>
-<title>README.html file for elvis 2.1</title>
-<meta name="description" content="Quick intro to elvis 2.1, with links to source code and binaries">
+<title>README.html file for elvis 2.2</title>
+<meta name="description" content="Quick intro to elvis 2.2, with links to source code and binaries">
 <meta name="keywords" content="vi, elvis, unix, linux, msdos, win32, windows95 windowsNT, nt, os2, os/2, editor, source">
 </head><body>
 
 <center>
-<h1>Quick intro to elvis 2.1, with links to source code and binaries</h1>
+<h1>Quick intro to elvis 2.2, with links to source code and binaries</h1>
 </center>
 
 <strong>CONTENTS</strong>
-<menu>
+<ul>
 <li><a HREF="#thisfile">1. About this file</a>
-<li><a HREF="#vi">2. Differences between vi and elvis 2.1</a>
-<li><a HREF="#new">3. Differences between 2.0 and 2.1</a>
-	<menu>
-	<li><a HREF="#ex">3.1 New ex commands</a>
-	<li><a HREF="#options">3.2 New options commands</a>
-	<li><a HREF="#functions">3.3 New functions</a>
-	<li><a HREF="#gui">3.4 New ports and GUI features</a>
-	<li><a HREF="#misc">3.5 Miscellany</a>
-	<li><a HREF="#revision3">3.6 Differences between 2.1_3 and the original 2.1 release</a>
-	<li><a HREF="#revision4">3.7 Differences between 2.1_4 and 2.1_3</a>
-	</menu>
-<li><a HREF="#future">4. The future of elvis</a>
-<li><a HREF="#links">5. Links to related files</a>
-</menu>
+<li><a HREF="#vi">2. Differences between vi and elvis 2.2</a>
+<li><a HREF="#new">3. Differences between 2.1 and 2.2</a>
+<ul>
+<li><a HREF="#NewEx">3.1 New EX commands</a>
+<li><a HREF="#NewVi">3.2 New VI commands</a>
+<li><a HREF="#NewOptions">3.3 New options</a>
+<li><a HREF="#OldOptions">3.4 Changed or removed options</a>
+</ul>
+<li><a HREF="#links">4. Links to related files</a>
+</ul>
 <pre graphic>
 .---------------------------------------------------------------.
 | <strong>This is not elvis' user manual!</strong>  The <em>real</em> documentation for   |
 | elvis is located in its online help facility.  While running  |
 | elvis, enter the command "<code>:help</code>" to see the table of contents.|
-^---------------------------------------------------------------^
+^---------------------------------------------------------------^</pre>
 
-<h1><a NAME="thisfile"></a>1. About this file</h1>
+<h1><a NAME="thisfile">1. About this file</a></h1>
 
 This file is written in the HTML markup language.
 You can view it with any WWW viewer, such as Netscape.
-You can also use elvis 2.1 to view it; this version of elvis
+You can also use elvis 2.2 to view it; this version of elvis
 has the ability to view HTML documents, and print them.
 
-<p>This file has many hypertext links.
-Use them!
-If you're using elvis 2.1 to browse this file, then hypertextual
-references will appear as underlined text.
-(Except on color PCs;
-since color video cards don't support underlining,
-hypertextual references will be colored -- white on red, by default.)
-To follow the hypertext link, move the cursor onto the underlined
-text and press (Enter).
-To go back, press (Control-T).
-The (Tab) key moves the cursor forward to the next hypertext reference.
+<p>If elvis 2.2 doesn't automatically start up in HTML mode when you
+view this file, then you'll need to force it into HTML mode by
+giving the command "<code>:display html</code>".
 
-<p>If elvis 2.1 doesn't automatically start up in HTML mode when you view this file,
-then you'll need to force it into HTML mode by giving the command
-"<code>:display html</code>".
-
-<h1><a name="vi"></a>2. Differences between vi and elvis 2.1</h1>
+<h1><a name="vi">2. Differences between vi and elvis 2.2</a></h1>
 Elvis is a superset of vi.
 It runs on more operating systems than vi,
 it is free,
@@ -83,878 +67,364 @@ Here's a just brief list:
 
 </ul>
 
-<h1><a name="new"></a>3. Differences between 2.0 and 2.1</h1>
+<p>For a more complete list, with links to detailed descriptions, check the
+online manual.
+You can bring up the online manual by starting elvis and giving the command
+"<code>:help</code>".
+The list of extensions appears after the table of contents and a brief
+introduction.
 
-The following is a summary of changes made since the release of elvis 2.0.
-These are in addition to bug changes.
+<h1><a name="new">3. Differences between 2.1 and 2.2</a></h1>
 
-<h2>3.1 <a name="ex">New ex commands</a></h2>
+The following is a summary of changes made since the release of elvis 2.1.
+These are in addition to any bug fixes.
+
+<h2><a name="NewEx">3.1 New EX commands</a></h2>
 <dl>
 
-<dt>:only
-<dd>This closes all windows except the current window.
-<pre>
-	:only
-</pre>
+<dt>:alias, :unalias
+<dd>Create, list, alter, or remove aliases.
+Aliases are new ex commands that you create from a sequence of other ex commands.
 
-<dt>:browse
-<br>:sbrowse
-<dd>These build a list of all tags which match given criteria (e.g., all tags
-in a particular file), and make an HTML document with links to all the
-definition points in your source code.
-The <code>:browse</code> command saves the cursor position on the stack and
-then displays the table in the current window.
-The <code>:sbrowse</code> command creates a new window showing that table.
-<pre>
-	:browse foo.c
-	:sbrowse class:/Ball
-</pre>
+<dt>:autocmd, :augroup
+<dd>Create, list, alter, or remove autocmds.
+Autocmds are ex command lines that are executed automatically on certain
+events, such as loading a file.
 
-<dt>:bbrowse
-<br>:sbbrowse
-<dd>These build an HTML document with links to all the edit buffers.
-The <code>:bbrowse</code> command saves the cursor position on the stack and
-then displays the table in the current window.
-The <code>:sbbrowse</code> command creates a new window showing that table.
-<pre>
-	:bbrowse
-</pre>
+<dt>:check, :words, :wordfile
+<dd>These configure the built-in spell checker.
 
-<dt>:alias
-<br>:unalias
-<dd>The <code>:alias</code> command creates an alias -- a new ex command which
-you can implement via a series of existing ex commands.
-Aliases can accept arguments, and perform complex operations.
-Many sample aliases are included in the distribution.
-<pre>
-	:alias lower !% s/.*/\L&amp;/
-</pre>
+<dt>:color
+<dd>Not really new, but radically changed.
+The new version is much more powerful.
 
-<dt>:message
-<br>:warning
-<br>:error
-<dd>These output messages of various types.
-In particular, the <code>:error</code> message type has the side-effect of
-aborting any pending macros or aliases.
-<pre>
-	:if !&lt; == !&gt;
-	:then error Address range required
-</pre>
+<dt>:fold, :unfold
+<dd>These define folds, and either close or open them.
+Folds give you a way to hide parts of your text without actually deleting it.
+There is a <strong>:foldc</strong> alias which folds C source pretty well.
+
+<dt>:for, :do
+<dd>This loops over a list of file names, or other values.
 
 <dt>:local
-<dd>This is handy in aliases.
-It is like <code>:set</code>, except that the options will be restored
-to their previous value when the alias exits.
-<pre>
-	:alias total {
-		"Sum the integers in a range of lines
-		local t=0 report=0 nosaveregexp
-		!% s/[0-9]\+/let t=t+\1/x
-		eval !% c (t)
-	}
-</pre>
+<dd>Used within a script or alias, this creates a local copy of an option
+so the alias can use it for storing temporary values, without clobbering
+the value that the option had before.
 
-<dt>:try
-<dd>This executes a command, and then checks the success/failure indicator
-returned by that command.
-The then/else flag is set accordingly.
-Regardless of whether the command succeeded or not, <code>:try</code> itself
-always succeeds;
-this is significant because when a command fails
-(anywhere except as the argument of a <code>:try</code> command),
-any pending macros or aliases are aborted.
-<pre>
-	:alias togglecase {
-		try !% s/.*[a-z].*/\U&amp;
-		else !% s/.*/\L&amp;
-	}
-</pre>
+<dt>:map
+<dd>Not new, but significantly changed.
+You can now use keywords to control when and how the map is applied.
 
-<dt>:while
-<br>:do
-<dd>This executes a command in a loop, as long as a given condition holds true.
-<pre>
-	:let i = 1
-	:while i &lt;= 10
-	:do {
-		calc i
-		let i = i + 1
-	}
-</pre>
+<dt>:nohlsearch
+<dd>Temporarily removes the highlighting for the <em>hlsearch</em> option.
+Then next time you search, the highlighting will return.
 
-<dt>:switch
-<br>:case
-<br>:default
-<dd>This is a multi-way branch.
-The <code>:switch</code> command evaluates an expression, and stores the
-result in an internal variable.
-Each <code>:case</code> command compares the switch value to a literal string;
-if it matches then the remainder of the line is executed an an ex command.
-If none of the cases match, then <code>:default</code> will run its ex command.
-<pre>
-	:switch os
-	:case unix echo LF
-	:case mac echo CR
-	:default echo CR-LF
-</pre>
+<dt>:normal
+<dd>When invoked with arguments, Elvis will interpret the arguments as
+vi commands.
+
+<dt>:only
+<dd>Closes all windows except this one.
+
+<dt>:preserve
+<dd>Exit elvis, but don't delete the session file.
+
+<dt>:push
+<dd>This is similar to <strong>:e</strong>, except that <strong>:push</strong>
+saves the cursor's original location on the tag stack, so you can return
+via <strong>:pop</strong> or <kbd>^]</kbd>.
+<dt>:region, :unregion, :chgregion
+<dd>These create, remove, or change highlighted regions.
+The text itself is unchanged.
+Generally you would use :region to highlight text that has changed,
+or is significant for some other reason.
+
+<dt>:safely
+<dd>Run an ex command line with the <em>security</em> option temporarily
+increased to "safer".
+This replaces the <strong>:safer</strong> command which ran a script.
+You can achieve the same effect via "<code>:safely source</code> <var>script</var>".
+<dt>:switch, :case, :default
+<dd>The usual "switch" control structure.
+This is useful in scripts and aliases.
 
 </dl>
 
-<h2><a name="options">3.2 Options</a></h2>
-Many new options have been added.
-Some exist only in a particular user interface, though.
-These are all described below.
-
+<h2><a name="NewVi">3.1 New VI commands</a></h2>
 <dl>
 
-<dt>bufid, bufferid
-<dd>Each user buffer is automatically assigned a numeric identifier,
-which is stored in this option.
-These can be used later as a shorthand for either the buffer's filename or
-buffername.
-<pre>
-	:e #1
-	:1,20 copy (1)$
-</pre>
+<dt>^I (&lt;Tab&gt;)
+<dd>For "html" mode, this moves forward to the next hypertext link.
+For "normal" and "syntax", it toggles folding of the current line.
 
-<dt>locked, lock
-<dd>When set, this option prevents any changes from being made to the buffer.
-This is a slightly stronger version of the "readonly" option.
+<dt>g^I (g&lt;Tab&gt;)
+<dd>Move backward to the preceding hypertext link.
 
-<dt>readeol, reol
-<br>writeeol, weol
-<dd>Together, these two options replace the old "binary" option.
-<code>readeol</code> can be set to one of <strong>dos</strong>,
-<strong>unix</strong>, <strong>mac</strong>, <strong>text</strong>, or
-<strong>binary</strong> to indicate the newline translations that were
-used to read a file into a buffer.
-The <code>writeeol</code> option can be set to any of those values, or
-the special value <strong>same</strong> to use the same translation as
-each buffer was read with.
+<dt>g^V (g&lt;C-V&gt;)
+<dd>If a rectangle is selected, go to the other corner in the same line.
 
-<dt>partiallastline, pll
-<dd>Traditionally, when vi is invoked on a file which doesn't end with a
-newline, vi adds one.
-Elvis does that too now, but since elvis can also be used on binary files
-it needs to remember whether it has added a newline, so it can omit that
-bogus newline when doing a binary write.
-That's what this option is for.
+<dt>g$
+<dd>Move to the end of the current row, taking line wrap into account.
 
-<dt>putstyle, ps
-<dd>This is only meaningful for cut buffers, not normal edit buffers.
-It indicates whether the cut buffer's contents should be pasted as
-a series of characters, as a rectangular block, or as whole lines.
-(Previously this information was stored in the first line of a cut buffer,
-but that made cut buffers hard to edit.)
+<dt>g%
+<dd>If any text is selected, go to the other end.
 
-<dt>matchchar, mc
-<dd>The visual <code>%</code> command has been extended to match any
-pairs of characers.
-This option stores the list of character pairs.
+<dt>g0
+<dd>Move to the start of the current row, taking line wrap into account.
 
-<dt>completebinary, cob
-<dd>Elvis performs file name completion -- you can type a partial file name
-and hit &lt;Tab&gt; to have elvis complete the name for you (or as much of
-the name as possible before ambiguities are encountered).
-Normally elvis ignores binary files when looking for possible completions;
-it only considers the names of text files.
-Setting this option makes it check the names of binary files as well as
-text files.
+<dt>g=<var>key</var>
+<dd>Operator.
+Replace old text with an equal number of <var>key</var> characters.
 
-<dt>showname, snm
-<br>showtag, st
-<dd>These cause elvis to display extra information at the bottom of the
-window, whenever it has nothing better to show there.
-<code>showname</code> causes it to display the name of the current file.
-<code>showtag</code> causes it to display the name of the tag which is
-defined on the current line, or the nearest line above it which has a tag.
-The <code>showtag</code> option can make elvis take more time to load files,
-since it must find the location of every tag for that file.
+<dt>gD, gd
+<dd>Go to global or local definition of the word at the cursor.
 
-<dt>true, True
-<br>false, False
-<dd>These options mostly exist so you can use the symbols <code>true</code>
-and <code>false</code> in the expressions used by <code>:if</code> and the like.
-The value of the <code>false</code> option is used as a logical false value,
-just like "", "0", or "false"; anything else is considered to be a logical
-true value.
+<dt>gI
+<dd>Input at start of line, before indent.
 
-<p>Any boolean option returns the value of the <code>true</code> option if it
-is set, or the <code>false</code> option if it is reset.
-Non-english speakers may wish to set <code>true</code> and <code>false</code>
-to the local words for those logical states.
-You can do that by setting those options explicitly, or by adding lines to
-the "elvis.msg" file (e.g., "true:verdad" and "false:falso").
+<dt>gJ
+<dd>Join lines without adding whitespace
 
-<dt>submit, Submit
-<br>cancel, Cancel
-<br>help, Help
-<dd>The "x11" user interface uses these like the <code>true</code> and
-<code>false</code> options, to translate a few words that it uses.
-Actually, <code>help</code> doesn't do anything yet, but the values of
-<code>submit</code> and <code>cancel</code> are used as the labels of
-buttons on dialog windows.
+<dt>gS
+<dd>Move to the end of a spell checker word.
+The spell checker's definition of a word differs from the rest of Elvis
+in that spell checker words may contain an apostrophe, provided there are
+letters on both sides of the apostrophe.
 
-<dt>scrollbar, sb
-<br>toolbar, tb
-<br>statusbar, stb
-<br>menubar, mb
-<dd>These enable or disable certain parts of the a GUI window.
-They are supported by the "windows" GUI (for Windows95/98/NT) and the
-"x11" GUI (for Unix).
-Actually <code>menubar</code> isn't support by "x11" because "x11" doesn't
-have a menu bar yet.
+<dt>gU
+<dd>Operator.
+Converts text to all uppercase.
 
-<dt>font, fnt
-<br>normalstyle, nfn
-<br>boldstyle, bfn
-<br>italicstyle, ifn
-<br>fixedstyle, ffn
-<br>emphasizedstyle, efn
-<br>underlinedstyle, ufn
-<dd>These control the appearance of text in the "windows" interface (for
-Windows95/98/NT).
-<code>font</code> stores the base font, and the other options tell elvis
-how to derive a display font from the base font.
+<dt>g^
+<dd>Move to start of current row, after indent, talking line wrap into account.
 
-<dt>underline, uln
-<br>scrollbarleft, xsl
-<br>borderwidth, xbw
-<br>textcursor, tc
-<br>outlinemono, om
-<dd>These are all "x11" options.
+<dt>gh, gl
+<dd>Move left or right one character, skipping over hidden characters.
+This is handy when viewing text in a markup display mode, since it moves
+over the markups effortlessly.
 
-<dt>saveregexp, sre
-<dd>Many scripts and aliases reset this.
-Normally when you perform a search or substitution, elvis remembers
-the regular expression you used so you can perform the same search/substitution
-again later without retyping the whole regular expression.
-That's handy.
-But many aliases and scripts perform their own internal searches and
-substitutions, and those shouldn't cause elvis to forget the your
-regular expression.
-So aliases often do <code>:local nosre</code> to protect your regular
-expression.
+<dt>gj, gk
+<dd>Move down or up one row, taking line wrap into account.
 
-<dt>tagprg, tp
-<dd>This allows you to use an external program to perform tag searches.
+<dt>gs
+<dd>Move to the next misspelled word.
+If given a count, then before moving it tries to fix the current misspelled
+word using one of the listed alternatives.
 
-<dt>blkhit, bh
-<br>blkmiss, bm
-<br>blkwrite, bw
-<dd>These provide extra information about elvis' internal block cache.
+<dt>gu
+<dd>Operator.
+Converts text to all lowercase.
 
-<dt>program, argv0
-<dd>This stores the name by which elvis was invoked.
-The default "elvis.ini" file uses this information to distinguish between
-"ex" behavior and "view" behavior from the normal "vi" behavior.
-
-<dt>lpnumber, lpn
-<br>lpheader, lph
-<dd>These affect the way text is printed.
-Setting <code>lpnumber</code> causes line numbers to be printed, just as
-<code>number</code> causes line number to be shown on the screen.
-Setting the <code>lpheader</code> option
-causes pages to have a header showing the file name, page number, and date.
-
-<dt>previousdir, pdir
-<dd>This stores the previous directory.
-You can use "~-" (tilde minus) at the start of a file name as a shorthand
-for the previous directory name.
-
-<dt>smarttab, sta
-<dd>If set, this causes the <kbd>&lt;Tab&gt;</kbd> key to act like
-<kbd>^T</kbd> when in the indentation area of a line.
-Elsewhere in a line, <kbd>&lt;Tab&gt;</kbd> will act normally.
+<dt>g~
+<dd>Operator.
+Toggles text between uppercase and lowercase.
 
 </dl>
 
-<h2><a name="functions">3.3 New functions</a></h2>
-The following functions have been added to the built-in calculator.
-This is used by <code>:if</code>, <code>:let</code>, and others.
-
+<h2><a name="NewOptions">3.3 New Options</a></h2>
 <dl>
+<dt>antialias, aasqueeze
+<dd>For "x11" only, the <strong>antialias</strong> option controls whether
+elvis will use the Xft library to draw antialiased text.
+Antialiased fonts tend to leave a much larger gap between lines, so the
+<strong>aasqueeze</strong> option gives you a way to reduce that gap, and
+get more lines on the screen.
 
-<dt>htmlsafe(<var>string</var>)
-<dd>This replaces the &amp;, &lt;, &gt;, and &quot; characters with
-<strong>&amp;amp;</strong>,
-<strong>&amp;lt;</strong>,
-<strong>&amp;gt;</strong>, and
-<strong>&amp;quot;</strong>, respectively.
+<dt>auevent, aufilename, and auforce
+<dd>These options are only defined during an autocmd event.
+They describe the event.
 
-<dt>quote(<var>chars</var>, <var>str</var>)
-<br>unquote(<var>chars</var>, <var>str</var>)
-<dd>These add or remove backslashes.
-<code>quote()</code> adds a backslash before each existing backslash, and
-before each character listed in the <var>chars</var> string.
-<code>unquote()</code> does the opposite.
+<dt>background
+<dd>When Elvis doesn't know the background color (which can only happen when
+using a text-based user interface such as "termcap"), it may use this option
+to help it choose a contrasting foreground color.
 
-<dt>current(<var>what</var>)
-<dd>This examines elvis' internal variables.
-It can be any of the following:
-<pre>
-	<strong>line</strong>	cursor's current line number
-	<strong>column</strong>	cursor's current column number
-	<strong>word</strong>	word at the cursor position
-	<strong>mode</strong>	mode name as reported by showmode option
-	<strong>next</strong>	next file in args list
-	<strong>prev</strong>	previous file in args list
-	<strong>tag</strong>	current tag as reported by showtag option
-</pre>
+<dt>bb
+<dd>This is a buffer option with no built-in purpose.  You can use it to
+store attributes about the buffer, for use by your own maps and aliases.
 
-<dt>fileeol(<var>file</var>)
-<dd>Examine the contents of a file, and make a guess about what value
-the <code>readeol</code> option should be set to.
+<dt>binary
+<dd>This is set to indicate that elvis was invoked with a "-b" flag.
+The default <code>elvis.brf</code> uses this to set the <strong>readeol</strong>
+option to "binary" when appropriate.
 
-<dt>getcwd()
-<dd>Return the name of the current directory.
+<dt>blinktime
+<dd>For "x11", this controls the cursor's blink rate.
+Setting it to 0 will disable blinking.
 
-<dt>absolute(<var>file</var>)
-<dd>Return the fully-specified name of a given file.
-In other words, if it is in the current directory then combine the current
-directory name with the file name.
+<dt>cleantext
+<dd>Controls when elvis erases old text.
+Its value is a comma-delimited set of keywords, which may include
+"short", "long", "bs", "input", and/or "ex".
 
-<dt>alias(<var>name</var>)
-<dd>Test for the existence of a given alias.
+<dt>eventerrors, eventignore
+<dd>These affect the handling of autocmd events.
 
-<dt>shell(<var>command</var>)
-<dd>Executes the <var>command</var> via a shell, and returns the text that
-the program wrote to stdout.
+<dt>filenamerules
+<dd>This controls the way file names are parsed and manipulated by Elvis.
+It's value is a comma-delimited list of keywords, which may include
+"dollar", "paren", "space", "special", "tilde", and "wildcard".
+Windows users may want to remove the "space" keyword, which will prevent
+elvis from parsing spaces as name delimiters; this will make it easier to
+enter names with spaces in them.
 
-<dt>line(<var>buffer</var>, <var>line</var>)
-<dd>Returns a single line from a buffer.
-If <var>buffer</var> is omitted, then the current buffer is assumed.
-If both <var>buffer</var> and <var>line</var> are omitted, then the current
-line of the current buffer is returned.
+<dt>folding
+<dd>This is a window option.
+It controls whether folding is active in that window.
+
+<dt>guidewidth
+<dd>This is a buffer option, which draws thin vertical lines between columns
+of text.
+Its value is a comma-delimited list of column widths, similar to the
+<strong>tabstop</strong> and <strong>shiftwidth</strong> options.
+
+<dt>hllayers, hlobject
+<dd>These two options work together to give you a way to highlight text objects
+around the cursor.
+For example, you can highlight the current line via
+"<code>:set hllayers=1 hlobject=al</code>".
+
+<dt>hlsearch
+<dd>This highlights all instances of text that matches the most recent search.
+
+<dt>iconimage
+<dd>This chooses an icon to be used for Elvis' windows.
+
+<dt>includepath
+<dd>In "syntax" display mode, clicking on a #include file will search for
+that file in the includepath.
+
+<dt>incsearch
+<dd>Causes searches to be incremental.
+This means that every time you hit a key while entering the
+search regular expression, Elvis will search on the partial expression
+entered so far.
+
+<dt>listchars
+<dd>Controls the appearance of special characters in <strong>list</strong> mode.
+You can also use it to define arrows to mark long lines when side-scrolling
+is active (i.e., the <strong>wrap</strong> option is off).
+
+<dt>lpcontrast
+<dd>For color printing, this enforces a minimum contrast by darkening
+light colors.
+
+<dt>lpoptions
+<dd>For the "ps" and "ps2" <strong>lptype</strong>s, this can be set to
+a variety of values to tweak the output.
+See "<code>:help set lpoptions</code>".
+
+<dt>magicchar, magicname, magicperl
+<dd>These control the parsing of regular expressions.
+
+<dt>prefersyntax
+<dd>You can set the <strong>prefersyntax</strong> option to one of
+"never", "writable", "local", or "always" to control when elvis should
+start displaying a file in the "syntax" display modes rather than one of
+the markup display modes such as "html".
+For example, after "<code>:set prefersyntax=writable</code>", whenever you edit
+an HTML file that is writable Elvis will start in "syntax html" mode,
+but readonly files (including anything read via the HTTP protocol) will still
+start in "html" display mode.
+
+<dt>scrollbgimage
+<dd>Elvis can use background images in the "windows" and "x11" user interfaces.
+This option controls whether the background image should scroll when the
+text scrolls.
+
+<dt>scrollwheelspeed
+<dd>For wheel mice, this controls the number of lines scrolled for each
+detent of the wheel.
+
+<dt>security
+<dd>This can be set to "normal" for no protection, "safer" to protect you
+from malicious writing by a trojan horse, or "restricted" to protect the
+system from malicious reading by you.
+
+<dt>smartargs
+<dd>This uses the "tags" file to find the arguments for functions.
+When you're in "syntax" display mode and type in a function named followed
+by a '(', Elvis looks up that function name and inserts the formal parameters
+after the cursor.
+You can then overtype the formal parameters with the actual parameters.
+
+<dt>spell, spellautoload, spelldict, and spellsuffix
+<dd>These control Elvis' built-in spell checker.
+
+<dt>ttyitalic, ttyunderline
+<dd>These can be used to disable certain attributes on terminals that
+don't support them very well.
+In particular, the text mode on color VGA screens don't show underlining by
+converting the background to red; this may interfere with your own choice
+for a background color.
+
+<dt>tweaksection
+<dd>This relaxes the definition of a "section" so that the <code>[[</code>
+and <code>]]</code> commands will work well even if you aren't in the habit
+of putting your outer { characters in the first column of a line.
+
+<dt>ww
+<dd>This is a window option with no built-in purpose.  You can use it to
+store attributes about the window, for use by your own maps and aliases.
+
+<dt>xencoding
+<dd>The "x11" interface now allows you to specify fonts as "fontname*size",
+like the "windows" interface.
+When using this notation, Elvis will use the value of <strong>xencoding</strong>
+as the last to elements of the font's long name.
+A typical value is "iso8859-1" to load Latin-1 fonts.
 
 </dl>
 
-<h2><a name="gui">3.4 New ports, and new GUI features</a></h2>
+<h2><a name="OldOptions">3.4 Changed or removed options</a></h2>
 <dl>
+<dt>commentfont, stringfont, prepfont, keywordfont, functionfont, otherfont,
+and variablefont
+<dd>
+The syntax display mode previously used these options
+to control the appearance of different parts of the language.
+Those options are no longer necessary since the <code>:color</code> command can
+directly assign attributes to text faces named "comment", "string", etc.
+Consequently, those options have been deleted.
 
-<dt>Graphical Win32 port
-<dd>In addition to a text-mode version, there is now a fully graphical version
-of elvis for Windows95/98/NT, named WinElvis.
-It is included in the Win32 binary distribution.
+<dt>boldstyle, emphasizedstyle, fixedstyle, italicstype, normalstyle,
+and underlinedstyle
+<dd>Similarly, the "windows" interface used these options
+to control the attributes of fonts.
+The have been deleted, since <code>:color</code> does this now.
 
-<dt>OS/2 port
-<dd>A text-mode port of elvis for OS/2 has been completed.
+<dt>underline
+<dd>The "x11" interface used to have an "underline" option to control the
+attributes of the "underline" font.
+This has been deleted.
 
-<dt>X11 improvements
-<dd>The "x11" user interface has been improved through the addition of a
-status bar and a configurable tool bar.
-Tool bar buttons can even have configurable dialog windows.
+<dt>normalfont
+<dd>The "x11" interface's <strong>normalfont</strong> has been renamed to
+"<em>font</em>", to be more similar to the "windows" interface.
 
-</dl>
+<dt>lppaper
+<dd>The <strong>lppaper</strong> option has been replaced by a more versatile
+<em>lpoptions</em> option.
 
-<h2><a name="misc">3.5 Miscellany</a></h2>
+<dt>showname, showcmd, showstack and showtag
+<dd>These options have all been replaced by a single <em>show</em> option.
 
-<dl>
+<dt>safer
+<dd>The <strong>safer</strong> option has been replaced by a <em>security</em>
+option, which can be set to "normal", "safer", or "restricted".
 
-<dt>Name completion
-<dd>The &lt;Tab&gt; key is used for name completion on ex command lines.
-It can complete file names, ex command names, option names, and tag names.
-You can also make it perform tag name completion in your own files by
-running "<code>:set&nbsp;inputtab=identifier</code>".
-
-<dt>Tilde in a file name
-<dd>Elvis 2.0 allowed you to use "~" at the start of a file name to access
-files in your home directory.
-2.1 adds the ability to use "~+" for the current directory's absolute path name,
-and "~-" for the previous directory.
-Also, under Unix you can use "~<var>user</var>" for the home directory of
-<var>user</var>.
-
-<dt>Network protocols
-<dd>Elvis can read via HTTP, and read or write via FTP.
-Just use a Web URL in place of a file name, like this:
-<pre>
-	:e ftp://ftp.cs.pdx.edu/pub/elvis/README.html</pre>
-<p>Together with elvis' "html" display mode, this allows elvis to be used
-as a light-weight Web browser.
-
-<dt>"tex" display mode
-<dd>A "tex" display mode has been implemented.
-It handles the simplest TeX documents moderately well.
-Unlike real TeX formatters, though, elvis' "tex" mode is not programmable
-so it doesn't handle custom commands.
-
-<dt>Enhanced tags
-<dd>Elvis' tags implementation has been enhanced to support overloaded tags
-as required for C++.
-There is a whole chapter in the manual describing all the wonderful things
-you can do with tags now.
-
-<dt>Multi-line ex clauses
-<dd>Some ex commands accept another ex command as an argument.
-The <code>:g</code> command is an example of this.
-Traditionally, vi has allowed multiple commands by placing a backslash before
-the end of each line except the last, but this didn't always work.
-Elvis supports that, and adds a better alternative:
-If you give a '{' in place of the command, then elvis will read the following
-lines up to the next matching '}', and use the intervening lines as the ex
-command.
-This is both more reliable and more readable than the backslash notation.
-
-<dt>Confirming substitutions
-<dd>Elvis 2.0's implementation of the <code>:s///</code> command lacked
-support for the <code>c</code> flag.
-Elvis 2.1 supports <code>:s///c</code>, at long last!
+<dt>tabstop, shiftwidth
+<dd>These options have been improved.
+You can now set the value to a comma-delimited list of column widths.
 
 </dl>
 
-<h2><a name="revision3"></a>3.6 Differences between 2.1_3 and the original 2.1 release</h2>
-
-Many bugs and annoyances have been fixed since the first 2.1 release
-a couple months ago.
-The highlights are:
-<dl>
-
-<dt>Portability
-<dd>The "configure" script has been tweaked to support some Unix variants better.
-In particular, you should now be able to compile elvis under Linux systems that
-use libc-6, such as Red Hat, without doing anything except "configure;make".
-The same goes for SCO Unix.
-
-<p>Elvis' version of ctags will now be installed as "<strong>elvtags</strong>"
-on all Unix systems, including Linux.
-Previously for Linux it was installed as "ctags", which made sense because
-originally most versions of Linux used elvis 1.8's "ctags", but now most
-Linux systems ship with Exuberant Ctags as their default ctags.
-Previously, other versions of Unix skipped elvis' ctags
-because they already had their own.
-The new name for elvis' ctags should allow you to keep the old ctags and
-still have access to elvis' ctags when you want it.
-(Elvis' version can generate the "ln" attribute, which makes the
-<code>showtag</code> option load files faster, but Exuberant Ctags is
-better in just about every other way.)
-
-<p>Elvis' "fmt" program is no longer included in the default program list
-for any version of Unix.
-Previously it was installed under Linux, and skipped for other versions of Unix.
-
-<dt>Vi commands
-<dd>The [[ and ]] commands were acting like line-mode commands; i.e.,
-even with the cursor in the middle of a line, an operator such as d]] would
-delete whole lines.
-The real vi doesn't behave that way, so this was a bug.
-It has been fixed.
-
-<p>In fixing that bug, I noticed a problem in the way elvis was handling
-character-mode operations which happen to end at the start of a line.
-In certain circumstances, elvis was including the final newline character
-as part of the affected text, where the real vi would exclude it.
-This has been fixed.
-
-<p>Another minor bug: After a command such as "<kbd>25i*^[</kbd>" (to insert
-25 asterisks), attempting to repeat the command via "<kbd>.</kbd>" would only
-insert 24 asterisks.  This has been fixed.
-
-<dt>Name completion
-<dd>The behavior of name completion is now slightly different.  In 2.1_3,
-even if you've left the <code>completebinary</code> option turned off, elvis
-will still complete binary files' names when you're entering a shell command.
-This is handy when you're trying to enter an ex command such as...
-<pre>
-	:r !uuencode elvis-2.1_3.tar.gz &lt;elvis-2.1_3.tar.gz
-</pre>
-... in which you're running a program which takes a binary file as input.  In any
-other context, the <code>completebinary</code> option will continue to work
-as before.
-
-<p>If you normally have <code>inputtab=identifier</code> set,
-elvis will ignore that (treat it like <code>inputtab=tab</code>)
-unless there is a "tags" file in the current directory.
-Without this rule, there could be a long delay if you're editing a
-non-source file and you hit the <kbd>&lt;Tab&gt;</kbd> key, because
-elvis would search through the whole tag path for the word before the tab.
-(A better solution is to only set <code>inputtab=identifier</code> if the
-file is in a known programming language, as detected by the
-<code>knownsyntax(</code><var>file</var><code>)</code> function.
-You can add that to your ~/.exrc file.)
-
-<dt>Tags (other than name completion)
-<dd>The <code>tagprgonce</code> option has been removed because the
-<code>:local</code> command offers a cleaner way to achieve the same effect.
-In any alias or script, you can simply replace ":set tagprgonce=..." with
-":local tagprg=...".
-
-<p>Also, there was a bug which prevented elvis from recognizing tags
-whose address contained a C++ comment.
-(In other words, "//" confused the tag file parser.)
-This bug is now fixed.
-
-<dt>Error reporting
-<dd>When there's an error in a script file or an alias, elvis 2.1_3 will
-now (usually) tell you the name of the script and the line number within it,
-where the error occurred.
-It only does this if the verbose option is set to 1 or higher
-(i.e., you give at least one uppercase -V flag on the command line).
-
-<p>I added this mostly because users on some Unix platforms have reported
-that elvis says "# is illegal during initialization".  It doesn't happen on
-any system I use, and none of the standard scripts contain a "#" command,
-so I'm hoping this will allow users to give me more information.
-
-<p>Also, the <code>:cc</code> and <code>:make</code> commands used to output
-the first error message before the user hit <kbd>&lt;Enter&gt;</kbd>, but
-now it will show that message afterward.
-
-<dt>Networking
-<dd>The notation for FTP URLs has been extended.
-The original release of elvis 2.1 supported the standard
-<strong>ftp://</strong><var>host</var><strong>/</strong><var>resource</var>
-notation for anonymous FTP, and elvis' own
-<strong>ftp://</strong><var>host</var><strong>/~/</strong><var>resource</var>
-notation for accessing your own FTP account.
-Elvis 2.1_3 now adds
-<strong>ftp://</strong><var>host</var><strong>/~</strong><var>user</var><strong>/</strong><var>resource</var>
-to access some other user's account.
-
-<p>The format of the <code>~/.netrc</code> file or <code>elvis.ftp</code> file
-remains the same, but the way elvis interprets it has changed.
-It now allows multiple entries for the same machine, with different user names.
-When you use the
-<strong>ftp://</strong><var>host</var><strong>/~</strong><var>user</var><strong>/</strong><var>resource</var>
-notation to access a given user's account,
-elvis will search for an entry with a matching <var>host</var> and <var>user</var>, and use the password from that entry.
-
-<p>Elvis' implementation of HTTP was having trouble talking to some sites that
-run older server software.
-This should be fixed now.
-
-<dt>Windows95/98/NT
-<dd>The font selection dialog was listing all fonts, even though elvis can
-only use fixed-pitch fonts correctly.  This has been changed, so the dialog
-will now list only the fixed-pitch fonts.
-
-<p>Many fixed-pitch fonts were being displayed with a large gap between the
-characters.  For example, although "Courier" looked good, "Courier New" was
-unusable.  This has been corrected by making elvis use the average character
-width instead of the maximum width.
-(Shouldn't those two values be the same for fixed-pitch fonts?
-Apparently they aren't.)
-
-<p>You can now define your own colors, in addition to the named colors, by
-using the notation #RRGGBB anywhere a color name is expected.  The "RR", "GG",
-and "BB" are any pairs of hex digits, giving the amount of of red, green, and
-blue in the color.  For example, "#c0d0ff" is a nice sky-blue color.
-(This is the same notation that X-windows uses for non-standard colors.)
-Presently this feature is limited to defining one extra foreground color plus
-one extra background color, and it only works correctly on "high color" or
-"true color" displays (<em>not 16-color or 256-color</em>); these limitations
-should be lifted in later versions of elvis.
-
-<p>Sometimes, for some programs, elvis was unable to redirect a program's stdin.
-This messed up attempts to filter text through an external program.
-Typically, the <code>fmt</code> program included with elvis worked correctly,
-but the standard MS-DOS <code>sort</code> program didn't.
-I've spent probably 10 whole days trying to get the Win32 I/O redirection
-functions to work consistently, and failed.
-I suspect that Serge has had the same bad luck.
-Elvis 2.1_3 has a totally rewritten module for running programs, which
-simply creates a batch file and runs it.
-If there is filtering to be done, then the batch file redirects stdin and/or
-stdout to temporary files.
-This is a kludge, but it seems to work reliably.
-
-<p>There were a couple of bugs in the "Options-&gt;Syntax" menu item.
-It wasn't always enabled for all syntaxes, and if it was enabled then
-selecting it would occasionally cause elvis to crash.
-Both of these should be fixed now.
-
-<dt>Miscellaneous Annoyances
-
-<dd>In filenames, you can now use the backtick notation to run an external
-program and have its output be parsed as part or all of the filename list.
-E.g., <code>:n `grep -l sometext *.c`</code>.
-While I was at it, I added a new <code>shell("command")</code> function which
-runs an external program and returns its output, so you can do things like
-<code>:let d=shell("date")</code>.
-(These features are omitted from the MS-DOS version to help elvis fit in
-the lower 640k.)
-
-<p>The <code>:mark</code> command, when invoked without any addresses, will
-now set the mark to the exact cursor position; previously it was just setting
-it to the start of the cursor's line.
-
-<p>I added a <code>:kwic</code> alias, which greps for a given word anywhere
-in elvis' documentation and builds a table table of all matches, with links
-to their locations.
-This gives you yet another way to search through elvis' documentation
-(in addition to the <code>:howto</code> alias and the <code>:help</code>
-built-in command).
-For non-Unix systems, you must find a grep utility somewhere for this to work.
-
-<p>If your ~/.exrc file contained <code>:set wrapmargin=0</code> then
-wrapmargin would be listed by <code>:set</code>, but it shouldn't be.
-And now it won't be.
-
-<p>It has been reported that "dead keys" (for entering accented letters)
-don't work under X11.
-It appears that my big mistake here was failing to #include
-&lt;X11/Intrinsics.h&gt;, so elvis' source code didn't know that
-the multi-character input methods were available.
-That's fixed, but now the multi-byte input code is being compiled for
-the first time, and new bugs may turn up.
-
-<p>If the TERM environment variable is unset and there is no reasonable default,
-then elvis will use the "open" user interface instead of "termcap".
-Previously you had to give an explicit "-Gopen" flag to make this happen.
-The new behavior is more like the traditional vi.
-
-<p>The markup display modes (html, man, and tex) can now be configured in or
-out separately, via DISPLAY_HTML, DISPLAY_MAN, and DISPLAY_TEX macros in the
-config.h file.
-Previously, there was a single DISPLAY_MARKUP macro which controlled all of
-them.
-This change was made mostly so that "tex" could be omitted from the MS-DOS
-version.
-
-</dl>
-
-<h2><a name="revision4"></a>3.7 Differences between 2.1_4 and 2.1_3</h2>
-
-This version of elvis is 2.1_4 (pronounced "two point one patch-level 4").
-It may also be written as 2.1.4;
-however, the "2.1_4" notation was chosen for a reason:
-the directory name "elvis-2.1_4" is a valid MS-DOS directory name, but
-"elvis-2.1.4" is not.
-
-<p>This is primarily a bug-fix update.
-There are some big changes that I'd like to make to elvis, but
-they'll all have to wait until version 2.2.
-This bug-fix version is simply intended to make waiting for 2.2 a little
-easier.
-
-<p>Some of the main areas of bug fixes are:
-
-<dl>
-
-<dt>Buffer bugs
-<dd>Several people reported that elvis complained about the '#' being used
-in initialization scripts (even though '#' doesn't appear anywhere in those
-scripts), or that sometimes a buffer would get scrambled.
-These problems have now been fixed, thanks mostly to William Plant.
-He tracked the problem down to the use of FEATURE_LITRE in scan.c.
-
-<p>This was a significant bug!
-The '#' thing was only one manifestation of a dangerous bug.
-Other manifestations could mangle buffers, cause core dumps, etc.
-This bug fix alone is probably enough to justify downloading 2.1_4.
-
-<dt>Cygwin support
-<dd>The Win32 version of elvis 2.1_3 (or earlier) didn't work very well
-under Cygwin's <code>bash</code> shell.
-elvis 2.1_4 should fix that.  Specifically...
-<ul>
-<li>Cygwin sets the TERM environment variable to "cygwin",
-which elvis will now recognize as a synonym for "console".
-<li>Elvis now supports the mount table produced by the Cygwin
-<code>mount</code> utility.
-
-<dt>Windows98 chokes on vi.exe, etc.
-<dd>An apparent bug in recent versions of Windows causes the
-<code>vi.exe</code>, <code>view.exe</code>, and <code>ex.exe</code> programs
-to run in the background.
-(Those programs worked in Windows95, but choked in Windows98 and NT.)
-To work around this, I replaced the execvp() call with a spawnvp() call
-followed by an exit() call.
-It'll waste a little RAM now, but at least it works.
-
-<p>This bug also hit Cygwin's <code>bash</code> shell, when run under Windows98
-or NT.
-I've tested 2.1_4 under <code>bash</code>, and it works now.
-
-<dt>Running external programs under Win32
-<dd>There were two bugs which, together, caused elvis to act weird after
-running an external command such as ":!dir".
-This was particularly acute in the text-mode version, but now both versions
-seem to work as intended.
-
-<dt>Screen glitch in MS-DOS with NANSI.SYS
-<dd>The screen wasn't always drawn correctly when using one of the better
-ANSI drivers, and setting TERM=nansi (or whatever).
-This was due to a bug in the nansi termcap entry in tinytcap.c;
-it should be fixed now.
-
-<dt>Scrolling after :split
-<dd>Previously there was a bug which showed up when you have two windows
-open on the same buffer.
-Inserting text in one window could cause the other window to scroll after
-each keystroke.
-This has been fixed.
-
-<dt>Name completion with spaces
-<dd>There were some problems when attempting filename completion on
-files whose names contain spaces.
-The bug responsible for this has been fixed.
-
-<dt>Ctags/elvtags
-<dd>Some bugs in the ctags/elvtags program have been fixed.
-Mostly these only occured when you're using long lines.
-
-<dt>Display modes
-<dd>The "tex" and "syntax" display modes should work a little better now.
-I added some TeX markups, and enhanced the "syntax" display mode to handle
-PERL slightly better.
-Also, some users have contributed syntax descriptions for new languages.
-
-<dt>:make
-<dd>The <code>:make</code>, <code>:cc</code>, and <code>:errlist</code>
-commands were treating any alphanumeric word as a filename, without
-checking to see if it even exists.
-It was <em>supposed</em> to verify that the name was an existing,
-readable/writable (or just readable if <code>noanyerror</code>),
-non-binary file... and now it will.
-
-<dt>POSIX compatibility tweaks
-<dd>The <code>:=</code> command, when invoked without line number, should
-display the total number of lines in the buffer.  Previous versions of elvis
-didn't do that correctly, but 2.1_3 did.
-Unfortunately, that fix broke the <code>:.=</code> command, which is supposed
-to display the current line number.
-Version 2.1_4 should both of those right, finally.
-
-<p>The <kbd>^F</kbd> and <kbd>^B</kbd> paging commands are supposed to leave
-two lines of overlap, but previous versions of elvis have only kept one line
-of overlap.
-(NOTE: I considered adding an option to control the overlap, because if you
-have a 24-line screen and 66-line pages, then then it would be nice to leave
-1 line of overlap because three <kbd>^F</kbd>s or <kbd>^B</kbd>s would equal
-one page.
-If you believe an option would be useful, please let me know.)
-
-<p>The <kbd>$</kbd> command accepts a <var>count</var> argument, and moves
-forward (<var>count</var>-1) lines before moving to the end.
-
-</dl>
-
-<hr>
-<p>The only new features (since 2.1_3) are...
-<dl>
-
-<dt>:switch/:case/:default commands
-<dd>Elvis now has a :switch command for doing a multi-way branch in a readable
-way.
-I believe this is justified, since the current :if/:then/:else commands would
-require you to use deeper and deeper nested braces to achieve the same effect.
-The old way:
-<pre>
-	if os=="unix"
-	then echo Unix
-	else {
-	 if os=="win32"
-	 then echo Windows95/98/NT/2000
-	 else {
-	  if os=="msdos"
-	  then echo MS-DOS
-	  else {
-	   if os=="os2"
-	   then echo OS/2
-	   else echo Who?
-	  }
-	 }
-	}
-</pre>
-The new way:
-<pre>
-	switch os
-	case unix echo Unix
-	case win32 echo Windows95/98/NT/2000
-	case msdos echo MS-DOS
-	case os2 echo OS/2
-	default echo Who?
-</pre>
-
-<dt>"html" printer type
-<dd>Setting the <code>lptype</code> option to "html" causes the
-<code>:lpr</code> command to write HTML output, instead of normal printer
-control sequences.
-This give a good way to generate WYSIWYG HTML code from any of elvis'
-display modes.
-It required minimal changes to the code, too -- basically, I just created
-a new printer type that uses "&lt;b&gt;" to start bold font, "&lt;i&gt;" to
-start italics, and so on, instead of some printer-dependent escape sequence.
-
-<dt>"makehtml" alias
-<dd>There is a new <code>:makehtml</code> alias which attempts to convert plain text to HTML.
-It works pretty well, though you'll still need to hand-edit the results in
-many cases.  You might want to compare the output of <code>:makehtml</code> to
-that of the "html" lptype, to see which one fits your needs better.
-
-<dt>"smarttab" option
-<dd>I added VIM's "smarttab" alias.
-When set, this causes the <kbd>&lt;Tab&gt;</kbd> key to act like <kbd>^T</kbd>
-when pressed in the indentation area of a line.
-Elsewhere in the line, <kbd>&lt;Tab&gt;</kbd> is treated normally.
-Now you can do things like "<code>:set&nbsp;smarttab&nbsp;shiftwidth=4</code>"
-to change your indentation levels while leaving the <code>tabstop</code>
-option unchanged.
-
-<p>The current implementation is a little half-assed though --
-you can't backspace over the indentation.
-Instead, you must hit <kbd>^D</kbd> to reduce the indentation level.
-
-</dl>
-
-<h1><a name="future"></a>4. The future of elvis</h1>
-
-One of the biggest tasks on my list is to rewrite the ctags program
-so that it will be able to parse C++ code better.
-It should read the language descriptions from "elvis.syn", and do at least
-a half-assed job of generating tags for any language described there.
-I'm also toying with the idea of a statistical tags generator, but that's
-still pretty nebulous at this point.
-
-<p>Windowing will be more versatile.
-Currently the GUI versions of elvis always split detached windows;
-sometimes it would be nice if they could be attached to the existing window,
-as a horizontal or vertical pane.
-
-<p>More colors will be supported.
-The syntax of the <code>:color</code> command will change to allow you
-to specify colors and other attributes by the type of text, instead of
-defining colors by attributes.
-For example, "<code>:color link=underlined green</code>" will define the
-appearance of HTML links.
-
-<p>I intend to add a true extension language to elvis.
-The language interface will be general enough to support a variety of
-languages.
-The first language supported will probably be PERL,
-followed rapidly by Python and TCL.
-
-<p>I'm thinking of modifying the markup display modes (man, tex, and html)
-to store the list of supported markups, and their effects, in a separate file.
-That way, you could create your own markups to display nroff -ms, RTF, SGML,
-and MIME "rich text" documents.
-
-<p>I'd like to redesign the way elvis assigns assigns buffer names.
-I'd like to make it always use the full pathname of a file as the buffer name.
-In addition, I'd like for elvis to store a "current working directory" for
-each window, and use that to convert a relative buffer name into a the absolute
-pathname.
-A similar trick would be used for filenames.
-When running an external program, elvis would change the real current
-directory to that window's directory.
-The benefits of all this:
-<ul>
-<li>If you're editing "foo" and "./foo", they'll both use the same buffer.
-This sounds contrived, but a similar thing happens with tag files fairly often.
-<li>If you do a :cd command, then the old buffers will still write out to
-their old directories.
-<li>Different windows could have different directories.
-<li>The X-windows "-client" flag would behave in a more reasonable manner.
-<li>The "current directory" could be something other than a local directory.
-For example, there's no reason you shouldn't be able to ":cd ftp://ftp.sunsite.unc.edu/pub/incoming".
-</ul>
-
-<h1><a name="links"></a>5. Links to related files</H1>
-
-If the main site (<a href="ftp://ftp.cs.pdx.edu/pub/elvis/README.html">ftp.cs.pdx.edu</a>) is too slow, try the mirror site at
-<a href="ftp://ftp.false.com/pub/elvis/README.html">
-ftp.false.com</a>.
+<h1><a name="links">4. Links to related files</a></h1>
+
+The main download site is
+<a href="ftp://ftp.cs.pdx.edu/pub/elvis/">ftp.cs.pdx.edu</a>.
+The files can also be found at Elvis' home page,
+<a href="http://elvis.vi-editor.org/">http://elvis.vi-editor.org/</a>
 
 <p>Most of the following are binary files, not text or HTML files,
 so you can't view then with your Web browser.
@@ -987,40 +457,45 @@ run it with no arguments, in a text-mode window.
 <p><strong>NOTE:</strong>
 MS-Windows95 and MS-DOS use incompatible methods for mapping long file names
 to short ones.
-So if you extract the files under Windows95, DOS programs won't be able to
-find them with their expected names, and vice versa.
+So if you extract the files using <code>untarw32.exe</code>,
+DOS programs won't be able to find them with their expected names,
+and vice versa.
 Consequently, you must use <code>untardos.exe</code> to unpack
-<code>elvis-2.1_4-msdos.tar.gz</code>, and <code>untarw32.exe</code> to unpack
-<code>elvis-2.1_4-win32.tar.gz</code>.
+<code>elvis-2.2_0-msdos.tar.gz</code>, and <code>untarw32.exe</code> to unpack
+<code>elvis-2.2_0-win32.tar.gz</code>.
+(Actually, I recently added a <strong>-m</strong> flag which forces
+<code>untarw32.exe</code> to convert long file names to short ones using
+the MS-DOS method.)
 
 <dt><a href="ftp://ftp.cs.pdx.edu/pub/elvis/untaros2.exe">untaros2.exe</a>
 <dd>This is an OS/2 executable, produced from the above "untar.c" file.
 For brief instructions on how to use <code>untaros2,</code>
 run it with no arguments.
 
-<dt><a href="elvis-2.1_4.tar.gz">elvis-2.1_4.tar.gz</a>
+<dt><a href="elvis-2.2_0.tar.gz">elvis-2.2_0.tar.gz</a>
 <dd>This is a gzipped tar archive of the source code and documentation for
-Elvis 2.1 and its related programs.
+Elvis 2.2 and its related programs.
 
-<dt><a href="elvis-2.1_4-msdos.tar.gz">elvis-2.1_4-msdos.tar.gz</a>
+<dt><a href="elvis-2.2_0-msdos.tar.gz">elvis-2.2_0-msdos.tar.gz</a>
 <dd>This archive contains the documentation and MS-DOS executables
-for Elvis 2.1.
+for Elvis 2.2.
 
-<dt><a href="elvis-2.1_4-win32.tar.gz">elvis-2.1_4-win32.tar.gz</a>
+<dt><a href="elvis-2.2_0-win32.tar.gz">elvis-2.2_0-win32.tar.gz</a>
 <dd>This archive contains the documentation and Win32 executables
-for Elvis 2.1.
+for Elvis 2.2.
 These were compiled and tested under Windows95, but should work under
 WindowsNT 3.51 (or later) as well.
 
-<dt><a href="elvis-2.1_4-os2.tar.gz">elvis-2.1_4-os2.tar.gz</a>
+<dt><a href="elvis-2.2_0-os2.tar.gz">elvis-2.2_0-os2.tar.gz</a>
 <dd>This archive contains the documentation and OS/2 executables
-for Elvis 2.1.
+for Elvis 2.2.
+<strong>If this link is broken then look in Herbert's site, below.</strong>
 
 <dt>
-<a href="ftp://ftp.fh-wedel.de/pub/fh-wedel/staff/herbert/elvis/00-index.html">
-ftp://ftp.fh-wedel.de/pub/fh-wedel/staff/herbert/elvis/00-index.html</a>
+<a href="http://www.fh-wedel.de/pub/fh-wedel/staff/di/elvis/00-index.html">
+http://www.fh-wedel.de/pub/fh-wedel/staff/di/elvis/00-index.html</a>
 <dd>This is where the OS/2 maintainer stores his most up-to-date versions.
-It may be better than the <code>elvis-2.1_4-os2.tar.gz</code> file, above.
+It may be better than the <code>elvis-2.2_0-os2.tar.gz</code> file, above.
 </dl>
 
 </body></html>

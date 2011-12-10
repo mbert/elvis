@@ -12,9 +12,8 @@ typedef struct
 	unsigned	offset;		/* top of page/thumb area */
 	unsigned	top;		/* top of thumb */
 	unsigned	bottom;		/* bottom of thumb */
+	ELVBOOL		recolored;	/* have colors changed lately? */
 	X_SCROLLSTATE	state;		/* scrollbar state */
-	unsigned long	bgscroll;	/* background color of scrollbar */
-	unsigned long	fgscroll;	/* foreground color of scrollbar */
 } X_SCROLLBAR;
 
 void x_sb_predict P_((X11WIN *xw, unsigned w, unsigned h));
@@ -23,4 +22,4 @@ void x_sb_destroy P_((X11WIN *xw));
 void x_sb_setstate P_((X11WIN *xw, X_SCROLLSTATE newstate));
 void x_sb_thumb P_((X11WIN *xw, long top, long bottom, long total));
 void x_sb_event P_((X11WIN *xw, XEvent *event));
-void x_sb_recolor P_((X11WIN *xw, _char_ font));
+void x_sb_recolor P_((X11WIN *xw));

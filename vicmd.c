@@ -1,9 +1,11 @@
 /* vicmd.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_vicmd[] = "$Id: vicmd.c,v 2.59 1999/06/15 04:16:54 steve Exp $";
 
 #include "elvis.h"
+#ifdef FEATURE_RCSID
+char id_vicmd[] = "$Id: vicmd.c,v 2.83 2003/10/19 23:13:33 steve Exp $";
+#endif
 
 
 
@@ -17,8 +19,8 @@ RESULT v_at(win, vinf)
 	CHAR	*keys;
 
 	/* if this buffer is in learn mode, then stop it */
-	if (isalpha(vinf->key2))
-		maplearn(vinf->key2, False);
+	if (elvalpha(vinf->key2))
+		maplearn(vinf->key2, ElvFalse);
 
 	/* copy the cut buffer contents into memory */
 	keys = cutmemory(vinf->key2);
@@ -26,7 +28,7 @@ RESULT v_at(win, vinf)
 		return RESULT_ERROR;
 
 	/* Treat the cut buffer contents like keystrokes. */
-	mapunget(keys, (int)CHARlen(keys), True);
+	mapunget(keys, (int)CHARlen(keys), ElvTrue);
 	safefree(keys);
 
 	return RESULT_COMPLETE;
@@ -80,7 +82,7 @@ RESULT v_input(win, vinf)
 	long	offset;
 	long	topoff;
 	CHAR	newline[1];
-	char	cmd;
+	CHAR	cmd;
 	BUFFER	dotbuf;
 	RESULT	result = RESULT_COMPLETE;
 
@@ -141,6 +143,12 @@ RESULT v_input(win, vinf)
 		}
 		break;
 
+	  case ELVG('I'):
+		/* go to the start of the line, before indentation */
+		tmp = dispmove(win, 0L, 0L);
+		marksetoffset(win->state->cursor, markoffset(tmp));
+		break;
+
 	  case 'I':
 		/* go to the front of the line */
 		m_front(win, vinf);
@@ -161,14 +169,12 @@ RESULT v_input(win, vinf)
 
 	  case 'o':
 		/* insert a new line after this one */
-		tmp = dispmove(win, 0, INFINITY);
-		if (scanchar(tmp) != '\n')
-		{
-			markaddoffset(tmp, 1);
-		}
+		tmp = dispmove(win, 1, 0);
+		if (markoffset(tmp) <= markoffset(win->state->cursor))
+			marksetoffset(tmp, o_bufchars(markbuffer(tmp)));
 		newline[0] = '\n';
 		bufreplace(tmp, tmp, newline, 1);
-		topoff = markoffset(tmp) + 1;
+		topoff = markoffset(tmp);
 		marksetoffset(win->state->cursor, topoff);
 		if ((vinf->tweak & TWEAK_DOTTING) == 0)
 		{
@@ -192,7 +198,7 @@ RESULT v_input(win, vinf)
 		/* If R command, then delete old characters */
 		if (cmd == 'R')
 		{
-			dotbuf = cutbuffer('.', False);
+			dotbuf = cutbuffer('.', ElvFalse);
 			if (dotbuf && o_bufchars(dotbuf) > 0L)
 			{
 				offset = o_bufchars(dotbuf);
@@ -218,10 +224,23 @@ RESULT v_input(win, vinf)
 		tmp = win->state->cursor;
 		do
 		{
-			tmp = cutput('.', win, tmp, False, True, True);
+			tmp = cutput('.', win, tmp, ElvFalse, ElvTrue, ElvTrue);
 			if (!tmp) return RESULT_ERROR;
 			markaddoffset(tmp, 1);
-		} while (--vinf->count > 0);
+			vinf->count--;
+
+			/* o and O commands need linebreaks between copies */
+			if ((cmd == 'o' || cmd == 'O') && vinf->count > 0)
+			{
+				newline[0] = '\n';
+				bufreplace(tmp, tmp, newline, 1);
+				markaddoffset(tmp, 1);
+				if ((vinf->tweak & TWEAK_DOTTING) == 0)
+				{
+					dispindent(win, win->state->cursor, -1);
+				}
+			}
+		} while (vinf->count > 0);
 		markaddoffset(tmp, -1);
 		marksetoffset(win->state->cursor, markoffset(tmp));
 	}
@@ -318,11 +337,11 @@ RESULT v_delchar(win, vinf)
 	front = markoffset(dispmove(win, 0, 0));
 	if (win->state->acton)
 	{
-		end = markoffset((*dmnormal.move)(win, win->state->cursor, 0, INFINITY, True));
+		end = markoffset((*dmnormal.move)(win, win->state->cursor, 0, INFINITY, ElvTrue));
 	}
 	else
 	{
-		end = markoffset((*win->md->move)(win, win->state->cursor, 0, INFINITY, True));
+		end = markoffset((*win->md->move)(win, win->state->cursor, 0, INFINITY, ElvTrue));
 		if (scanchar(win->state->cursor) != '\n')
 			end++;
 	}
@@ -373,10 +392,10 @@ RESULT v_delchar(win, vinf)
 		for (i = 0, scanalloc(&cp, marktmp(tmp, markbuffer(win->state->cursor), curs));
 		     i < replen; i++, scannext(&cp))
 		{
-			if (isupper(*cp))
-				repstr[i] = tolower(*cp);
-			else if (islower(*cp))
-				repstr[i] = toupper(*cp);
+			if (elvupper(*cp))
+				repstr[i] = elvtolower(*cp);
+			else if (elvlower(*cp))
+				repstr[i] = elvtoupper(*cp);
 			else
 				repstr[i] = *cp;
 		}
@@ -391,6 +410,7 @@ RESULT v_delchar(win, vinf)
 		break;
 
 	  case 'x':
+	  default: /* "default:" label is to avoid a bogus compiler warning */
 		curs = markoffset(win->state->cursor);
 		if (curs + vinf->count > end)
 			return RESULT_ERROR;
@@ -423,7 +443,7 @@ RESULT v_delchar(win, vinf)
 	marksetoffset(win->state->cursor, curs);
 	cutyank(vinf->cutbuf, win->state->cursor,
 		marktmp(tmp, markbuffer(win->state->cursor), curs + vinf->count),
-		'c', False);
+		'c', 'y');
 	bufreplace(win->state->cursor, &tmp, repstr, replen);
 
 	/* if a replacement string was allocated, free it now */
@@ -450,7 +470,7 @@ RESULT v_window(win, vinf)
 	WINDOW	win;	/* window where command was typed */
 	VIINFO	*vinf;	/* information about the command */
 {
-	WINDOW	next;
+	WINDOW	next, w2;
 
 	switch (vinf->key2)
 	{
@@ -459,11 +479,28 @@ RESULT v_window(win, vinf)
 		/* were we given a window number? */
 		if (vinf->count == 0)
 		{
-			/* go to window after this one */
-			next = winofbuf(win, NULL);
-			if (!next)
+			if (vinf->key2 == 'w')
 			{
-				next = winofbuf(NULL, NULL);
+				/* go to window after this one */
+				next = winofbuf(win, NULL);
+				if (!next)
+				{
+				       next = winofbuf(NULL, NULL);
+				}
+			}
+			else
+			{
+				/* go to window with the highest eventcounter,
+				 * other than this one.
+				 */
+				next = w2 = NULL;
+				while ((w2 = winofbuf(w2, NULL)) != NULL)
+				{
+					if (w2 == win)
+						continue;
+					if (!next || o_eventcounter(w2) > o_eventcounter(next))
+						next = w2;
+				}
 			}
 		}
 		else
@@ -520,8 +557,9 @@ RESULT v_window(win, vinf)
 			if (!CHARcmp(o_display(win), toCHAR("normal")))
 				dispset(win, "hex");
 #ifdef DISPLAY_SYNTAX
-			else if (o_filename(markbuffer(win->cursor))
-			      && dmsknown(tochar8(o_filename(markbuffer(win->cursor))))
+			else if (CHARncmp(o_bufdisplay(markbuffer(win->cursor)), toCHAR("syntax"), 6)
+			      && o_filename(markbuffer(win->cursor))
+			      && descr_known(tochar8(o_filename(markbuffer(win->cursor))), SYNTAX_FILE)
 			      && CHARcmp(o_display(win), toCHAR("syntax")) )
 				dispset(win, "syntax");
 #endif
@@ -536,13 +574,13 @@ RESULT v_window(win, vinf)
 		return RESULT_COMPLETE;
 
 	  case 'S':
-		o_wrap(win) = (BOOLEAN)!o_wrap(win);
+		o_wrap(win) = (ELVBOOL)!o_wrap(win);
 		win->di->logic = DRAW_CHANGED;
 		return RESULT_COMPLETE;
 
 	  default:
 		/* run the GUI's tabcmd function.  If it doesn't have one, or
-		 * if it has one but it returns False, then fail.
+		 * if it has one but it returns ElvFalse, then fail.
 		 */
 		if (!gui->tabcmd || !(*gui->tabcmd)(win->gw, vinf->key2, vinf->count))
 		{
@@ -565,7 +603,7 @@ RESULT v_window(win, vinf)
 	}
 	else
 	{
-		eventfocus(next->gw);
+		eventfocus(next->gw, ElvTrue);
 	}
 	return RESULT_COMPLETE;
 }
@@ -622,28 +660,40 @@ RESULT v_tag(win, vinf)
 }
 
 
-/* This function starts or cancels visible marking.  It can also be called
- * with vinf=NULL to adjust the other endpoint of an existing mark.
+/* This function does three things.  When called with vinf=NULL, it updates the
+ * selection to reflect the new cursor position.  When called with a command
+ * while a visible selection is pending, it reconfigures the selection or
+ * cancels it.  When called with a command when no selection is pending, it
+ * starts a selection.
  */
 RESULT v_visible(win, vinf)
 	WINDOW	win;	/* window where command was typed */
 	VIINFO	*vinf;	/* information about the command */
 {
-	long	col;
-
+#ifndef FEATURE_V
+	return RESULT_ERROR;
+#else
 	assert(win->seltop || vinf);
 	/*assert(!win->state->acton);*/
 
 	/* Whenever a visible selection is in progress, redrawing is implied.
 	 * We only need to force the screen to be regenerated when we're
-	 * cancelling a visible selection.
+	 * canceling a visible selection.
 	 */
 	if (vinf && win->seltop)
 		win->di->logic = DRAW_CHANGED;
 
+	/*--------------------------------------------------------------------*/
+
 	/* are we supposed to be adjusting the visible marking? */
 	if (!vinf)
 	{
+		/* if different buffer (e.g., if entering an ex command line
+		 * after highlighting some text) then do nothing.
+		 */
+		if (markbuffer(win->cursor) != markbuffer(win->seltop))
+			return RESULT_COMPLETE;
+
 		/* change "selattop" if appropriate */
 		if (markoffset(win->cursor) < markoffset(win->seltop))
 		{
@@ -655,14 +705,14 @@ RESULT v_visible(win, vinf)
 					 * the line which contains the former
 					 * top mark.
 					 */
-					marksetoffset(win->selbottom, markoffset(win->md->move(win, win->seltop, 0, INFINITY, False)));
+					marksetoffset(win->selbottom, markoffset(win->md->move(win, win->seltop, 0, INFINITY, ElvFalse)));
 				}
 				else
 				{
 					/* former top mark becomes new bottom */
 					marksetoffset(win->selbottom, markoffset(win->seltop));
 				}
-				win->selattop = True;
+				win->selattop = ElvTrue;
 			}
 		}
 		else if (markoffset(win->selbottom) < markoffset(win->cursor))
@@ -675,14 +725,18 @@ RESULT v_visible(win, vinf)
 					 * the line which contains the former
 					 * bottom mark.
 					 */
-					marksetoffset(win->seltop, markoffset(win->md->move(win, win->selbottom, 0, 0, False)));
+					marksetoffset(win->seltop,
+						markoffset(win->md->move(win,
+							win->selbottom, 0, 0,
+							ElvFalse)));
 				}
 				else
 				{
 					/* former bottom mark becomes new top */
-					marksetoffset(win->seltop, markoffset(win->selbottom));
+					marksetoffset(win->seltop,
+						markoffset(win->selbottom));
 				}
-				win->selattop = False;
+				win->selattop = ElvFalse;
 			}
 		}
 
@@ -693,12 +747,15 @@ RESULT v_visible(win, vinf)
 			if (win->seltype != 'c')
 			{
 				/* set top to start of cursor line */
-				marksetoffset(win->seltop, markoffset(win->md->move(win, win->cursor, 0, 0, False)));
+				marksetoffset(win->seltop,
+					markoffset(win->md->move(win,
+						win->cursor, 0, 0, ElvFalse)));
 			}
 			else
 			{
 				/* set top to cursor position */
-				marksetoffset(win->seltop, markoffset(win->cursor));
+				marksetoffset(win->seltop,
+					markoffset(win->cursor));
 			}
 		}
 		else /* we're adjusting the bottom of the marked region */
@@ -707,27 +764,36 @@ RESULT v_visible(win, vinf)
 			if (win->seltype != 'c')
 			{
 				/* set bottom to end of cursor line */
-				marksetoffset(win->selbottom, markoffset(win->md->move(win, win->cursor, 0, INFINITY, False)));
+				marksetoffset(win->selbottom,
+					markoffset(win->md->move(win,
+						win->cursor, 0, INFINITY,
+						ElvFalse)));
 			}
 			else
 			{
 				/* set bottom to cursor position */
-				marksetoffset(win->selbottom, markoffset(win->cursor));
+				marksetoffset(win->selbottom,
+					markoffset(win->cursor));
 			}
 		}
 
 		/* if rectangular, then we also need to adjust column limits */
 		if (win->seltype == 'r')
 		{
-			col = win->md->mark2col(win, win->cursor, True);
-			if (win->selorigcol < col)
+			/* Note that we use wantcol instead of computing the
+			 * cursor's actual column number.  The wasn't done
+			 * merely for efficiency -- it also has the side-effect
+			 * of making $ select all characters to the end of each
+			 * line.
+			 */
+			if (win->selorigcol < win->wantcol)
 			{
 				win->selleft = win->selorigcol;
-				win->selright = col;
+				win->selright = win->wantcol;
 			}
 			else
 			{
-				win->selleft = col;
+				win->selleft = win->wantcol;
 				win->selright = win->selorigcol;
 			}
 		}
@@ -736,14 +802,122 @@ RESULT v_visible(win, vinf)
 		return RESULT_COMPLETE;
 	}
 
-	/* if already visibly marking, then cancel the marking */
+	/*--------------------------------------------------------------------*/
+
+	/* if already visibly marking, then reconfigure or cancel the marking */
 	if (win->seltop)
 	{
-		markfree(win->seltop);
-		markfree(win->selbottom);
-		win->seltop = win->selbottom = NULL;
+		/* if <Esc> or same visible type, then cancel selection */
+		if (vinf->command == ELVCTRL('[')
+		 || vinf->command == (win->seltype == 'c' ? 'v' :
+		 		      win->seltype == 'l' ? 'V' : ELVCTRL('V')))
+		{
+			markfree(win->seltop);
+			markfree(win->selbottom);
+			win->seltop = win->selbottom = NULL;
+			return RESULT_COMPLETE;
+		}
+
+		/* Otherwise we reconfigure the existing selection.  We can use
+		 * selorigcol and wantcol to find the columns, and seltop and
+		 * selbottom to find the lines.  To figure out which column
+		 * goes with which line, use selattop.
+		 */
+		switch (vinf->command)
+		{
+		  case 'v':
+			win->seltype = 'c';
+			win->selleft = 0;
+			win->selright = INFINITY;
+			if (win->selattop)
+				marksetoffset(win->selbottom,
+					markoffset((*win->md->move)(win,
+						win->selbottom, 0L,
+						win->selorigcol, ElvFalse)));
+			else
+				marksetoffset(win->seltop,
+					markoffset((*win->md->move)(win,
+						win->seltop, 0L,
+						win->selorigcol, ElvFalse)));
+			break;
+
+		  case 'V':
+			win->seltype = 'l';
+			win->selleft = 0;
+			win->selright = INFINITY;
+			if (win->selattop)
+				marksetoffset(win->selbottom,
+					markoffset((*win->md->move)(win,
+						win->selbottom, 0L,
+						INFINITY, ElvFalse)));
+			else
+				marksetoffset(win->seltop,
+					markoffset((*win->md->move)(win,
+						win->seltop, 0L,
+						0L, ElvFalse)));
+			break;
+
+		  case ELVCTRL('V'):
+			win->seltype = 'r';
+			if (win->selorigcol < win->wantcol)
+			{
+				win->selleft = win->selorigcol;
+				win->selright = win->wantcol;
+			}
+			else
+			{
+				win->selleft = win->wantcol;
+				win->selright = win->selorigcol;
+			}
+			if (win->selattop)
+				marksetoffset(win->selbottom,
+					markoffset((*win->md->move)(win,
+						win->selbottom, 0L,
+						INFINITY, ElvFalse)));
+			else
+				marksetoffset(win->seltop,
+					markoffset((*win->md->move)(win,
+						win->seltop, 0L,
+						0L, ElvFalse)));
+			break;
+
+		  case ELVG('%'):
+			win->selattop = (ELVBOOL)!win->selattop;
+			if (win->selattop)
+				marksetoffset(win->cursor, markoffset(win->seltop));
+			else
+				marksetoffset(win->cursor, markoffset(win->selbottom));
+			switch (win->seltype)
+			{
+			  case 'c':
+				win->wantcol = dispmark2col(win);
+				return RESULT_COMPLETE;
+
+			  case 'l':
+				marksetoffset(win->cursor, markoffset(dispmove(win, 0L, win->wantcol)));
+				return RESULT_COMPLETE;
+			}
+			/* else fall through for 'r' to move to opposite edge */
+
+		  case ELVG(ELVCTRL('V')):
+			if (win->seltype != 'r')
+				return RESULT_ERROR;
+			if (win->wantcol <= win->selleft)
+			{
+				win->wantcol = win->selright;
+				win->selorigcol = win->selleft;
+			}
+			else
+			{
+				win->wantcol = win->selleft;
+				win->selorigcol = win->selright;
+			}
+			break;
+		}
 		return RESULT_COMPLETE;
 	}
+
+	/*--------------------------------------------------------------------*/
 
 	/* else we need to start marking characters, lines, or a rectangle,
 	 * depending on what the command key was.
@@ -755,39 +929,33 @@ RESULT v_visible(win, vinf)
 		win->selbottom = markdup(win->cursor);
 		win->selleft = 0;
 		win->selright = INFINITY;
-		win->selattop = False;
+		win->selattop = ElvFalse;
 		win->selorigcol = 0;
 		win->seltype = 'c';
 		break;
 
 	  case 'V':
-		win->seltop = markdup(win->md->move(win, win->cursor, 0, 0, False));
-		win->selbottom = markdup(win->md->move(win, win->cursor, 0, INFINITY, False));
+		win->seltop = markdup(win->md->move(win, win->cursor, 0, 0, ElvFalse));
+		win->selbottom = markdup(win->md->move(win, win->cursor, 0, INFINITY, ElvFalse));
 		win->selleft = 0;
 		win->selright = INFINITY;
 		win->selorigcol = 0;
-		win->selattop = False;
+		win->selattop = ElvFalse;
 		win->seltype = 'l';
 		break;
 
 	  case ELVCTRL('V'):
-		win->seltop = markdup(win->md->move(win, win->cursor, 0, 0, False));
-		win->selbottom = markdup(win->md->move(win, win->cursor, 0, INFINITY, False));
-		win->selleft = win->md->mark2col(win, win->cursor, True);
+		win->seltop = markdup(win->md->move(win, win->cursor, 0, 0, ElvFalse));
+		win->selbottom = markdup(win->md->move(win, win->cursor, 0, INFINITY, ElvFalse));
+		win->selleft = win->md->mark2col(win, win->cursor, ElvTrue);
 		win->selright = win->selleft;
 		win->selorigcol = win->selleft;
-		win->selattop = False;
+		win->selattop = ElvFalse;
 		win->seltype = 'r';
 		break;
-
-	  case ELVCTRL('['):
-		/* <Esc> was supposed to cancel visible marking.  If we get
-		 * here instead, then no marking was in progress so <Esc>
-		 * should beep.
-		 */
-		return RESULT_ERROR;
 	}
 	return RESULT_COMPLETE;
+#endif /* FEATURE_V */
 }
 
 
@@ -802,13 +970,13 @@ RESULT v_paste(win, vinf)
 	 * cutput function to locate the next numbered cut buffer itself.
 	 * Else use the same cut buffer as in original comand.
 	 */
-	if ((vinf->tweak & TWEAK_DOTTING) != 0 && isdigit(vinf->cutbuf))
+	if ((vinf->tweak & TWEAK_DOTTING) != 0 && elvdigit(vinf->cutbuf))
 	{
-		dest = cutput('\0', win, win->state->cursor, (BOOLEAN)(vinf->command == 'p'), True, False);
+		dest = cutput('\0', win, win->state->cursor, (ELVBOOL)(vinf->command == 'p'), ElvTrue, ElvFalse);
 	}
 	else
 	{
-		dest = cutput(vinf->cutbuf, win, win->state->cursor, (BOOLEAN)(vinf->command == 'p'), True, False);
+		dest = cutput(vinf->cutbuf, win, win->state->cursor, (ELVBOOL)(vinf->command == 'p'), ElvTrue, ElvFalse);
 	}
 
 	/* check for failure or success. */
@@ -897,7 +1065,8 @@ RESULT v_notex(win, vinf)
 	DEFAULT(2);
 	assert(vinf->command == ELVCTRL('^') || vinf->command == '&'
 		|| vinf->command == '*' || vinf->command == 'J'
-		|| vinf->command == 'K' || vinf->command == ELVCTRL('Z'));
+		|| vinf->command == 'K' || vinf->command == ELVCTRL('Z')
+		|| vinf->command == ELVG('J'));
 
 	/* build & execute an ex command */
 	memset((char *)&xinfb, 0, sizeof xinfb);
@@ -918,10 +1087,15 @@ RESULT v_notex(win, vinf)
 		break;
 
 	  case '*':
+#ifdef FEATURE_MAKE
 		result = exstring(win, toCHAR("errlist"), NULL);
+#else
+		result = RESULT_ERROR;
+#endif
 		break;
 
 	  case 'J':
+	  case ELVG('J'):
 		/* ":join" */
 		xinfb.fromaddr = win->state->cursor;
 		xinfb.from = markline(xinfb.fromaddr);
@@ -931,6 +1105,8 @@ RESULT v_notex(win, vinf)
 			msg(MSG_ERROR, "not that many lines in buffer");
 			return RESULT_ERROR;
 		}
+		if (vinf->command == ELVG('J'))
+			xinfb.bang = ElvTrue;
 		result = ex_join(&xinfb);
 		if (result == RESULT_COMPLETE && xinfb.newcurs)
 		{
@@ -947,20 +1123,22 @@ RESULT v_notex(win, vinf)
 			msg(MSG_ERROR, "keywordprg not set");
 			return RESULT_ERROR;
 		}
-		tmpmark = wordatcursor(&xinfb.defaddr);
+		tmpmark = wordatcursor(&xinfb.defaddr, ElvFalse);
 		if (!tmpmark)
 			return RESULT_ERROR;
 		word[0] = bufmemory(tmpmark, &xinfb.defaddr);
+#ifdef FEATURE_CALC
 		if (CHARchr(o_keywordprg(buf), '$'))
 		{
 			word[1] = o_filename(buf) ? o_filename(buf) : toCHAR("");
 			word[2] = NULL;
-			xinfb.rhs = calculate(o_keywordprg(buf), word, True);
+			xinfb.rhs = calculate(o_keywordprg(buf), word, CALC_MSG);
 			if (!xinfb.rhs)
 				return RESULT_ERROR; /* message already given */
 			xinfb.rhs = CHARdup(xinfb.rhs);
 		}
 		else /* no $1 in expression */
+#endif /* FEATURE_CALC */
 		{
 			/* append word to command name, with a blank between */
 			i = CHARlen(o_keywordprg(markbuffer(win->state->cursor)));
@@ -994,13 +1172,13 @@ RESULT v_number(win, vinf)
 	DEFAULT(1);
 
 	/* if not on a number, then fail */
-	if (!isdigit(scanchar(win->state->cursor)))
+	if (!elvdigit(scanchar(win->state->cursor)))
 	{
 		return RESULT_ERROR;
 	}
 
 	/* locate the start of the number */
-	for (scanalloc(&p, win->state->cursor); p && isdigit(*p); scanprev(&p))
+	for (scanalloc(&p, win->state->cursor); p && elvdigit(*p); scanprev(&p))
 	{
 	}
 	if (p)
@@ -1016,7 +1194,7 @@ RESULT v_number(win, vinf)
 	}
 
 	/* fetch the value of the number */
-	for (number = 0; p && isdigit(*p); scannext(&p))
+	for (number = 0; p && elvdigit(*p); scannext(&p))
 	{
 		number = number * 10 + *p - '0';
 	}
@@ -1051,4 +1229,53 @@ RESULT v_number(win, vinf)
 	marksetoffset(win->state->cursor, markoffset(&start));
 
 	return RESULT_COMPLETE;
+}
+
+/* display the character code of character at the cursor */
+RESULT v_ascii(win, vinf)
+	WINDOW	win;
+	VIINFO	*vinf;
+{
+#ifdef FEATURE_G
+	CHAR	c;		/* the character */
+	char	printable[10];	/* printable version of the character */
+
+	/* get the character */
+	c = scanchar(win->state->cursor);
+
+	/* generate a printable version of it */
+	printable[0] = (char)c;
+	printable[1] = '\0';
+	if (c < ' ' || c == 127)
+	{
+		printable[0] = '^';
+		printable[1] = c ^ 0x40;
+		printable[2] = '\0';
+	}
+	else if (c >= 128)
+	{
+		switch (o_nonascii)
+		{
+		  case 'a': /* all are printable */
+			/* do nothing */
+			break;
+
+		  case 'm': /* most, but not 0x80-0x9f */
+		  	if (c >= 0x80 && c <= 0x9f)
+		  		printable[0] = '\0';
+		  	break;
+
+		  default: /* none or strip */
+		  	printable[0] = '\0';
+		}
+		if (printable[0] == '\0')
+			sprintf(printable, "\\%03o", c);
+	}
+
+	/* output the message */
+	msg(MSG_INFO, "[sd]'$1' (hex($2) $2 octal($2))", printable, (long)c);
+	return RESULT_COMPLETE;
+#else
+	return RESULT_ERROR;
+#endif /* FEATURE_G */
 }

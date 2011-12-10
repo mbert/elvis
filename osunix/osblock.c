@@ -6,9 +6,12 @@
 #include <errno.h>
 #include <fcntl.h>
 #ifndef S_ISDIR
-# define S_ISDIR(mode)	(((mode & 0170000) == 0040000)
+# define S_ISDIR(mode)	((mode & 0170000) == 0040000)
 #endif
 #include "elvis.h"
+#ifdef FEATURE_RCSID
+char id_osblock[] = "$Id: osblock.c,v 2.30 2003/10/17 17:41:23 steve Exp $";
+#endif
 #ifndef DEFAULT_SESSION
 # define DEFAULT_SESSION "%s/elvis%d.ses"
 #endif
@@ -26,7 +29,6 @@
 # endif
 #endif
 
-char id_osblock[] = "$Id: osblock.c,v 2.23 1999/06/15 04:19:50 steve Exp $";
 
 static int fd = -1; /* file descriptor of the session file */
 #ifdef FEATURE_RAM
@@ -34,11 +36,11 @@ static BLK **blklist;
 static int nblks;
 #endif
 
-/* This function creates a new block file, and returns True if successful,
- * or False if failed because the file was already busy.
+/* This function creates a new block file, and returns ElvTrue if successful,
+ * or ElvFalse if failed because the file was already busy.
  */
-BOOLEAN blkopen(force, buf)
-	BOOLEAN	force;		/* if True, open even if "in use" flag set */
+ELVBOOL blkopen(force, buf)
+	ELVBOOL	force;		/* if ElvTrue, open even if "in use" flag set */
 	BLK	*buf;		/* buffer, holds SUPER block */
 {
  static char	dfltname[100];
@@ -54,7 +56,7 @@ BOOLEAN blkopen(force, buf)
 		blklist = (BLK **)calloc(nblks, sizeof(BLK *));
 		blklist[0] = (BLK *)malloc(o_blksize);
 		memcpy(blklist[0], buf, o_blksize);
-		return True;
+		return ElvTrue;
 	}
 #endif
 
@@ -71,7 +73,7 @@ BOOLEAN blkopen(force, buf)
 		{
 			/* copy next name from o_sessionpath to dfltname */
 			j = 0;
-			if (o_sessionpath[i] == '~' && !isalnum(o_sessionpath[i + 1]))
+			if (o_sessionpath[i] == '~' && !elvalnum(o_sessionpath[i + 1]))
 			{
 				strcpy(dir, tochar8(o_home));
 				j = strlen(dir);
@@ -110,11 +112,19 @@ BOOLEAN blkopen(force, buf)
 		oldcount = 0;
 		do
 		{
+			/* protect against trying a ridiculous number of names */
+			if (i >= 1000)
+			{
+				msg(MSG_FATAL, o_recovering
+					? "[s]no session file found in $1"
+					: "[s]too many session files in $1", dir);
+			}
 			sprintf(dfltname, DEFAULT_SESSION, dir, i++);
 
 			/* if the file exists and is writable by this user,
-			 * and we aren't recovering, then print a warning
-			 * so the user know he should recover eventually.
+			 * and we aren't recovering, then remember it so we
+			 * can print a warning later, so the user will know
+			 * he should delete it or recover it eventually.
 			 */
 			if (!o_recovering && access(dfltname, W_OK) == 0)
 			{
@@ -122,48 +132,51 @@ BOOLEAN blkopen(force, buf)
 			}
 
 			/* if user wants to cancel, then fail */
-			if (chosengui->poll && (*chosengui->poll)(False))
+			if (chosengui->poll && (*chosengui->poll)(ElvFalse))
 			{
-				return False;
+				return ElvFalse;
 			}
-		} while (access(dfltname, F_OK) != (o_recovering ? 0 : -1));
+		} while (o_recovering ? (access(dfltname, F_OK) != 0)
+				      : ((fd = open(dfltname, O_RDWR|O_CREAT|O_EXCL|O_BINARY, 0600)) < 0));
 		o_session = toCHAR(dfltname);
-		o_tempsession = True;
+		o_tempsession = ElvTrue;
 		if (oldcount > 0)
 			msg(MSG_WARNING, "[d]skipping $1 old session file($1!=1?\"s\")", oldcount);
 	}
 
-	/* Try to open the session file */
-	fd = open(tochar8(o_session), O_RDWR|O_BINARY);
-	if (fd >= 0)
+	/* Try to open the session file (if not opened in the above loop) */
+	if (fd < 0 && (fd = open(tochar8(o_session), O_RDWR|O_BINARY)) >= 0)
 	{
 		/* we're opening an existing session -- definitely not temporary */
-		o_tempsession = False;
+		o_tempsession = ElvFalse;
 	}
 	else
 	{
-		if (errno == ENOENT)
-		{
+		/* either we're about to open an existing session that was
+		 * explicitly named via "-f session", or we have already
+		 * created a temporary session and just need to initialize it.
+		 */
+
+		/* if we don't have a temp session already open, then we must
+		 * want to create the session file now.
+		 */
+		if (fd < 0 && errno == ENOENT)
 			fd = open(tochar8(o_session), O_RDWR|O_CREAT|O_EXCL|O_BINARY, 0600);
-			if (fd >= 0)
-			{
-				o_newsession = True;
-				if (write(fd, (char *)buf, (unsigned)o_blksize) < o_blksize)
-				{
-					close(fd);
-					unlink(tochar8(o_session));
-					fd = -1;
-					errno = ENOENT;
-				}
-				else
-				{
-					lseek(fd, 0L, 0);
-				}
-			}
-		}
 		if (fd < 0)
-		{
 			msg(MSG_FATAL, "no such session");
+
+		/* either way, we now have an open session.  Initialize it! */
+		o_newsession = ElvTrue;
+		if (write(fd, (char *)buf, (unsigned)o_blksize) < o_blksize)
+		{
+			close(fd);
+			unlink(tochar8(o_session));
+			fd = -1;
+			errno = ENOSPC;
+		}
+		else
+		{
+			lseek(fd, 0L, 0);
 		}
 	}
 
@@ -181,7 +194,7 @@ BOOLEAN blkopen(force, buf)
 	if (buf->super.inuse && !force)
 	{
 		/* lockf(fd, ULOCK, o_blksize); */
-		return False;
+		return ElvFalse;
 	}
 	buf->super.inuse = getpid();
 	lseek(fd, 0L, 0);
@@ -189,7 +202,7 @@ BOOLEAN blkopen(force, buf)
 	/* lockf(fd, ULOCK, o_blksize); */
 
 	/* done! */
-	return True;
+	return ElvTrue;
 }
 
 
@@ -273,7 +286,7 @@ void blkread(buf, blkno)
  * blocks out to the disk, but UNIX doesn't offer a way to do that, so we
  * force them all out.  Major bummer.
  */
-void blksync P_((void))
+void blksync()
 {
 #ifdef FEATURE_RAM
 	if (nblks > 0)

@@ -1,6 +1,0 @@
-if backup && !newfile
-then {
- switch os
- case unix eval ! cp (filename) (filename).bak
- default   eval ! copy (filename) (dirname(filename) / basename(filename)).bak >NUL
-}

@@ -2,9 +2,11 @@
 
 /* Copyright 1997 by Steve Kirkendall */
 
-char id_xstatus[] = "$Id: xstatus.c,v 2.7 1997/12/23 19:25:46 steve Exp $";
 
 #include "elvis.h"
+#ifdef FEATURE_RCSID
+char id_xstatus[] = "$Id: xstatus.c,v 2.14 2002/11/10 00:31:28 steve Exp $";
+#endif
 #ifdef GUI_X11
 # include "guix11.h"
 
@@ -62,11 +64,11 @@ static int draw1pane(xw, pos, text, wideptr)
 	x_drawbevel(xw, xw->st.win, pos, 2, width - ST_ADJACENT, statusheight, 'b', -ST_BEVEL);
 
 	/* draw the pane's label */
-	XSetForeground(x_display, xw->gc, xw->st.fglabel);
+	xw->fg = colorinfo[x_statuscolors].fg;
+	XSetForeground(x_display, xw->gc, xw->fg);
 	XSetFont(x_display, xw->gc, x_loadedcontrol->fontinfo->fid);
 	XDrawString(x_display, xw->st.win, xw->gc,
 		pos + textx, 2 + statusbase, text, strlen(text));
-	xw->fg = xw->st.fglabel;
 
 	/* return the position */
 	return pos;
@@ -77,11 +79,6 @@ void x_st_predict(xw, w, h)
 	X11WIN	 *xw;
 	unsigned w, h;	/* width of the statusbar (height is ignored) */
 {
-	/* allocate the colors */
-	xw->st.bg = x_loadcolor(x_scrollbarbg, x_black);
-	xw->st.fgface = x_loadcolor(x_toolbg, x_white);
-	xw->st.fglabel = x_loadcolor(x_toolfg, x_black);
-
 	/* if "set nostatusbar", then statusbar height is always 0 */
 	if (!o_statusbar)
 	{
@@ -92,7 +89,8 @@ void x_st_predict(xw, w, h)
 	}
 
 	/* compute some info about the font */
-	statusheight = x_loadedcontrol->height + 2 * ST_BEVEL;
+	statusheight = x_loadedcontrol->fontinfo->ascent
+		+ x_loadedcontrol->fontinfo->descent + 2 * ST_BEVEL;
 	statusbase = x_loadedcontrol->fontinfo->max_bounds.ascent + ST_BEVEL;
 
 	/* compute the window size */
@@ -109,9 +107,23 @@ void x_st_create(xw, x, y)
 		return;
 
 	/* create the window */
-	xw->st.win = XCreateSimpleWindow(x_display, xw->win,
-		x, y, xw->st.w, xw->st.h, 0, xw->st.fglabel, xw->st.bg);
-	if (x_mono || xw->st.fglabel == xw->st.bg)
+#ifdef FEATURE_IMAGE
+	if (ispixmap(colorinfo[x_statusbarcolors].bg))
+	{
+		xw->st.win = XCreateSimpleWindow(x_display, xw->win,
+			x, y, xw->st.w, xw->st.h, 0,
+			colorinfo[x_statusbarcolors].fg,
+			pixmapof(colorinfo[x_statusbarcolors].bg).pixel);
+		XSetWindowBackgroundPixmap(x_display, xw->st.win,
+			pixmapof(colorinfo[x_statusbarcolors].bg).pixmap);
+	}
+	else
+#endif
+		xw->st.win = XCreateSimpleWindow(x_display, xw->win,
+			x, y, xw->st.w, xw->st.h, 0,
+			colorinfo[x_statusbarcolors].fg,
+			colorinfo[x_statusbarcolors].bg);
+	if (x_mono || colorinfo[x_statusbarcolors].fg == colorinfo[x_statusbarcolors].bg)
 		XSetWindowBackgroundPixmap(x_display, xw->st.win, x_gray);
 	XSelectInput(x_display, xw->st.win, ExposureMask);
 
@@ -128,11 +140,6 @@ void x_st_create(xw, x, y)
 void x_st_destroy(xw)
 	X11WIN	*xw;	/* top-level application window to loose the statusbar */
 {
-	/* free the colors */
-	x_unloadcolor(xw->st.bg);
-	x_unloadcolor(xw->st.fgface);
-	x_unloadcolor(xw->st.fglabel);
-
 	/* destroy the window */
 	if (xw->st.win != None)
 		XDestroyWindow(x_display, xw->st.win);
@@ -152,7 +159,43 @@ void x_st_status(xw, info, line, column, learn, mode)
 	int	lclear;/* left edge of area to clear */
 	int	rclear;/* right edge of area to clear */
 	char	tmp[24];
+	CHAR	tmpinfo[80];
+	char	*tmpmode;
 
+
+	if (xw->st.h == 0)
+		return;
+
+	/* If recolored, then we need to adjust everything */
+	if (xw->st.recolored)
+	{
+		/* Change the background color */
+#ifdef FEATURE_IMAGE
+		if (ispixmap(colorinfo[x_statusbarcolors].bg))
+			XSetWindowBackgroundPixmap(x_display, xw->st.win,
+			      pixmapof(colorinfo[x_statusbarcolors].bg).pixmap);
+		else
+#endif
+		if (x_mono || colorinfo[x_statusbarcolors].fg == colorinfo[x_statusbarcolors].bg)
+
+			XSetWindowBackgroundPixmap(x_display, xw->st.win, x_gray);
+		else
+			XSetWindowBackground(x_display, xw->st.win,
+				colorinfo[x_statusbarcolors].bg);
+
+		/* force right edge of redrawn area to include rightmost pane */
+		tmpmode = xw->st.mode;
+		xw->st.mode = NULL;
+
+		/* force left edge of redrawn area to include text on left */
+		CHARcpy(tmpinfo, toCHAR(xw->st.info));
+		xw->st.info[0]++;
+		info = tmpinfo;
+
+		/* Reset the "recolored" flag */
+		xw->st.recolored = False;
+	}
+		
 	/* If we have new text, and it is different from old text, use it */
 	lclear = (int)xw->st.rulerpos;
 	if (!info)
@@ -161,6 +204,13 @@ void x_st_status(xw, info, line, column, learn, mode)
 	{
 		strncpy(xw->st.info, tochar8(info), sizeof(xw->st.info) - 1);
 		xw->st.info[sizeof xw->st.info - 1] = '\0';
+
+		/* trim newline from end of new text, if present */
+		lclear = strlen(xw->st.info) - 1;
+		if (lclear >= 0 && xw->st.info[lclear] == '\n')
+			xw->st.info[lclear] = '\0';
+
+		/* we'll need to redraw the whole statusbar */
 		lclear = 0;
 	}
 
@@ -186,11 +236,11 @@ void x_st_status(xw, info, line, column, learn, mode)
 	/* if necessary, redraw the info */
 	if (lclear == 0 && xw->st.info[0])
 	{
-		XSetForeground(x_display, xw->gc, xw->st.fglabel);
+		xw->fg = colorinfo[x_statusbarcolors].fg;
+		XSetForeground(x_display, xw->gc, xw->fg);
 		XSetFont(x_display, xw->gc, x_loadedcontrol->fontinfo->fid);
 		x_drawstring(x_display, xw->st.win, xw->gc,
 			0, 2 + statusbase, xw->st.info, strlen(xw->st.info));
-		xw->fg = xw->st.fglabel;
 	}
 
 	/* redraw the panes that have changed */
@@ -239,59 +289,25 @@ void x_st_event(xw, event)
 	X11WIN	*xw;
 	XEvent	*event;
 {
-	char	tmp[80];
-	char	*mode;
-
 	switch (event->type)
 	{
 	  case Expose:
-		/* force right edge of redrawn area to include rightmost pane */
-		mode = xw->st.mode;
-		xw->st.mode = NULL;
-
-		/* force left edge of redrawn area to include text on left */
-		strcpy(tmp, xw->st.info);
-		xw->st.info[0]++;
+		/* Pretend the colors have changed; this will force it to be
+		 * redrawn from scratch.
+		 */
+		xw->st.recolored = True;
 
 		/* now draw it */
-		x_st_status(xw, toCHAR(tmp), xw->st.line, xw->st.column, xw->st.learn, mode);
+		x_st_status(xw, toCHAR(xw->st.info), xw->st.line, xw->st.column, xw->st.learn, xw->st.mode);
 		break;
 	}
 }
 
 
-void x_st_recolor(xw, font)
+void x_st_recolor(xw)
 	X11WIN	*xw;	/* window to be recolored */
-	_char_	font;	/* indicates which colors were changed */
 {
-	XEvent	event;
-
-	/* Currently it uses the scrollbar background color for the toolbar
-	 * itself, and the tool colors for the fields.
-	 */
-	switch (font)
-	{
-	  case 't':
-		x_unloadcolor(xw->st.fglabel);
-		xw->st.fglabel = x_loadcolor(x_toolfg, x_black);
-		xw->st.fgface = x_loadcolor(x_toolbg, x_white);
-		break;
-
-	  case 's':
-		x_unloadcolor(xw->st.bg);
-		xw->st.bg = x_loadcolor(x_scrollbarbg, x_black);
-
-		/* if there is a toolbar window, change its background */
-		if (xw->st.h != 0)
-			XSetWindowBackground(x_display, xw->st.win, xw->st.bg);
-		break;
-
-	  default:
-		return;
-	}
-
-	/* redraw the toolbar */
-	event.type = Expose;
-	x_st_event(xw, &event);
+	/* Arrange for it to be drawn from scratch later */
+	xw->st.recolored = True;
 }
 #endif

@@ -1,10 +1,13 @@
 /* exaction.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_exaction[] = "$Id: exaction.c,v 2.88 1999/10/07 16:23:58 steve Exp $";
 
 #include "elvis.h"
+#ifdef FEATURE_RCSID
+char id_exaction[] = "$Id: exaction.c,v 2.120 2003/10/18 04:47:18 steve Exp $";
+#endif
 
+#ifdef FEATURE_MISC
 /* This function implements the :@x command. */
 RESULT	ex_at(xinf)
 	EXINFO	*xinf;
@@ -20,7 +23,7 @@ RESULT	ex_at(xinf)
 	}
 
 	/* find the cut buffer */
-	cutbuf = cutbuffer(xinf->cutbuf, False);
+	cutbuf = cutbuffer(xinf->cutbuf, ElvFalse);
 	if (!cutbuf || o_bufchars(cutbuf) == 0L)
 	{
 		msg(MSG_ERROR, "[C]cut buffer $1 empty", xinf->cutbuf);
@@ -33,7 +36,7 @@ RESULT	ex_at(xinf)
 }
 
 
-/* This function implements the :buffer command. */
+/* This function implements the :buffer command, and :browse and :sbrowse. */
 RESULT	ex_buffer(xinf)
 	EXINFO	*xinf;
 {
@@ -43,6 +46,7 @@ RESULT	ex_buffer(xinf)
 	BUFFER	buf;		/* a buffer */
 	WINDOW	win;		/* a window that shows a given buffer */
 	CHAR	winlist[200];	/* buffer, holds string containing output line */
+	CHAR	*name;
 	int	len;		/* length of string in winlist[] */
 	int	bnlen;		/* length of buffer name */
 	CHAR	*htmlhead = toCHAR("\
@@ -74,13 +78,14 @@ RESULT	ex_buffer(xinf)
 		first = 0L;
 		if (xinf->command != EX_BUFFER)
 		{
-			html = bufalloc(toCHAR(BBROWSE_BUF), 0, True);
+			html = bufalloc(toCHAR(BBROWSE_BUF), 0, ElvTrue);
 			bufreplace(marktmp(tmp, html, 0),
 				   marktmp(tmp2, html, o_bufchars(html)),
 				   htmlhead,
 				   CHARlen(htmlhead));
 			o_bufdisplay(html) = toCHAR("html");
-			o_readonly(html) = True;
+			o_initialsyntax(html) = ElvFalse;
+			o_readonly(html) = ElvTrue;
 		}
 
 		/* no arguments -- list the buffers */
@@ -94,8 +99,9 @@ RESULT	ex_buffer(xinf)
 				continue;
 			}
 
-			/* make a list of the windows showing that editor */
-			bnlen = CHARlen(o_bufname(buf));
+			/* make a list of the windows showing that buffer */
+			name = o_filename(buf) ? o_filename(buf) : o_bufname(buf);
+			bnlen = CHARlen(name);
 			len = 0;
 			if (!html)
 			{
@@ -114,11 +120,11 @@ RESULT	ex_buffer(xinf)
 				}
 			}
 			winlist[len++] = (o_internal(buf) ? '-' : o_modified(buf) ? '*' : ' ');
-			(void)CHARncpy(&winlist[len], o_bufname(buf), (size_t)bnlen);
+			(void)CHARncpy(&winlist[len], name, (size_t)bnlen);
 			len += bnlen;
 			if (o_bufid(buf) && len < QTY(winlist) - 10)
 			{
-				sprintf((char *)&winlist[len], " (%ld)", o_bufid(buf));
+				sprintf((char *)&winlist[len], " (#%ld)", o_bufid(buf));
 				len = CHARlen(winlist);
 			}
 
@@ -152,12 +158,12 @@ RESULT	ex_buffer(xinf)
 			/* finish off the HTML document */
 			marksetoffset(&tmp, o_bufchars(html));
 			bufreplace(&tmp, &tmp, htmltail, CHARlen(htmltail));
-			o_modified(html) = False;
+			o_modified(html) = ElvFalse;
 
 			/* if :sbbrowse, try to create a new window.  If that
 			 * fails, or if :bbrowse, then replace current window.
 			 */
-			bufwilldo(marktmp(tmp, html, first), False);
+			bufwilldo(marktmp(tmp, html, first), ElvFalse);
 			if (xinf->command == EX_BBROWSE
 			 || !(*gui->creategw)(tochar8(o_bufname(html)), ""))
 			{
@@ -188,7 +194,9 @@ RESULT ex_all(xinf)
 	}
 
 	/* Remember the original cursor */
-	if (xinf->window->state->pop)
+	if (!xinf->window)
+		origcurs = NULL;
+	else if (xinf->window->state->pop)
 		origcurs = xinf->window->state->pop->cursor;
 	else
 		origcurs = xinf->window->cursor;
@@ -208,20 +216,26 @@ RESULT ex_all(xinf)
 		/* Temporarily move the window's cursor to the first line
 		 * of this buffer.
 		 */
-		if (xinf->window->state->pop)
-			xinf->window->state->pop->cursor = marktmp(bufline1, buf, 0);
-		else
-			xinf->window->cursor = marktmp(bufline1, buf, 0);
+		if (xinf->window)
+		{
+			if (xinf->window->state->pop)
+				xinf->window->state->pop->cursor = marktmp(bufline1, buf, 0);
+			else
+				xinf->window->cursor = marktmp(bufline1, buf, 0);
+		}
 
 		/* execute the command */
 		result = exstring(xinf->window, xinf->rhs, NULL);
 	}
 
 	/* Restore the original cursor */
-	if (xinf->window->state->pop)
-		xinf->window->state->pop->cursor = origcurs;
-	else
-		xinf->window->cursor = origcurs;
+	if (origcurs)
+	{
+		if (xinf->window->state->pop)
+			xinf->window->state->pop->cursor = origcurs;
+		else
+			xinf->window->cursor = origcurs;
+	}
 
 	return result;
 }
@@ -317,10 +331,11 @@ RESULT ex_window(xinf)
 	}
 	else
 	{
-		eventfocus(win->gw);
+		eventfocus(win->gw, ElvTrue);
 	}
 	return RESULT_COMPLETE;
 }
+#endif /* FEATURE_MISC */
 
 
 RESULT	ex_cd(xinf)
@@ -347,7 +362,7 @@ RESULT	ex_cd(xinf)
 		{
 			if (!o_internal(buf) && o_modified(buf))
 			{
-				msg(MSG_ERROR, "[S]$1 modified, not saved", o_bufname(buf));
+				msg(MSG_ERROR, "[S]$1 modified, not saved", o_filename(buf) ? o_filename(buf) : o_bufname(buf));
 				return RESULT_ERROR;
 			}
 		}
@@ -373,7 +388,7 @@ RESULT	ex_cd(xinf)
 	for (buf = NULL; (buf = buflist(buf)) != NULL; )
 	{
 		if (!o_internal(buf))
-			o_edited(buf) = False;
+			o_edited(buf) = ElvFalse;
 	}
 
 	return RESULT_COMPLETE;
@@ -391,7 +406,7 @@ RESULT	ex_edit(xinf)
 	long	line=1;	/* default line number to start on */
 
 	assert(xinf->command == EX_EDIT || xinf->command == EX_OPEN
-		|| xinf->command == EX_VISUAL);
+		|| xinf->command == EX_VISUAL || xinf->command == EX_PUSH);
 
 	/* These only work when the ex command acts on the main buffer */
 	if (xinf->window->state->acton && xinf->window->state->acton->acton)
@@ -401,7 +416,7 @@ RESULT	ex_edit(xinf)
 	}
 
 	/* If visual mode isn't supported, then either fail or use open mode */
-	if (gui->exonly && xinf->command != EX_EDIT)
+	if (gui->exonly && xinf->command != EX_EDIT && xinf->command != EX_PUSH)
 	{
 		msg(MSG_ERROR, "this gui only supports ex mode");
 		return RESULT_ERROR;
@@ -444,15 +459,16 @@ RESULT	ex_edit(xinf)
 		newbuf = buffind(toCHAR(xinf->file[0]));
 		if (newbuf && o_modified(newbuf) && !xinf->bang)
 		{
-			msg(MSG_ERROR, "[S]$1 modified, not saved", o_bufname(newbuf));
+			msg(MSG_ERROR, "[S]$1 modified, not saved", o_filename(newbuf) ? o_filename(newbuf) : o_bufname(newbuf));
 			return RESULT_ERROR;
 		}
 
 		/* None of these commands are ever supposed to save the old
 		 * buffer.  When we eventually switch to the new buffer,
-		 * the old buffer will be unloaded, so if it has been
-		 * modified and isn't used by anything else, we should either
-		 * fail (if no ! given) or reset the "modified" flag (if !)
+		 * the old buffer will be unloaded (except maybe for :push),
+		 * so if it has been modified and isn't used by anything else,
+		 * we should either fail (if no ! given) or reset the
+		 * "modified" flag (if !, even for :push)
 		 */
 		oldbuf = markbuffer(xinf->window->cursor);
 		if (winofbuf(NULL, oldbuf) == xinf->window
@@ -460,16 +476,25 @@ RESULT	ex_edit(xinf)
 		 && o_modified(oldbuf))
 		{
 			if (xinf->bang)
-				o_modified(oldbuf) = False;
-			else if (!o_autowrite || !bufsave(oldbuf, False, False))
+				o_modified(oldbuf) = ElvFalse;
+			else if (!o_autowrite || !bufsave(oldbuf, ElvFalse, ElvFalse))
 			{
-				msg(MSG_ERROR, "[S]$1 modified, not saved", o_bufname(oldbuf));
+				msg(MSG_ERROR, "[S]$1 modified, not saved", o_filename(oldbuf) ? o_filename(oldbuf) : o_bufname(oldbuf));
 				return RESULT_ERROR;
 			}
 		}
 
+		/* For :push, we want to save the old position before switching
+		 * to the new buffer.
+		 */
+		if (xinf->command == EX_PUSH)
+		{
+			tepush(xinf->window, o_previoustag);
+			o_previoustag = NULL;
+		}
+
 		/* load the new buffer */
-		newbuf = bufload(NULL, xinf->file[0], True);
+		newbuf = bufload(NULL, xinf->file[0], ElvTrue);
 
 		/* if the line number is invalid, ignore it */
 		if (line < 0 || line > o_buflines(newbuf))
@@ -498,9 +523,37 @@ RESULT	ex_edit(xinf)
 		/* change the buffer of this window. */
 		xinf->newcurs = markdup(&xinfb.defaddr);
 	}
+	else if (xinf->command == EX_PUSH || xinf->command == EX_VISUAL)
+	{
+		/* Either ":push" or ":vi"  without a filename, but maybe with
+		 * a +line argument.
+		 */
+
+		/* :push saves the old position */
+		if (xinf->command == EX_PUSH)
+		{
+			tepush(xinf->window, o_previoustag);
+			o_previoustag = NULL;
+		}
+
+		/* both commands accept a "+line" argument */
+		if (xinf->lhs)
+		{
+			xinfb.defaddr = xinf->defaddr;
+			(void)scanstring(&p, xinf->lhs);
+			if (exparseaddress(&p, &xinfb))
+			{
+				xinfb.defaddr.offset = lowline(
+					bufbufinfo(xinfb.defaddr.buffer),
+					xinfb.to);
+				xinf->newcurs = markdup(&xinfb.defaddr);
+			}
+			scanfree(&p);
+		}
+	}
 
 	/* Set the main buffer to visual/open mode? */
-	if (xinf->command != EX_EDIT)
+	if (xinf->command != EX_EDIT && xinf->command != EX_PUSH)
 	{
 		/* exit "ex" mode */
 		for (s = xinf->window->state; s != xinf->window->state->acton; s = s->pop)
@@ -529,6 +582,7 @@ RESULT	ex_file(xinf)
 	long	lnum;
 	MARK	cursor;
 	BUFFER	buf;
+	BUFFER	other;
 
 	switch (xinf->command)
 	{
@@ -556,15 +610,23 @@ RESULT	ex_file(xinf)
 		/* were we given a new name for this buffer? */
 		if (xinf->nfiles == 1)
 		{
+			/* see if another buffer has that name already */
+			other = buffind(toCHAR(xinf->file[0]));
+			if (other && !xinf->bang)
+			{
+				msg(MSG_ERROR, "another buffer already has that name");
+				return RESULT_ERROR;
+			}
+
 			/* store the given filename as the new file of this buffer */
-			o_edited(buf) = False;
+			o_edited(buf) = ElvFalse;
 			if (optflags(o_filename(buf)) & OPT_FREE)
 			{
 				safefree(o_filename(buf));
 			}
 			o_filename(buf) = CHARdup(toCHAR(xinf->file[0]));
 			optflags(o_filename(buf)) |= OPT_FREE;
-			buftitle(buf, o_filename(buf));
+			buftitle(buf, toCHAR(ioabsolute(xinf->file[0])));
 		}
 
 		/* output statistics of this file */
@@ -585,13 +647,14 @@ RESULT	ex_file(xinf)
 }
 
 
+#ifdef FEATURE_LPR
 /* This function implements the :lpr command */
 RESULT	ex_lpr(xinf)
 	EXINFO	*xinf;
 {
-#ifdef FEATURE_LPR
 	RESULT	ret;
 	CHAR	*origlp;
+	long	origcols;
 	
 	/* if a filename/filter is given on command line, use it */
 	origlp = o_lpout;
@@ -605,18 +668,21 @@ RESULT	ex_lpr(xinf)
 		o_lpout = toCHAR(xinf->file[0]);
 	}
 
-	/* print */
+	/* temporarily set "columns" to match "lpcolumns", so markup text
+	 * will be formatted to fit the page, not the screen.
+	 */
+	origcols = o_columns(xinf->window);
+	o_columns(xinf->window) = o_lpcolumns;
+
 	ret = lp(xinf->window, xinf->fromaddr, xinf->toaddr, xinf->bang);
 
-	/* restore lpout to its original value */
+	/* restore columns & lpout to their original values */
+	o_columns(xinf->window) = origcols;
 	o_lpout = origlp;
 
 	return ret;
-#else /* not FEATURE_LPR */
-	msg(MSG_INFO, "[s]the :$1 command is disabled", xinf->cmdname);
-	return RESULT_COMPLETE;
-#endif
 }
+#endif
 
 
 /* This function implements the :mark and :k commands */
@@ -644,12 +710,38 @@ RESULT	ex_mark(xinf)
 }
 
 
+#ifdef FEATURE_MKEXRC
 RESULT	ex_mkexrc(xinf)
 	EXINFO	*xinf;
 {
-#ifdef FEATURE_MKEXRC
 	BUFFER	buf = buffind(toCHAR(CUSTOM_BUF));
 	MARKBUF	top, bottom;
+	char	*filename;
+
+	/* if a name was given on the command line, then set mkexrcfile to
+	 * that name, and regenerate the CUSTOM_BUF.
+	 */
+	if (xinf->nfiles == 1 || !o_mkexrcfile)
+	{
+		/* choose a filename -- the given one, or ~/CUSTOM_FILE */
+		if (xinf->nfiles == 1)
+			filename = xinf->file[0];
+		else
+			filename = dirpath(tochar8(o_home), CUSTOM_FILE);
+
+		/* store the name in mkexrcfile, and regenerate the CUSTOM_BUF
+		 * so it contains the new value of mkexrcfile.
+		 */
+		(void)optputstr(toCHAR("mkexrcfile"), toCHAR(filename), ElvFalse);
+		eventupdatecustom(ElvTrue);
+		eventupdatecustom(ElvFalse);
+		buf = buffind(toCHAR(CUSTOM_BUF));
+	}
+	else
+		/* safe to overwrite, since we'll be writing back out to the
+		 * file that we read these options from in the first place.
+		 */
+		xinf->bang = ElvTrue;
 
 	/* if no changes have been made, great! */
 	if (!buf)
@@ -657,20 +749,17 @@ RESULT	ex_mkexrc(xinf)
 		return RESULT_COMPLETE;
 	}
 
-	/* else write the buffer out to the given file, or CUSTOM_FILE
-	 * by default.
+	/* else write the buffer out.  Allow an existing file to be overwritten
+	 * only if no filename was given
 	 */
-	if (bufwrite(marktmp(top, buf, 0), marktmp(bottom, buf, o_bufchars(buf)),
-		xinf->nfiles == 1 ? xinf->file[0] : CUSTOM_FILE, xinf->bang))
+	if (bufwrite(marktmp(top,buf,0), marktmp(bottom,buf,o_bufchars(buf)),
+		tochar8(o_mkexrcfile), xinf->bang))
 	{
 		return RESULT_COMPLETE;
 	}
 	return RESULT_ERROR;
-#else
-	msg(MSG_INFO, "[s]the :$1 command is disabled", xinf->cmdname);
-	return RESULT_COMPLETE;
-#endif
 }
+#endif
 
 
 /* This implements the commands which read the args list... :next, :Next,
@@ -683,8 +772,10 @@ RESULT	ex_next(xinf)
 	int	newargnext;	/* value argnext should have if successful */
 	BUFFER	oldbuf;		/* the buffer we're leaving */
 	BUFFER	newbuf;		/* the buffer we're entering */
-	BOOLEAN	splitting;	/* are we going to create a new window? */
-	BOOLEAN	closing;	/* are we going to delete the old buffer? */
+#ifdef FEATURE_SPLIT
+	ELVBOOL	splitting;	/* are we going to create a new window? */
+#endif
+	ELVBOOL	closing;	/* are we going to delete the old buffer? */
 	char	**tmp;		/* used for swapping args lists */
 
 	assert(xinf->command == EX_NEXT || xinf->command == EX_PREVIOUS ||
@@ -695,10 +786,15 @@ RESULT	ex_next(xinf)
 
 	/* initialize some variables */
 	oldbuf = markbuffer(xinf->window->cursor);
-	splitting = (BOOLEAN)(xinf->command == EX_SNEXT || xinf->command == EX_SPREVIOUS
+#ifdef FEATURE_SPLIT
+	splitting = (ELVBOOL)(xinf->command == EX_SNEXT || xinf->command == EX_SPREVIOUS
 		|| xinf->command == EX_SLAST || xinf->command == EX_SREWIND);
-	closing = (BOOLEAN)(!splitting && (xinf->command == EX_WNEXT || (winofbuf(NULL, oldbuf) == xinf->window
+	closing = (ELVBOOL)(!splitting && (xinf->command == EX_WNEXT || (winofbuf(NULL, oldbuf) == xinf->window
 		&& winofbuf(xinf->window, oldbuf) == NULL)));
+#else
+	closing = (ELVBOOL)(xinf->command == EX_WNEXT || (winofbuf(NULL, oldbuf) == xinf->window
+		&& winofbuf(xinf->window, oldbuf) == NULL));
+#endif
 
 	/* diddle with the args list.  Upon exit, arglist[argnext] is name
 	 * of the next file to load.
@@ -755,16 +851,17 @@ RESULT	ex_next(xinf)
 			return RESULT_ERROR;
 		}
 		/* else ":n!", so turn off the modified flag */
-		o_modified(oldbuf) = False;
+		o_modified(oldbuf) = ElvFalse;
 	}
-	if (!closing || bufsave(oldbuf, xinf->bang, (BOOLEAN)(xinf->command == EX_WNEXT)))
+	if (!closing || bufsave(oldbuf, xinf->bang, (ELVBOOL)(xinf->command == EX_WNEXT)))
 	{
 		/* load the new buffer */
-		newbuf = bufload(NULL, arglist[newargnext++], False);
+		newbuf = bufload(NULL, arglist[newargnext++], ElvFalse);
 
 		/* either create a new window, or change the buffer
 		 * of this window.
 		 */
+#ifdef FEATURE_SPLIT
 		if (splitting)
 		{
 			if (!(*gui->creategw)(tochar8(o_bufname(newbuf)), ""))
@@ -773,6 +870,7 @@ RESULT	ex_next(xinf)
 			}
 		}
 		else
+#endif
 		{
 			xinf->newcurs = markalloc(newbuf, 0);
 		}
@@ -787,6 +885,7 @@ RESULT	ex_pop(xinf)
 	EXINFO	*xinf;
 {
 	int	i;
+	BUFFER	buf = markbuffer(xinf->window->cursor);
 
 	/* if the tag stack is empty, fail */
 	if (!xinf->window->tagstack[0].origin)
@@ -799,14 +898,14 @@ RESULT	ex_pop(xinf)
 	 * we'll want to save the current buffer before switching.  If we
 	 * can't switch, then fail unless ! given.
 	 */
-	if (markbuffer(xinf->window->tagstack[0].origin) != markbuffer(xinf->window->cursor)
+	if (markbuffer(xinf->window->tagstack[0].origin) != buf
 	 && !xinf->bang
-	 && (o_autowrite ? !bufsave(markbuffer(xinf->window->cursor), False, False)
-	 		: o_modified(markbuffer(xinf->window->cursor))))
+	 && (o_autowrite ? !bufsave(buf, ElvFalse, ElvFalse)
+	 		: o_modified(buf)))
 	{
 		if (!o_autowrite)
 		{
-			msg(MSG_ERROR, "[S]$1 modified, not saved", o_bufname(markbuffer(xinf->window->cursor)));
+			msg(MSG_ERROR, "[S]$1 modified, not saved", o_filename(buf) ? o_filename(buf) : o_bufname(buf));
 		}
 		return RESULT_ERROR;
 	}
@@ -832,12 +931,14 @@ RESULT	ex_pop(xinf)
 	xinf->window->tagstack[i].origin = NULL;
 	xinf->window->tagstack[i].prevtag = NULL;
 
+#ifdef FEATURE_TAGS
 	/* clobber the list of matching tags -- this search is done */
 	if (taglist)
 	{
 		tsadjust(taglist, '+');
-		tagdelete(True);
+		tagdelete(ElvTrue);
 	}
+#endif
 
 	return RESULT_COMPLETE;
 }
@@ -851,7 +952,7 @@ RESULT	ex_bang(xinf)
 	char	*bangcmd;
 	CHAR	iobuf[4096];
 	int	len;
-	BOOLEAN	origrefresh;
+	ELVBOOL	origrefresh;
 
 	assert(xinf->command == EX_BANG);
 
@@ -881,7 +982,7 @@ RESULT	ex_bang(xinf)
 			assert(gui->prgclose);
 			if (gui->flush)
 				(*gui->flush)();
-			if ((*gui->prgopen)((char *)xinf->rhs, False, False)
+			if ((*gui->prgopen)((char *)xinf->rhs, ElvFalse, ElvFalse)
 				&& prggo()
 				&& (*gui->prgclose)() == 0)
 			{
@@ -892,12 +993,12 @@ RESULT	ex_bang(xinf)
 		else
 		{
 			origrefresh = o_exrefresh;
-			o_exrefresh = True;
+			o_exrefresh = ElvTrue;
 			
 			bangcmd = (char *)safealloc((int)CHARlen(xinf->rhs) + 2, sizeof(char));
 			bangcmd[0] = '!';
 			strcpy(bangcmd + 1, tochar8(xinf->rhs));
-			if (!ioopen(bangcmd, 'r', False, False, 't'))
+			if (!ioopen(bangcmd, 'r', ElvFalse, ElvFalse, 't'))
 			{
 				o_exrefresh = origrefresh;
 				return RESULT_ERROR;
@@ -916,8 +1017,8 @@ RESULT	ex_bang(xinf)
 
 	/* prepare to start the filter program */
 	if (gui->prgopen
-		? !(*gui->prgopen)(tochar8(xinf->rhs), True, True)
-		: !prgopen(tochar8(xinf->rhs), True, True))
+		? !(*gui->prgopen)(tochar8(xinf->rhs), ElvTrue, ElvTrue)
+		: !prgopen(tochar8(xinf->rhs), ElvTrue, ElvTrue))
 	{
 		return RESULT_ERROR;
 	}
@@ -978,9 +1079,11 @@ RESULT	ex_source(xinf)
 	int	nbytes;	/* size of a chunk of text read from file */
 	CHAR	*io;	/* I/O buffer, holds chunk of text from file */
 	RESULT	result;	/* results of executing the commands from the file */
-	BOOLEAN	origsafer;/* original value of "safer" option */
+#ifdef FEATURE_MISC
+	void	*popopt;/* stack level for :local */
+#endif
 
-	assert(xinf->command == EX_SOURCE || xinf->command == EX_SAFER);
+	assert(xinf->command == EX_SOURCE);
 
 	/* the file name is REQUIRED! */
 	if (xinf->nfiles != 1)
@@ -998,11 +1101,11 @@ RESULT	ex_source(xinf)
 	}
 
 	/* open the file */
-	if (!ioopen(xinf->file[0], 'r', False, False, 't'))
+	if (!ioopen(xinf->file[0], 'r', ElvFalse, ElvFalse, 't'))
 		return RESULT_ERROR;
 
 	/* create a temp buffer */
-	buf = bufalloc(NULL, 0, True);
+	buf = bufalloc(NULL, 0, ElvTrue);
 	assert(buf != NULL);
 	o_filename(buf) = CHARdup(toCHAR(xinf->file[0])); 
 	optflags(o_filename(buf)) |= OPT_FREE;
@@ -1016,19 +1119,21 @@ RESULT	ex_source(xinf)
 	safefree(io);
 	(void)ioclose();
 
-	/* if :safer command, then temporarily set the "safer" option */
-	origsafer = o_safer;
-	if (xinf->command == EX_SAFER)
-	{
-		o_safer = True;
-	}
-
 	/* execute the contents of the buffer as a series of ex commands */
+#ifdef FEATURE_MISC
+	popopt = optlocal(NULL);
+#endif
+#ifdef FEATURE_AUTOCMD
+	(void)auperform(xinf->window, ElvFalse, NULL, AU_SCRIPTENTER, toCHAR(xinf->file[0]));
+#endif
 	result = experform(xinf->window, marktmp(start, buf, 0),
 					 marktmp(end, buf, o_bufchars(buf)));
-
-	/* reset the "safer" option to its original value. */
-	o_safer = origsafer;
+#ifdef FEATURE_AUTOCMD
+	(void)auperform(xinf->window, ElvFalse, NULL, AU_SCRIPTLEAVE, toCHAR(xinf->file[0]));
+#endif
+#ifdef FEATURE_MISC
+	(void)optlocal(popopt);
+#endif
 
 	/* destroy the temporary buffer */
 	buffree(buf);
@@ -1038,6 +1143,7 @@ RESULT	ex_source(xinf)
 }
 
 
+#ifdef FEATURE_MISC
 RESULT	ex_stack(xinf)
 	EXINFO *xinf;
 {
@@ -1055,6 +1161,7 @@ RESULT	ex_stack(xinf)
 	}
 	return RESULT_COMPLETE;
 }
+#endif /* FEATURE_MISC */
 
 
 RESULT	ex_suspend(xinf)
@@ -1066,7 +1173,7 @@ RESULT	ex_suspend(xinf)
 	/* Give the GUI a chance to do this in a non-portable way */
 	if (gui->stop)
 	{
-		result = (*gui->stop)((BOOLEAN)(xinf->command == EX_SHELL));
+		result = (*gui->stop)((ELVBOOL)(xinf->command == EX_SHELL));
 		if (result != RESULT_MORE)
 			return result;
 		/* else the GUI wants the default implementation */
@@ -1089,6 +1196,7 @@ RESULT	ex_tag(xinf)
 	MARK	tagdefn;
 	RESULT	result = RESULT_COMPLETE;
 	BUFFER	oldbuf;
+	MARK	(*loadfn) P_((CHAR *tagname, MARK from));
 
 	assert(xinf->command == EX_TAG || xinf->command == EX_STAG);
 
@@ -1103,9 +1211,15 @@ RESULT	ex_tag(xinf)
 	 || (xinf->rhs && (CHARchr(xinf->rhs, '#')
 			|| CHARchr(xinf->rhs, '?')
 			|| !CHARncmp(xinf->rhs, toCHAR("buffer:"), 7))))
-		tagdefn = (*xinf->window->md->tagload)(xinf->rhs, xinf->window->cursor);
+		loadfn = xinf->window->md->tagload;
 	else
-		tagdefn = (*dmnormal.tagload)(xinf->rhs, xinf->window->cursor);
+		loadfn = dmnormal.tagload;
+	if (!loadfn)
+	{
+		msg(MSG_ERROR, "[s]the :$1 command is disabled", xinf->cmdname);
+		return RESULT_ERROR;
+	}
+	tagdefn = (*loadfn)(xinf->rhs, xinf->window->cursor);
 	if (!tagdefn)
 	{
 		result = RESULT_ERROR;
@@ -1113,12 +1227,14 @@ RESULT	ex_tag(xinf)
 	}
 
 	/* maybe split off a new window at the tag's definition */
-	bufwilldo(tagdefn, False);
+	bufwilldo(tagdefn, ElvFalse);
+#ifdef FEATURE_SPLIT
 	if (xinf->command == EX_STAG
 	 && (*gui->creategw)(tochar8(o_bufname(markbuffer(tagdefn))), ""))
 	{
 		goto Finish;
 	}
+#endif
 
 	/* if switching buffers, and the current buffer has been modified,
 	 * and no other window is also showing this buffer, then either
@@ -1133,12 +1249,14 @@ RESULT	ex_tag(xinf)
 	{
 		if (!o_autowrite)
 		{
-			msg(MSG_ERROR, "[S]$1 modified, not saved", o_bufname(oldbuf));
+			msg(MSG_ERROR, "[S]$1 modified, not saved", o_filename(oldbuf) ? o_filename(oldbuf) : o_bufname(oldbuf));
 			result = RESULT_ERROR;
+#ifdef FEATURE_TAGS
 			tesametag();
+#endif
 			goto Finish;
 		}
-		else if (!bufsave(oldbuf, False, False))
+		else if (!bufsave(oldbuf, ElvFalse, ElvFalse))
 		{
 			result = RESULT_ERROR;
 			goto Finish;
@@ -1159,6 +1277,7 @@ Finish:
 }
 
 
+#ifdef FEATURE_BROWSE
 RESULT	ex_browse(xinf)
 	EXINFO	*xinf;
 {
@@ -1169,7 +1288,7 @@ RESULT	ex_browse(xinf)
 	assert(xinf->command == EX_BROWSE || xinf->command == EX_SBROWSE);
 
 	/* build the tags document */
-	if (o_tagprg)
+	if (o_tagprg && *o_tagprg)
 	{
 		/* using an external search program */
 		buf = tebrowse(xinf->bang, xinf->rhs);
@@ -1215,7 +1334,7 @@ RESULT	ex_browse(xinf)
 		tmp = (CHAR *)safealloc(CHARlen(o_filename(buf)) + 9, sizeof(CHAR));
 		CHARcpy(tmp, "tagfile:");
 		CHARcat(tmp, o_filename(buf));
-		buf = tebrowse(False, tmp);
+		buf = tebrowse(ElvFalse, tmp);
 		safefree(tmp);
 	}
 	else
@@ -1242,8 +1361,10 @@ RESULT	ex_browse(xinf)
 
 	return RESULT_COMPLETE;
 }
+#endif /* FEATURE_BROWSE */
 
 
+#ifdef FEATURE_SPLIT
 RESULT	ex_split(xinf)
 	EXINFO	*xinf;
 {
@@ -1253,17 +1374,17 @@ RESULT	ex_split(xinf)
 
 	/* decide which buffer should appear in the new window */
 	if (xinf->command == EX_SNEW)
-		buffer = bufalloc(NULL, 0, False);
+		buffer = bufalloc(NULL, 0, ElvFalse);
 	else if (xinf->nfiles == 1)
-		buffer = bufload(NULL, xinf->file[0], False);
+		buffer = bufload(NULL, xinf->file[0], ElvFalse);
 	else if (xinf->rhs)
 	{
-		buffer = bufalloc(NULL, 0, False);
+		buffer = bufalloc(NULL, 0, ElvFalse);
 		xinf->command = EX_READ;
 		xinf->toaddr = markalloc(buffer, 0L);
 		xinf->defaddr = *xinf->toaddr;
 		ex_read(xinf);
-		o_modified(buffer) = False;
+		o_modified(buffer) = ElvFalse;
 	}
 	else
 		buffer = markbuffer(&xinf->defaddr);
@@ -1276,7 +1397,7 @@ RESULT	ex_split(xinf)
 			buffree(buffer);
 		return RESULT_ERROR;
 	}
-	eventfocus(xinf->window->gw);
+	eventfocus(xinf->window->gw, ElvFalse); /* !!! is this necessary? */
 	return RESULT_COMPLETE;
 }
 
@@ -1293,7 +1414,7 @@ RESULT	ex_sall(xinf)
 	for (i = 0; arglist && arglist[i]; i++)
 	{
 		/* load the arg into a buffer, if it isn't already loaded */
-		buffer = bufload(NULL, arglist[i], False);
+		buffer = bufload(NULL, arglist[i], ElvFalse);
 
 		/* skip buffers that already have a window */
 		if (winofbuf(NULL, buffer))
@@ -1307,3 +1428,90 @@ RESULT	ex_sall(xinf)
 	}
 	return RESULT_COMPLETE;
 }
+#endif /* FEATURE_SPLIT */
+
+#ifdef FEATURE_FOLD
+
+/* This implements the :fold and :unfold commands */
+RESULT	ex_fold(xinf)
+	EXINFO	*xinf;
+{
+	CHAR	*name;
+	MARKBUF	tobuf;
+	FOLD	fold;
+	RESULT	result = RESULT_COMPLETE;
+	CHAR	*args[2], arg[20];
+
+	assert(xinf->command == EX_FOLD || xinf->command == EX_UNFOLD);
+
+	/* evaluate the name, if any */
+	if (xinf->rhs)
+	{
+		long2CHAR(arg, xinf->to - xinf->from + 1);
+		args[0] = arg;
+		args[1] = NULL;
+		name = calculate(xinf->rhs, args, CALC_MSG);
+		if (!name)
+			return RESULT_ERROR;
+	}
+	else
+		name = NULL;
+
+	/* Create a local copy of "to" which has the offset tweaked.  This is
+	 * necessary because the ex parser's version of "to" points to the
+	 * character *AFTER* the end of the region, but the folding functions
+	 * expect it to point to the character *AT* the end.
+	 */
+	tobuf = *xinf->toaddr;
+	markaddoffset(&tobuf, -1L);
+
+	/* Decide how to behave, based on presence/absence of args */
+	if (xinf->anyaddr && name)
+	{
+		/* Create a new fold/unfold */
+		fold = foldalloc(xinf->fromaddr, &tobuf, name);
+
+		/* Discard any FOLDs from either that exactly match this new
+		 * FOLD, or which this fold overlaps.  Leave wholly-included
+		 * folds intact though.
+		 */
+		(void)foldbyrange(fold->from, fold->to, ElvTrue, FOLD_NOEXTRA|FOLD_DESTROY);
+		(void)foldbyrange(fold->from, fold->to, ElvFalse, FOLD_NOEXTRA|FOLD_DESTROY);
+
+		/* Add this new FOLD to the "fold" or "unfold" list */
+		foldadd(fold, (ELVBOOL)(xinf->command == EX_FOLD));
+	}
+	else if (name)
+	{
+		/* unfold/refold by name */
+		result = foldbyname(markbuffer(&xinf->defaddr), name,
+				(ELVBOOL)(xinf->command == EX_UNFOLD));
+		if (result != RESULT_COMPLETE)
+		{
+			if (xinf->command == EX_UNFOLD)
+				msg(MSG_ERROR, "nothing to unfold by that name");
+			else
+				msg(MSG_ERROR, "nothing to fold by that name");
+		}
+	}
+	else /* explicit address or default address */
+	{
+		/* unfold/refold by range */
+		result = foldbyrange(xinf->fromaddr, &tobuf,
+				(ELVBOOL)(xinf->command == EX_UNFOLD),
+				FOLD_INSIDE|FOLD_OUTSIDE|FOLD_TOGGLE
+					| (xinf->bang ? FOLD_NESTED : 0));
+		if (result != RESULT_COMPLETE)
+		{
+			if (xinf->command == EX_UNFOLD)
+				msg(MSG_ERROR, "nothing to unfold there");
+			else
+				msg(MSG_ERROR, "nothing to fold there");
+		}
+	}
+
+	/* return the result */
+	return result;
+}
+
+#endif /* defined(FEATURE_FOLD) */

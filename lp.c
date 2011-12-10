@@ -1,27 +1,30 @@
 /* lp.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_lp[] = "$Id: lp.c,v 2.29 1999/09/30 18:17:56 steve Exp $";
 
 /* This file contains generic printing code. */
 
 #include "elvis.h"
+#ifdef FEATURE_RCSID
+char id_lp[] = "$Id: lp.c,v 2.39 2003/10/17 17:41:23 steve Exp $";
+#endif
 #ifdef FEATURE_LPR
 
 #if USE_PROTOTYPES
 static LPTYPE *findtype(char *name);
-#if defined (GUI_WIN32)
+# if defined (GUI_WIN32)
 static void dummyprt(_CHAR_ ch);
-#endif
+# endif
 static void prtchar(_CHAR_ ch);
 static void draw(CHAR *p, long qty, _char_ font, long offset);
 #endif
 
 
 /* This is a list of all known printer types.  The first one is the default. */
-static LPTYPE	*alltypes[] = {&lpdumb, &lpepson, &lppana, &lpibm, &lphp, &lpcr, &lpbs, &lphtml, &lpps, &lpps2,
+static LPTYPE	*alltypes[] = { &lpdumb, &lpepson, &lppana, &lpibm, &lphp,
+				&lpcr, &lpbs, &lpansi, &lphtml, &lpps, &lpps2,
 #if defined (GUI_WIN32)
- &lpwindows,
+				&lpwindows,
 #endif
 };
 static LPTYPE	*type;		/* type of printer being used at the moment */
@@ -31,13 +34,70 @@ static int	pagenum;	/* page number withing this printing */
 static int	linesleft;	/* number of usable lines left on this page */
 static int	column;		/* column number, used to implement wrapping */
 static WINDOW	prwin;		/* window doing the printing */
-static BOOLEAN	anytext;	/* False if blank page, True if any text */
+static ELVBOOL	anytext;	/* ElvFalse if blank page, ElvTrue if any text */
 static long	lnum;		/* line number of current line */
 
 /* Output buffering variables */
 static CHAR	*iobuf;		/* pointer to the I/O buffer */
 static int	iomax;		/* number of CHARS that the iobuf can hold */
 static int	ionext;		/* number of CHARS currently in iobuf */
+
+/* Return the value of a field from lpoptions, as a string */
+char *lpoptfield(field, dflt)
+	char	*field; /* name of the field to retrieve */
+	char	*dflt;	/* default value, if not in lpoptions */
+{
+	int	len;
+	static char buf[50];
+	char	*scan;
+
+	/* if no options, then return "" */
+	if (!o_lpoptions || !*o_lpoptions)
+		return dflt;
+
+	/* look for the requested field */
+	len = strlen(field);
+	for (scan = tochar8(o_lpoptions); scan && *scan;)
+	{
+		/* is this it? */
+		if (!strncmp(scan, field, len) && scan[len] == ':')
+		{
+			/* found! copy the value into buf */
+			for (len = 0;
+			     len < QTY(buf)-1 && scan[len] && scan[len] != '\0';
+			     len++)
+			{
+				buf[len] = scan[len];
+			}
+			buf[len] = '\0';
+
+			/* if default is Boolean then force Boolean values */
+			if (!strcmp(dflt, "false") || !strcmp(dflt, "true"))
+			{
+				if (strchr("nNfF0", buf[0]))
+					strcpy(buf, "false");
+				else
+					strcpy(buf, "true");
+			}
+
+			/* return it */
+			return buf;
+		}
+
+		/* scan for the next field */
+		scan = strchr(scan, ',');
+		if (scan)
+		{
+			scan++;
+			while (elvspace(*scan))
+				scan++;
+		}
+	}
+
+	/*not found -- return the default */
+	return dflt;
+}
+
 
 /* This function converts a type name to an LPTYPE pointer.  Returns NULL if
  * unsuccessful.  If the name is NULL, it returns the default LPTYPE.
@@ -64,6 +124,39 @@ static LPTYPE *findtype(name)
 
 	/* failed */
 	return NULL;
+}
+
+/* return the RGB value for the foreground of a given font.  This takes into
+ * consideration the "lpcolor" and "lpcontrast" options.
+ */
+unsigned char *lpfg(fontcode)
+	_char_	fontcode;
+{
+	static unsigned char rgb[3];
+	int	i, j;
+
+	if (o_lpcolor)
+	{
+		/* fetch the RGB value from colorinfo[] */
+		memcpy(rgb, colorinfo[fontcode].lpfg_rgb, 3);
+
+		/* if the color is too pale, then darken it */
+		i = rgb[0] + rgb[1] + rgb[2];
+		j = 3 * (255 - (o_lpcontrast * 255 / 100));
+		if (i > j)
+		{
+			rgb[0] = (unsigned char)(rgb[0] * j / i);
+			rgb[1] = (unsigned char)(rgb[1] * j / i);
+			rgb[2] = (unsigned char)(rgb[2] * j / i);
+		}
+	}
+	else
+	{
+		/* nolpcolor, always use black */
+		memset(rgb, 0, 3);
+	}
+
+	return rgb;
 }
 
 #if defined (GUI_WIN32)
@@ -178,8 +271,9 @@ static void draw(p, qty, font, offset)
 			/* pass the character to the LP driver */
 			(*type->fontch)(font, ch);
 
-			/* if the character was newline, then decrement the number of
-			 * lines left on this page, and reset the column to 0.
+			/* if the character was newline, then decrement the
+			 * number of lines left on this page, and reset the
+			 * column to 0.
 			 */
 			if (ch == '\n')
 			{
@@ -189,7 +283,7 @@ static void draw(p, qty, font, offset)
 			else /* must have been a normal printable character */
 			{
 				column++;
-				anytext = True;
+				anytext = ElvTrue;
 			}
 		}
 
@@ -221,7 +315,7 @@ static void draw(p, qty, font, offset)
 				(*win->md->header)(win, pagenum, win->mi, draw);
 				prwin = win;
 			}
-			anytext = False;
+			anytext = ElvFalse;
 		}
 	}
 }
@@ -231,7 +325,7 @@ RESULT lp(win, top, bottom, force)
 	WINDOW	win;	/* window where print request was generated */
 	MARK	top;	/* start of text to be printed */
 	MARK	bottom;	/* end of text to be printed */
-	BOOLEAN	force;	/* allow an existing file to be clobbered? */
+	ELVBOOL	force;	/* allow an existing file to be clobbered? */
 {
 	long	oldcurs;
 	MARK	next;
@@ -275,7 +369,7 @@ RESULT lp(win, top, bottom, force)
 		}
 		if (out[0] == '>' && out[1] == '>')
 			out += 2, rwa = 'a';
-		if (!ioopen(out, rwa, True, force, 'b'))
+		if (!ioopen(out, rwa, ElvTrue, force, 'b'))
 		{
 			goto Error;
 		}
@@ -289,7 +383,7 @@ RESULT lp(win, top, bottom, force)
 	/* initialize the LP driver */
 #if defined (GUI_WIN32)
 	if (strcmp (o_lptype, "windows") == 0)
-	    (*type->before)(type->minorno, dummyprt);
+		(*type->before)(type->minorno, dummyprt);
 	else
 #endif
 		(*type->before)(type->minorno, prtchar);
@@ -303,7 +397,7 @@ RESULT lp(win, top, bottom, force)
 	{
 		(*win->md->header)(win, pagenum, win->mi, draw);
 	}
-	anytext = False;
+	anytext = ElvFalse;
 
 	/* generate image lines, and send them to the printer.  Temporarily
 	 * move the cursor to the end of the buffer so it doesn't affect
@@ -327,8 +421,7 @@ RESULT lp(win, top, bottom, force)
 		iowrite(iobuf, ionext);
 	}
 	safefree(iobuf);
-	msg(MSG_INFO, "[d]$1 pages", (long)pagenum);
-	if (type->spooled && ioclose())
+	if (type->spooled && !ioclose())
 		goto Error;
 
 	/* clean up and return success */
@@ -337,6 +430,7 @@ RESULT lp(win, top, bottom, force)
 		(void)dispset(win, tochar8(origdisplay));
 		safefree(origdisplay);
 	}
+	msg(MSG_STATUS, "[d]$1 pages", (long)pagenum);
 	return RESULT_COMPLETE;
 
 Error:

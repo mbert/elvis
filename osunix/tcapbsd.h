@@ -1,6 +1,8 @@
 /* tcapbsd.h */
 
-char id_tcapbsd[] = "$Id: tcapbsd.h,v 2.6 1998/11/28 05:15:39 steve Exp $";
+#ifdef FEATURE_RCSID
+char id_tcapbsd[] = "$Id: tcapbsd.h,v 2.9 2003/01/26 19:41:36 steve Exp $";
+#endif
 
 #include <sys/types.h>
 #include <sys/time.h>
@@ -28,10 +30,10 @@ static void catchsig(signo)
 }
 
 /* save the original tty state */
-void ttyinit()
+static void ttyinit2()
 {
 	/* get the old tty state */
-	ioctl(0, TIOCGETP, &oldsgttyb);
+	ioctl(ttykbd, TIOCGETP, &oldsgttyb);
 }
 
 /* switch to the tty state that elvis runs in */
@@ -58,15 +60,15 @@ void ttyraw(erasekey)
 	newsgttyb = oldsgttyb;
 	newsgttyb.sg_flags |= CBREAK;
 	newsgttyb.sg_flags &= ~(CRMOD|ECHO|XTABS);
-	ioctl(0, TIOCSETP, &newsgttyb);
+	ioctl(ttykbd, TIOCSETP, &newsgttyb);
 
-	ioctl(0, TIOCGETC, (struct sgttyb *) &tbuf);
+	ioctl(ttykbd, TIOCGETC, (struct sgttyb *) &tbuf);
 	oldint = tbuf.t_intrc;
 	tbuf.t_intrc = ELVCTRL('C');	/* always use ^C for interrupts */
-	ioctl(0, TIOCSETC, (struct sgttyb *) &tbuf);
+	ioctl(ttykbd, TIOCSETC, (struct sgttyb *) &tbuf);
 
 #  ifdef TIOCSLTC
-	ioctl(0, TIOCGLTC, &ltbuf);
+	ioctl(ttykbd, TIOCGLTC, &ltbuf);
 	oldswitch = ltbuf.t_suspc;
 	ltbuf.t_suspc = 0;		/* disable ^Z for elvis */
 	olddswitch = ltbuf.t_dsuspc;
@@ -75,7 +77,7 @@ void ttyraw(erasekey)
 	ltbuf.t_lnextc = 0;		/* disable ^V for elvis */
 	oldflush = ltbuf.t_flushc;
 	ltbuf.t_flushc = 0;		/* disable ^O for elvis */
-	ioctl(0, TIOCSLTC, &ltbuf);
+	ioctl(ttykbd, TIOCSLTC, &ltbuf);
 #  endif
 }
 
@@ -88,21 +90,21 @@ void ttynormal()
 	struct ltchars	ltbuf;
 #  endif
 
-	ioctl(0, TIOCSETP, &oldsgttyb);
+	ioctl(ttykbd, TIOCSETP, &oldsgttyb);
 
-	ioctl(0, TIOCGETC, (struct sgttyb *) &tbuf);
+	ioctl(ttykbd, TIOCGETC, (struct sgttyb *) &tbuf);
 	tbuf.t_intrc = oldint;
 	tbuf.t_startc = oldstart;
 	tbuf.t_stopc = oldstop;
-	ioctl(0, TIOCSETC, (struct sgttyb *) &tbuf);
+	ioctl(ttykbd, TIOCSETC, (struct sgttyb *) &tbuf);
 
 #  ifdef TIOCSLTC
-	ioctl(0, TIOCGLTC, &ltbuf);
+	ioctl(ttykbd, TIOCGLTC, &ltbuf);
 	ltbuf.t_suspc = oldswitch;
 	ltbuf.t_dsuspc = olddswitch;
 	ltbuf.t_lnextc = oldquote;
 	ltbuf.t_flushc = oldflush;
-	ioctl(0, TIOCSLTC, &ltbuf);
+	ioctl(ttykbd, TIOCSLTC, &ltbuf);
 #  endif
 }
 
@@ -128,7 +130,7 @@ int ttyread(buf, len, timeout)
 	/* do we know whether this is a tty or not? */
 	if (!tty)
 	{
-		tty = (isatty(0) ? 'y' : 'n');
+		tty = (isatty(ttykbd) ? 'y' : 'n');
 	}
 
 	/* compute the timeout value */
@@ -150,8 +152,8 @@ int ttyread(buf, len, timeout)
 		{
 			/* wait until timeout or characters are available */
 			FD_ZERO(&rd);
-			FD_SET(0, &rd);
-			i = select(1, &rd, (fd_set *)0, (fd_set *)0, tp);
+			FD_SET(ttykbd, &rd);
+			i = select(ttykbd+1, &rd, (fd_set *)0, (fd_set *)0, tp);
 		}
 		else
 		{
@@ -174,7 +176,7 @@ int ttyread(buf, len, timeout)
 	
 		  default:
 			/* characters available */
-			return read(0, buf, len);
+			return read(ttykbd, buf, len);
 		}
 	}
 }

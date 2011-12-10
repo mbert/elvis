@@ -1,17 +1,21 @@
 /* exmake.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_make[] = "$Id: exmake.c,v 2.30 1999/09/30 18:21:36 steve Exp $";
 
 #include "elvis.h"
+#ifdef FEATURE_RCSID
+char id_make[] = "$Id: exmake.c,v 2.43 2003/10/18 04:47:18 steve Exp $";
+#endif
+
+#ifdef FEATURE_MAKE
 
 #if USE_PROTOTYPES
-static BOOLEAN parse_errmsg(void);
+static ELVBOOL parse_errmsg(void);
 static RESULT gotoerr(EXINFO *xinf);
 static void errprep(void);
 #endif
 
-BOOLEAN makeflag;
+ELVBOOL makeflag;
 
 static char	*maybedir;	/* directory name extracted from errlist */
 static CHAR	*errfile;	/* name of file where error was detected */
@@ -20,10 +24,12 @@ static CHAR	*errdesc;	/* description of the error */
 static MARK	errnext;	/* used for stepping through the error list */
 
 
-/* This function tries to parse an error message.  Each error message is
- * assumed to fit on a single line.  Within the line, this parser attempts to
- * locate three fields: the source file name, the line number, and the
- * description of the error.
+/* This function tries to parse an error message from the (Elvis error list)
+ * buffer; the errnext variable points to the next line in the buffer.
+ *
+ * Each error message is assumed to fit on a single line.  Within the line,
+ * this parser attempts to locate three fields: the source file name, the line
+ * number, and the description of the error.
  *
  * The line is scanned for words.  "Words", for this purpose, are considered
  * to be contiguous strings of non-whitespace characters other than ':'
@@ -36,19 +42,20 @@ static MARK	errnext;	/* used for stepping through the error list */
  * After both the filename and line number have been found, the remainder of
  * the line is taken to be the description... except that any garbage between
  * the filename/line# and the interesting part of the description will be
- * discarded.  Usually, this discarded text consists simly of a colon and some
+ * discarded.  Usually, this discarded text consists simply of a colon and some
  * whitespace.
  *
- * Returns True normally, or False at the end of the list.  If it returns True,
+ * Returns ElvTrue normally, or ElvFalse at the end of the list.  If it returns ElvTrue,
  * then the errfile, errline, and errdesc variables will have been set to
  * reflect anything that was found in the line; if all three are non-NULL
  * then the line contained an error message.
  */
-static BOOLEAN parse_errmsg()
+static ELVBOOL parse_errmsg()
 {
 	BUFFER		errlist;	/* buffer containing err list */
 	CHAR		*word;		/* dynamically allocated string */
 	CHAR		*cp;		/* used for scanning line */
+	CHAR		prevch;		/* previous char while scanning */
 	DIRPERM		perms;		/* permissions of a file */
 	long		top;		/* start of line */
 	WINDOW		errwin;		/* window which displays errors */
@@ -78,11 +85,19 @@ static BOOLEAN parse_errmsg()
 	word = NULL;
 
 	/* scan the line */
-	for (scanalloc(&cp, errnext); cp && *cp != '\n'; cp && scannext(&cp))
+	for (scanalloc(&cp, errnext), prevch = 0;
+	     cp && *cp != '\n';
+	     prevch = *cp, cp && scannext(&cp))
 	{
 		/* is the character legal in a word? */
-		if (!isspace(*cp) && CHARchr("():\"'`,", *cp) == NULL)
+		if (!elvspace(*cp) && CHARchr("():\"'`,", *cp) == NULL)
 		{
+			/* work around a quirk of Microsoft's compilers:
+			 * if the sequence "/\" is seen, convert it to "/".
+			 */
+			if (*cp == '\\' && prevch == '/')
+				continue;
+
 			/* character in word */
 			buildCHAR(&word, *cp);
 			continue;
@@ -123,7 +138,7 @@ static BOOLEAN parse_errmsg()
 		 * name of an existing, writable text file?
 		 */
 		if (!errfile
-		 && isalnum(*word)
+		 && (elvalnum(*word) || *word == '/' || *word == '\\')
 		 && ((perms = dirperm(tochar8(word))) == DIR_READWRITE
 			|| (o_anyerror && perms == DIR_READONLY))
 		 && *ioeol(tochar8(word)) != 'b')
@@ -131,7 +146,7 @@ static BOOLEAN parse_errmsg()
 			/* this is the name of the source file */
 			errfile = word;
 		}
-		else if (dirperm(tochar8(word)) == DIR_NOTFILE)
+		else if (dirperm(tochar8(word)) == DIR_DIRECTORY)
 		{
 			/* this may be the name of a directory where
 			 * source files reside */
@@ -162,7 +177,7 @@ static BOOLEAN parse_errmsg()
 			safefree(word);
 			word = NULL;
 			while (cp && *cp != '\n' &&
-				(isspace(*cp) || isdigit(*cp) || *cp == ':' || *cp == '-'))
+				(elvspace(*cp) || elvdigit(*cp) || *cp == ':' || *cp == '-'))
 			{
 				scannext(&cp);
 			}
@@ -253,12 +268,12 @@ static BOOLEAN parse_errmsg()
 	 * end of the current message instead of at the top of the buffer.
 	 */
 	markaddoffset(errnext, -1L);
-	bufwilldo(errnext, False);
+	bufwilldo(errnext, ElvFalse);
 	markaddoffset(errnext, 1L);
 
-	/* return True since there was a line for us to parse */
+	/* return ElvTrue since there was a line for us to parse */
 	scanfree(&cp);
-	return True;
+	return ElvTrue;
 
 NoMoreErrors:
 	/* if a window is showing the error list, then unhighlight the old
@@ -289,7 +304,7 @@ NoMoreErrors:
 		errwin->di->logic = DRAW_CHANGED;
 	}
 
-	return False;
+	return ElvFalse;
 }
 
 
@@ -303,6 +318,7 @@ static RESULT gotoerr(xinf)
 	BUFFER	blamebuf;
 	long	blameline;
 	WINDOW	errwin;
+	WINDOW	blamewin;
 
 	/* if there is a window showing the error buffer, then search forward
 	 * from its cursor. (Else search forward from end of previous error.)
@@ -322,7 +338,7 @@ static RESULT gotoerr(xinf)
 	} while (!errfile || !errline || !errdesc);
 
 	/* load (if necessary) the file where error was detected. */
-	blamebuf = bufload(NULL, tochar8(errfile), False);
+	blamebuf = bufload(NULL, tochar8(errfile), ElvFalse);
 	assert(blamebuf != NULL);
 
 	/* figure out which line the cursor should be left on, taking into
@@ -336,8 +352,28 @@ static RESULT gotoerr(xinf)
 		blameline = o_buflines(blamebuf);
 
 	/* move the cursor to the erroneous line of the new buffer */
-	xinf->newcurs = markalloc(blamebuf,
+	blamewin = winofbuf(NULL, blamebuf);
+	if (blamewin && markbuffer(xinf->window->cursor) != blamebuf)
+	{
+		/* another window is already showing this buffer -- switch
+		 * to that window, leaving this window unchanged.
+		 */
+		if (gui->focusgw)
+		{
+			(*gui->focusgw)(blamewin->gw);
+		}
+		else
+		{
+			eventfocus(blamewin->gw, ElvTrue);
+		}
+		marksetoffset(blamewin->cursor,
 				lowline(bufbufinfo(blamebuf), blameline));
+	}
+	else
+	{
+		xinf->newcurs = markalloc(blamebuf,
+				lowline(bufbufinfo(blamebuf), blameline));
+	}
 
 	/* describe the error */
 	if (o_buflines(blamebuf) == o_errlines(blamebuf))
@@ -406,7 +442,7 @@ RESULT	ex_errlist(xinf)
 	BUFFER	errbuf;
 	WINDOW	errwin;
 	MARKBUF	from;
-	BOOLEAN	retval;
+	ELVBOOL	retval;
 
 	assert(xinf->command == EX_ERRLIST);
 
@@ -417,11 +453,11 @@ RESULT	ex_errlist(xinf)
 		errprep();
 
 		/* load the buffer from the named file */
-		errbuf = bufalloc(toCHAR(ERRLIST_BUF), 0, True);
+		errbuf = bufalloc(toCHAR(ERRLIST_BUF), 0, ElvTrue);
 		retval = bufread(marktmp(from, errbuf, 0), xinf->rhs ? tochar8(xinf->rhs) : xinf->file[0]);
 
 		/* turn off the "modified" flag on the (Elvis error list) buf */
-		o_modified(errbuf) = False;
+		o_modified(errbuf) = ElvFalse;
 
 		/* if there are any windows showing this buffer, move its cursor
 		 * to offset 0
@@ -449,7 +485,7 @@ RESULT	ex_make(xinf)
 	CHAR	*io;	/* buffer for reading chars from program */
 	int	nio;	/* number of characters read */
 	MARKBUF	start, end;/* ends of errlist buffer, used for appending */
-	BOOLEAN	origrefresh;
+	ELVBOOL	origrefresh;
 	long	origpollfreq;
 	BUFFER	buf;
 	WINDOW	errwin;	/* window which is displaying errors */
@@ -465,8 +501,16 @@ RESULT	ex_make(xinf)
 		{
 			if (!o_internal(buf) && o_modified(buf))
 			{
-				msg(MSG_ERROR, "[S]$1 modified, not saved", o_bufname(buf));
-				return RESULT_ERROR;
+				if (!o_autowrite)
+				{
+					msg(MSG_ERROR, "[S]$1 modified, not saved", o_filename(buf) ? o_filename(buf) : o_bufname(buf));
+					return RESULT_ERROR;
+				}
+
+				/* write the buffer */
+				if (!bufsave(buf, ElvFalse, ElvFalse))
+					/* error message already given */
+					return RESULT_ERROR;
 			}
 		}
 	}
@@ -476,7 +520,7 @@ RESULT	ex_make(xinf)
 	args[0] = (xinf->rhs ? xinf->rhs : toCHAR(""));
 	args[1] = (o_filename(buf) ? o_filename(buf) : toCHAR(""));
 	args[2] = NULL;
-	str = calculate(xinf->command==EX_CC ? o_cc(buf) : o_make(buf), args, True);
+	str = calculate(xinf->command==EX_CC ? o_cc(buf) : o_make(buf), args, CALC_MSG);
 	if (!str)
 	{
 		/* error message already given */
@@ -485,10 +529,10 @@ RESULT	ex_make(xinf)
 
 	/* output the command name, so the user knows what's happening */
 	origrefresh = o_exrefresh;
-	o_exrefresh = True;
+	o_exrefresh = ElvTrue;
 	origpollfreq = o_pollfrequency;
 	o_pollfrequency = 1;
-	(void)guipoll(True);
+	(void)guipoll(ElvTrue);
 	drawextext(xinf->window, str, (int)CHARlen(str));
 	drawextext(xinf->window, toCHAR("\n"), 1);
 
@@ -498,7 +542,7 @@ RESULT	ex_make(xinf)
 	/* run the program, and read its stdout/stderr.  Write this to the
 	 * window as ex output text, and also store it in the errlist buffer.
 	 */
-	if (!prgopen(tochar8(str), False, True) || !prggo())
+	if (!prgopen(tochar8(str), ElvFalse, ElvTrue) || !prggo())
 	{
 		/* failed -- error message already given */
 		o_exrefresh = origrefresh;
@@ -513,7 +557,7 @@ RESULT	ex_make(xinf)
 	}
 	io = (CHAR *)safealloc(1024, sizeof(CHAR));
 	(void)marktmp(end, buf, 0);
-	while (!guipoll(False) && (nio = prgread(io, 1024)) > 0)
+	while (!guipoll(ElvFalse) && (nio = prgread(io, 1024)) > 0)
 	{
 		/* show it on the screen */
 		drawextext(xinf->window, io, nio);
@@ -528,7 +572,7 @@ RESULT	ex_make(xinf)
 	o_pollfrequency = origpollfreq;
 
 	/* turn off the "modified" flag on the (Elvis error list) buf */
-	o_modified(buf) = False;
+	o_modified(buf) = ElvFalse;
 
 	/* if there is a window showing this buffer, move its cursor
 	 * to offset 0
@@ -538,13 +582,20 @@ RESULT	ex_make(xinf)
 		marksetoffset(errwin->cursor, 0L);
 	}
 
+#if 0
 	/* delay the first error message until after <Enter> */
 	if (eventcounter > 5)
 	{
-		makeflag = True;
-		morehit = False;
+		makeflag = ElvTrue;
+		morehit = ElvFalse;
 	}
+#else
+	/* don't wait for the user to hit <Enter> after this */
+	xinf->window->di->logic = DRAW_SCRATCH;
+	xinf->window->di->drawstate = DRAW_VISUAL;
+#endif
 
 	/* move the cursor to the first error */
 	return gotoerr(xinf);
 }
+#endif /* FEATURE_MAKE */

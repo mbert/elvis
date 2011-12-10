@@ -13,15 +13,15 @@
 
 static int fd = -1; /* file descriptor of the session file */
 
-/* This function creates a new block file, and returns True if successful,
- * or False if failed because the file was already busy.
+/* This function creates a new block file, and returns ElvTrue if successful,
+ * or ElvFalse if failed because the file was already busy.
  */
-BOOLEAN blkopen(BOOLEAN force, BLK *buf)
+ELVBOOL blkopen(ELVBOOL force, BLK *buf)
 {
 	char	sesname[256];
 	char	*sespath;
 	int	len;
-	int	i = 1;
+	int	i;
 
 	/* search through SESSIONPATH for a writable directory */
 	sespath = getenv("SESSIONPATH");
@@ -60,16 +60,26 @@ BOOLEAN blkopen(BOOLEAN force, BLK *buf)
 	remove(sesname);
 
 	/* If no session file was explicitly requested, use the default */
+	i = 1;
 	if (!o_session)
 	{
+		/* protect against trying a ridiculous number of names */
+		if (i >= 1000)
+		{
+			sesname[len] = '\0';
+			msg(MSG_FATAL, o_recovering
+				? "[s]no session file found in $1"
+				: "[s]too many session files in $1", sesname);
+		}
+
 		if (o_recovering)
 			do
 			{
 				sprintf(sesname + len, DEFAULT_SESSION, i++);
 
 				/* If the user wants to cancel, then fail */
-				if (chosengui->poll && (*chosengui->poll)(False))
-					return False;
+				if (chosengui->poll && (*chosengui->poll)(ElvFalse))
+					return ElvFalse;
 			} while (_access(sesname, 6) == -1 && errno == ENOENT);
 		else
 			do
@@ -77,8 +87,8 @@ BOOLEAN blkopen(BOOLEAN force, BLK *buf)
 				sprintf(sesname + len, DEFAULT_SESSION, i++);
 
 				/* If the user wants to cancel, then fail */
-				if (chosengui->poll && (*chosengui->poll)(False))
-					return False;
+				if (chosengui->poll && (*chosengui->poll)(ElvFalse))
+					return ElvFalse;
 			} while (_access(sesname, 0) == 0);
 		optpreset(o_session, CHARdup(toCHAR(sesname)), OPT_LOCK|OPT_FREE);
 		o_tempsession = !o_recovering;
@@ -114,7 +124,7 @@ BOOLEAN blkopen(BOOLEAN force, BLK *buf)
 	else
 	{
 		/* if the session existed before elvis, it'll exist after */
-		o_tempsession = False;
+		o_tempsession = ElvFalse;
 	}
 
 	/* Read the first block & mark the session file as being "in use".
@@ -127,14 +137,14 @@ BOOLEAN blkopen(BOOLEAN force, BLK *buf)
 	}
 	if (buf->super.inuse && !force)
 	{
-		return False;
+		return ElvFalse;
 	}
 	buf->super.inuse = 1;
 	_lseek(fd, 0L, 0);
 	(void)_write(fd, buf, sizeof buf->super);
 
 	/* done! */
-	return True;
+	return ElvTrue;
 }
 
 

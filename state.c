@@ -1,9 +1,11 @@
 /* state.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_state[] = "$Id: state.c,v 2.31 1999/02/06 22:32:28 steve Exp $";
 
 #include "elvis.h"
+#ifdef FEATURE_RCSID
+char id_state[] = "$Id: state.c,v 2.43 2003/10/17 17:41:23 steve Exp $";
+#endif
 
 #if USE_PROTOTYPES
 static void fixbounds(WINDOW win);
@@ -47,10 +49,6 @@ void statepush(win, flags)
 	{
 		/* if GUI has no move() function, we can't support full-screen */
 		newp->flags |= ELVIS_BOTTOM;
-	}
-	if (newp->flags & ELVIS_BOTTOM)
-	{
-		newp->mapflags = MAP_OPEN;
 	}
 
 	/* link this into the stack */
@@ -107,22 +105,19 @@ void statepop(win)
  * possibly adding a the prompt character to that line, and then pushing an
  * open input state onto the state stack.
  */
-#if USE_PROTOTYPES
-void statestratum(WINDOW win, CHAR *bufname, _CHAR_ prompt, RESULT (*enter)(WINDOW win))
-#else
 void statestratum(win, bufname, prompt, enter)
 	WINDOW	win;		/* window to receive new stratum */
 	CHAR	*bufname;	/* name of buffer to use in new stratum */
 	_CHAR_	prompt;		/* prompt character, or '\0' for none */
-	RESULT	(*enter)();	/* function which executes line */
-#endif
+	RESULT	(*enter)P_((WINDOW window));/* function which executes line */
 {
 	BUFFER	buf;
 	CHAR	newtext[2];
 	MARK	mark;
+	MARKBUF	tmp;
 
 	/* find the buffer.  If it doesn't exist, then create it */
-	buf = bufalloc(bufname, 0, True); /*!!! sometimes False? */
+	buf = bufalloc(bufname, 0, ElvTrue); /*!!! sometimes ElvFalse? */
 
 	/* create a blank line at the end of the buffer, and insert the prompt
 	 * character there, if given.
@@ -130,16 +125,32 @@ void statestratum(win, bufname, prompt, enter)
 	mark = markalloc(buf, o_bufchars(buf));
 	if (prompt && (prompt != ':' || o_prompt))
 	{
-		newtext[0] = prompt;
-		newtext[1] = '\n';
-		bufreplace(mark, mark, newtext, 2);
+		/* if no other window is using this buffer, and the buffer
+		 * already ends with a line that looks like our prompt line,
+		 * then reuse that line.
+		 */
+		if (wincount(buf) == 0
+		 && o_bufchars(buf) > 2
+		 && scanchar(marktmp(tmp, buf, o_bufchars(buf) - 1)) == '\n'
+		 && scanchar(marktmp(tmp, buf, o_bufchars(buf) - 2)) == prompt 
+		 && scanchar(marktmp(tmp, buf, o_bufchars(buf) - 3)) == '\n')
+		{
+			markaddoffset(mark, -1);
+		}
+		else /* add a new prompt line */
+		{
+			newtext[0] = prompt;
+			newtext[1] = '\n';
+			bufreplace(mark, mark, newtext, 2);
+			marksetoffset(mark, o_bufchars(buf) - 1);
+		}
 	}
 	else
 	{
 		newtext[0] = '\n';
 		bufreplace(mark, mark, newtext, 1);
+		marksetoffset(mark, o_bufchars(buf) - 1);
 	}
-	marksetoffset(mark, o_bufchars(buf) - 1);
 
 	/* use the prompt as a special key in case we hit a [More] prompt
 	 * when switching back to the old key state.
@@ -156,6 +167,13 @@ void statestratum(win, bufname, prompt, enter)
 	win->state->acton = win->state->pop;
 	win->state->enter = enter;
 	win->state->prompt = prompt;
+
+	/* For history buffers, we want to use the MAP_HISTORY map context
+	 * instead of the normal MAP_INPUT context.  We assume this is a
+	 * history buffer if it normally has a prompt.
+	 */
+	if (prompt)
+		win->state->mapflags = MAP_HISTORY;
 
 	/* save the old stratum's wantcol (if there was an old stratum) */
 	if (win->state->acton)
@@ -200,8 +218,8 @@ static void fixbounds(win)
 				 * if the cursor has moved to a different line
 				 * then it is moved to the end of that line.
 				 */
-				marksetoffset(state->top, markoffset((*dmnormal.move)(focus, state->top, 0L, 0L, False)));
-				marksetoffset(state->bottom, markoffset((*dmnormal.move)(focus, state->top, 0L, INFINITY, False)));
+				marksetoffset(state->top, markoffset((*dmnormal.move)(focus, state->top, 0L, 0L, ElvFalse)));
+				marksetoffset(state->bottom, markoffset((*dmnormal.move)(focus, state->top, 0L, INFINITY, ElvFalse)));
 				if (markoffset(state->cursor) < markoffset(state->top)
 				 || markoffset(state->cursor) > markoffset(state->bottom))
 				{
@@ -218,7 +236,7 @@ static void fixbounds(win)
 /* This function processes a single keystroke in the context of the default
  * window.
  */
-void statekey(key)
+RESULT statekey(key)
 	_CHAR_	key;	/* a single key to be parsed */
 {
 	RESULT	result;
@@ -232,14 +250,22 @@ void statekey(key)
 	focus = windefault;
 	state = focus->state;
 
+#ifdef FEATURE_AUTOCMD
+	/* detect when the display mode changes, so we can trigger DispMapLeave
+	 * and DispMapEnter autocmds.  These are often used for implementing
+	 * display-specific maps.
+	 */
+	audispmap();
+#endif
+
 	/* If user wants to abort operation, then ignore this key.  This is
 	 * important to check for, because elvis may be stuck in a recursive
 	 * loop.
 	 */
-	if (guipoll(False))
+	if (guipoll(ElvFalse))
 	{
 		mapalert();
-		return;
+		return RESULT_ERROR;
 	}
 
 	/* if <Enter>, and not quoted, and this is a stratum, then call the
@@ -288,7 +314,7 @@ void statekey(key)
 			 */
 			if (!windefault)
 			{
-				return;
+				return RESULT_COMPLETE;
 			}
 
 			/* We did one command line.  Is that all we wanted? */
@@ -296,10 +322,12 @@ void statekey(key)
 			if (state->flags & ELVIS_1LINE)
 			{
 				/* yes, pop the stratum */
-				while (state->acton != state->pop)
+				state = state->acton;
+				while (state != focus->state->pop)
 				{
 					statepop(focus);
 				}
+				state = focus->state;
 				state->flags |= ELVIS_POP;
 			}
 			else
@@ -374,7 +402,7 @@ void statekey(key)
 		 */
 		if (!windefault)
 		{
-			return;
+			return RESULT_COMPLETE;
 		}
 
 		/* If cursor has moved outside state->top and state->bottom,
@@ -402,7 +430,7 @@ void statekey(key)
 
 		/* if the array is full, then shift */
 		i = CHARlen(focus->cmdchars);
-		j = (iscntrl(key) ? 2 : 1);
+		j = (elvcntrl(key) ? 2 : 1);
 		if (i + j >= QTY(focus->cmdchars))
 		{
 			for (i = 0; focus->cmdchars[i]; i++)
@@ -420,7 +448,7 @@ void statekey(key)
 		  case 'm': if (key>0x7f && key<=0x9f)
 				key = '.';		break;
 		}
-		if (iscntrl(key))
+		if (elvcntrl(key))
 		{
 			focus->cmdchars[i++] = '^';
 			key ^= 0x40;
@@ -429,11 +457,13 @@ void statekey(key)
 		focus->cmdchars[i++] = '\0';
 	}
 
+#ifdef FEATURE_V
 	/* if visibly marking, then adjust the marks */
 	if (focus->seltop)
 	{
 		(void)v_visible(focus, NULL);
 	}
+#endif
 
 	/* if we aren't still parsing, then perform other checks */
 	if (result != RESULT_MORE)
@@ -487,7 +517,9 @@ AfterKeystroke:
 		/* if no states are left, then destroy the window */
 		if (!focus->state)
 		{
-			(*gui->destroygw)(focus->gw, True);
+			(*gui->destroygw)(focus->gw, ElvTrue);
 		}
 	}
+
+	return result;
 }

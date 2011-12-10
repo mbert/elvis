@@ -165,6 +165,15 @@
 #define IDC_BO_READEOL                  1128
 #define IDC_GO_WRITEEOL                 1130
 #define IDAB_VERSION                    1131
+#define IDC_GUI_BOXED                   1132
+#define IDC_GUI_GRAPHIC                 1133
+#define IDC_GUI_FIXED                   1134
+#define IDC_GUI_FOREGROUND              1135
+#define IDC_GUI_MENUBAR                 1136
+#define IDC_GUI_STATUSBAR               1137
+#define IDC_GUI_BACKGROUND              1138
+#define IDC_PROPORTIONAL                1139
+#define IDC_GUI_PROPORTIONAL            1139
 #define IDM_FILE_EXIT                   40001
 #define IDM_FILE_NEW                    40002
 #define IDM_FILE_OPEN                   40003
@@ -218,7 +227,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        127
 #define _APS_NEXT_COMMAND_VALUE         40050
-#define _APS_NEXT_CONTROL_VALUE         1132
+#define _APS_NEXT_CONTROL_VALUE         1140
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

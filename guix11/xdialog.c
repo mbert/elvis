@@ -1,8 +1,10 @@
 /* xdialog.c */
 
-char id_xdialog[] = "$Id: xdialog.c,v 2.19 1999/10/06 19:11:37 steve Exp $";
 
 #include "elvis.h"
+#ifdef FEATURE_RCSID
+char id_xdialog[] = "$Id: xdialog.c,v 2.32 2003/10/18 18:20:08 steve Exp $";
+#endif
 #ifdef GUI_X11
 #include "guix11.h"
 
@@ -21,7 +23,7 @@ static void makecurrent P_((dialog_t *dia, int row));
 static CHAR *keyoneof P_((dialog_t *dia, int key));
 static CHAR *keystring P_((dialog_t *dia, int key));
 static void keystroke P_((dialog_t *dia, int key));
-static void exposerow P_((dialog_t *dia, int row, BOOLEAN fromscratch));
+static void exposerow P_((dialog_t *dia, int row, ELVBOOL fromscratch));
 static void expose P_((dialog_t *dia));
 
 
@@ -35,11 +37,15 @@ static X_BUTTON *addbutton(dia, label, shape, key)
 	X_BUTTON	*btn;
 	XCharStruct	size;
 	int		dummy;
+	int		controlheight;
 
 	/* allocate storage for the button */
 	btn = (X_BUTTON *)safealloc(1, sizeof(X_BUTTON));
 	btn->next = dia->button;
 	dia->button = btn;
+
+	/* height of the control font */
+	controlheight = x_loadedcontrol->fontinfo->ascent + x_loadedcontrol->fontinfo->descent;
 
 	/* size depends on the shape */
 	btn->shape = shape;
@@ -52,7 +58,7 @@ static X_BUTTON *addbutton(dia, label, shape, key)
 	if (shape == 'b')
 	{
 		/* rectangular - size depends on label */
-		btn->h = x_loadedcontrol->height + 4;
+		btn->h = controlheight + 4;
 		XTextExtents(x_loadedcontrol->fontinfo, label, btn->lablen,
 			&dummy, &dummy, &dummy, &size);
 		btn->w = size.rbearing - size.lbearing + 6;
@@ -62,7 +68,7 @@ static X_BUTTON *addbutton(dia, label, shape, key)
 	else
 	{
 		/* arrowhead - size is square, same size input field's height */
-		btn->h = btn->w = x_defaultnormal->height + 2;
+		btn->h = btn->w = x_defaultnormal->fontinfo->ascent + x_defaultnormal->fontinfo->descent + 2;
 	}
 
 	/* that's all */
@@ -81,7 +87,6 @@ static void drawbutton(dia, btn)
 	 * an argument to the x_drawbevel() function.  Sigh.
 	 */
 	memset(&dummy, 0, sizeof dummy);
-	dummy.tb.face = dia->face;
 	dummy.gc = dia->gc;
 
 	/* If this is the default button, draw a recessed box around it */
@@ -99,7 +104,7 @@ static void drawbutton(dia, btn)
 	/* draw the label (except on arrow buttons) */
 	if (btn->shape == 'b' && btn->lablen > 0)
 	{
-		XSetForeground(x_display, dia->gc, dia->fglabel);
+		XSetForeground(x_display, dia->gc, colorinfo[x_toolcolors].fg);
 		XSetFont(x_display, dia->gc, x_loadedcontrol->fontinfo->fid);
 		XDrawString(x_display, dia->win, dia->gc,
 			btn->x + btn->textx, btn->y + btn->texty,
@@ -169,7 +174,6 @@ static void drawtext(dia, row)
 		 * made it an argument to the x_drawbevel() function.  Sigh.
 		 */
 		memset(&dummy, 0, sizeof dummy);
-		dummy.tb.face = dia->face;
 		dummy.gc = dia->gc;
 
 		/* draw the bevel of the text area */
@@ -180,26 +184,38 @@ static void drawtext(dia, row)
 	/* draw the text itself */
 	if (length > 0)
 	{
-		XSetForeground(x_display, dia->gc, dia->fglabel);
-		XSetBackground(x_display, dia->gc, dia->face);
+#ifdef FEATURE_IMAGE
+		if (ispixmap(colorinfo[x_toolcolors].bg))
+			XSetBackground(x_display, dia->gc,
+				pixmapof(colorinfo[x_toolcolors].bg).pixel);
+		else
+#endif
+			XSetBackground(x_display, dia->gc,
+				colorinfo[x_toolcolors].bg);
 		XSetFont(x_display, dia->gc, x_defaultnormal->fontinfo->fid);
 		if (dia->field[row].ft == FT_LOCKED)
+		{
+			XSetForeground(x_display, dia->gc, colorinfo[x_toolbarcolors].fg);
 			x_drawstring(x_display, dia->win, dia->gc,
 				x + 2, y + x_defaultnormal->fontinfo->ascent + 1,
 				tochar8(dia->field[row].value + shift), length);
+		}
 		else
+		{
+			XSetForeground(x_display, dia->gc, colorinfo[x_toolcolors].fg);
 			XDrawImageString(x_display, dia->win, dia->gc,
 				x + 2, y + x_defaultnormal->fontinfo->ascent + 1,
 				tochar8(dia->field[row].value + shift), length);
+		}
 	}
 
 	/* if this is the current row, then draw the cursor too. */
 	if (row == dia->current && dia->field[row].ft != FT_LOCKED)
 	{
-		XSetForeground(x_display, dia->gc, dia->xw->ta.fgcursor);
+		XSetForeground(x_display, dia->gc, colorinfo[x_cursorcolors].fg);
 		XFillRectangle(x_display, dia->win, dia->gc,
 			x + 2 + (cursor - shift) * dia->cellw, y + 1,
-			2, x_defaultnormal->height - 1);
+			2, x_defaultnormal->fontinfo->ascent + x_defaultnormal->fontinfo->descent - 1);
 	}
 }
 
@@ -225,7 +241,7 @@ static void parsespec(dia)
 	 * we fetch a window-dependent option's value, we'll be fetching it
 	 * from the correct window.
 	 */
-	eventfocus((GUIWIN *)dia->xw);
+	eventfocus((GUIWIN *)dia->xw, ElvFalse);
 
 	/* Use the locale-sensitive names for the Boolean values */
 	sprintf(truefalse, "%s %s", o_true, o_false);
@@ -275,6 +291,19 @@ static void parsespec(dia)
 						ft = FT_STRING;
 					else if (desc->asstring == opt1string)
 						ft = FT_ONEOF;
+					else if (desc->asstring == opttstring)
+					{
+						/* tab list: default is to
+						 * treat as number if single
+						 * value, else treat as string
+						 */
+						if (CHARchr(value, ',')
+						 || atoi(tochar8(value)) == 0)
+							ft = FT_STRING;
+						else
+							ft = FT_NUMBER;
+						limit = "1:400";
+					}
 					else
 					{
 						ft = FT_ONEOF;
@@ -284,7 +313,7 @@ static void parsespec(dia)
 
 				/* evaluate the expr, if any */
 				if (expr)
-					expr = tochar8(calculate(toCHAR(expr), NULL, False));
+					expr = tochar8(calculate(toCHAR(expr), NULL, CALC_ALL));
 				if (expr)
 					value = expr;
 
@@ -320,7 +349,7 @@ static void parsespec(dia)
 			else if (expr) /* explicit value, but no option name */
 			{
 				if (expr)
-					value = tochar8(calculate(toCHAR(expr), NULL, False));
+					value = tochar8(calculate(toCHAR(expr), NULL, CALC_ALL));
 				if (value)
 				{
 					if (!label)
@@ -365,9 +394,9 @@ static void parsespec(dia)
 			/* trim leading spaces from the limit string */
 			if (limit && limit != truefalse)
 			{
-				while (*limit && !isspace(*limit) && *limit != ')')
+				while (*limit && !elvspace(*limit) && *limit != ')')
 					limit++;
-				while (isspace(*limit))
+				while (elvspace(*limit))
 					limit++;
 			}
 			if (limit && *limit == ')')
@@ -399,15 +428,15 @@ static void parsespec(dia)
 			break;
 
 		  default:
-			if (isalpha(*scan) && !name)
+			if (elvalpha(*scan) && !name)
 			{
 				/* if followed by whitespace, then skip to
 				 * the whitespace.
 				 */
-				for (name = &scan[1]; isalnum(*name); name++)
+				for (name = &scan[1]; elvalnum(*name); name++)
 				{
 				}
-				if (isspace(*name))
+				if (elvspace(*name))
 					skipto = *name;
 
 				/* the option name starts here */
@@ -438,7 +467,10 @@ void x_dl_add(xw, name, desc, excmd, spec)
 	char		*s;
 	int		bdelta;
 	X_LOADEDFONT	*titlefont;
+	int		controlheight;
 
+	/* compute the height of the control font */
+	controlheight = x_loadedcontrol->fontinfo->ascent + x_loadedcontrol->fontinfo->descent;
 
 	/* allocate a struct for the new dialog */
 	dia = (dialog_t *)safealloc(1, sizeof(dialog_t));
@@ -449,6 +481,11 @@ void x_dl_add(xw, name, desc, excmd, spec)
 	dia->spec = safedup(spec);
 	dia->current = -2;
 
+	/* the "desc" string may contain a newline.  If so, delete it */
+	i = strlen(dia->desc) - 1;
+	if (i >= 0 && dia->desc[i] == '\n')
+		dia->desc[i] = '\0';
+
 	/* compute the heading size */
 	titlefont = (x_defaultbold ? x_defaultbold : x_defaultnormal);
 	XTextExtents(titlefont->fontinfo, name, strlen(name),
@@ -456,10 +493,10 @@ void x_dl_add(xw, name, desc, excmd, spec)
 	w = size.rbearing - size.lbearing;
 	XTextExtents(x_loadedcontrol->fontinfo, dia->desc, strlen(dia->desc),
 		&dummy, &dummy, &dummy, &size);
-	if (size.rbearing - size.lbearing > w)
+	if ((unsigned)(size.rbearing - size.lbearing) > w)
 		w = size.rbearing - size.lbearing;
 	w += x_elvis_icon_width + 6;
-	h = titlefont->height + x_loadedcontrol->height;
+	h = titlefont->fontinfo->ascent + titlefont->fontinfo->descent + controlheight;
 	if (h < x_elvis_icon_height)
 		h = x_elvis_icon_height;
 	dia->w = w;
@@ -471,12 +508,12 @@ void x_dl_add(xw, name, desc, excmd, spec)
 	dia->h += 8;
 	dia->x0 = 0;
 	dia->y0 = dia->h;
-	dia->rowh = x_defaultnormal->height + 2;
+	dia->rowh = x_defaultnormal->fontinfo->ascent + x_defaultnormal->fontinfo->descent + 2;
 	bdelta = 0;
-	if (x_loadedcontrol->height + 4 > dia->rowh)
-		dia->rowh = x_loadedcontrol->height + 4;
+	if (controlheight + 4 > dia->rowh)
+		dia->rowh = controlheight + 4;
 	else
-		bdelta = (dia->rowh - (x_loadedcontrol->height + 4)) / 2;
+		bdelta = (dia->rowh - (controlheight + 4)) / 2;
 	dia->base = x_loadedcontrol->fontinfo->ascent + bdelta;
 	dia->rowh += 3;
 
@@ -508,7 +545,7 @@ void x_dl_add(xw, name, desc, excmd, spec)
 			for (s = dia->field[i].limit; *s; s++)
 			{
 				if (s == dia->field[i].limit
-				 || (isspace(s[-1]) && !isspace(s[0])))
+				 || (elvspace(s[-1]) && !elvspace(s[0])))
 				{
 					button = addbutton(dia, s, 'b', *s);
 					button->y = dia->y0 + dia->rowh * i + bdelta;
@@ -558,7 +595,7 @@ void x_dl_add(xw, name, desc, excmd, spec)
 		}
 
 		/* if widest seen yet, then remember that */
-		if (x + 3 > w)
+		if (x + 3 > (int)w)
 			w = x + 3;
 	}
 	fieldw = w;
@@ -607,25 +644,36 @@ void x_dl_add(xw, name, desc, excmd, spec)
 	hints.height = hints.min_height = hints.max_height = dia->h;
 	hints.flags = (PPosition|PSize|PMinSize|PMaxSize);
 
-	/* allocate the colors */
-	dia->bg = x_loadcolor(x_scrollbarbg, x_white);
-	dia->face = x_loadcolor(x_toolbg, x_white);
-	dia->fglabel = x_loadcolor(x_toolfg, x_black);
-
 	/* create the window */
-	dia->win = XCreateSimpleWindow(x_display,
-		RootWindow(x_display, x_screen),
-		hints.x, hints.y, hints.width, hints.height,
-		5, dia->bg, dia->bg);
-
-	/* use a gray pixmap for the background, if necessary */
-	if (x_mono || dia->fglabel == dia->bg)
+#ifdef FEATURE_IMAGE
+	if (ispixmap(colorinfo[x_toolbarcolors].bg))
 	{
-		XSetWindowBackgroundPixmap(x_display, dia->win, x_gray);
+		dia->win = XCreateSimpleWindow(x_display,
+			RootWindow(x_display, x_screen),
+			hints.x, hints.y, hints.width, hints.height, 5,
+			colorinfo[x_toolbarcolors].fg,
+			pixmapof(colorinfo[x_toolbarcolors].bg).pixel);
+		XSetWindowBackgroundPixmap(x_display, dia->win,
+			pixmapof(colorinfo[x_toolbarcolors].bg).pixmap);
+	}
+	else
+#endif
+	{
+		dia->win = XCreateSimpleWindow(x_display,
+			RootWindow(x_display, x_screen),
+			hints.x, hints.y, hints.width, hints.height, 5,
+			colorinfo[x_toolbarcolors].fg,
+			colorinfo[x_toolbarcolors].bg);
+
+		/* use a gray pixmap for the background, if necessary */
+		if (x_mono || colorinfo[x_toolbarcolors].fg == colorinfo[x_toolbarcolors].bg)
+		{
+			XSetWindowBackgroundPixmap(x_display, dia->win, x_gray);
+		}
 	}
 
 	/* create the graphic context for the window */
-	gcvalues.foreground = dia->fglabel;
+	gcvalues.foreground = colorinfo[x_toolbarcolors].fg;
 	gcvalues.background = xw->bg;
 	gcvalues.font = x_loadedcontrol->fontinfo->fid;
 	dia->gc = XCreateGC(x_display, xw->win,
@@ -660,11 +708,6 @@ void x_dl_delete(dia)
 	dialog_t	*scan;
 	X_BUTTON	*button;
 	int		i;
-
-	/* free the colors */
-	x_unloadcolor(dia->bg);
-	x_unloadcolor(dia->face);
-	x_unloadcolor(dia->fglabel);
 
 	/* free the GC */
 	XFreeGC(x_display, dia->gc);
@@ -747,20 +790,24 @@ static void makecurrent(dia, row)
 	/* if some other row is already highlighted, then unhighlight it */
 	if (previous >= 0)
 	{
-		if (x_mono || dia->fglabel == dia->bg)
+		if (x_mono
+#ifdef FEATURE_IMAGE
+		 || ispixmap(colorinfo[x_toolbarcolors].bg)
+#endif
+		 || colorinfo[x_toolbarcolors].fg == colorinfo[x_toolbarcolors].bg)
 		{
 			XClearArea(x_display, dia->win,
 				1, dia->y0 - 2 + previous * dia->rowh,
-				dia->w - 2, dia->rowh + 1, False);
+				dia->w - 2, dia->rowh + 1, ElvFalse);
 		}
 		else
 		{
-			XSetForeground(x_display, dia->gc, dia->bg);
+			XSetForeground(x_display, dia->gc, colorinfo[x_toolbarcolors].bg);
 			XDrawRectangle(x_display, dia->win, dia->gc,
 				1, dia->y0 - 2 + previous * dia->rowh,
 				dia->w - 3, dia->rowh);
 		}
-		exposerow(dia, previous, True);
+		exposerow(dia, previous, ElvTrue);
 	}
 
 	/* move the cursor to the end of its value */
@@ -772,11 +819,11 @@ static void makecurrent(dia, row)
 	dia->shift = 0;
 
 	/* highlight the new "current" row */
-	XSetForeground(x_display, dia->gc, dia->fglabel);
+	XSetForeground(x_display, dia->gc, colorinfo[x_toolbarcolors].fg);
 	XDrawRectangle(x_display, dia->win, dia->gc,
 		1, dia->y0 - 2 + row * dia->rowh,
 		dia->w - 3, dia->rowh);
-	exposerow(dia, row, True);
+	exposerow(dia, row, ElvTrue);
 }
 
 
@@ -795,7 +842,7 @@ static CHAR *keyoneof(dia, key)
 	legal[0] = dia->field[dia->current].limit;
 	for (nlegals = 1, s = legal[0] + 1; nlegals < QTY(legal) && *s; s++)
 	{
-		if (isspace(s[-1]) && !isspace(s[0]))
+		if (elvspace(s[-1]) && !elvspace(s[0]))
 			legal[nlegals++] = s;
 	}
 
@@ -964,11 +1011,11 @@ static void keystroke(dia, key)
 	  case XK_Return:
 	  case XK_KP_Enter:
 		/* store the values of all options */
-		eventfocus((GUIWIN *)dia->xw);
+		eventfocus((GUIWIN *)dia->xw, ElvFalse);
 		for (i = 0; i < dia->nfields; i++)
 			if (dia->field[i].ft != FT_LOCKED)
 				optputstr(toCHAR(dia->field[i].name),
-					  dia->field[i].value, False);
+					  dia->field[i].value, ElvFalse);
 
 		/* Destroy the dialog, unless it is pinned.  This must be done
 		 * before eventex() is called, because the ex command might
@@ -984,12 +1031,12 @@ static void keystroke(dia, key)
 		/* execute the ex command, if any */
 		if (excmd)
 		{
-			eventex(gw, excmd, False);
+			eventex(gw, excmd, ElvFalse);
 			safefree(excmd);
 		}
 
 		/* we'll need to update the screen after this */
-		x_didcmd = True;
+		x_didcmd = ElvTrue;
 		break;
 
 	  case '\033':
@@ -1056,7 +1103,7 @@ static void keystroke(dia, key)
 			}
 			sprintf(tochar8(tmp), "%ld", l);
 			newvalue = CHARdup(tmp);
-			if (dia->cursor > CHARlen(newvalue))
+			if ((unsigned)dia->cursor > CHARlen(newvalue))
 				dia->cursor = CHARlen(newvalue);
 			break;
 
@@ -1077,7 +1124,7 @@ static void keystroke(dia, key)
 				/* that may have caused some output on the
 				 * elvis text window.
 				 */
-				x_didcmd = True;
+				x_didcmd = ElvTrue;
 			}
 			else
 #endif /* FEATURE_COMPLETE */
@@ -1100,7 +1147,7 @@ static void keystroke(dia, key)
 		}
 
 		/* redraw the row */
-		exposerow(dia, dia->current, False);
+		exposerow(dia, dia->current, ElvFalse);
 	}
 }
 
@@ -1110,7 +1157,7 @@ static void keystroke(dia, key)
 static void exposerow(dia, row, fromscratch)
 	dialog_t *dia;
 	int	 row;
-	BOOLEAN	 fromscratch;
+	ELVBOOL	 fromscratch;
 {
 	X_BUTTON *button;
 	int	  top, bottom;
@@ -1121,7 +1168,7 @@ static void exposerow(dia, row, fromscratch)
 	bottom = top + dia->rowh;
 
 	/* draw the row's label */
-	XSetForeground(x_display, dia->gc, dia->fglabel);
+	XSetForeground(x_display, dia->gc, colorinfo[x_toolbarcolors].fg);
 	XSetFont(x_display, dia->gc, x_loadedcontrol->fontinfo->fid);
 	x_drawstring(x_display, dia->win, dia->gc,
 		dia->x0 - dia->field[row].lwidth,
@@ -1205,15 +1252,15 @@ static void expose(dia)
 	X_LOADEDFONT *titlefont;
 
 	/* draw the icon */
-	XSetForeground(x_display, dia->gc, dia->face);
+	XSetForeground(x_display, dia->gc, colorinfo[x_toolcolors].bg);
 	XFillRectangle(x_display, dia->win, dia->gc,
 		2, 1, x_elvis_icon_width, x_elvis_icon_height + 2);
 	gcv.ts_x_origin = 2;
 	gcv.ts_y_origin = 2;
 	gcv.stipple = dia->pinned ? x_elvis_pin_icon : x_elvis_icon;
 	gcv.fill_style = FillStippled; 
-	gcv.foreground = dia->fglabel;
-	gcv.background = dia->bg;
+	gcv.foreground = colorinfo[x_toolcolors].fg;
+	gcv.background = colorinfo[x_toolbarcolors].bg;
 	XChangeGC(x_display, dia->gc,
 		GCForeground | GCBackground | GCFillStyle | GCStipple |
 		GCTileStipXOrigin | GCTileStipYOrigin, &gcv);
@@ -1224,7 +1271,7 @@ static void expose(dia)
 	titlefont = (x_defaultbold ? x_defaultbold : x_defaultnormal);
 	gcv.fill_style = FillSolid;
 	gcv.font = titlefont->fontinfo->fid;
-	gcv.foreground = dia->fglabel;
+	gcv.foreground = colorinfo[x_toolbarcolors].fg;
 	XChangeGC(x_display, dia->gc, GCFillStyle|GCFont|GCForeground, &gcv);
 	x = x_elvis_icon_width + 4;
 	y = titlefont->fontinfo->ascent + 2;
@@ -1251,7 +1298,7 @@ static void expose(dia)
 	/* if pinned, then draw some blood in the cursor color */
 	if (dia->pinned)
 	{
-		XSetForeground(x_display, dia->gc, dia->xw->ta.fgcursor);
+		XSetForeground(x_display, dia->gc, colorinfo[x_cursorcolors].fg);
 		XDrawLine(x_display, dia->win, dia->gc, 26, 27, 26, 34);
 		XDrawLine(x_display, dia->win, dia->gc, 27, 28, 27, 29);
 		XDrawLine(x_display, dia->win, dia->gc, 28, 27, 28, 32);
@@ -1276,7 +1323,7 @@ static void expose(dia)
 			continue;
 
 		/* expose this row */
-		exposerow(dia, i, True);
+		exposerow(dia, i, ElvTrue);
 	}
 
 	/* draw the highlight around the current field */
@@ -1293,6 +1340,7 @@ static void expose(dia)
 				x_hasfocus = NULL;
 				x_ta_erasecursor(hadfocus);
 				x_ta_drawcursor(hadfocus);
+				x_didcmd = ElvTrue;
 			}
 
 			XSetInputFocus(x_display, dia->win, RevertToParent, x_now);
@@ -1329,6 +1377,15 @@ void x_dl_event(w, event)
 	/* process an event which affects the application window as a whole */
 	switch (event->type)
 	{
+	  case FocusIn:
+		/* if a text window has focus before, it doesn't now */
+		if (x_hasfocus)
+		{
+			x_hasfocus = NULL;
+			x_didcmd = ElvTrue;
+		}
+		break;
+
 	  case MapNotify:
 	  case Expose:
 		expose(dia);
@@ -1381,6 +1438,25 @@ void x_dl_event(w, event)
 		/* if clicked on a row, then make that row current */
 		makecurrent(dia, (event->xbutton.y - dia->y0) / dia->rowh);
 
+		/* Buttons 4 & 5 act like <+> and <-> keystrokes when on a
+		 * numeric field, or like side arrows on other fields.
+		 */
+		if (event->xbutton.button == 4 || event->xbutton.button == 5)
+		{
+			if (dia->field[dia->current].ft == FT_NUMBER)
+				if (event->xbutton.button == 4)
+					key = '+';
+				else
+					key = '-';
+			else
+				if (event->xbutton.button == 4)
+					key = XK_Left;
+				else
+					key = XK_Right;
+			keystroke(dia, key);
+			break;
+		}
+			
 		/* clicked on a button? */
 		btn = findbutton(dia, event->xbutton.x, event->xbutton.y);
 		if (btn)
@@ -1392,11 +1468,11 @@ void x_dl_event(w, event)
 		}
 
 		/* clicked on the icon? */
-		if (event->xbutton.x < x_elvis_icon_width + 2
-		 && event->xbutton.y < x_elvis_icon_height + 2)
+		if (event->xbutton.x < (int)(x_elvis_icon_width + 2)
+		 && event->xbutton.y < (int)(x_elvis_icon_height + 2))
 		{
 			/* change the pushpin */
-			dia->pinned = (BOOLEAN)!dia->pinned;
+			dia->pinned = (ELVBOOL)!dia->pinned;
 
 			/* redraw the icon (and everything else) */
 			expose(dia);
@@ -1421,7 +1497,7 @@ void x_dl_event(w, event)
 			/* better redraw the current row, if any, in case
 			 * the clicked-on button isn't supposed to stick up.
 			 */
-			exposerow(dia, dia->current, False);
+			exposerow(dia, dia->current, ElvFalse);
 
 			/* not clicked on anything now! */
 			dia->click = NULL;
@@ -1459,7 +1535,7 @@ void x_dl_event(w, event)
 		 */
 		if (event->xclient.message_type == x_wm_protocols
 		 && event->xclient.format == 32
-		 && event->xclient.data.l[0] == x_wm_delete_window)
+		 && (Atom)event->xclient.data.l[0] == x_wm_delete_window)
 		{
 			XDestroyWindow(x_display, event->xclient.window);
 		}
@@ -1472,6 +1548,43 @@ void x_dl_event(w, event)
 		/* other stuff still needs to be taken care of */
 		x_dl_delete(dia);
 		break;
+	}
+}
+
+/* Redraw the windows associated with a given text window, to use new colors */
+void x_dl_docolor(xw)
+	X11WIN	*xw;
+{
+	dialog_t *dia;
+
+	for (dia = x_dialogs; dia; dia = dia->next)
+	{
+		/* skip if for a different window */
+		if (dia->xw != xw)
+			continue;
+
+		/* Change the background color */
+#ifdef FEATURE_IMAGE
+		if (ispixmap(colorinfo[x_toolbarcolors].bg))
+		{
+			XSetWindowBackgroundPixmap(x_display, dia->win,
+
+				pixmapof(colorinfo[x_toolbarcolors].bg).pixmap);
+		}
+		else
+#endif
+		{
+			XSetWindowBackground(x_display, dia->win,
+				colorinfo[x_toolbarcolors].bg);
+			if (x_mono || colorinfo[x_toolbarcolors].fg == colorinfo[x_toolbarcolors].bg)
+			{
+				XSetWindowBackgroundPixmap(x_display, dia->win, x_gray);
+			}
+		}
+
+		/* redraw the window from scratch */
+		XClearWindow(x_display, dia->win);
+		expose(dia);
 	}
 }
 #endif

@@ -102,10 +102,10 @@ typedef union
 /* low-level session file access functions                                    */
 
 BEGIN_EXTERNC
-extern void	sesopen P_((BOOLEAN force));
+extern void	sesopen P_((ELVBOOL force));
 extern void	sesclose P_((void));
 extern BLK	*sesblk P_((_BLKNO_));
-extern void	sesunlock P_((_BLKNO_ blkno, BOOLEAN forwrite));
+extern void	sesunlock P_((_BLKNO_ blkno, ELVBOOL forwrite));
 extern void	sesflush P_((_BLKNO_ blkno));
 extern void	sessync P_((void));
 END_EXTERNC
@@ -114,13 +114,13 @@ END_EXTERNC
 # define sesalloc(b,t)	_sesalloc(__FILE__, __LINE__, b, t)
 # define sesfree(b)	_sesfree(__FILE__, __LINE__, b)
 BEGIN_EXTERNC
-extern BLKNO	_seslock P_((char *file, int line, _BLKNO_ blkno, BOOLEAN forwrite, BLKTYPE blktype));
+extern BLKNO	_seslock P_((char *file, int line, _BLKNO_ blkno, ELVBOOL forwrite, BLKTYPE blktype));
 extern BLKNO	_sesalloc P_((char *file, int line, _BLKNO_ blkno, BLKTYPE blktype));
 extern void	_sesfree P_((char *file, int line, _BLKNO_ blkno));
 END_EXTERNC
 #else
 BEGIN_EXTERNC
-extern BLKNO	seslock P_((_BLKNO_ blkno, BOOLEAN forwrite, BLKTYPE blktype));
+extern BLKNO	seslock P_((_BLKNO_ blkno, ELVBOOL forwrite, BLKTYPE blktype));
 extern BLKNO	sesalloc P_((_BLKNO_ blkno, BLKTYPE blktype));
 extern void	sesfree P_((_BLKNO_ blkno));
 END_EXTERNC

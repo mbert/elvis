@@ -1,22 +1,11 @@
 /* xtext.c */
 
 #include "elvis.h"
+#ifdef FEATURE_RCSID
+char id_xtext[] = "$Id: xtext.c,v 2.33 2003/10/17 17:41:23 steve Exp $";
+#endif
 #ifdef GUI_X11
 # include "guix11.h"
-
-/* Graphic characters in a typical LATIN-1 font */
-#define GCH	'\022'
-#define GCV	'\031'
-#define	GC1	'\016'
-#define GC2	'\027'
-#define GC3	'\013'
-#define GC4	'\025'
-#define GC5	'\017'
-#define GC6	'\026'
-#define GC7	'\015'
-#define GC8	'\030'
-#define GC9	'\014'
-
 
 void x_ta_predict(xw, columns, rows)
 	X11WIN		*xw;	/* top-level window to receive new text area */
@@ -24,9 +13,20 @@ void x_ta_predict(xw, columns, rows)
 	unsigned int	rows;	/* height of the new text area */
 {
 	/* remember font metrics */
-	xw->ta.cellbase = x_defaultnormal->fontinfo->ascent;
-	xw->ta.cellh = x_defaultnormal->height;
-	xw->ta.cellw = x_defaultnormal->fontinfo->max_bounds.width;
+#ifdef FEATURE_XFT
+	if (o_antialias && x_defaultnormal->xftfont)
+	{
+		xw->ta.cellbase = x_defaultnormal->xftfont->ascent - o_aasqueeze/2;
+		xw->ta.cellh = x_defaultnormal->xftfont->height - o_aasqueeze;
+		xw->ta.cellw = x_defaultnormal->xftfont->max_advance_width;
+	}
+	else
+#endif
+	{
+		xw->ta.cellbase = x_defaultnormal->fontinfo->ascent;
+		xw->ta.cellh = xw->ta.cellbase + x_defaultnormal->fontinfo->descent;
+		xw->ta.cellw = x_defaultnormal->fontinfo->max_bounds.width;
+	}
 
 	/* default window geometry */
 	xw->ta.rows = rows;
@@ -34,19 +34,6 @@ void x_ta_predict(xw, columns, rows)
 	xw->ta.cursx = xw->ta.cursy = 0;
 	xw->ta.w = xw->ta.columns * xw->ta.cellw + 2 * o_borderwidth;
 	xw->ta.h = xw->ta.rows * xw->ta.cellh + 2 * o_borderwidth;
-
-	/* default pixel values.  (We allocate these here, before windows
-	 * are created, so that we can use them as background colors.)
-	 */
-	xw->ta.bg = x_loadcolor(x_background, x_white);
-	xw->ta.fgnormal = x_loadcolor(x_foreground, x_black);
-	xw->ta.fgfixed = x_loadcolor(x_fixedcolor, x_black);
-	xw->ta.fgbold = x_loadcolor(x_boldcolor, xw->ta.fgnormal);
-	xw->ta.fgemph = x_loadcolor(x_emphcolor, xw->ta.fgnormal);
-	xw->ta.fgitalic = x_loadcolor(x_italiccolor, xw->ta.fgnormal);
-	xw->ta.fgundln = x_loadcolor(x_underlinecolor, xw->ta.fgnormal);
-	xw->ta.fgcursor = x_loadcolor(x_cursorcolor, xw->ta.fgnormal);
-	xw->ta.owncursor = x_loadcolor(x_owncolor, xw->ta.fgnormal);
 }
 
 void x_ta_create(xw, x, y)
@@ -56,14 +43,36 @@ void x_ta_create(xw, x, y)
 	/* create the widget window */
 	xw->x = x;
 	xw->y = y;
-	xw->ta.win = XCreateSimpleWindow(x_display, xw->win,
-		x + o_borderwidth, y + o_borderwidth,
-		(unsigned)(xw->ta.w - 2 * o_borderwidth),
-		(unsigned)(xw->ta.h - 2 * o_borderwidth),
-		0, xw->ta.bg, xw->ta.bg);
+	xw->ta.bg = colorinfo[COLOR_FONT_NORMAL].bg;
+#ifdef FEATURE_IMAGE
+	xw->ta.scrollpixels = 0;
+	xw->ta.pixmap = None;
+	if (ispixmap(xw->ta.bg))
+	{
+		xw->ta.win = XCreateSimpleWindow(x_display, xw->win,
+			x + o_borderwidth, y + o_borderwidth,
+			(unsigned)(xw->ta.w - 2 * o_borderwidth),
+			(unsigned)(xw->ta.h - 2 * o_borderwidth),
+			0, colorinfo[COLOR_FONT_NORMAL].fg,
+			pixmapof(colorinfo[COLOR_FONT_NORMAL].bg).pixel);
+		XSetWindowBackgroundPixmap(x_display, xw->win,
+			pixmapof(xw->ta.bg).pixmap);
+		XSetWindowBackgroundPixmap(x_display, xw->ta.win,
+			ParentRelative);
+	}
+	else
+#endif
+		xw->ta.win = XCreateSimpleWindow(x_display, xw->win,
+			x + o_borderwidth, y + o_borderwidth,
+			(unsigned)(xw->ta.w - 2 * o_borderwidth),
+			(unsigned)(xw->ta.h - 2 * o_borderwidth),
+			0, colorinfo[COLOR_FONT_NORMAL].fg, xw->ta.bg);
 	XSelectInput(x_display, xw->ta.win,
 	    ButtonPressMask|ButtonMotionMask|ButtonReleaseMask|ExposureMask);
 
+#ifdef FEATURE_XFT
+	xw->ta.xftdraw = XftDrawCreate(x_display, xw->ta.win, x_visual, x_colormap);
+#endif
 
 	/* pixmap creation, for storing image of character under cursor */
 	xw->ta.undercurs = XCreatePixmap(x_display, xw->ta.win, xw->ta.cellw, xw->ta.cellh, (unsigned)x_depth);
@@ -74,22 +83,21 @@ void x_ta_create(xw, x, y)
 void x_ta_destroy(xw)
 	X11WIN	*xw;	/* top-level window whose text area should be destroyed */
 {
+#ifdef FEATURE_IMAGE
+	/* free the scrolled background pixmap, if any */
+	if (xw->ta.pixmap != None)
+		XFreePixmap(x_display, xw->ta.pixmap);
+#endif
+
 	/* free the cursor pixmap */
 	XFreePixmap(x_display, xw->ta.undercurs);
 
+#ifdef FEATURE_XFT
+	XftDrawDestroy(xw->ta.xftdraw);
+#endif
+
 	/* free the widget window */
 	XDestroyWindow(x_display, xw->ta.win);
-
-	/* free the colors */
-	x_unloadcolor(xw->ta.bg);
-	x_unloadcolor(xw->ta.fgnormal);
-	x_unloadcolor(xw->ta.fgfixed);
-	x_unloadcolor(xw->ta.fgbold);
-	x_unloadcolor(xw->ta.fgemph);
-	x_unloadcolor(xw->ta.fgitalic);
-	x_unloadcolor(xw->ta.fgundln);
-	x_unloadcolor(xw->ta.fgcursor);
-	x_unloadcolor(xw->ta.owncursor);
 }
 
 
@@ -97,14 +105,14 @@ void x_ta_erasecursor(xw)
 	X11WIN	*xw;	/* window whose cursor should be hidden */
 {
 	/* hide the cursor (if shown) */
-	if (xw->ta.cursor != CURSOR_NONE)
+	if (xw->ta.win != None && xw->ta.cursor != CURSOR_NONE)
 	{
 		if (xw->ismapped)
 		{
 			if (xw->grexpose)
 			{
-				XSetGraphicsExposures(x_display, xw->gc, False);
-				xw->grexpose = False;
+				XSetGraphicsExposures(x_display, xw->gc, ElvFalse);
+				xw->grexpose = ElvFalse;
 			}
 			XCopyArea(x_display, xw->ta.undercurs, xw->ta.win, xw->gc,
 				0, 0, xw->ta.cellw, xw->ta.cellh,
@@ -119,6 +127,16 @@ void x_ta_drawcursor(xw)
 {
 	unsigned long	color;
 
+	/* This works around an apparent bug Xfree86 4.0.3 on a 3dfx Voodoo3
+	 * (and maybe other X setups).  The symptom of the bug is that when
+	 * the cursor moves fast over text which is changing, such as when
+	 * you're selecting text via the mouse or the v command, parts of the
+	 * characters are missing.  Apparently the text rendering hardware
+	 * isn't synchronized with the block copying hardware.
+	 */
+	if (o_synccursor)
+		XSync(x_display, ElvFalse);
+
 	/* a NULL "xw" forces all cursors to be redrawn */
 	if (!xw)
 	{
@@ -132,7 +150,7 @@ void x_ta_drawcursor(xw)
 	}
 
 	/* if not mapped, then no cursor should be drawn */
-	if (!xw->ismapped)
+	if (!xw->ismapped || xw->ta.win == None)
 	{
 		xw->ta.cursor = CURSOR_NONE;
 		return;
@@ -145,7 +163,12 @@ void x_ta_drawcursor(xw)
 	}
 
 	/* choose a color */
-	color = (x_ownselection ? xw->ta.owncursor : xw->ta.fgcursor);
+	if (x_ownselection && colorinfo[x_cursorcolors].da.bits & COLOR_BGSET)
+		color = colorinfo[x_cursorcolors].bg;
+	else if (colorinfo[x_cursorcolors].da.bits & COLOR_FGSET)
+		color = colorinfo[x_cursorcolors].fg;
+	else
+		color = x_black;
 
 	/* if some other cursor shape is already drawn there, then erase it */
 	if (xw->ta.cursor != CURSOR_NONE)
@@ -156,8 +179,8 @@ void x_ta_drawcursor(xw)
 	{
 		if (xw->grexpose)
 		{
-			XSetGraphicsExposures(x_display, xw->gc, False);
-			xw->grexpose = False;
+			XSetGraphicsExposures(x_display, xw->gc, ElvFalse);
+			xw->grexpose = ElvFalse;
 		}
 		XCopyArea(x_display, xw->ta.win, xw->ta.undercurs, xw->gc,
 			(int)(xw->ta.cursx * xw->ta.cellw), (int)(xw->ta.cursy * xw->ta.cellh),
@@ -168,8 +191,8 @@ void x_ta_drawcursor(xw)
 	/* draw the cursor, using the cursor color */
 	if (xw->grexpose)
 	{
-		XSetGraphicsExposures(x_display, xw->gc, False);
-		xw->grexpose = False;
+		XSetGraphicsExposures(x_display, xw->gc, ElvFalse);
+		xw->grexpose = ElvFalse;
 	}
 	if (xw->fg != color)
 	{
@@ -207,7 +230,12 @@ void x_ta_drawcursor(xw)
 			break;
 
 		  case 'x': /* xor */
-			xw->fg ^= xw->ta.bg;
+#ifdef FEATURE_IMAGE
+			if (ispixmap(colorinfo[COLOR_FONT_NORMAL].bg))
+				xw->fg ^= pixmapof(colorinfo[COLOR_FONT_NORMAL].bg).pixel;
+			else
+#endif
+				xw->fg ^= colorinfo[COLOR_FONT_NORMAL].bg;
 			XSetForeground(x_display, xw->gc, xw->fg);
 			XSetFunction(x_display, xw->gc, GXxor);
 			XFillRectangle(x_display, xw->ta.win, xw->gc,
@@ -245,153 +273,268 @@ void x_ta_moveto(xw, column, row)
  * current position, in the given font.  The text string is
  * guaranteed to contain only printable characters.
  *
- * The font is indicated by a single letter.  The letter will
- * be lowercase normally, or uppercase to indicate that the
- * text should be visibly marked for the <v> and <V> commands.
- * The letters are:
- *	n/N	normal characters
- *	b/B	bold characters
- *	i/I	italic characters
- *	u/U	underlined characters
- *	g/G	graphic characters
- *
  * This function should move the text cursor to the end of
  * the output text.
  */
-void x_ta_draw(xw, font, text, len)
+void x_ta_draw(xw, fg, bg, bits, text, len)
 	X11WIN	*xw;	/* the window where the text should be drawn */
-	_char_	font;	/* the font code to use for drawing */
+	long	fg, bg;	/* colors */
+	int	bits;	/* bitmap of other attributes */
 	CHAR	*text;	/* the text to draw */
 	int	len;	/* number of characters in text */
 {
-	long		swapper;
 	X_LOADEDFONT	*loaded;
-	CHAR		*tmp = NULL;
 	XGCValues	gcvalues;
-	int		i;
+	int		i, x, y;
+	GC		clipgc;
+#ifdef FEATURE_XFT
+	Region		region;
+	XRectangle	rect;
+#endif
 
 	xw->ta.cursor = CURSOR_NONE;
 
-	/* set the font & colors */
-	switch (font)
-	{
-	  case 'b':
-	  case 'B':
-		gcvalues.foreground = xw->ta.fgbold;
-		loaded = x_defaultbold;
-		break;
-
-	  case 'e':
-	  case 'E':
-		gcvalues.foreground = xw->ta.fgemph;
-		loaded = x_defaultbold;
-		break;
-
-	  case 'i':
-	  case 'I':
-		gcvalues.foreground = xw->ta.fgitalic;
-		loaded = x_defaultitalic;
-		break;
-
-	  case 'g':
-	  case 'G':
-		gcvalues.foreground = xw->ta.fgnormal;
+	/* if we have a special font for bold or italic, then use it */
+	if ((bits & COLOR_GRAPHIC) == COLOR_GRAPHIC)
 		loaded = x_defaultnormal;
-		tmp = safealloc(len, sizeof(CHAR));
-		for (i = 0; i < len; i++)
-		{
-			if (loaded->fontinfo->min_char_or_byte2 <= '\013')
-			{
-				switch (text[i])
-				{
-				  case '-':	tmp[i] = GCH;	break;
-				  case '|':	tmp[i] = GCV;	break;
-				  case '1':	tmp[i] = GC1;	break;
-				  case '2':	tmp[i] = GC2;	break;
-				  case '3':	tmp[i] = GC3;	break;
-				  case '4':	tmp[i] = GC4;	break;
-				  case '5':	tmp[i] = GC5;	break;
-				  case '6':	tmp[i] = GC6;	break;
-				  case '7':	tmp[i] = GC7;	break;
-				  case '8':	tmp[i] = GC8;	break;
-				  case '9':	tmp[i] = GC9;	break;
-				  default:	tmp[i] = text[i];
-				}
-			}
-			else if (isdigit(text[i]))
-			{
-				tmp[i] = '+';
-			}
-			else
-			{
-				tmp[i] = text[i];
-			}
-		}
-		text = tmp;
-		break;
-
-	  case 'u':
-	  case 'U':
-		gcvalues.foreground = xw->ta.fgundln;
+	else if ((bits & (COLOR_BOLD|COLOR_ITALIC)) == COLOR_BOLD && x_defaultbold)
+		loaded = x_defaultbold, bits &= ~COLOR_BOLD;
+	else if ((bits & COLOR_ITALIC) != 0 && x_defaultitalic)
+		loaded = x_defaultitalic, bits &= ~COLOR_ITALIC;
+	else
 		loaded = x_defaultnormal;
-		break;
-
-	  case 'f':
-	  case 'F':
-		gcvalues.foreground = xw->ta.fgfixed;
-		loaded = x_defaultnormal;
-		break;
-
-	  default:
-		gcvalues.foreground = xw->ta.fgnormal;
-		loaded = x_defaultnormal;
-	}
-	gcvalues.background = xw->ta.bg;
-
-	/* if font letter is uppercase, then swap foreground & background */
-	if (isupper(font))
-	{
-		swapper = gcvalues.foreground;
-		gcvalues.foreground = gcvalues.background;
-		gcvalues.background = swapper;
-	}
 
 	/* set the GC values */
-	gcvalues.font = (loaded ? loaded : x_defaultnormal)->fontinfo->fid;
-	gcvalues.graphics_exposures = xw->grexpose = False;
-	XChangeGC(x_display, xw->gc, 
-		GCForeground|GCBackground|GCFont|GCGraphicsExposures, &gcvalues);
+	gcvalues.font = loaded->fontinfo->fid;
+	gcvalues.graphics_exposures = xw->grexpose = ElvFalse;
+	gcvalues.foreground = fg;
+#ifdef FEATURE_IMAGE
+	if (ispixmap(bg))
+	{
+		XChangeGC(x_display, xw->gc, 
+			GCForeground|GCFont|GCGraphicsExposures, &gcvalues);
+	}
+	else
+#endif
+	{
+		gcvalues.background = bg;
+		XChangeGC(x_display, xw->gc, 
+			GCForeground|GCBackground|GCFont|GCGraphicsExposures, &gcvalues);
+		xw->bg = gcvalues.background;
+	}
 	xw->fg = gcvalues.foreground;
-	xw->bg = gcvalues.background;
 
-	/* draw the text */
-	XDrawImageString(x_display, xw->ta.win, xw->gc,
-		(int)(xw->ta.cursx * xw->ta.cellw), (int)(xw->ta.cursy * xw->ta.cellh + xw->ta.cellbase),
-		tochar8(text), len);
-	if ((font == 'b' || font == 'B' || font == 'e' || font == 'E') && !x_defaultbold)
+	if ((bits & COLOR_GRAPHIC) == COLOR_GRAPHIC)
 	{
-		XDrawString(x_display, xw->ta.win, xw->gc,
-			(int)(xw->ta.cursx * xw->ta.cellw + 1), (int)(xw->ta.cursy * xw->ta.cellh + xw->ta.cellbase),
-			tochar8(text), len);
-	}
-	if ((font == 'u' || font == 'U') && o_underline)
-	{
-		XFillRectangle(x_display, xw->ta.win, xw->gc,
-			(int)(xw->ta.cursx * xw->ta.cellw), (int)((xw->ta.cursy + 1) * xw->ta.cellh - 1),
-			len * xw->ta.cellw, 1);
-	}
-	if ((font == 'i' || font == 'I') && !x_defaultitalic)
-	{
-		XCopyArea(x_display, xw->ta.win, xw->ta.win, xw->gc,
-			(int)(xw->ta.cursx * xw->ta.cellw), (int)(xw->ta.cursy * xw->ta.cellh),
-			len * xw->ta.cellw - 1, (xw->ta.cellh + 1) / 2,
-			(int)(xw->ta.cursx * xw->ta.cellw + 1), (int)(xw->ta.cursy * xw->ta.cellh));
-	}
+		/* draw graphic characters instead of text */
+		int	 centerx, centery;
+		int	 left, right, top, bottom;
+		int	 radius;
+		XSegment seg[4];
+		int	 nsegs;
 
-	/* free the temp string (if any) */
-	if (tmp)
+		/* erase any old info */
+#ifdef FEATURE_IMAGE
+		if (ispixmap(bg))
+		{
+			XClearArea(x_display, xw->ta.win,
+				(int)(xw->ta.cursx * xw->ta.cellw), (int)((xw->ta.cursy) * xw->ta.cellh),
+				len * xw->ta.cellw, xw->ta.cellh, ElvFalse);
+			if (o_synccursor)
+				XSync(x_display, ElvFalse);
+		}
+		else
+#endif
+		{
+			XSetForeground(x_display, xw->gc, bg);
+			XFillRectangle(x_display, xw->ta.win, xw->gc,
+				(int)(xw->ta.cursx * xw->ta.cellw), (int)((xw->ta.cursy) * xw->ta.cellh),
+				len * xw->ta.cellw, xw->ta.cellh);
+		}
+
+		/* draw the graphic chars individually */
+		left = xw->ta.cellw / 2;
+		right = xw->ta.cellw - left;
+		top = xw->ta.cellh / 2;
+		bottom = xw->ta.cellh - top;
+		radius = xw->ta.cellw / 3;
+		centerx = xw->ta.cursx * xw->ta.cellw + left;
+		centery = xw->ta.cursy * xw->ta.cellh + top;
+		for (i = 0; i < len; i++, centerx += xw->ta.cellw)
+		{
+			/* initialize the coords to the center point */
+			seg[0].x1 = seg[0].x2 = centerx;
+			seg[0].y1 = seg[0].y2 = centery;
+			seg[3] = seg[2] = seg[1] = seg[0];
+			nsegs = 0;
+
+			/* decide which segments to draw */
+			if (CHARchr(toCHAR("456789|"), text[i]))
+				seg[nsegs++].y2 += bottom;
+			if (CHARchr(toCHAR("123456|"), text[i]))
+				seg[nsegs++].y2 -= top;
+			if (CHARchr(toCHAR("235689-"), text[i]))
+				seg[nsegs++].x2 -= left;
+			if (CHARchr(toCHAR("124578-"), text[i]))
+				seg[nsegs++].x2 += right;
+				
+			/* draw the segments */
+			XSetForeground(x_display, xw->gc, fg);
+			if (nsegs > 0)
+				XDrawSegments(x_display, xw->ta.win, xw->gc, seg, nsegs);
+			else if (text[i] == 'o')
+				XDrawArc(x_display, xw->ta.win, xw->gc,
+					centerx - radius, centery - radius,
+					radius * 2, radius * 2, 0, 360*64);
+			else if (text[i] == '*')
+				XFillArc(x_display, xw->ta.win, xw->gc,
+					centerx - radius, centery - radius,
+					radius * 2 + 1, radius * 2 + 1, 0, 360*64);
+		}
+	}
+	else
 	{
-		safefree(tmp);
+		/* bold fonts sometimes extend to the left of the image, which
+		 * can cause scrolling to leave pixels dribbling off.  To avoid
+		 * this, clip the text.
+		 */
+		if (loaded == x_defaultbold)
+		{
+			XRectangle	rect;
+			clipgc = XCreateGC(x_display, xw->ta.win, 0, NULL);
+			XCopyGC(x_display, xw->gc, ~0, clipgc);
+			rect.x = (int)(xw->ta.cursx * xw->ta.cellw);
+			rect.y = (int)(xw->ta.cursy * xw->ta.cellh);
+			rect.width = xw->ta.w;
+			rect.height = xw->ta.cellh;
+			XSetClipRectangles(x_display, clipgc, 0, 0, &rect, 1, Unsorted);
+		}
+		else
+			clipgc = xw->gc;
+#ifdef FEATURE_XFT
+		region = XCreateRegion();
+		rect.x = (int)(xw->ta.cursx * xw->ta.cellw);
+		rect.y = (int)(xw->ta.cursy * xw->ta.cellh);
+		rect.width = xw->ta.w;
+		rect.height = xw->ta.cellh;
+		XUnionRectWithRegion(&rect, region, region);
+		XftDrawSetClip(xw->ta.xftdraw, region);
+		XDestroyRegion(region);
+#endif
+
+
+		/* draw the text */
+#ifdef FEATURE_XFT
+		if (o_antialias && loaded->xftfont)
+		{
+#ifdef FEATURE_IMAGE
+			if (ispixmap(bg))
+			{
+				XClearArea(x_display, xw->ta.win,
+					(int)(xw->ta.cursx * xw->ta.cellw),
+					(int)(xw->ta.cursy * xw->ta.cellh),
+					(int)(xw->ta.cellw * len),
+					(int)xw->ta.cellh, ElvFalse);
+			}
+			else
+#endif
+			{
+				XSetForeground(x_display, xw->gc, bg);
+				XFillRectangle(x_display, xw->ta.win, xw->gc,
+					(int)(xw->ta.cursx * xw->ta.cellw),
+					(int)(xw->ta.cursy * xw->ta.cellh),
+					(int)(xw->ta.cellw * len),
+					(int)xw->ta.cellh);
+				XSetForeground(x_display, xw->gc, fg);
+			}
+			XftDrawString8(xw->ta.xftdraw, x_xftpixel(fg),
+				loaded->xftfont, 
+				(int)(xw->ta.cursx * xw->ta.cellw),
+				(int)(xw->ta.cursy * xw->ta.cellh + xw->ta.cellbase),
+				(XftChar8 *)text, len);
+		}
+		else
+#endif
+#ifdef FEATURE_IMAGE
+		if (ispixmap(bg))
+		{
+			XClearArea(x_display, xw->ta.win,
+				(int)(xw->ta.cursx * xw->ta.cellw),
+				(int)(xw->ta.cursy * xw->ta.cellh),
+				(int)(xw->ta.cellw * len),
+				(int)xw->ta.cellh, ElvFalse);
+			if (o_synccursor)
+				XSync(x_display, ElvFalse);
+			XDrawString(x_display, xw->ta.win, clipgc,
+				(int)(xw->ta.cursx * xw->ta.cellw),
+				(int)(xw->ta.cursy * xw->ta.cellh + xw->ta.cellbase),
+				tochar8(text), len);
+		}
+		else
+#endif
+			XDrawImageString(x_display, xw->ta.win, clipgc,
+				(int)(xw->ta.cursx * xw->ta.cellw),
+				(int)(xw->ta.cursy * xw->ta.cellh + xw->ta.cellbase),
+				tochar8(text), len);
+		if (clipgc != xw->gc)
+			XFreeGC(x_display, clipgc);
+		if ((bits & COLOR_BOLD) != 0)
+		{
+#ifdef FEATURE_XFT
+			if (o_antialias && loaded->xftfont)
+				XftDrawString8(xw->ta.xftdraw, x_xftpixel(fg),
+					loaded->xftfont, 
+					(int)(xw->ta.cursx * xw->ta.cellw + 1),
+					(int)(xw->ta.cursy * xw->ta.cellh + xw->ta.cellbase),
+					(XftChar8 *)text, len);
+			else
+#endif
+			XDrawString(x_display, xw->ta.win, xw->gc,
+				(int)(xw->ta.cursx * xw->ta.cellw + 1), (int)(xw->ta.cursy * xw->ta.cellh + xw->ta.cellbase),
+				tochar8(text), len);
+		}
+		if ((bits & COLOR_ITALIC) != 0)
+		{
+			XCopyArea(x_display, xw->ta.win, xw->ta.win, xw->gc,
+				(int)(xw->ta.cursx * xw->ta.cellw), (int)(xw->ta.cursy * xw->ta.cellh),
+				len * xw->ta.cellw - 1, (xw->ta.cellh + 1) / 2,
+				(int)(xw->ta.cursx * xw->ta.cellw + 1), (int)(xw->ta.cursy * xw->ta.cellh));
+		}
+		if ((bits & COLOR_UNDERLINED) != 0)
+		{
+			XFillRectangle(x_display, xw->ta.win, xw->gc,
+				(int)(xw->ta.cursx * xw->ta.cellw), (int)((xw->ta.cursy + 1) * xw->ta.cellh - 1),
+				len * xw->ta.cellw, 1);
+		}
+		x = (int)(xw->ta.cursx * xw->ta.cellw);
+		y = (int)(xw->ta.cursy * xw->ta.cellh);
+		if ((bits & COLOR_BOXED) != 0)
+		{
+			XDrawLine(x_display, xw->ta.win, xw->gc,
+				x, y,
+				x + len * xw->ta.cellw - 1, y);
+			XDrawLine(x_display, xw->ta.win, xw->gc,
+				x, y + xw->ta.cellh - 1,
+				x + len * xw->ta.cellw - 1, y + xw->ta.cellh - 1);
+		}
+		if ((bits & COLOR_RIGHTBOX) != 0)
+		{
+			XDrawLine(x_display, xw->ta.win, xw->gc,
+				x + len * xw->ta.cellw - 1, y,
+				x + len * xw->ta.cellw - 1, y + xw->ta.cellh - 1);
+		}
+		if ((bits & COLOR_LEFTBOX) != 0)
+		{
+			if ((bits & COLOR_BOXED) == 0
+			 && (colorinfo[x_guidecolors].da.bits & (COLOR_SET|COLOR_FGSET)) == (COLOR_SET|COLOR_FGSET))
+			{
+				xw->fg = colorinfo[x_guidecolors].fg;
+				XSetForeground(x_display, xw->gc, xw->fg);
+			}
+			XDrawLine(x_display, xw->ta.win, xw->gc,
+				x, y,
+				x, y + xw->ta.cellh - 1);
+		}
 	}
 
 	/* leave the cursor after the text */
@@ -416,10 +559,10 @@ void x_ta_shift(xw, qty, rows)
 	/* make sure we have the right background */
 	if (!xw->grexpose)
 	{
-		XSetGraphicsExposures(x_display, xw->gc, True);
-		xw->grexpose = True;
+		XSetGraphicsExposures(x_display, xw->gc, ElvTrue);
+		xw->grexpose = ElvTrue;
 	}
-	if (xw->bg != xw->ta.bg)
+	if (xw->bg != (unsigned long)xw->ta.bg)
 	{
 		XSetBackground(x_display, xw->gc, xw->ta.bg);
 		xw->bg = xw->ta.bg;
@@ -451,27 +594,79 @@ void x_ta_shift(xw, qty, rows)
 void x_ta_scroll(xw, qty, notlast)
 	X11WIN	*xw;	/* window to be scrolled */
 	int	qty;	/* amount to scroll by (pos=downward, neg=upward) */
-	BOOLEAN	notlast;/* if True, last row should not be affected */
+	ELVBOOL	notlast;/* if ElvTrue, last row should not be affected */
 {
 	int	rows;
+#ifdef FEATURE_IMAGE
+	int	scrollpixels;
+	struct x_bgmap_s *bgm;
+#endif
 
 	/* erase the cursor */
 	x_ta_erasecursor(xw);
 
-	/* decide how many rows to scroll */
+	/* decide bottom row to scroll */
 	rows = xw->ta.rows;
 	if (notlast)
 	{
 		rows--;
 	}
 
+#ifdef FEATURE_IMAGE
+	/* scroll the background image, if any */
+	if (ispixmap(xw->ta.bg) && xw->ta.cursy == 0)
+	{
+		/* find the background pixmap info */
+		bgm = &pixmapof(xw->ta.bg);
+
+		/* adjust the number of pixels to scroll the bg image */
+		scrollpixels = xw->ta.scrollpixels - qty * xw->ta.cellh;
+		if (scrollpixels < 0)
+			scrollpixels += xw->ta.rows * bgm->height;
+		scrollpixels %= bgm->height;
+
+		/* scroll the background image */
+		if (scrollpixels == 0)
+		{
+			if (xw->ta.pixmap != None)
+			{
+				XFreePixmap(x_display, xw->ta.pixmap);
+				xw->ta.pixmap = None;
+			}
+			XSetWindowBackgroundPixmap(x_display, xw->win, bgm->pixmap);
+		}
+		else
+		{
+			if (xw->ta.pixmap == None)
+				xw->ta.pixmap = XCreatePixmap(x_display,
+							     xw->ta.win,
+							     bgm->width,
+							     bgm->height,
+							     (unsigned)x_depth);
+			XCopyArea(x_display, bgm->pixmap,
+				xw->ta.pixmap, xw->gc,
+				0, scrollpixels,
+				bgm->width, bgm->height - scrollpixels,
+				0, 0);
+			XCopyArea(x_display, bgm->pixmap,
+				xw->ta.pixmap, xw->gc,
+				0, 0,
+				bgm->width, scrollpixels,
+				0, bgm->height - scrollpixels);
+			XSetWindowBackgroundPixmap(x_display, xw->win,
+				xw->ta.pixmap);
+		}
+		xw->ta.scrollpixels = scrollpixels;
+	}
+#endif
+
 	/* make sure we have the right background */
 	if (!xw->grexpose)
 	{
-		XSetGraphicsExposures(x_display, xw->gc, True);
-		xw->grexpose = True;
+		XSetGraphicsExposures(x_display, xw->gc, ElvTrue);
+		xw->grexpose = ElvTrue;
 	}
-	if (xw->bg != xw->ta.bg)
+	if (xw->bg != (unsigned long)xw->ta.bg)
 	{
 		XSetBackground(x_display, xw->gc, xw->ta.bg);
 		xw->bg = xw->ta.bg;
@@ -508,8 +703,8 @@ void x_ta_clrtoeol(xw)
 	xw->fg = xw->ta.bg;
 	if (xw->grexpose)
 	{
-		XSetGraphicsExposures(x_display, xw->gc, False);
-		xw->grexpose = False;
+		XSetGraphicsExposures(x_display, xw->gc, ElvFalse);
+		xw->grexpose = ElvFalse;
 	}
 
 	/* whether or not the cursor was visible before, it'll be invisible
@@ -518,6 +713,18 @@ void x_ta_clrtoeol(xw)
 	xw->ta.cursor = CURSOR_NONE;
 
 	/* erase the line, from the cursor to the right edge */
+#ifdef FEATURE_IMAGE
+	if (ispixmap(xw->ta.bg))
+	{
+		XClearArea(x_display, xw->ta.win,
+			(int)(xw->ta.cursx * xw->ta.cellw), (int)(xw->ta.cursy * xw->ta.cellh),
+			(xw->ta.columns - xw->ta.cursx) * xw->ta.cellw, xw->ta.cellh,
+			ElvFalse);
+		if (o_synccursor)
+			XSync(x_display, ElvFalse);
+	}
+	else
+#endif
 	XFillRectangle(x_display, xw->ta.win, xw->gc,
 		(int)(xw->ta.cursx * xw->ta.cellw), (int)(xw->ta.cursy * xw->ta.cellh),
 		(xw->ta.columns - xw->ta.cursx) * xw->ta.cellw, xw->ta.cellh);
@@ -531,7 +738,7 @@ void x_ta_event(xw, event)
 	int	x, y, x2, y2;
  static int	prevx, prevy;
  static Time	firstclick;
- static BOOLEAN	marking;
+ static ELVBOOL	marking;
  	long	offset;
 
 	switch (event->type)
@@ -555,12 +762,32 @@ void x_ta_event(xw, event)
 		break;
 
 	  case ButtonPress:
+		/* Buttons 4 & 5 are always for scrolling */
+		if (event->xbutton.button == 4)
+		{
+			if (o_scrollwheelspeed < 0)
+				eventscroll((GUIWIN *)xw, SCROLL_FWDLN, -o_scrollwheelspeed, 0L);
+			else
+				eventscroll((GUIWIN *)xw, SCROLL_BACKLN, o_scrollwheelspeed, 0L);
+			x_didcmd = ElvTrue;
+			break;
+		}
+		if (event->xbutton.button == 5)
+		{
+			if (o_scrollwheelspeed < 0)
+				eventscroll((GUIWIN *)xw, SCROLL_BACKLN, -o_scrollwheelspeed, 0L);
+			else
+				eventscroll((GUIWIN *)xw, SCROLL_FWDLN, o_scrollwheelspeed, 0L);
+			x_didcmd = ElvTrue;
+			break;
+		}
+
 		/* determine which character cell was clicked on. */
 		y = event->xbutton.y / xw->ta.cellh;
 		x = event->xbutton.x / xw->ta.cellw;
 
 		/* Distinguish between single-click and double-click */
-		if (x_now - firstclick > o_dblclicktime * 100
+		if (x_now - firstclick > (Time)(o_dblclicktime * 100)
 			|| event->xbutton.button == Button2
 			|| prevy != y
 			|| prevx != x)
@@ -588,13 +815,13 @@ void x_ta_event(xw, event)
 				 || prevx != x)
 				{
 					offset = eventclick((GUIWIN *)xw, y, x, CLICK_MOVE);
-					x_didcmd |= (BOOLEAN)(offset >= 0);
+					x_didcmd |= (ELVBOOL)(offset >= 0);
 				}
 				firstclick = x_now;
 			}
 
-			/* Button 3 also copies the selected text (if any) into the
-			 * clipboard.
+			/* Button 3 also copies the selected text (if any) into
+			 * the clipboard.
 			 */
 			if (event->xbutton.button == Button3)
 			{
@@ -606,8 +833,8 @@ void x_ta_event(xw, event)
 			 */
 			prevy = y;
 			prevx = x;
-			x_didcmd = True;
-			/* paging = False; !!! */
+			x_didcmd = ElvTrue;
+			/* paging = ElvFalse; !!! */
 		}
 		else
 		{
@@ -626,8 +853,8 @@ void x_ta_event(xw, event)
 			 * the next click is a first click.
 			 */
 			firstclick = 1;
-			x_didcmd = True;
-			/* paging = False; !!! */
+			x_didcmd = ElvTrue;
+			/* paging = ElvFalse; !!! */
 		}
 		break;
 
@@ -650,11 +877,11 @@ void x_ta_event(xw, event)
 					  CLICK_SELCHAR))
 				{
 					(void)eventclick((GUIWIN *)xw, y, x, CLICK_MOVE);
-					marking = True;
+					marking = ElvTrue;
 				}
 				prevy = y;
 				prevx = x;
-				x_didcmd = True;
+				x_didcmd = ElvTrue;
 			}
 		}
 		break;
@@ -675,75 +902,42 @@ void x_ta_event(xw, event)
 			{
 				/* paste from "< buffer */
 				eventclick((GUIWIN *)xw, -1, -1, CLICK_PASTE);
-				x_didcmd = True;
+				x_didcmd = ElvTrue;
 			}
 		}
 
-		/* thumbing = False; paging = True; */
-		marking = False;
+		/* thumbing = ElvFalse; paging = ElvTrue; */
+		marking = ElvFalse;
 		break;
 	}
 }
 
-
-void x_ta_recolor(xw, font)
-	X11WIN	*xw;	/* window to be changed */
-	_char_	font;	/* font which was changed */
+/* Change the background color for a window */
+void x_ta_setbg(xw, bg)
+	X11WIN	*xw;	/* window whose text area needs a new background */
+	long	bg;	/* the new background color */
 {
-	/* Reload the foregroung color for the indicated font.  Also, the cursor
-	 * is handled specially, and other non-font colors are detected here.
-	 */
-	switch (font)
+	xw->ta.bg = bg;
+
+# ifdef FEATURE_IMAGE
+	if (xw->ta.pixmap != None)
 	{
-	  case 'n':
-		x_unloadcolor(xw->ta.fgnormal);
-		xw->ta.fgnormal = x_loadcolor(x_foreground, x_black);
-		break;
-
-	  case 'b':
-		x_unloadcolor(xw->ta.fgbold);
-		xw->ta.fgbold = x_loadcolor(x_boldcolor, x_black);
-		break;
-
-	  case 'i':
-		x_unloadcolor(xw->ta.fgitalic);
-		xw->ta.fgitalic = x_loadcolor(x_italiccolor, x_black);
-		break;
-
-	  case 'u':
-		x_unloadcolor(xw->ta.fgundln);
-		xw->ta.fgundln = x_loadcolor(x_underlinecolor, x_black);
-		break;
-
-	  case 'f':
-		x_unloadcolor(xw->ta.fgfixed);
-		xw->ta.fgfixed = x_loadcolor(x_fixedcolor, x_black);
-		break;
-
-	  case 'e':
-		x_unloadcolor(xw->ta.fgemph);
-		xw->ta.fgemph = x_loadcolor(x_emphcolor, x_black);
-		break;
-
-	  case 'c':
-		x_unloadcolor(xw->ta.fgcursor);
-		x_unloadcolor(xw->ta.owncursor);
-		xw->ta.fgcursor = x_loadcolor(x_cursorcolor, x_black);
-		xw->ta.owncursor = x_loadcolor(x_owncolor, x_black);
-		/* next cursor action will cause a redraw */
-		return;
-
-	  default:
-		/* nothing changed, so don't bother to refresh */
-		return;
+		XFreePixmap(x_display, xw->ta.pixmap);
+		xw->ta.scrollpixels = 0;
+		xw->ta.pixmap = None;
 	}
 
-	/* also change the overall background color, defaulting to white */
-	x_unloadcolor(xw->ta.bg);
-	xw->ta.bg = x_loadcolor(x_background, x_white);
-	XSetWindowBackground(x_display, xw->ta.win, xw->ta.bg);
-
-	/* redraw the window */
-	eventexpose((GUIWIN *)xw, 0, 0, (int)xw->ta.rows-1, (int)xw->ta.columns-1);
+	if (ispixmap(bg))
+	{
+		XSetWindowBackgroundPixmap(x_display, xw->win, pixmapof(bg).pixmap);
+		XSetWindowBackgroundPixmap(x_display,xw->ta.win,ParentRelative);
+	}
+	else
+# endif
+	{
+		XSetWindowBackground(x_display, xw->win, bg);
+		XSetWindowBackground(x_display, xw->ta.win, bg);
+	}
+	XClearWindow(x_display, xw->win);
 }
 #endif

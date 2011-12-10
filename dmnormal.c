@@ -1,31 +1,273 @@
 /* dmnormal.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_dmnormal[] = "$Id: dmnormal.c,v 2.38 1999/02/06 22:29:20 steve Exp $";
 
 #include "elvis.h"
+#ifdef FEATURE_RCSID
+char id_dmnormal[] = "$Id: dmnormal.c,v 2.63 2003/10/17 17:41:23 steve Exp $";
+#endif
 #include <time.h>
 
 #if USE_PROTOTYPES
 static DMINFO *init(WINDOW win);
 static void term(DMINFO *info);
-static MARK move(WINDOW w, MARK from, long linedelta, long column, BOOLEAN cmd);
-static MARK wordmove(MARK cursor, long count, BOOLEAN backward, BOOLEAN whitespace);
-static long mark2col(WINDOW w, MARK mark, BOOLEAN cmd);
+static MARK move(WINDOW w, MARK from, long linedelta, long column, ELVBOOL cmd);
+static MARK wordmove(MARK cursor, long count, ELVBOOL backward, ELVBOOL whitespace);
+static long mark2col(WINDOW w, MARK mark, ELVBOOL cmd);
 static MARK setup(WINDOW win, MARK top, long cursor, MARK bottom, DMINFO *info);
-# ifdef FEATURE_LPR
-static void header (WINDOW w, int pagenum, DMINFO *info, void (*draw)(CHAR *p, long qty, _char_ font, long offset));
-# endif
 static MARK image(WINDOW w, MARK line, DMINFO *info, void (*draw)(CHAR *p, long qty, _char_ font, long offset));
 static void indent(WINDOW w, MARK line, long linedelta);
-static CHAR *tagatcursor(WINDOW win, MARK cursor);
-static MARK tagload(CHAR *tagname, MARK from);
+static MARK tagnext(MARK cursor);
+# ifdef FEATURE_TAGS
+  static CHAR *tagatcursor(WINDOW win, MARK cursor);
+  static MARK tagload(CHAR *tagname, MARK from);
+# endif
+# ifdef FEATURE_LISTCHARS
+  static void getlcs(char *name, CHAR **valptr, int *lenptr);
+# endif
+# ifdef FEATURE_LPR
+  static void header (WINDOW w, int pagenum, DMINFO *info,
+		void (*draw)(CHAR *p, long qty, _char_ font, long offset));
+# endif
 #endif
+
+#ifdef FEATURE_LPR
+/* Font/color code to for page header when printing */
+static int font_header;
+#endif
+
+#ifdef FEATURE_FOLD
+/* Font/color code to for displaying hidden lines */
+static int font_fold;
+#endif
+
+static int font_specialkey;
+#ifdef FEATURE_LISTCHARS
+static int font_extends;
+#endif
+
+
+#ifdef FEATURE_LISTCHARS
+static void getlcs(name, valptr, lenptr)
+	char	*name;	/* name of field */
+	CHAR	**valptr;/* where to store a pointer to the value */
+	int	*lenptr; /* where to store the length of the value */
+{
+	CHAR	*scan;
+
+	/* look for the value */
+	*valptr = calcelement(o_listchars, toCHAR(name));
+
+	/* if no value, then return with *valptr=NULL and *lenptr=0 */
+	if (*valptr == NULL)
+	{
+		*lenptr = 0;
+		return;
+	}
+
+	/* move *valptr past the ':', to the actual start of the value */
+	(*valptr)++;
+
+	/* count the length, up to the next ',' or '\0' */
+	for (scan = *valptr; *scan && *scan != ','; scan++)
+	{
+	}
+	*lenptr = (int)(scan - (*valptr));
+}
+#endif /* FEATURE_LISTCHARS */
+
+/* Return the width of a control character, and optionally output it too if a
+ * non-NULL "draw" function is supplied.  If a negative offset is given, then
+ * parse the listchars option's value before doing any of this; and if it finds
+ * any errors while parsing it will return -1.
+ *
+ * This is called...
+ *  - when drawing a control character with "list" turned on.
+ *  - when drawing trailing spaces with "list", col=number of spaces to draw.
+ *  - at the end of the line with "list"
+ *  - from draw.c with ch='<' or '>' with "wrap" off, with special draw func
+ *  - from optglob.c when the listchars option is initialized, with offset=-1
+ *  - from optglob.c when the listchars option is changed, with offset=-1
+ *
+ * This function doesn't test the "list" option.  It is assumed that the
+ * calling function has already tested it.
+ */
+int dmnlistchars(ch, offset, col, tabstop, draw)
+	_CHAR_	ch;	/* character */
+	long	offset;	/* offset of character */
+	long	col;	/* column number, or (when ch=' ') number of spaces */
+	short	*tabstop;/* tabstop columns -- value of o_tabstop() */
+	void	(*draw) P_((CHAR *p, long qty, _char_ font, long offst));
+{
+	CHAR	caret[3];
+	CHAR	*string = NULL;
+	int	length, width, i;
+	char	font;
+#ifdef FEATURE_LISTCHARS
+	/* These static pointers are either NULL, or point to a location in
+	 * the value of the "listchars" option.
+	 */
+	static CHAR	*tab, *ff, *cr, *esc, *bs, *del, *nul;
+	static CHAR	*eol, *trail, *precedes, *extends;
+	static int	ltab, lff, lcr, lesc, lbs, ldel, lnul;
+	static int	leol, ltrail, lprecedes, lextends;
+	static CHAR	space[1] = {' '};
+
+	/* if offset is negative, then parse the "listchars" option */
+	if (offset < 0)
+	{
+		getlcs("tab", &tab, &ltab);
+		getlcs("ff", &ff, &lff);
+		getlcs("cr", &cr, &lcr);
+		getlcs("esc", &esc, &lesc);
+		getlcs("bs", &bs, &lbs);
+		getlcs("del", &del, &ldel);
+		getlcs("nul", &nul, &lnul);
+		getlcs("eol", &eol, &leol);
+		getlcs("trail", &trail, &ltrail);
+		getlcs("precedes", &precedes, &lprecedes);
+		getlcs("extends", &extends, &lextends);
+	}
+
+	/* recognize some special characters */
+	switch (ch)
+	{
+	  case '<':	string = precedes; length = lprecedes;	break;
+	  case '>':	string = extends; length = lextends;	break;
+	  case '\n':	string = eol; length = leol;		break;
+	  case ' ':	string = trail; length = ltrail;	break;
+	  case '\t':	string = tab; length = ltab;		break;
+	  case '\f':	string = ff; length = lff;		break;
+	  case '\r':	string = cr; length = lcr;		break;
+	  case '\0':	string = nul; length = lnul;		break;
+	  case '\b':	string = bs; length = lbs;		break;
+	  case '\033':	string = esc; length = lesc;		break;
+	  case '\177':	string = del; length = ldel;		break;
+	}
+#endif
+
+	/* no special strings -- use default */
+	if (!string)
+	{
+		switch (ch)
+		{
+#ifdef FEATURE_LISTCHARS
+		  case '<':
+		  case '>':	string = caret; length = 0;		break;
+		  case ' ':	string = space; length = 1;		break;
+		  case '\n':	string = caret; length = 0;		break;
+#else
+		  case '\n':	caret[0] = '$'; string=caret; length=1;	break;
+#endif
+		  default:
+			caret[0] = '^';
+			caret[1] = ch ^ '@';
+			string = caret;
+			length = 2;
+		}
+	}
+
+	/* if that's all we care about, then return the width now */
+	if (!draw)
+	{
+#ifdef FEATURE_LISTCHARS
+		if (ch == ' ')
+			return (int)col;
+		else if (string == caret || ch != '\t')
+			return length;
+		else /* ch == '\t' */
+			return opt_totab(tabstop, col);
+#else
+		return length;
+#endif
+	}
+
+	/* choose a font */
+	if (ch == '\n')
+		font = COLOR_FONT_NONTEXT;
+#ifdef FEATURE_LISTCHARS
+	else if (ch == '<' || ch == '>')
+		font = font_extends;
+#endif
+	else
+		font = font_specialkey;
+
+	/* draw the character.  This is tricky for tabs and newlines */
+	switch (ch)
+	{
+	  case '\n':
+		for (i = 0; i < length; i++)
+			(*draw)(&string[i], -1L, font, offset);
+		width = length;
+		break;
+
+#ifdef FEATURE_LISTCHARS
+	  case ' ':
+	  case '\t':
+		if (string != caret)
+		{
+			/* empty string acts like spaces */
+			if (!*string)
+				string = space;
+
+			/* display the tab character as a bunch of chars */
+			width = (ch == '\t') ? opt_totab(tabstop, col) : col;
+			if (width <= length)
+			{
+				for (i = 0; i < width; i++)
+					(*draw)(&string[i], -1L, font, offset);
+			}
+			else
+			{
+				for (i = 0; i < length; i++)
+					(*draw)(&string[i], -1L, font, offset);
+
+				/* repeat the last char to fill the tabstop.
+				 * Note that (length - width) is negative
+				 */
+				(*draw)(&string[length - 1], (long)(length - width), font, offset);
+			}
+			if (i > 0)
+			break;
+		}
+		/* else fall through */
+#endif
+
+	  default:
+		for (i = 0; i < length; i++)
+			(*draw)(&string[i], -1L, font, offset);
+		width = length;
+	}
+
+	/* return the width */
+	return width;
+}
+
 
 /* start the mode, and allocate modeinfo */
 static DMINFO *init(win)
 	WINDOW	win;
 {
+#ifdef FEATURE_FOLD
+	/* if first time, then find the "fold" font */
+	if (!font_fold)
+	{
+		font_fold = colorfind(toCHAR("fold"));
+		colorset(font_fold, toCHAR("bold boxed"), ElvFalse);
+	}
+#endif
+
+	/* if first time, then find the "specialkey" font */
+	if (!font_specialkey)
+	{
+		font_specialkey = colorfind(toCHAR("specialkey"));
+		colorset(font_specialkey, toCHAR("bold boxed"), ElvFalse);
+#ifdef FEATURE_LISTCHARS
+		font_extends = colorfind(toCHAR("extends"));
+		colorset(font_extends, toCHAR("like specialkey boxed"), ElvFalse);
+#endif
+	}
+
 	return NULL;
 }
 
@@ -41,7 +283,7 @@ static MARK move(w, from, linedelta, column, cmd)
 	MARK	from;		/* old position */
 	long	linedelta;	/* change in line number */
 	long	column;		/* desired column */
-	BOOLEAN	cmd;		/* if True, we're in command mode; else input mode */
+	ELVBOOL	cmd;		/* if ElvTrue, we're in command mode; else input mode */
 {
 	static MARKBUF	tmp;
 	long	col, lnum;
@@ -49,6 +291,63 @@ static MARK move(w, from, linedelta, column, cmd)
 	CHAR	*cp;
 
 	assert(w != NULL || column == 0);
+
+#ifdef FEATURE_FOLD
+	/* if on a folded region, then move relative to first/last line in
+	 * that region.
+	 */
+	if (w && o_folding(w))
+	{
+		FOLD	fold;
+
+		/* if multi-line move, and any folds are involved, then
+		 * recursively move by single lines.  This allows both the
+		 * folded and non-folded code to be simpler.
+		 */
+		if (labs(linedelta) > 1)
+		{
+			lnum = markline(from) + linedelta;
+			if (lnum < 1)
+				lnum = 1;
+			else if (lnum > o_bufchars(markbuffer(from)))
+				lnum = o_bufchars(markbuffer(from));
+			tmp = *from;
+			marksetline(&tmp, lnum);
+			if (RESULT_COMPLETE == foldbyrange(
+						linedelta > 0 ? from : &tmp,
+						linedelta > 0 ? &tmp : from,
+						ElvTrue, FOLD_INSIDE|FOLD_TEST))
+			{
+				for (lnum = labs(linedelta), linedelta /= lnum;
+				     from && lnum > 1;
+				     lnum--)
+					from = move(w, from, linedelta, 0, cmd);
+				return move(w, from, linedelta, column, cmd);
+			}
+		}
+
+		/* starting within a fold? */
+		if ((fold = foldmark(from, ElvTrue)) != NULL)
+		{
+			/* if moving within the FOLD, handle it here */
+			if (linedelta == 0)
+			{
+				tmp = *fold->from;
+				if (column == INFINITY)
+					tmp = *fold->to;
+				return &tmp;
+			}
+
+			/* else moving off the FOLD, do it relative to one end
+			 * or the other, depending on direction of travel.
+			 */
+			if (linedelta < 0)
+				marksetoffset(from, markoffset(fold->from));
+			else
+				marksetoffset(from, markoffset(fold->to));
+		}
+	}
+#endif
 
 	/* move forward/back to the start of the line + linedelta */
 	lnum = markline(from) + linedelta;
@@ -65,11 +364,13 @@ static MARK move(w, from, linedelta, column, cmd)
 		/* add the width of this character */
 		if (*cp == '\t' && (!o_list(w) || w->state->acton))
 		{
-			col = col + o_tabstop(markbuffer(w->cursor)) - (col % o_tabstop(markbuffer(w->cursor)));
+			col = col + opt_totab(o_tabstop(markbuffer(w->cursor)), col);
 		}
 		else if (*cp < ' ' || *cp == 127)
 		{
-			col += 2;
+			col += (o_list(w) && !w->state->acton)
+				? dmnlistchars(*cp, offset, col, o_tabstop(markbuffer(w->cursor)), NULL)
+				: 2;
 		}
 		else
 		{
@@ -100,7 +401,7 @@ static MARK move(w, from, linedelta, column, cmd)
 static long mark2col(w, mark, cmd)
 	WINDOW	w;	/* window where buffer is shown */
 	MARK	mark;	/* mark to be converted */
-	BOOLEAN	cmd;	/* if True, we're in command mode; else input mode */
+	ELVBOOL	cmd;	/* if ElvTrue, we're in command mode; else input mode */
 {
 	long	col;
 	CHAR	*cp;
@@ -112,6 +413,12 @@ static long mark2col(w, mark, cmd)
 	{
 		return 0;
 	}
+
+#ifdef FEATURE_FOLD
+	/* if in a folded region, then the column number is always wantcol */
+	if (w && o_folding(w) && foldmark(mark, ElvTrue))
+		return w->wantcol;
+#endif
 
 	/* find the front of the line */
 	front = move(w, mark, 0, 0, cmd);
@@ -131,7 +438,7 @@ static long mark2col(w, mark, cmd)
 	{
 		if (*cp == '\t' && (!o_list(w) || w->state->acton))
 		{
-			col = col + o_tabstop(markbuffer(w->cursor)) - (col % o_tabstop(markbuffer(w->cursor)));
+			col = col + opt_totab(o_tabstop(markbuffer(w->cursor)), col);
 		}
 		else if (*cp == '\n')
 		{
@@ -139,7 +446,9 @@ static long mark2col(w, mark, cmd)
 		}
 		else if (*cp < ' ' || *cp == 127)
 		{
-			col += 2;
+			col += (o_list(w) && !w->state->acton)
+				? dmnlistchars(*cp, 0L, col, o_tabstop(markbuffer(w->cursor)), NULL)
+				: 2;
 		}
 		else
 		{
@@ -165,10 +474,10 @@ static long mark2col(w, mark, cmd)
 static MARK wordmove(cursor, count, backward, whitespace)
 	MARK	cursor;		/* starting position */
 	long	count;		/* number of words to move by */
-	BOOLEAN	backward;	/* if True, move backward; else forward */
-	BOOLEAN	whitespace;	/* if True, trailing whitespace is included */
+	ELVBOOL	backward;	/* if ElvTrue, move backward; else forward */
+	ELVBOOL	whitespace;	/* if ElvTrue, trailing whitespace is included */
 {
-	BOOLEAN inword, inpunct;
+	ELVBOOL inword, inpunct;
 	CHAR	*cp;
 	long	offset;
 	long	end;
@@ -180,19 +489,19 @@ static MARK wordmove(cursor, count, backward, whitespace)
 	end = o_bufchars(markbuffer(cursor));
 
 	/* figure out if we're in the middle of a word */
-	if (backward || !whitespace || isspace(*cp))
+	if (backward || !whitespace || elvspace(*cp))
 	{
-		inword = inpunct = False;
+		inword = inpunct = ElvFalse;
 	}
-	else if (isalnum(*cp) || *cp == '_')
+	else if (elvalnum(*cp) || *cp == '_')
 	{
-		inword = True;
-		inpunct = False;
+		inword = ElvTrue;
+		inpunct = ElvFalse;
 	}
 	else
 	{
-		inword = False;
-		inpunct = True;
+		inword = ElvFalse;
+		inpunct = ElvTrue;
 	}
 
 	/* continue... */
@@ -205,22 +514,22 @@ static MARK wordmove(cursor, count, backward, whitespace)
 		{
 			scanprev(&cp);
 			assert(cp != NULL);
-			if (isspace(*cp))
+			if (elvspace(*cp))
 			{
 				if (inword || inpunct)
 				{
 					count--;
 				}
-				inpunct = inword = False;
+				inpunct = inword = ElvFalse;
 			}
-			else if (isalnum(*cp) || *cp == '_')
+			else if (elvalnum(*cp) || *cp == '_')
 			{
 				if (inpunct)
 				{
 					count--;
 				}
-				inword = True;
-				inpunct = False;
+				inword = ElvTrue;
+				inpunct = ElvFalse;
 			}
 			else
 			{
@@ -228,8 +537,8 @@ static MARK wordmove(cursor, count, backward, whitespace)
 				{
 					count--;
 				}
-				inword = False;
-				inpunct = True;
+				inword = ElvFalse;
+				inpunct = ElvTrue;
 			}
 			if (count > 0)
 			{
@@ -254,26 +563,26 @@ static MARK wordmove(cursor, count, backward, whitespace)
 		{
 			scannext(&cp);
 			assert(cp != NULL);
-			if (isspace(*cp))
+			if (elvspace(*cp))
 			{
 				if ((inword || inpunct) && !whitespace)
 				{
 					count--;
 				}
-				inword = inpunct = False;
+				inword = inpunct = ElvFalse;
 				if (count > 0)
 				{
 					offset++;
 				}
 			}
-			else if (isalnum(*cp) || *cp == '_')
+			else if (elvalnum(*cp) || *cp == '_')
 			{
 				if ((!inword && whitespace) || inpunct)
 				{
 					count--;
 				}
-				inword = True;
-				inpunct = False;
+				inword = ElvTrue;
+				inpunct = ElvFalse;
 				if (count > 0 || whitespace)
 				{
 					offset++;
@@ -285,8 +594,8 @@ static MARK wordmove(cursor, count, backward, whitespace)
 				{
 					count--;
 				}
-				inword = False;
-				inpunct = True;
+				inword = ElvFalse;
+				inpunct = ElvTrue;
 				if (count > 0 || whitespace)
 				{
 					offset++;
@@ -339,8 +648,8 @@ static MARK setup(win, top, cursor, bottom, info)
 	/* if the cursor is still on the screen (or very near the bottom)
 	 * then use the same top.
 	 */
-	topoff = markoffset(move((WINDOW)0, top, 0, 0, True));
-	bottomoff = markoffset(move((WINDOW)0, bottom, o_nearscroll, 0, True));
+	topoff = markoffset(move((WINDOW)0, top, 0, 0, ElvTrue));
+	bottomoff = markoffset(move((WINDOW)0, bottom, o_nearscroll, 0, ElvTrue));
 	if (cursor >= topoff && (cursor < bottomoff || bottomoff < markoffset(bottom) + 1))
 	{
 		return marktmp(tmp, markbuffer(top), topoff);
@@ -351,7 +660,7 @@ static MARK setup(win, top, cursor, bottom, info)
 	{
 		for (i = 1; i < o_nearscroll; i++)
 		{
-			other = markoffset(move((WINDOW)0, top, -i, 0, True));
+			other = markoffset(move((WINDOW)0, top, -i, 0, ElvTrue));
 			if (cursor >= other && cursor < topoff)
 			{
 				return marktmp(tmp, markbuffer(top), other);
@@ -365,7 +674,7 @@ static MARK setup(win, top, cursor, bottom, info)
 	{
 		other = 0;
 	}
-	other = markoffset(move((WINDOW)0, marktmp(tmp, markbuffer(top), other), 0, 0, True));
+	other = markoffset(move((WINDOW)0, marktmp(tmp, markbuffer(top), other), 0, 0, ElvTrue));
 	win->di->logic=DRAW_CENTER;
 	return marktmp(tmp, markbuffer(top), other);
 }
@@ -386,13 +695,59 @@ static MARK image(w, line, info, draw)
 	int	qty;		/* number of contiguous normal chars */
 	CHAR	buf[100];	/* buffer, holds the contiguous normal chars */
 	int	i;
+#ifdef FEATURE_LISTCHARS
+	ELVBOOL hastrail;	/* can highlight trailing spaces */
+#endif
+
+#ifdef FEATURE_FOLD
+	FOLD	fold;
+
+	/* if in a fold, then display the fold's name */
+	if (o_folding(w) && (fold = foldmark(line, ElvTrue)) != NULL)
+	{
+		/* output whitespace from the front of the first line */
+		for (scanalloc(&cp, fold->from), col = 0, startoffset = markoffset(fold->from);
+		     cp && (*cp == ' ' || *cp == '\t');
+		     scannext(&cp), startoffset++)
+		{
+			if (*cp == ' ')
+			{
+				(*draw)(blanks, 1, 0, startoffset);
+				col++;
+			}
+			else
+			{
+				i = opt_totab(o_tabstop(markbuffer(w->cursor)), col);
+				(*draw)(blanks, -i, 0, startoffset);
+				col += i;
+			}
+		}
+		scanfree(&cp);
+
+		/* output the name of the fold */
+		(*draw)(fold->name, CHARlen(fold->name), font_fold, startoffset);
+
+		/* output a newline */
+		(*draw)(toCHAR("\n"), 1, font_fold, markoffset(fold->to));
+
+		/* next line starts after the fold */
+		(void) marktmp(tmp, markbuffer(fold->to), markoffset(fold->to) + 1);
+		return &tmp;
+	}
+#endif
+
+#ifdef FEATURE_LISTCHARS
+	hastrail = (ELVBOOL)(dmnlistchars(' ', -1L, 1L, NULL, NULL) > 0);
+#endif
 
 	/* initialize startoffset just to silence a compiler warning */
 	startoffset = 0;
 
 	/* for each character in the line... */
 	qty = 0;
-	for (col = 0, offset = markoffset(line), scanalloc(&cp, line); cp && *cp != '\n'; offset++, scannext(&cp))
+	for (col = 0, offset = markoffset(line), scanalloc(&cp, line);
+	     cp && *cp != '\n';
+	     offset++, scannext(&cp))
 	{
 		/* some characters are handled specially */
 		if (*cp == '\f' && markoffset(w->cursor) == o_bufchars(markbuffer(w->cursor)))
@@ -405,15 +760,14 @@ static MARK image(w, line, info, draw)
 			/* output any preceding normal characters */
 			if (qty > 0)
 			{
-				(*draw)(buf, qty, 'n', startoffset);
+				(*draw)(buf, qty, 0, startoffset);
 				qty = 0;
 			}
 
 			/* display the tab character as a bunch of spaces */
-			i = o_tabstop(markbuffer(w->cursor));
-			i -= (col % i);
+			i = opt_totab(o_tabstop(markbuffer(w->cursor)), col);
 			tmpchar = ' ';
-			(*draw)(&tmpchar, -i, 'n', offset);
+			(*draw)(&tmpchar, -i, 0, offset);
 			col += i;
 		}
 		else if (*cp < ' ' || *cp == 127)
@@ -421,16 +775,21 @@ static MARK image(w, line, info, draw)
 			/* output any preceding normal characters */
 			if (qty > 0)
 			{
-				(*draw)(buf, qty, 'n', startoffset);
+				(*draw)(buf, qty, 0, startoffset);
 				qty = 0;
 			}
 
 			/* control characters */
-			tmpchar = '^';
-			(*draw)(&tmpchar, 1, 'n', offset);
-			tmpchar = *cp ^ 0x40;
-			(*draw)(&tmpchar, 1, 'n', offset);
-			col += 2;
+			if (o_list(w) && !w->state->acton)
+				col += dmnlistchars(*cp, offset, col, o_tabstop(markbuffer(w->cursor)), draw);
+			else
+			{
+				tmpchar = '^';
+				(*draw)(&tmpchar, 1, font_specialkey, offset);
+				tmpchar = *cp ^ 0x40;
+				(*draw)(&tmpchar, 1, font_specialkey, offset);
+				col += 2;
+			}
 		}
 		else
 		{
@@ -447,7 +806,7 @@ static MARK image(w, line, info, draw)
 			/* if buf[] is full, flush it now */
 			if (qty == QTY(buf))
 			{
-				(*draw)(buf, qty, 'n', startoffset);
+				(*draw)(buf, qty, 0, startoffset);
 				qty = 0;
 			}
 		}
@@ -456,16 +815,39 @@ static MARK image(w, line, info, draw)
 	/* output any normal chars from the end of the line */
 	if (qty > 0)
 	{
-		(*draw)(buf, qty, 'n', startoffset);
+#ifdef FEATURE_LISTCHARS
+		if (o_list(w) && hastrail && w->state->acton == NULL && markoffset(w->state->cursor) != startoffset + qty)
+		{
+			/* check for trailing spaces */
+			for (i = qty; --i >= 0 && buf[i] == ' '; )
+			{
+			}
+			i++;
+
+			/* output the non-space trailing chars */
+			if (i > 0)
+			{
+				(*draw)(buf, (long)i, 0, startoffset);
+				qty -= i;
+				startoffset += i;
+			}
+
+			/* output any trailing spaces */
+			if (qty > 0)
+				(void)dmnlistchars(' ', startoffset, qty, NULL, draw);
+		}
+		else
+#endif
+			(*draw)(buf, qty, 0, startoffset);
 		qty = 0;
 	}
 
 	/* end the line */
 	if (o_list(w) && !w->state->acton && *cp == '\n')
 	{
-		(*draw)(toCHAR("$"), 1, 'n', offset);
+		col += dmnlistchars(*cp, offset, col, o_tabstop(markbuffer(w->cursor)), draw);
 	}
-	(*draw)(cp ? cp : toCHAR("\n"), 1, 'n', offset);
+	(*draw)(cp ? cp : toCHAR("\n"), 1, 0, offset);
 	if (cp)
 	{
 		offset++;
@@ -493,7 +875,7 @@ static void indent(w, line, linedelta)
 	MARKBUF	from, to;	/* bounds of whitespace in source line */
 	MARKBUF	bline;		/* copy of the "line" argument */
 	CHAR	*cp;		/* used for scanning whitespace */
-	BOOLEAN	srcblank;	/* is source indentation from a blank line? */
+	ELVBOOL	srcblank;	/* is source indentation from a blank line? */
 
 	assert(o_autoindent(markbuffer(line)));
 	assert(markbuffer(w->cursor) == markbuffer(line));
@@ -519,7 +901,7 @@ static void indent(w, line, linedelta)
 		return;
 	}
 	to = *scanmark(&cp);
-	srcblank = (BOOLEAN)(*cp == '\n');
+	srcblank = (ELVBOOL)(*cp == '\n');
 	scanfree(&cp);
 
 	if (markoffset(&from) != markoffset(&to))
@@ -555,12 +937,16 @@ static void indent(w, line, linedelta)
 	}
 	if (cp)
 	{
-		bufreplace(&bline, scanmark(&cp), NULL, 0);
+		to = *scanmark(&cp);
+		scanfree(&cp);
+		bufreplace(&bline, &to, NULL, 0);
 	}
-	scanfree(&cp);
+	else
+		scanfree(&cp);
 }
 
 
+#ifdef FEATURE_TAGS
 /* Return a dynamically-allocated string containing the name of the tag at the
  * cursor, or NULL if the cursor isn't on a tag.
  */
@@ -573,7 +959,7 @@ static CHAR *tagatcursor(win, cursor)
 
 	/* find the ends of the word */
 	curscopy = *cursor;
-	word = wordatcursor(&curscopy);
+	word = wordatcursor(&curscopy, ElvFalse);
 
 	/* if not on a word, then return NULL */
 	if (!word)
@@ -596,7 +982,7 @@ static MARK tagload(tagname, from)
 	MARKBUF	linemark;	/* start of line */
 	BUFFER	buf;		/* the buffer containing the tag */
 	EXINFO	xinfb;		/* dummy ex command, for parsing tag address */
-	BOOLEAN	wasmagic;	/* stores the normal value of o_magic */
+	ELVBOOL	wasmagic;	/* stores the normal value of o_magic */
 	TAG	*tag;		/* the found tag */
 	CHAR	*cp, prev;	/* for scanning the line */
 	char	*name;		/* for scanning the name */
@@ -616,7 +1002,7 @@ static MARK tagload(tagname, from)
 			msg(MSG_ERROR, "[s]$1 doesn't exist", tag->TAGFILE);
 			return NULL;
 		}
-		buf = bufload(NULL, tag->TAGFILE, False);
+		buf = bufload(NULL, tag->TAGFILE, ElvFalse);
 		if (!buf)
 		{
 			/* bufload() already gave error message */
@@ -633,7 +1019,7 @@ static MARK tagload(tagname, from)
 	memset((char *)&xinfb, 0, sizeof xinfb);
 	(void)marktmp(xinfb.defaddr, buf, 0);
 	wasmagic = o_magic;
-	o_magic = False;
+	o_magic = ElvFalse;
 	if (!exparseaddress(&cp, &xinfb))
 	{
 		scanfree(&cp);
@@ -653,7 +1039,7 @@ static MARK tagload(tagname, from)
 	{
 		if (!name
 		 && (CHAR)*tag->TAGNAME == *cp
-		 && !(isalnum(prev) || prev == '_'))
+		 && !(elvalnum(prev) || prev == '_'))
 		{
 			/* starting a new name */
 			retmark = *scanmark(&cp);
@@ -662,7 +1048,7 @@ static MARK tagload(tagname, from)
 		else if (name && !*name)
 		{
 			/* ending a name? */
-			if (isalnum(*cp) || *cp == '_')
+			if (elvalnum(*cp) || *cp == '_')
 			{
 				/* word in the line is longer than name */
 				name = NULL;
@@ -691,6 +1077,35 @@ NotFound:
 	msg(MSG_WARNING, "tag address out of date");
 	return marktmp(retmark, buf, 0L);
 }
+#endif /* FEATURE_TAGS */
+
+/* The <Tab> key command -- in html it move to the next link, but in normal
+ * mode it tries to unfold/refold without moving the cursor.
+ */
+static MARK tagnext(cursor)
+	MARK	cursor;
+{
+#ifdef FEATURE_FOLD
+	ELVBOOL	infold;	/* found a folded FOLD? (else an unfolded one) */
+
+	/* Find a fold from either the "fold" or "unfold" list */
+	if (foldmark(cursor, ElvTrue))
+		infold = ElvTrue;
+	else if (foldmark(cursor, ElvFalse))
+		infold = ElvFalse;
+	else
+		/* no folds here! */
+		return NULL;
+
+	/* Move it to the other list. (Can't fail -- we KNOW there's a fold.) */
+	(void)foldbyrange(cursor, cursor, infold, FOLD_OUTSIDE|FOLD_TOGGLE);
+
+	/* Return the unchanged cursor */
+	return cursor;
+#else
+	return NULL;
+#endif
+}
 
 
 #ifdef FEATURE_LPR
@@ -709,13 +1124,23 @@ static void header(w, pagenum, info, draw)
 	long	gap1;	/* width of gap between left side & middle */
 	long	gap2;	/* width of gap between middle & right side */
 	time_t	now;	/* current time */
-	CHAR	space = ' ';
-	CHAR	newline = '\n';
+	CHAR	space[1];
+	CHAR	newline[1];
+
+	space[0] = ' ';
+	newline[0] = '\n';
 
 	/* if the "lpheader" option isn't set, then don't bother. */
 	if (!o_lpheader)
 	{
 		return;
+	}
+
+	/* if first time, then find font_header */
+	if (!font_header)
+	{
+		font_header = colorfind(toCHAR("header"));
+		colorset(font_header, toCHAR("underlined"), ElvFalse);
 	}
 
 	/* convert page number to text */
@@ -737,7 +1162,7 @@ static void header(w, pagenum, info, draw)
 	gap1 = (o_lpcolumns - plen) / 2 - tlen;
 	if (gap1 < 1)
 	{
-		title += (gap1 - 1);
+		title -= (gap1 - 1);
 		tlen += (gap1 - 1);
 		gap1 = 1;
 	}
@@ -749,14 +1174,14 @@ static void header(w, pagenum, info, draw)
 	}
 
 	/* Output the parts of the headings */
-	(*draw)(title, tlen, 'u', -2L);
-	(*draw)(&space, -gap1, 'u', -2L);
-	(*draw)(pg, plen, 'u', -2L);
-	(*draw)(&space, -gap2, 'u', -2L);
-	(*draw)(date, dlen, 'u', -2L);
+	(*draw)(title, tlen, font_header, -2L);
+	(*draw)(space, -gap1, font_header, -2L);
+	(*draw)(pg, plen, font_header, -2L);
+	(*draw)(space, -gap2, font_header, -2L);
+	(*draw)(date, dlen, font_header, -2L);
 
 	/* End the header line, and then skip one more line */
-	(*draw)(&newline, -2L, 'n', -2L);
+	(*draw)(newline, -2L, 0, -2L);
 }
 #endif /* FEATURE_LPR */
 
@@ -765,8 +1190,8 @@ DISPMODE dmnormal =
 {
 	"normal",
 	"Standard vi",
-	True,	/* display generating can be optimized */
-	True,	/* should use normal wordwrap */
+	ElvTrue,/* display generating can be optimized */
+	ElvTrue,/* should use normal wordwrap */
 	0,	/* no window options */
 	NULL,	/* no descriptions of window options */
 	0,	/* no global options */
@@ -785,7 +1210,12 @@ DISPMODE dmnormal =
 	NULL,	/* no header function, since printing is disabled */
 #endif
 	indent,
+#ifdef FEATURE_TAGS
 	tagatcursor,
 	tagload,
-	NULL	/* no tagnext() function */
+#else
+	NULL,	/* return the tag name at the cursor location */
+	NULL,	/* load a given tag */
+#endif
+	tagnext
 };

@@ -8,10 +8,10 @@
  * defined then the whole file is compiled.
  */
 
-char id_osdir[] = "$Id: osdir.c,v 2.19 1998/02/16 23:55:53 steve Exp $";
 
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <time.h>
 #include <unistd.h>
 #include <errno.h>
 #include <dirent.h>
@@ -21,12 +21,9 @@ char id_osdir[] = "$Id: osdir.c,v 2.19 1998/02/16 23:55:53 steve Exp $";
 #endif
 #if !defined(JUST_DIRFIRST) && !defined(JUST_DIRPATH)
 # include "elvis.h"
+#ifdef FEATURE_RCSID
+char id_osdir[] = "$Id: osdir.c,v 2.29 2003/10/17 17:41:23 steve Exp $";
 #endif
-
-#ifndef JUST_DIRPATH
-# if USE_PROTOTYPES
-static BOOLEAN wildcmp(char *fname, char *wild);
-# endif
 #endif
 
 #ifndef NAME_MAX
@@ -48,19 +45,22 @@ static char *wilddir;
 /* This is the directory stream used by dirfirst() and dirnext() */
 static DIR *dirfp;
 
-/* This variable is True if the wildcard expression only needs to match the
- * beginning of the name, or False if it must match the entire filename.
+/* This variable is ElvTrue if the wildcard expression only needs to match the
+ * beginning of the name, or ElvFalse if it must match the entire filename.
  */
-static BOOLEAN partial;
+static ELVBOOL partial;
 
 /* This recursive function checks a filename against a wildcard expression.
- * Returns True for match, False for mismatch.
+ * Returns ElvTrue for match, ElvFalse for mismatch.
+ *
+ * For Unix this is case-sensitive and supports the *, ?, and [] wildcards.
  */
-static BOOLEAN wildcmp(fname, wild)
+ELVBOOL dirwildcmp(fname, wild)
 	char	*fname;	/* an actual filename */
 	char	*wild;	/* a wildcard expression */
 {
-	int	i, match;
+	int	i;
+	ELVBOOL	match, negate;
 
   TailRecursion:
 	switch (*wild)
@@ -69,7 +69,7 @@ static BOOLEAN wildcmp(fname, wild)
 		/* character after \ must match exactly, except \0 and / */
 		if (*fname == '/' || !*fname || *fname != wild[1])
 		{
-			return False;
+			return ElvFalse;
 		}
 		fname++;
 		wild += 2;
@@ -79,7 +79,7 @@ static BOOLEAN wildcmp(fname, wild)
 		/* match any single character except \0 and / */
 		if (*fname == '/' || !*fname)
 		{
-			return False;
+			return ElvFalse;
 		}
 		fname++;
 		wild++;
@@ -89,18 +89,46 @@ static BOOLEAN wildcmp(fname, wild)
 		/* if no matching ], then compare [ as literal character;
 		 * else next char in fname must be in brackets
 		 */
-		match = 0;
-		for (i = 1; wild[i] && (i == 1 || wild[i] != ']'); i++)
+
+		/* if it starts with '^' we'll want to negate the result */
+		match = negate = ElvFalse;
+		i = 1;
+		if (wild[i] == '^')
+		{
+			negate = ElvTrue;
+			i++;
+		}
+
+		/* Compare this fname char to each bracketed char.  This is
+		 * a little tricky because 1) the ']' char can be included in
+		 * the brackets in unambiguous contexts, 2) we need to support
+		 * ranges of characters, and 3) there might not be a closing ']'
+		 */
+		for (; wild[i] && (i == 1 || wild[i] != ']'); i++)
 		{
 			if (*fname == wild[i])
 			{
-				match = i;
+				match = ElvTrue;
+			}
+			if (wild[i + 1] == '-' && wild[i + 2])
+			{
+				if (*fname > wild[i] && *fname <= wild[i + 2])
+					match = ElvTrue;
+				i += 2;
 			}
 		}
-		if (wild[i] != ']' ? *fname != '[' : match == 0)
+
+		/* If no ']' then this fname character must be '[' (i.e., treat
+		 * the '[' like a literal character).  However, if there is a
+		 * ']' then use the result of the bracket matching if not in
+		 * the brackets (or not out if "negate" is set) then fail.
+		 */
+		if (wild[i] != ']' ? *fname != '[' : match == negate)
 		{
-			return False;
+			return ElvFalse;
 		}
+
+		/* It matched!  Advance fname and wild, then loop */
 		fname++;
 		wild += i + 1;
 		goto TailRecursion;
@@ -112,19 +140,19 @@ static BOOLEAN wildcmp(fname, wild)
 		 * possible.
 		 */
 		for (i = strlen(fname);
-		     i >= 0 && !wildcmp(fname + i, wild + 1);
+		     i >= 0 && !dirwildcmp(fname + i, wild + 1);
 		     i--)
 		{
 		}
-		return (BOOLEAN)(i >= 0);
+		return (ELVBOOL)(i >= 0);
 
 	  case '\0':
-		return ((*fname && !partial) ? False : True);
+		return ((*fname && !partial) ? ElvFalse : ElvTrue);
 
 	  default:
 		if (*fname != *wild)
 		{
-			return False;
+			return ElvFalse;
 		}
 		fname++;
 		wild++;
@@ -139,7 +167,7 @@ static BOOLEAN wildcmp(fname, wild)
  */
 char *dirfirst(wildexpr, ispartial)
 	char	*wildexpr;	/* a wildcard expression to search for */
-	BOOLEAN	ispartial;	/* is this just the front part of a name? */
+	ELVBOOL	ispartial;	/* is this just the front part of a name? */
 {
 	char	*found;
 
@@ -196,7 +224,7 @@ char *dirnext()
 
 	while ((dent = readdir(dirfp)) != NULL
 	    && ((dent->d_name[0] == '.' && (wildfile[0] != '.' && wildfile[0] != '['))
-		|| !wildcmp(dent->d_name, wildfile)))
+		|| !dirwildcmp(dent->d_name, wildfile)))
 	{
 	}
 
@@ -205,6 +233,7 @@ char *dirnext()
 	{
 		closedir(dirfp);
 		dirfp = NULL;
+		partial = ElvFalse;
 		return NULL;
 	}
 
@@ -214,8 +243,8 @@ char *dirnext()
 
 #ifndef JUST_DIRFIRST
 
-/* Return True if wildexpr contains any wildcards; else False */
-BOOLEAN diriswild(wildexpr)
+/* Return ElvTrue if wildexpr contains any wildcards; else ElvFalse */
+ELVBOOL diriswild(wildexpr)
 	char	*wildexpr;	/* either a filename or a wildcard expression */
 {
 #if 0
@@ -225,7 +254,7 @@ BOOLEAN diriswild(wildexpr)
 	{
 		if (!quote && strchr("?*[", *wildexpr))
 		{
-			return True;
+			return ElvTrue;
 		}
 		else if (quote == '\\' || *wildexpr == quote)
 		{
@@ -239,10 +268,10 @@ BOOLEAN diriswild(wildexpr)
 #else
 	if (strpbrk(wildexpr, "?*[\\"))
 	{
-		return True;
+		return ElvTrue;
 	}
 #endif
-	return False;
+	return ElvFalse;
 }
 
 
@@ -250,7 +279,8 @@ BOOLEAN diriswild(wildexpr)
  * following to describe the file's type & permissions:
  *    DIR_INVALID    malformed filename (can't happen with UNIX)
  *    DIR_BADPATH    unable to check file
- *    DIR_NOTFILE    directory or other non-file
+ *    DIR_NOTFILE    file exists but is neither normal nor a directory
+ *    DIR_DIRECTORY  file is a directory
  *    DIR_NEW        file doesn't exist yet
  *    DIR_UNREADABLE file exists but is unreadable
  *    DIR_READONLY   file is readable but not writable
@@ -263,7 +293,7 @@ DIRPERM dirperm(filename)
 	int	i;
 
 	/* check for a protocol */
-	for (i = 0; isalpha(filename[i]); i++)
+	for (i = 0; elvalpha(filename[i]); i++)
 	{
 	}
 	if (i < 2 || filename[i] != ':')
@@ -286,22 +316,16 @@ DIRPERM dirperm(filename)
 		else
 			return DIR_BADPATH;
 	}
-	if (!S_ISREG(st.st_mode))
-	{
+	if (S_ISDIR(st.st_mode))
+		return DIR_DIRECTORY;
+	else if (!S_ISREG(st.st_mode))
 		return DIR_NOTFILE;
-	}
 	else if (access(filename, 4) < 0)
-	{
 		return DIR_UNREADABLE;
-	}
 	else if (access(filename, 2) < 0)
-	{
 		return DIR_READONLY;
-	}
 	else
-	{
 		return DIR_READWRITE;
-	}
 }
 
 /* return the file part of a pathname.  This particular implementation doesn't
@@ -375,6 +399,35 @@ char *dirpath(dir, file)
 	return path;
 }
 
+/* Return the timestamp of a file, or the current time if no file is specified.
+ * If an invalid file is specified, return "".
+ */
+char *dirtime(filename)
+	char	*filename;	/* filename to check */
+{
+	static char	str[20];/* "YYYY-MM-DDThh:mm:ss\0" */
+	time_t		when;	/* the date/time */
+	struct stat	st;	/* holds info from timestamp */
+	struct tm	*tp;	/* time, broken down */
+
+	/* Choose a time to return (if any) */
+	if (!filename || !*filename)
+		time(&when);
+	else if (stat(filename, &st) == 0)
+		when = (st.st_mtime > st.st_ctime) ? st.st_mtime : st.st_ctime;
+	else
+		return "";
+
+	/* Convert it to a string */
+	tp = localtime(&when);
+	sprintf(str, "%04d-%02d-%02dT%02d:%02d:%02d",
+		tp->tm_year + 1900, tp->tm_mon + 1, tp->tm_mday,
+		tp->tm_hour, tp->tm_min, tp->tm_sec);
+
+	/* return it */
+	return str;
+}
+
 #ifndef JUST_DIRPATH
 
 /* return the pathname of the current working directory */
@@ -392,13 +445,14 @@ char *dircwd()
 	}
 }
 
-/* change the current directory, and return True if successful (else False) */
-BOOLEAN dirchdir(pathname)
+/* change the current directory, and return ElvTrue if successful (else ElvFalse) */
+ELVBOOL dirchdir(pathname)
 	char	*pathname;	/* new directory */
 {
-	return (BOOLEAN)(chdir(pathname) >= 0);
+	return (ELVBOOL)(chdir(pathname) >= 0);
 }
 
+#ifdef FEATURE_MISC
 /* This only handles ~user, because the ~/dir is handled elsewhere. */
 char *expanduserhome(pathname, dest)
 	char *pathname;
@@ -424,5 +478,6 @@ char *expanduserhome(pathname, dest)
 	
 	return(dest);
 }
+#endif /* FEATURE_MISC */
 #endif /* !JUST_DIRPATH */
 #endif /* !JUST_DIRFIRST */

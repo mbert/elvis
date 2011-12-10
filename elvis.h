@@ -15,13 +15,13 @@
 # define PROTOCOL_HTTP
 #endif
 
-/* If any markup display mode is used, then define DISPLAY_ANYMARKUP */
-#if defined(DISPLAY_HTML) || defined(DISPLAY_MAN) || defined(DISPLAY_TEX)
-# define DISPLAY_ANYMARKUP
+/* The hlobject feature requires text objects */
+#if defined(FEATURE_HLOBJECT) && !defined(FEATURE_TEXTOBJ)
+# define FEATURE_TEXTOBJ
 #endif
 
 /* Some handy macros */
-#define QTY(array)	(sizeof(array) / sizeof((array)[0]))
+#define QTY(array)	(int)(sizeof(array) / sizeof((array)[0]))
 #define ELVCTRL(ch)	((ch) ^ 0x40)
 
 /* Names of some special buffers */
@@ -47,6 +47,7 @@
 #define ERRLIST_BUF	"Elvis error list"
 #define TRACE_BUF	"Elvis map log"
 #define BBROWSE_BUF	"Elvis buffer list"
+#define EQUALTILDE_BUF	"Elvis equal tilde"
 
 /* Names of files that store default contents of buffers */
 #define INIT_FILE	"elvis.ini"	/* executed before first file is loaded */
@@ -61,7 +62,8 @@
 #define AFTERWRITE_FILE	"elvis.awf"	/* executed after writing a file */
 #define MSG_FILE	"elvis.msg"	/* verbose message translations */
 #define HELP_FILE	"elvis.html"	/* elvis online documentation */
-#define SYNTAX_FILE	"elvis.syn"	/* descriptions of languages */
+#define SYNTAX_FILE	"elvis.syn"	/* syntax descriptions for languages */
+#define MARKUP_FILE	"elvis.mar"	/* markup descriptions for languages */
 #define BROWSER_FILE	"elvis.bro"	/* prototype of browser document */
 #define NET_FILE	"elvis.net"	/* network proxy list */
 #define FTP_FILE	"elvis.ftp"	/* ftp account information */
@@ -76,7 +78,7 @@
 
 
 /* Some useful data types */
-typedef enum {False, True} BOOLEAN;
+typedef enum {ElvFalse, ElvTrue} ELVBOOL;
 typedef enum { RESULT_COMPLETE, RESULT_MORE, RESULT_ERROR } RESULT;
 typedef unsigned char CHAR;
 typedef unsigned short COUNT;
@@ -85,14 +87,8 @@ typedef unsigned int	_CHAR_;
 typedef int		_char_;
 
 
-/* Include one version of the ctype macros.  Elvis' versions have the advantage
- * of automatically checking the digraph table.
- */
-#ifdef NEED_CTYPE
-# include "elvctype.h"
-#else
-# include <ctype.h>
-#endif
+/* Include ctype macros -- either elvis' version or the standard version */
+#include "elvctype.h"
 
 /* Character conversions, and other operations */
 #define toCHAR(s)	((CHAR *)(s))
@@ -120,8 +116,10 @@ typedef int		_char_;
 #endif
 #if USE_PROTOTYPES
 # define P_(args)	args
+# define P_VOID		(void)
 #else
 # define P_(args)	()
+# define P_VOID		()
 #endif
 
 /* Some macros to handle C++ in a graceful way */
@@ -131,6 +129,11 @@ typedef int		_char_;
 #else
 #define BEGIN_EXTERNC
 #define END_EXTERNC
+#endif
+
+#ifdef FEATURE_STDIN
+extern FILE *origstdin;
+extern ELVBOOL stdin_not_kbd;
 #endif
 
 /* Header files for the modules */
@@ -151,6 +154,8 @@ typedef int		_char_;
 #include "draw.h"
 #include "state.h"
 #include "window.h"
+#include "spell.h"
+#include "color.h"
 #include "options2.h"
 #include "gui2.h"
 #include "display2.h"
@@ -173,12 +178,16 @@ typedef int		_char_;
 #include "tag.h"
 #include "tagsrch.h"
 #include "tagelvis.h"
+#include "descr.h"
 #include "need.h"
 #include "misc.h"
 #include "message2.h"
+#include "fold.h"
+#include "autocmd.h"
+#include "region.h"
 
 /* The following are defined in main.c */
 extern GUI *chosengui;
 BEGIN_EXTERNC
-extern void mainfirstcmd P_((WINDOW win));
+extern ELVBOOL mainfirstcmd P_((WINDOW win));
 END_EXTERNC

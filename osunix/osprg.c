@@ -7,11 +7,13 @@
 #include <signal.h>
 #include <string.h>
 #include "elvis.h"
+#ifdef FEATURE_RCSID
+char id_osprg[] = "$Id: osprg.c,v 2.13 2003/10/17 17:41:23 steve Exp $";
+#endif
 #ifdef NEED_WAIT_H
 # include <sys/wait.h>
 #endif
 
-char id_osprg[] = "$Id: osprg.c,v 2.10 1998/02/23 18:56:42 steve Exp $";
 
 #define TMPDIR	(o_directory ? tochar8(o_directory) : "/tmp")
 #define SHELL	(o_shell ? tochar8(o_shell) : "/bin/sh")
@@ -24,8 +26,8 @@ static int	pid;		/* process ID of program */
 
 
 /* Declares which program we'll run, and what we'll be doing with it.
- * This function should return True if successful.  If there is an error,
- * it should issue an error message via msg(), and return False.
+ * This function should return ElvTrue if successful.  If there is an error,
+ * it should issue an error message via msg(), and return ElvFalse.
  *
  * For UNIX, the behavior of this function depends on willwrite.
  * If willwrite, then the command is saved and a temporary file is
@@ -35,10 +37,10 @@ static int	pid;		/* process ID of program */
  * if willread) and the function succedes if pipe() and fork()
  * succeed.
  */
-BOOLEAN prgopen(cmd, willwrite, willread)
+ELVBOOL prgopen(cmd, willwrite, willread)
 	char	*cmd;		/* command string */
-	BOOLEAN	willwrite;	/* if True, redirect command's stdin */
-	BOOLEAN	willread;	/* if True, redirect command's stdout */
+	ELVBOOL	willwrite;	/* if ElvTrue, redirect command's stdin */
+	ELVBOOL	willread;	/* if ElvTrue, redirect command's stdout */
 {
 	int	r0w1[2];	/* two ends of a pipe */
 
@@ -62,7 +64,7 @@ BOOLEAN prgopen(cmd, willwrite, willread)
 			msg(MSG_ERROR, "can't make temporary file");
 			safefree(command);
 			command = NULL;
-			return False;
+			return ElvFalse;
 		}
 	}
 	else if (willwrite || willread) /* but not both */
@@ -71,7 +73,7 @@ BOOLEAN prgopen(cmd, willwrite, willread)
 		if (pipe(r0w1) < 0)
 		{
 			msg(MSG_ERROR, "can't create pipe");
-			return False;
+			return ElvFalse;
 		}
 
 		/* fork */
@@ -81,7 +83,7 @@ BOOLEAN prgopen(cmd, willwrite, willread)
 			msg(MSG_ERROR, "can't fork");
 			close(r0w1[0]);
 			close(r0w1[1]);
-			return False;
+			return ElvFalse;
 		}
 		else if (pid == 0) /* child */
 		{
@@ -141,7 +143,7 @@ BOOLEAN prgopen(cmd, willwrite, willread)
 		if (pid < 0) /* error */
 		{
 			msg(MSG_ERROR, "can't fork");
-			return False;
+			return ElvFalse;
 		}
 		else if (pid == 0) /* child */
 		{
@@ -154,7 +156,7 @@ BOOLEAN prgopen(cmd, willwrite, willread)
 	}
 
 	/* if we get here, we must have succeeded */
-	return True;
+	return ElvTrue;
 }
 
 /* Write the contents of buf to the program's stdin, and return nbytes
@@ -172,21 +174,21 @@ int prgwrite(buf, nbytes)
 	return write(writefd, buf, (size_t)nbytes);
 }
 
-/* Marks the end of writing.  Returns True if all is okay, or False if
+/* Marks the end of writing.  Returns ElvTrue if all is okay, or ElvFalse if
  * error.
  *
  * For UNIX, the temp file is closed, and the program is forked.
  * (Since this function is only called when willwrite, the program
- * wasn't forked when prgopen() was called.)  Returns True if the
- * fork was successful, or False if it failed.
+ * wasn't forked when prgopen() was called.)  Returns ElvTrue if the
+ * fork was successful, or ElvFalse if it failed.
  */
-BOOLEAN prggo()
+ELVBOOL prggo()
 {
 	int	r0w1[2];
 
 	/* If we weren't writing, then there's nothing to be done here */
 	if (writefd < 0)
-		return True;
+		return ElvTrue;
 
 	/* If we're using a temp file, then close it for writing, and then
 	 * fork the program with its stdin redirected to come from file.
@@ -212,7 +214,7 @@ BOOLEAN prggo()
 			close(r0w1[1]);
 			safefree(command);
 			command = NULL;
-			return False;
+			return ElvFalse;
 		}
 		else if (pid == 0) /* child */
 		{
@@ -256,7 +258,7 @@ BOOLEAN prggo()
 		writefd = -1;
 	}
 
-	return True;
+	return ElvTrue;
 }
 
 

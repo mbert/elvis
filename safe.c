@@ -1,9 +1,11 @@
 /* safe.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_safe[] = "$Id: safe.c,v 2.12 1997/12/24 03:12:52 steve Exp $";
 
 #include "elvis.h"
+#ifdef FEATURE_RCSID
+char id_safe[] = "$Id: safe.c,v 2.17 2003/10/17 17:41:23 steve Exp $";
+#endif
 
 #ifndef DEBUG_ALLOC
 void *safealloc(qty, size)
@@ -36,14 +38,14 @@ char *safedup(str)
 #else
 
 #define MAGIC1 0x10d934a2
-#define MAGIC2 0xdf423219
+#define MAGIC2 0x42df3219
 typedef struct sainfo_s
 {
 	struct sainfo_s *next;	/* another allocated memory chunk */
 	char		*file;	/* source file where allocated */
 	int		line;	/* source line where allocated */
 	int		size;	/* number of longs allocated */
-	BOOLEAN		kept;	/* if True, don't complain if never freed */
+	ELVBOOL		kept;	/* if ElvTrue, don't complain if never freed */
 	long		magic[2];/* magic number plus application info */
 } sainfo_t;
 
@@ -77,7 +79,7 @@ void safeinspect()
 void *_safealloc(file, line, kept, qty, size)
 	char	*file;	/* name of source file where this func was called */
 	int	line;	/* line of source file where this func was called */
-	BOOLEAN	kept;	/* if True, don't complain if never allocated */
+	ELVBOOL	kept;	/* if ElvTrue, don't complain if never allocated */
 	int	qty;	/* number of items to allocate */
 	size_t	size;	/* size of each item */
 {
@@ -122,7 +124,7 @@ void *_safealloc(file, line, kept, qty, size)
 	     nlongs++, scan = scan->next)
 	{
 	}
-	if (nlongs > 100)
+	if (nlongs > 100 && (!kept || strcmp(file, "options.c")))
 	{
 		fprintf(stderr, "%d allocations from %s(%d)\n", nlongs, file, line);
 	}
@@ -176,7 +178,7 @@ void _safefree(file, line, mem)
 char *_safedup(file, line, kept, str)
 	char	*file;	/* name of source file where this func was called */
 	int	line;	/* line of source file where this func was called */
-	BOOLEAN	kept;	/* if True, don't complain if never freed */
+	ELVBOOL	kept;	/* if ElvTrue, don't complain if never freed */
 	char	*str;	/* nul-terminated string to duplicate */
 {
 	char	*newp;

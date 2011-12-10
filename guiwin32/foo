@@ -1,0 +1,671 @@
+*** /misc/steve/elvis/elvis-2.2f/guiwin32/elvisres.h	Wed Oct 31 12:19:24 2001
+--- elvisres.h	Mon Nov 19 16:20:13 2001
+***************
+*** 172,177 ****
+--- 172,179 ----
+  #define IDC_GUI_MENUBAR                 1136
+  #define IDC_GUI_STATUSBAR               1137
+  #define IDC_GUI_BACKGROUND              1138
++ #define IDC_PROPORTIONAL                1139
++ #define IDC_GUI_PROPORTIONAL            1139
+  #define IDM_FILE_EXIT                   40001
+  #define IDM_FILE_NEW                    40002
+  #define IDM_FILE_OPEN                   40003
+***************
+*** 225,231 ****
+  #ifndef APSTUDIO_READONLY_SYMBOLS
+  #define _APS_NEXT_RESOURCE_VALUE        127
+  #define _APS_NEXT_COMMAND_VALUE         40050
+! #define _APS_NEXT_CONTROL_VALUE         1139
+  #define _APS_NEXT_SYMED_VALUE           101
+  #endif
+  #endif
+--- 227,233 ----
+  #ifndef APSTUDIO_READONLY_SYMBOLS
+  #define _APS_NEXT_RESOURCE_VALUE        127
+  #define _APS_NEXT_COMMAND_VALUE         40050
+! #define _APS_NEXT_CONTROL_VALUE         1140
+  #define _APS_NEXT_SYMED_VALUE           101
+  #endif
+  #endif
+*** /misc/steve/elvis/elvis-2.2f/guiwin32/guiwin.c	Wed Oct 31 12:19:24 2001
+--- guiwin.c	Mon Nov 19 16:20:13 2001
+***************
+*** 40,60 ****
+          { "yellow",      {255,255,  0} },
+          { "white",       {255,255,255} },
+          { "lightmagenta",{255,  0,255} },
+- 
+- 	/* a few custom colors, don't look right on 8bpp screens */
+- 	{ "beige",       {245,245,220} },
+- 	{ "pink",	 {255,200,200} },
+- 	{ "skyblue",	 {135,206,235} },
+- 	{ "linen",       {250,240,230} },
+- 	{ "cornsilk",    {255,248,220} },
+- 	{ "khaki",       {240,230,140} },
+- 	{ "orange",      {255,165,  0} },
+- 	{ "saddlebrown", {139, 69, 19} },
+- 	{ "turquoise",   { 64,224,208} },
+- 
+- 	/* It also supports "gray1" through "gray99", but that's done via
+- 	 * some specific hardcoded tests, and hence is not listed here.
+- 	 */
+  	{ NULL }
+  };
+  
+--- 40,45 ----
+***************
+*** 1056,1061 ****
+--- 1041,1049 ----
+  {
+      register int        i, j;
+      int			r, g, b;
++     char		*rgbfile;
++     char		rgbname[100];
++     FILE		*fp;
+  
+      if (*colornam == '#')
+      {
+***************
+*** 1084,1113 ****
+  		colornam[j++] = tolower(colornam[i]);
+  	colornam[j] = '\0';
+  
+- 	/* if "grayX" where X is a number from 1 to 99, then use a gray value */
+- 	if ((!CHARncmp(colornam, toCHAR("gray"), 4)
+- 		|| !CHARncmp(colornam, toCHAR("grey"), 4))
+- 	 && (i = atoi(tochar8(colornam) + 4)) > 0 && i < 100)
+- 	{
+- 		r = g = b = i * 255 / 100;
+- 	}
+- 	else
+- 	{
+  	    /* look up the color */
+! 	    for (i = 0; colortbl[i].name && CHARcmp(toCHAR(colortbl[i].name), colornam); i++)
+  	    {
+  	    }
+! 	    if (!colortbl[i].name)
+  	    {
+- 		msg(MSG_ERROR, "[S]unknown color $1", colornam);
+- 		return False;
+- 	    }
+- 
+  	    /* Use the found color */
+  	    r = colortbl[i].rgb[0];
+  	    g = colortbl[i].rgb[1];
+  	    b = colortbl[i].rgb[2];
+  	}
+      }
+  
+      /* Success!  Store the color and return True */
+--- 1072,1119 ----
+  			colornam[j++] = tolower(colornam[i]);
+  		colornam[j] = '\0';
+  
+  	    /* look up the color */
+! 	    for (i = 0;
+! 	         colortbl[i].name && CHARcmp(toCHAR(colortbl[i].name), colornam);
+! 	         i++)
+  	    {
+  	    }
+! 	    if (colortbl[i].name)
+  	    {
+  		    /* Use the found color */
+  		    r = colortbl[i].rgb[0];
+  		    g = colortbl[i].rgb[1];
+  		    b = colortbl[i].rgb[2];
+  	    }
++ 	    else /* not found -- try "rgb.txt" */
++ 	    {
++ 			/* search for the color in the "rgb.txt" file */
++ 			*rgbname = '\0';
++ 			rgbfile = iopath(o_elvispath, "rgb.txt", False);
++ 			if (rgbfile) {
++ 				fp = fopen(rgbfile, "r");
++ 				if (fp) {
++ 					while (fscanf(fp, "%d %d %d %s", &r, &g, &b, &rgbname) == 4
++ 						&& CHARcmp(tochar8(rgbname), colornam))
++ 					{
++ 					}
++ 					fclose(fp);
++ 				}
++ 			}
++ 
++ 			/* if we didn't find it there, then fail */
++ 			if (CHARcmp(tochar8(rgbname), colornam)) {
++ 				if (isfg) {
++ 					memcpy(rgb, colorinfo[COLOR_FONT_NORMAL].da.fg_rgb, 3);
++ 					*colorptr = colorinfo[COLOR_FONT_NORMAL].fg;
++ 				} else {
++ 					memcpy(rgb, colorinfo[COLOR_FONT_NORMAL].da.bg_rgb, 3);
++ 					*colorptr = colorinfo[COLOR_FONT_NORMAL].bg;
++ 				}
++ 				msg(MSG_ERROR, "[S]unknown color $1", colornam);
++ 				return False;
++ 			}
++ 		}
+      }
+  
+      /* Success!  Store the color and return True */
+*** /misc/steve/elvis/elvis-2.2f/guiwin32/gwcmd.c	Wed Oct 31 12:19:24 2001
+--- gwcmd.c	Mon Nov 19 16:20:13 2001
+***************
+*** 627,636 ****
+              DialogBox (hInst, MAKEINTRESOURCE (IDD_OPT_GLOBAL), gwp->frameHWnd,
+                         (DLGPROC)DlgOptGlobal);
+              break;
+-         case IDM_OPTIONS_SYNTAX:
+-             DialogBox (hInst, MAKEINTRESOURCE (IDD_OPT_SYNTAX), gwp->frameHWnd,
+-                        (DLGPROC)DlgOptSyntax);
+-             break;
+          case IDM_OPTIONS_WINDOW:
+              DialogBox (hInst, MAKEINTRESOURCE (IDD_OPT_WINDOW), gwp->frameHWnd,
+                         (DLGPROC)DlgOptWindow);
+--- 627,632 ----
+*** /misc/steve/elvis/elvis-2.2f/guiwin32/gwdlgs.c	Wed Oct 31 12:19:24 2001
+--- gwdlgs.c	Sun Nov 25 09:09:54 2001
+***************
+*** 18,23 ****
+--- 18,32 ----
+  #include "wintools.h"
+  #include "elvisres.h"
+  
++ typedef struct {
++ 	CHAR			*fg;	/* name of foreground color */
++ 	CHAR			*bg;	/* name of background color */
++ 	CHAR			*like;	/* name of "like" font */
++ 	unsigned short	bits;	/* other attributes */
++ 	unsigned short	orig;	/* original settings of other attributes */
++ 	char			font;	/* font code that these attributes are fore */
++ } CINFO;
++ 
+  #define MAX_HISTORY_LIST        10
+  
+  struct history_list {
+***************
+*** 363,416 ****
+  ** OptGuiHelper -- respond to selection of a different text type.
+  ** "old" should be NULL the first time, then previous "new" thereafter.
+  */
+! static void OptGuiHelper(HWND hwnd, COLORINFO *old, COLORINFO *new)
+  {
+  	int	i;
+! 	int	fgi, bgi;
+  
+  	/* Is this the first time? */
+  	if (!old)
+  	{
+  		/* Yes -- store color list in combo boxes */
+! 		for (i = 0, fgi = bgi = -1; colortbl[i].name; i++)
+  		{
+  			SendDlgItemMessage(hwnd, IDC_GUI_FOREGROUND, CB_ADDSTRING,
+  							   0, (LPARAM)colortbl[i].name);
+  			SendDlgItemMessage(hwnd, IDC_GUI_BACKGROUND, CB_ADDSTRING,
+  							   0, (LPARAM)colortbl[i].name);
+! 			if ((old->da.bits & COLOR_FG) && old->fg == RGB(colortbl[i].rgb[0], colortbl[i].rgb[1], colortbl[0].rgb[2]))
+! 				fgi = i;
+! 			if ((old->da.bits & COLOR_BG) && old->bg == RGB(colortbl[i].rgb[0], colortbl[i].rgb[1], colortbl[0].rgb[2]))
+! 				bgi = i;
+! 		}
+! #if 0
+! 		if (fgi != -1)
+! 			SendDlgItemMessage (hwnd, IDC_GUI_FOREGROUND, CB_SETCURSEL, fgi, 0);
+! 		if (bgi != -1)
+! 			SendDlgItemMessage (hwnd, IDC_GUI_BACKGROUND, CB_SETCURSEL, bgi, 0);
+! #endif
+  	}
+  	else
+  	{
+  		/* No -- parse color settings for old text type */
+  		
+  	}
+  
+  	/* Set flags for new text type */
+  	SendDlgItemMessage (hwnd, IDC_GUI_BOLD, BM_SETCHECK,
+! 			new->da.bits & COLOR_BOLD ? BST_CHECKED : BST_UNCHECKED, 0);
+  	SendDlgItemMessage (hwnd, IDC_GUI_ITALIC, BM_SETCHECK,
+! 			new->da.bits & COLOR_ITALIC ? BST_CHECKED : BST_UNCHECKED, 0);
+  	SendDlgItemMessage (hwnd, IDC_GUI_UNDERLINED, BM_SETCHECK,
+! 			new->da.bits & COLOR_UNDERLINED ? BST_CHECKED : BST_UNCHECKED,0);
+  	SendDlgItemMessage (hwnd, IDC_GUI_BOXED, BM_SETCHECK,
+! 			new->da.bits & COLOR_BOXED ? BST_CHECKED : BST_UNCHECKED, 0);
+  	SendDlgItemMessage (hwnd, IDC_GUI_GRAPHIC, BM_SETCHECK,
+! 			new->da.bits & COLOR_GRAPHIC ? BST_CHECKED : BST_UNCHECKED, 0);
+  	SendDlgItemMessage (hwnd, IDC_GUI_FIXED, BM_SETCHECK,
+! 			new->da.bits & COLOR_PROP ? BST_UNCHECKED : BST_CHECKED, 0);
+  
+  	/* set combo box colors for new text type */
+  }
+  
+  /* --------------------------------------------------------------------
+--- 372,441 ----
+  ** OptGuiHelper -- respond to selection of a different text type.
+  ** "old" should be NULL the first time, then previous "new" thereafter.
+  */
+! static void OptGuiHelper(HWND hwnd, CINFO *old, CINFO *new)
+  {
+  	int	i;
+! 	CHAR	*name;
+! 	CHAR	buf[100];
+  
+  	/* Is this the first time? */
+  	if (!old)
+  	{
+  		/* Yes -- store color list in combo boxes */
+! 		for (i = 0; colortbl[i].name; i++)
+  		{
+  			SendDlgItemMessage(hwnd, IDC_GUI_FOREGROUND, CB_ADDSTRING,
+  							   0, (LPARAM)colortbl[i].name);
+  			SendDlgItemMessage(hwnd, IDC_GUI_BACKGROUND, CB_ADDSTRING,
+  							   0, (LPARAM)colortbl[i].name);
+! 		}
+  	}
+  	else
+  	{
+  		/* No -- parse color settings for old text type */
+  
++ 		/* foreground */
++ 		SendDlgItemMessage(hwnd, IDC_GUI_FOREGROUND, WM_GETTEXT, sizeof buf, (LPARAM)buf);
++ 		for (name = buf; *name == ' '; name++)
++ 			;
++ 		if (CHARcmp(old->fg ? old->fg : toCHAR(""), name))
++ 			old->bits |= COLOR_SET;
++ 		if (old->fg)
++ 			safefree(old->fg);
++ 		old->fg = *name ? CHARdup(name) : NULL;
++ 
++ 		/* background */
++ 		SendDlgItemMessage(hwnd, IDC_GUI_BACKGROUND, WM_GETTEXT, sizeof buf, (LPARAM)buf);
++ 		for (name = buf; *name == ' '; name++)
++ 			;
++ 		if (CHARcmp(old->bg ? old->bg : toCHAR(""), name))
++ 			old->bits |= COLOR_SET;
++ 		if (old->bg)
++ 			safefree(old->bg);
++ 		old->bg = *name ? CHARdup(name) : NULL;
+  	}
+  
+  	/* Set flags for new text type */
+  	SendDlgItemMessage (hwnd, IDC_GUI_BOLD, BM_SETCHECK,
+! 			new->bits & COLOR_BOLD ? BST_CHECKED : BST_UNCHECKED, 0);
+  	SendDlgItemMessage (hwnd, IDC_GUI_ITALIC, BM_SETCHECK,
+! 			new->bits & COLOR_ITALIC ? BST_CHECKED : BST_UNCHECKED, 0);
+  	SendDlgItemMessage (hwnd, IDC_GUI_UNDERLINED, BM_SETCHECK,
+! 			new->bits & COLOR_UNDERLINED ? BST_CHECKED : BST_UNCHECKED,0);
+  	SendDlgItemMessage (hwnd, IDC_GUI_BOXED, BM_SETCHECK,
+! 			new->bits & COLOR_BOXED ? BST_CHECKED : BST_UNCHECKED, 0);
+  	SendDlgItemMessage (hwnd, IDC_GUI_GRAPHIC, BM_SETCHECK,
+! 			new->bits & COLOR_GRAPHIC ? BST_CHECKED : BST_UNCHECKED, 0);
+  	SendDlgItemMessage (hwnd, IDC_GUI_FIXED, BM_SETCHECK,
+! 			(new->bits & (COLOR_PROP|COLOR_PROPSET)) == COLOR_PROPSET ? BST_CHECKED : BST_UNCHECKED, 0);
+! 	SendDlgItemMessage (hwnd, IDC_GUI_PROPORTIONAL, BM_SETCHECK,
+! 			(new->bits & (COLOR_PROP|COLOR_PROPSET) == (COLOR_PROP|COLOR_PROPSET)) ? BST_CHECKED : BST_UNCHECKED, 0);
+  
+  	/* set combo box colors for new text type */
++ 	SendDlgItemMessage (hwnd, IDC_GUI_FOREGROUND, WM_SETTEXT,
++ 						0, (LPARAM)(new->fg ? tochar8(new->fg) : ""));
++ 	SendDlgItemMessage (hwnd, IDC_GUI_BACKGROUND, WM_SETTEXT,
++ 						0, (LPARAM)(new->bg ? tochar8(new->bg) : ""));
+  }
+  
+  /* --------------------------------------------------------------------
+***************
+*** 421,427 ****
+  BOOL CALLBACK DlgOptGui (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+  
+  {
+! 	static COLORINFO cinfo[QTY(colorinfo)];
+      static int      curelem;
+      register int    i;
+      LOGFONT         lf;
+--- 446,453 ----
+  BOOL CALLBACK DlgOptGui (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+  
+  {
+! 	static CINFO	cinfo[QTY(colorinfo)];
+! 	static int		qtyelem;
+  	static int      curelem;
+  	register int    i;
+  	LOGFONT         lf;
+***************
+*** 440,453 ****
+  		        calctrue(optgetstr("scrollbar", NULL)) ? BST_CHECKED : BST_UNCHECKED, 0);
+  			SendDlgItemMessage (hwnd, IDC_GUI_STATUSBAR, BM_SETCHECK,
+  		        calctrue(optgetstr("statusbar", NULL)) ? BST_CHECKED : BST_UNCHECKED, 0);
+!             for (i = 0; colorinfo[i + 1].name != NULL; i++) {
+! 				cinfo[i] = colorinfo[i + 1];
+                  SendDlgItemMessage (hwnd, IDC_GUI_FONTS, LB_ADDSTRING,
+!                                     0, (LPARAM)cinfo[i].name);
+              }
+! 			cinfo[i].name = NULL;
+!             SendDlgItemMessage (hwnd, IDC_GUI_FONTS, LB_SETCURSEL, 0, 0);
+!             curelem = 0;
+  			OptGuiHelper(hwnd, NULL, &cinfo[curelem]);
+              return TRUE;
+  
+--- 466,482 ----
+  				calctrue(optgetstr("scrollbar", NULL)) ? BST_CHECKED : BST_UNCHECKED, 0);
+  			SendDlgItemMessage (hwnd, IDC_GUI_STATUSBAR, BM_SETCHECK,
+  				calctrue(optgetstr("statusbar", NULL)) ? BST_CHECKED : BST_UNCHECKED, 0);
+! 			qtyelem = colornpermanent - 1;
+! 			for (i = 0; i < qtyelem; i++) {
+! 				cinfo[i].font = colorsortorder[i];
+! 				colorparse(colorinfo[cinfo[i].font].descr, &cinfo[i].fg,
+! 								&cinfo[i].bg, &cinfo[i].like, &cinfo[i].bits);
+! 				cinfo[i].orig = cinfo[i].orig;
+  				SendDlgItemMessage (hwnd, IDC_GUI_FONTS, LB_ADDSTRING,
+! 								0, (LPARAM)colorinfo[cinfo[i].font].name);
+  			}
+! 			curelem = SendDlgItemMessage (hwnd, IDC_GUI_FONTS, LB_SELECTSTRING,
+! 										(WPARAM)-1, (LPARAM)"normal");
+  			OptGuiHelper(hwnd, NULL, &cinfo[curelem]);
+  			return TRUE;
+  
+***************
+*** 462,505 ****
+              else if (LOWORD (wParam) == IDC_GUI_BOLD &&
+                       HIWORD (wParam) == BN_CLICKED) {
+                  if (SendDlgItemMessage (hwnd, IDC_GUI_BOLD, BM_GETCHECK, 0, 0) == BST_CHECKED)
+! 					cinfo[curelem].da.bits |= COLOR_BOLD;
+  				else
+! 					cinfo[curelem].da.bits &= ~COLOR_BOLD;
+  		    }
+              else if (LOWORD (wParam) == IDC_GUI_ITALIC &&
+                       HIWORD (wParam) == BN_CLICKED) {
+                  if (SendDlgItemMessage (hwnd, IDC_GUI_ITALIC, BM_GETCHECK, 0, 0) == BST_CHECKED)
+! 					cinfo[curelem].da.bits |= COLOR_ITALIC;
+  				else
+! 					cinfo[curelem].da.bits &= ~COLOR_ITALIC;
+  		    }
+              else if (LOWORD (wParam) == IDC_GUI_UNDERLINED &&
+                       HIWORD (wParam) == BN_CLICKED) {
+                  if (SendDlgItemMessage (hwnd, IDC_GUI_UNDERLINED, BM_GETCHECK, 0, 0) == BST_CHECKED)
+! 					cinfo[curelem].da.bits |= COLOR_UNDERLINED;
+  				else
+! 					cinfo[curelem].da.bits &= ~COLOR_UNDERLINED;
+  		    }
+              else if (LOWORD (wParam) == IDC_GUI_BOXED &&
+                       HIWORD (wParam) == BN_CLICKED) {
+                  if (SendDlgItemMessage (hwnd, IDC_GUI_BOXED, BM_GETCHECK, 0, 0) == BST_CHECKED)
+! 					cinfo[curelem].da.bits |= COLOR_BOXED;
+  				else
+! 					cinfo[curelem].da.bits &= ~COLOR_BOXED;
+  		    }
+              else if (LOWORD (wParam) == IDC_GUI_GRAPHIC &&
+                       HIWORD (wParam) == BN_CLICKED) {
+                  if (SendDlgItemMessage (hwnd, IDC_GUI_GRAPHIC, BM_GETCHECK, 0, 0) == BST_CHECKED)
+! 					cinfo[curelem].da.bits |= COLOR_GRAPHIC;
+  				else
+! 					cinfo[curelem].da.bits &= ~COLOR_GRAPHIC;
+  		    }
+              else if (LOWORD (wParam) == IDC_GUI_FIXED &&
+                       HIWORD (wParam) == BN_CLICKED) {
+!                 if (SendDlgItemMessage (hwnd, IDC_GUI_FIXED, BM_GETCHECK, 0, 0) == BST_CHECKED)
+! 					cinfo[curelem].da.bits &= ~COLOR_PROP;
+! 				else
+! 					cinfo[curelem].da.bits |= COLOR_PROP;
+  		    }
+  		    else if (LOWORD (wParam) == IDOK) {
+  				/* switch to the same color, just so colors are parsed */
+--- 491,551 ----
+  			else if (LOWORD (wParam) == IDC_GUI_BOLD &&
+  					 HIWORD (wParam) == BN_CLICKED) {
+  				if (SendDlgItemMessage (hwnd, IDC_GUI_BOLD, BM_GETCHECK, 0, 0) == BST_CHECKED)
+! 					cinfo[curelem].bits |= COLOR_BOLD;
+  				else
+! 					cinfo[curelem].bits &= ~COLOR_BOLD;
+  			}
+  			else if (LOWORD (wParam) == IDC_GUI_ITALIC &&
+  					 HIWORD (wParam) == BN_CLICKED) {
+  				if (SendDlgItemMessage (hwnd, IDC_GUI_ITALIC, BM_GETCHECK, 0, 0) == BST_CHECKED)
+! 					cinfo[curelem].bits |= COLOR_ITALIC;
+  				else
+! 					cinfo[curelem].bits &= ~COLOR_ITALIC;
+  			}
+  			else if (LOWORD (wParam) == IDC_GUI_UNDERLINED &&
+  					 HIWORD (wParam) == BN_CLICKED) {
+  				if (SendDlgItemMessage (hwnd, IDC_GUI_UNDERLINED, BM_GETCHECK, 0, 0) == BST_CHECKED)
+! 					cinfo[curelem].bits |= COLOR_UNDERLINED;
+  				else
+! 					cinfo[curelem].bits &= ~COLOR_UNDERLINED;
+  			}
+  			else if (LOWORD (wParam) == IDC_GUI_BOXED &&
+  					 HIWORD (wParam) == BN_CLICKED) {
+  				if (SendDlgItemMessage (hwnd, IDC_GUI_BOXED, BM_GETCHECK, 0, 0) == BST_CHECKED)
+! 					cinfo[curelem].bits |= COLOR_BOXED;
+  				else
+! 					cinfo[curelem].bits &= ~COLOR_BOXED;
+  			}
+  			else if (LOWORD (wParam) == IDC_GUI_GRAPHIC &&
+  					 HIWORD (wParam) == BN_CLICKED) {
+  				if (SendDlgItemMessage (hwnd, IDC_GUI_GRAPHIC, BM_GETCHECK, 0, 0) == BST_CHECKED)
+! 					cinfo[curelem].bits |= COLOR_GRAPHIC;
+  				else
+! 					cinfo[curelem].bits &= ~COLOR_GRAPHIC;
+  			}
+  			else if (LOWORD (wParam) == IDC_GUI_FIXED &&
+  					 HIWORD (wParam) == BN_CLICKED) {
+! 				if (SendDlgItemMessage (hwnd, IDC_GUI_FIXED, BM_GETCHECK, 0, 0) == BST_CHECKED) {
+! 					cinfo[curelem].bits &= ~COLOR_PROP;
+! 					cinfo[curelem].bits |= COLOR_PROPSET;
+! 					SendDlgItemMessage (hwnd, IDC_GUI_PROPORTIONAL, BM_SETCHECK,
+! 							BST_UNCHECKED, 0);
+! 				} else {
+! 					if (SendDlgItemMessage (hwnd, IDC_GUI_PROPORTIONAL, BM_GETCHECK, 0, 0) == BST_UNCHECKED)
+! 						cinfo[curelem].bits &= ~COLOR_PROPSET;
+! 				}
+! 			}
+! 			else if (LOWORD (wParam) == IDC_GUI_PROPORTIONAL &&
+! 					 HIWORD (wParam) == BN_CLICKED) {
+! 				if (SendDlgItemMessage (hwnd, IDC_GUI_PROPORTIONAL, BM_GETCHECK, 0, 0) == BST_CHECKED) {
+! 					cinfo[curelem].bits &= ~COLOR_PROP;
+! 					cinfo[curelem].bits |= COLOR_PROP|COLOR_PROPSET;
+! 					SendDlgItemMessage (hwnd, IDC_GUI_FIXED, BM_SETCHECK,
+! 							BST_UNCHECKED, 0);
+! 				} else {
+! 					if (SendDlgItemMessage (hwnd, IDC_GUI_FIXED, BM_GETCHECK, 0, 0) == BST_UNCHECKED)
+! 						cinfo[curelem].bits &= ~(COLOR_PROP|COLOR_PROPSET);
+! 				}
+  			}
+  			else if (LOWORD (wParam) == IDOK) {
+  				/* switch to the same color, just so colors are parsed */
+***************
+*** 526,553 ****
+  		        eventex ((GUIWIN *)gwp, cmd, False);
+  
+  				/* Update the attributes of each text type */
+!                 for (i = 0; cinfo[i].name; i++) {
+! 					if (cinfo[i].da.bits == colorinfo[i + 1].da.bits
+! 					 && cinfo[i].fg == colorinfo[i + 1].fg
+! 					 && cinfo[i].bg == colorinfo[i + 1].bg)
+! 						continue;
+!                     sprintf (cmd, "color %s %s%s%s%s%s#%06x on #%06x",
+! 							 cinfo[i].name,
+! 							 cinfo[i].da.bits & COLOR_BOLD ? "bold " : "",
+! 							 cinfo[i].da.bits & COLOR_ITALIC ? "italic " : "",
+! 							 cinfo[i].da.bits & COLOR_UNDERLINED ?"underlined ":"",
+! 							 cinfo[i].da.bits & COLOR_BOXED ? "boxed " : "",
+! 							 cinfo[i].da.bits & COLOR_GRAPHIC ? "graphic " : "",
+! 							 cinfo[i].da.bits & COLOR_PROP ? "proportional " : "fixed ",
+!                              cinfo[i].fg & 0xffffff,
+!                              cinfo[i].bg & 0xffffff);
+!                     eventex ((GUIWIN *)gwp, cmd, False);
+                  }
+  
+  		        return TRUE;
+  		    }
+  			else if (LOWORD (wParam) == IDCANCEL) {
+  			    EndDialog (hwnd, TRUE);
+  			    return TRUE;
+  			}
+  			break;
+--- 572,614 ----
+  				eventex ((GUIWIN *)gwp, cmd, False);
+  
+  				/* Update the attributes of each text type */
+! 				for (i = 0; i < qtyelem; i++) {
+! 					if ((cinfo[i].bits & COLOR_SET)
+! 					 || ((cinfo[i].bits ^ cinfo[i].orig)
+! 				 	    & (COLOR_BOLD|COLOR_ITALIC|COLOR_UNDERLINED|COLOR_BOXED
+! 							|COLOR_GRAPHIC|COLOR_PROP|COLOR_PROPSET)))
+! 					{
+! 						sprintf (cmd, "color %s %s%s%s%s%s%s",
+! 								 colorinfo[cinfo[i].font].name,
+! 								 cinfo[i].bits & COLOR_BOLD ? "bold " : "",
+! 								 cinfo[i].bits & COLOR_ITALIC ? "italic " : "",
+! 								 cinfo[i].bits & COLOR_UNDERLINED ?"underlined ":"",
+! 								 cinfo[i].bits & COLOR_BOXED ? "boxed " : "",
+! 								 cinfo[i].bits & COLOR_GRAPHIC ? "graphic " : "",
+! 								 cinfo[i].bits & COLOR_PROPSET
+! 									?  (cinfo[i].bits & COLOR_PROP
+! 										? "proportional "
+! 										: "fixed ")
+! 									: "",
+! 								 cinfo[i].fg ? cinfo[i].fg : "");
+! 						if (cinfo[i].bg)
+! 							sprintf(cmd + strlen(cmd), " on %s", cinfo[i].bg);
+! 						eventex ((GUIWIN *)gwp, cmd, False);
+! 					}
+! 					if (cinfo[i].fg) safefree(cinfo[i].fg);
+! 					if (cinfo[i].bg) safefree(cinfo[i].bg);
+! 					if (cinfo[i].like) safefree(cinfo[i].like);
+  				}
+  
+  				return TRUE;
+  			}
+  			else if (LOWORD (wParam) == IDCANCEL) {
+  				EndDialog (hwnd, TRUE);
++ 				for (i = 0; i < qtyelem; i++) {
++ 					if (cinfo[i].fg) safefree(cinfo[i].fg);
++ 					if (cinfo[i].bg) safefree(cinfo[i].bg);
++ 					if (cinfo[i].like) safefree(cinfo[i].like);
++ 				}
+  				return TRUE;
+  			}
+  			break;
+***************
+*** 920,997 ****
+  
+  /* --------------------------------------------------------------------
+  **
+- ** DlgOptSyntax  --  syntax specific options.
+- */
+- 
+- BOOL CALLBACK DlgOptSyntax (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+- 
+- {
+-     static char     *elems[] = { "commentfont", "stringfont", "keywordfont",
+-                                  "functionfont", "variablefont", "prepfont",
+-                                  "otherfont", NULL };
+-     static char     *font[] = { "normal", "bold", "emphasized",
+-                                 "italic", "underlined", "fixed" };
+-     static int      mapping[7];
+-     static int      curelem;
+-     register int    i;
+-     register int    j;
+-     char            cmd[100];
+- 
+-     switch (msg) {
+-         case WM_INITDIALOG:
+-             gwp = gw_find_frame (GetParent (hwnd));
+-             center_window (gwp->clientHWnd, hwnd);
+- 			eventfocus(gwp, True);
+-             for (i = 0; elems[i] != NULL; i++) {
+-                 SendDlgItemMessage (hwnd, IDC_SO_ELEMENT, LB_ADDSTRING, 0,
+- 				                    (LPARAM)elems[i]);
+-                 j = 0;
+-                 while (strcmp (font[j], optgetstr (elems[i], NULL)))
+-                     j++;
+-                 mapping[i] = j;
+-             }
+-             curelem = 0;
+-             SendDlgItemMessage (hwnd, IDC_SO_ELEMENT, LB_SETCURSEL, 0, 0);
+-             SendDlgItemMessage (hwnd, IDC_SO_NORMAL + mapping[0],
+-                                 BM_SETCHECK, 1, 0);
+-             return TRUE;
+- 
+- 		case WM_COMMAND:
+- 		    if (LOWORD (wParam) == IDC_SO_ELEMENT &&
+- 		        HIWORD (wParam) == LBN_SELCHANGE) {
+-                 SendDlgItemMessage (hwnd, IDC_SO_NORMAL + mapping[curelem],
+-                                     BM_SETCHECK, 0, 0);
+- 		        curelem = SendDlgItemMessage (hwnd, 
+- 		                                      IDC_SO_ELEMENT, LB_GETCURSEL,
+- 		                                      0, 0);
+-                 SendDlgItemMessage (hwnd, IDC_SO_NORMAL + mapping[curelem],
+-                                     BM_SETCHECK, 1, 0);
+-             }
+-             else if (LOWORD (wParam) >= IDC_SO_NORMAL &&
+-                      LOWORD (wParam) <= IDC_SO_FIXED &&
+-                      HIWORD (wParam) == BN_CLICKED) {
+-                 mapping[curelem] = LOWORD (wParam) - IDC_SO_NORMAL;
+-             }
+- 		    else if (LOWORD (wParam) == IDOK) {
+- 		        EndDialog (hwnd, TRUE);
+-                 for (i = 0; elems[i] != NULL; i++) {
+-                     sprintf (cmd, ":set %s=%s", elems[i], font[mapping[i]]);
+-                     eventex ((GUIWIN *)gwp, cmd, False);
+-                 }
+- 		        return TRUE;
+- 		    }
+- 			else if (LOWORD (wParam) == IDCANCEL) {
+- 			    EndDialog (hwnd, TRUE);
+- 			    return TRUE;
+- 			}
+- 			break;
+-     }
+- 
+-     return FALSE;
+- }
+- 
+- /* --------------------------------------------------------------------
+- **
+  ** DlgOptWindow  --  window specific options.
+  */
+  
+--- 981,986 ----
+*** /misc/steve/elvis/elvis-2.2f/guiwin32/gwprint.c	Wed Oct 31 12:19:24 2001
+--- gwprint.c	Sun Nov 18 11:45:45 2001
+***************
+*** 271,276 ****
+--- 271,277 ----
+      HFONT	adjfont;
+      COLORREF	fgc;
+      int		i;
++     unsigned char *rgb;
+  
+      /* if there is text to be drawn... */
+      if (seglen > 0)
+***************
+*** 294,303 ****
+  	SelectObject (printerDC, pfonts[i]);
+  
+  	/* select fg color */
+! 	fgc = o_lpcolor ? RGB(colorinfo[segfont].lpfg_rgb[0],
+! 			      colorinfo[segfont].lpfg_rgb[1],
+! 			      colorinfo[segfont].lpfg_rgb[2])
+! 			: RGB(0,0,0);
+  	SetTextColor (printerDC, fgc);
+  
+  	/* draw the text.  This is tricky for proportional text */
+--- 295,302 ----
+  	SelectObject (printerDC, pfonts[i]);
+  
+  	/* select fg color */
+! 	rgb = lpfg((_char_)segfont);
+! 	fgc = RGB((long)rgb[0], (long)rgb[1], (long)rgb[2]);
+  	SetTextColor (printerDC, fgc);
+  
+  	/* draw the text.  This is tricky for proportional text */
+*** /misc/steve/elvis/elvis-2.2f/guiwin32/winelvis.h	Wed Oct 31 12:19:24 2001
+--- winelvis.h	Mon Nov 19 16:20:13 2001
+***************
+*** 91,97 ****
+  extern BOOL CALLBACK DlgOptGui (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
+  extern BOOL CALLBACK DlgOptBuffer (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
+  extern BOOL CALLBACK DlgOptGlobal (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
+- extern BOOL CALLBACK DlgOptSyntax (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
+  extern BOOL CALLBACK DlgOptWindow (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
+  extern BOOL CALLBACK DlgOptUser (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
+  
+--- 91,96 ----

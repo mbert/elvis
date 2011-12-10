@@ -17,25 +17,29 @@ extern struct scan_s
 	CHAR		*rightedge;	/* pointer to char after rightmost locked char */
 	CHAR		**ptr;		/* the pointer associated with this scan context */
 	long		leoffset;	/* offset of left edge */
-#ifdef DEBUG_ALLOC
-# ifdef DEBUG_SCAN
+#ifdef DEBUG_SCAN
 	char		*file;
 	int		line;
-# endif
 #endif
 } *scan__top;
 extern MARKBUF scan__markbuf;
 
 
 
-#ifndef DEBUG_ALLOC
+#ifndef DEBUG_SCAN
 BEGIN_EXTERNC
 extern CHAR	*scanalloc P_((CHAR **cp, MARK start));
+extern CHAR	*scanstring P_((CHAR **cp, CHAR *str));
+extern CHAR	*scandup P_((CHAR **cp, CHAR **oldp));
 END_EXTERNC
 #else
 # define scanalloc(cp, start)	_scanalloc(__FILE__, __LINE__, (cp), (start))
+# define scanstring(cp, str)	_scanstring(__FILE__, __LINE__, (cp), (str))
+# define scandup(cp, oldp)	_scandup(__FILE__, __LINE__, (cp), (oldp))
 BEGIN_EXTERNC
 extern CHAR	*_scanalloc P_((char *file, int line, CHAR **cp, MARK start));
+extern CHAR	*_scanstring P_((char *file, int line, CHAR **cp, CHAR *str));
+extern CHAR	*_scandup P_((char *file, int line, CHAR **cp, CHAR **oldp));
 END_EXTERNC
 #endif
 
@@ -58,13 +62,12 @@ END_EXTERNC
 extern MARK	scanmark P_((CHAR **cp));
 extern COUNT	scan__left P_((CHAR **cp));
 extern COUNT	scan__right P_((CHAR **cp));
+extern void	scan__nobuf P_((void));
 
 #endif
 
 
 
-extern CHAR	*scanstring P_((CHAR **cp, CHAR *str));
-extern CHAR	*scandup P_((CHAR **cp, CHAR **oldp));
 extern void	scanfree P_((CHAR **cp));
 extern CHAR	*scanseek P_((CHAR **cp, MARK restart));
 extern CHAR	*scan__next P_((CHAR **cp));

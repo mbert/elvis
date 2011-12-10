@@ -34,29 +34,43 @@
 #endif
 
 #define iswhite(c)	((c) == ' ' || (c) == '\t')
+#define isindent(c)	indchars[(c) & 0xff]
 
 #include "ctypetbl.h"
 
 #if USE_PROTOTYPES
 void usage(void);
 void putword(int shortlines);
+int fetchc(FILE *in);
 void fmt(FILE *in);
 int main(int argc, char **argv);
 #endif
 
 int	width = 72;	/* the desired line width */
 int	shortlines = 0;	/* keep short lines, instead of joining them */
-int	isblankln;	/* is the current output line blank? */
+int	iscrownln;	/* is current output line first of paragraph? */
+int	isblankln;	/* is current output line blank? (nothing but indent) */
+int	iswhiteln;	/* is current INPUT line white? (nothing but whitespc)*/
+int	crownmargin;	/* beware of paragraphs with a crown margin */
 int	indent;		/* width of the indentation */
+int	indchars[256];	/* character to allow in indentation */
 char	ind[512];	/* indentation text */
 char	word[1024];	/* word buffer */
+char	ungotten[1024];	/* characters from the crown line*/
+int	nungotten;	/* number of chars in ungotten[] */
+int	nregotten;	/* number of chars used from ungotten[] */
+int	singleungotten;	/* -1, or a character in range 0-255 */
 
 /* This function displays a usage message and quits */
-void usage P_((void))
+void usage()
 {
-	fprintf(stderr, "Usage: fmt [-w width|-width] [-s] [files]...\n");
+	fprintf(stderr, "Usage: fmt [-w width|-width] [-s] [-i chars] [files]...\n");
 	fprintf(stderr, "    -w width   make lines roughly \"width\" columns wide\n");
 	fprintf(stderr, "    -s         split long lines, but don't join short lines\n");
+	fprintf(stderr, "    -c         crown margin -- be smarter about quirky first line\n");
+	fprintf(stderr, "    -i chars   allow chars in indentation, in addition to space and tab\n");
+	fprintf(stderr, "    -C         for C/C++ comments, like \"-c -i'/*'\"\n");
+	fprintf(stderr, "    -M         for email messages with > quoting, like \"-i'>'\"\n");
 	fprintf(stderr, "Report bugs to kirkenda@cs.pdx.edu");
 	exit(2);
 }
@@ -114,7 +128,6 @@ void putword(shortlines)
 		}
 		else
 		{
-			/* no, so write a newline and the indentation */
 			putchar('\n');
 			fputs(ind, stdout);
 			tab = indent;
@@ -126,9 +139,9 @@ void putword(shortlines)
 	if (shortlines)
 	{
 		putchar('\n');
-        	tab = 0;
-        	psw = 0;
-        	isblankln = TRUE;
+		tab = 0;
+		psw = 0;
+		isblankln = TRUE;
 	}
 	else
 	{
@@ -143,6 +156,25 @@ void putword(shortlines)
 }
 
 
+/* This is like getc(), except that fetchc() handles singleungotten and
+ * ungotten[nungotten].
+ */
+int fetchc(in)
+	FILE	*in;	/* the input stream */
+{
+	int	c;
+
+	if (singleungotten != -1)
+	{
+		c = singleungotten;
+		singleungotten = -1;
+	}
+	else if (nregotten < nungotten)
+		c = ungotten[nregotten++];
+	else
+		c = getc(in);
+	return c;
+}
 
 /* This function reformats text. */
 void fmt(in)
@@ -156,7 +188,7 @@ void fmt(in)
 
 	/* for each character in the stream... */
 	for (indent = -1, isblankln = TRUE, inword = FALSE, i = 0, prevch = '\n';
-	     (ch = getc(in)) != EOF;
+	     (ch = fetchc(in)) != EOF;
 	     prevch = ch)
 	{
 		/* is this the end of a line? */
@@ -182,11 +214,18 @@ void fmt(in)
 					isblankln = TRUE;
 				}
 
-				/* output a blank line */
-				putchar('\n');
+				/* output an indentation-only line */
+				ind[i] = '\0';
+				if (iswhiteln)
+					putchar('\n');
+				else
+					puts(ind);
+
+				iscrownln = 1;
 			}
 
 			/* continue with next input line... */
+			iswhiteln = 1;
 			indent = -1;
 			i = 0;
 			inword = FALSE;
@@ -197,10 +236,12 @@ void fmt(in)
 		if (indent < 0)
 		{
 			/* if this is part of the indentation... */
-			if (iswhite(ch))
+			if (isindent(ch))
 			{
 				/* remember it */
 				ind[i++] = ch;
+				if (!iswhite(ch))
+					iswhiteln = 0;
 			}
 			else /* end of indentation */
 			{
@@ -220,7 +261,7 @@ void fmt(in)
 				i = 0;
 
 				/* reprocess that last character */
-				ungetc(ch, in);
+				singleungotten = ch & 0xff;
 			}
 
 			/* continue in the for-loop */
@@ -239,6 +280,48 @@ void fmt(in)
 			word[i] = '\0';
 			putword(0);
 
+			/* if this was the first word on the crown line, then
+			 * scan forward for the crown of the next line.  Save
+			 * the scanned text so we can format it in the usual
+			 * way after we know what the indentation looks like.
+			 */
+			if (crownmargin && iscrownln)
+			{
+				nungotten = nregotten = i = 0;
+				if (singleungotten == -1)
+					singleungotten = ch;
+				for (ch = singleungotten, singleungotten = -1;
+				     ch != EOF && (iscrownln || isindent(ch));
+				     ch = getc(in), nungotten++)
+				{
+					ungotten[nungotten] = ch;
+					if (ch == '\n')
+					{
+						iscrownln = 0;
+					}
+					else if (!iscrownln)
+						ind[i++] = ch;
+				}
+				ind[i] = '\0';
+				if (ch != EOF)
+					ungotten[nungotten++] = ch;
+
+				/* calculate the width of the indentation */
+				for (i = indent = 0; ind[i]; i++)
+				{
+					if (ind[i] == '\t')
+						indent = (indent | 7) + 1;
+					else
+						indent++;
+				}
+
+				/* remember that we've already scanned ahead */
+				iscrownln = 0;
+
+				/* go back to the first char of ungotten text */
+				ch = fetchc(in);
+			}
+			
 			/* reset `i' to the start of the word[] buffer */
 			i = 0;
 		}
@@ -264,9 +347,8 @@ int main(argc, argv)
 	FILE	*in;	/* an input stream */
 	int	error;	/* if non-zero, then an error occurred */
 	int	i;
-#if OSEXPANDARGS
+	int	arg;
 	char	*name;
-#endif
 
 	/* detect special GNU flags */
 	if (argc >= 2)
@@ -301,40 +383,71 @@ int main(argc, argv)
 		}
 	}
 
-        while (argc > 1 && argv[1][0] == '-')
-        {
-        	switch (argv[1][1])
-        	{
-        		case 'w':
-        		{
-                                /* -w width */
-        			width = (argc > 2 ? atoi(argv[2]) : -1);
-                                if (width <= 0)
-                                {
-                                	usage();
-                                }
-                                argc-=2;
-                                argv+=2;
-                                break;
-        		}
-        		case 's':
-        		{
-                                /* -s */
-        			shortlines = 1;
-        			--argc;
-        			++argv;
-        			break;
-        		}
-        		default:
-                        {
-				/* -width */
-				width = atoi(argv[1] + 1);
+	/* initialize indchars[] table, etc. */
+	indchars[' '] = indchars['\t'] = 1;
+	singleungotten = -1;
+
+	/* parse the options */
+	for (arg = 1; arg < argc && argv[arg][0] == '-'; arg++)
+	{
+		for (i = 1; argv[arg][i]; i++)
+		{
+			switch (argv[arg][i])
+			{
+			  case 'w':
+				/* -w width */
+				width = -1;
+				if (argv[arg][i + 1])
+					width = atoi(argv[arg] + i + 1);
+				else if (arg + 1 < argc)
+					width = atoi(argv[++arg]);
 				if (width <= 0)
-				{
 					usage();
-				}
-				argc--;
-				argv++;
+				i = strlen(argv[arg]) - 1;
+				break;
+
+			  case 's':
+				/* -s */
+				shortlines = 1;
+				break;
+
+			  case 'i':
+				/* -i chars */
+				name = NULL;
+				if (argv[arg][i + 1])
+					name = argv[arg] + i + 1;
+				else if (arg + 1 < argc)
+					name = argv[++arg];
+				if (!name)
+					usage();
+				while (*name)
+					indchars[*name++ & 0xff] = 1;
+				i = strlen(argv[arg]) - 1;
+				break;
+				
+			  case 'c':
+				/* -c */
+				crownmargin = 1;
+				break;
+
+			  case 'C':
+				/* -C, like "-c -i'/ *'" */
+				crownmargin = 1;
+				indchars['/'] = indchars['*'] = 1;
+				break;
+
+			  case 'M':
+				/* -M, like "-i'>'" */
+				crownmargin = 1;
+				indchars['>'] = 1;
+				break;
+
+			  default:
+				/* -width */
+				width = atoi(argv[arg] + i + 1);
+				if (width <= 0)
+					usage();
+				i = strlen(argv[arg] - 1);
 			}
 		}
 	}
@@ -343,16 +456,16 @@ int main(argc, argv)
 	error = 0;
 
 	/* if no filenames given, then process stdin */
-	if (argc == 1)
+	if (arg == argc)
 	{
 		fmt(stdin);
 	}
 	else /* one or more filenames given */
 	{
-		for (i = 1; i < argc; i++)
+		for (; arg < argc; arg++)
 		{
 #if OSEXPANDARGS
-			for (name = dirfirst(argv[i], False); name; name = dirnext())
+			for (name = dirfirst(argv[arg], ElvFalse); name; name = dirnext())
 			{
 				in = fopen(name, "r");
 				if (!in)
@@ -367,10 +480,10 @@ int main(argc, argv)
 				}
 			}
 #else
-			in = fopen(argv[i], "r");
+			in = fopen(argv[arg], "r");
 			if (!in)
 			{
-				perror(argv[i]);
+				perror(argv[arg]);
 				error = 3;
 			}
 			else

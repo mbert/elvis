@@ -1,9 +1,11 @@
 /* mark.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_mark[] = "$Id: mark.c,v 2.14 1999/10/08 18:04:29 steve Exp $";
 
 #include "elvis.h"
+#ifdef FEATURE_RCSID
+char id_mark[] = "$Id: mark.c,v 2.18 2002/11/01 19:29:49 steve Exp $";
+#endif
 
 
 MARK namedmark[26];
@@ -32,7 +34,7 @@ MARK _markalloc(file, line, buffer, offset)
 	assert(buffer != NULL && offset >= 0 && offset <= o_bufchars(buffer));
 
 	newp = (MARK)_safealloc(file, line, False, 1, sizeof(MARKBUF));
-	fprintf(stderr, "markalloc(0x%lx, %ld) called from %s(%d), returning 0x%lx\n", (long)buffer, offset, file, line, (long)newp);
+	/*fprintf(stderr, "markalloc(0x%lx, %ld) called from %s(%d), returning 0x%lx\n", (long)buffer, offset, file, line, (long)newp);*/
 #endif
 	newp->buffer = buffer;
 	newp->offset = offset;
@@ -59,7 +61,7 @@ void _markfree(file, line, mark)
 	int	i;
 
 #ifdef DEBUG_ALLOC
-	fprintf(stderr, "markfree(0x%lx) called from %s(%d)\n", (long)mark, file, line);
+	/*fprintf(stderr, "markfree(0x%lx) called from %s(%d)\n", (long)mark, file, line);*/
 #endif
 	/* remove from buffer's list of marks */
 	if (mark == bufmarks(mark->buffer))
@@ -195,7 +197,13 @@ MARK marksetline(mark, linenum)
 /* Change the buffer of a mark.  This involves deleting the mark from the mark
  * list of the old buffer, and then adding it to the list of the new buffer.
  */
+#ifdef DEBUG_MARK
+void _marksetbuffer(file, line, mark, buffer)
+	char	*file;
+	int	line;
+#else
 void marksetbuffer(mark, buffer)
+#endif
 	MARK	mark;	/* the mark to be moved */
 	BUFFER	buffer;	/* the new buffer that the mark should refer to */
 {
@@ -205,6 +213,18 @@ void marksetbuffer(mark, buffer)
 	if (markbuffer(mark) == buffer)
 		return;
 
+#ifdef DEBUG_MARK
+	{
+		WINDOW win = NULL;
+		while (win = winofbuf(win, NULL))
+			if (win->windowid.value.number == 1
+			 && win->cursor == mark)
+				fprintf(stderr, "%s:%d: was \"%s\", now \"%s\"\n",
+				    file, line,
+				    win->cursor->buffer->bufname.value.string,
+				    buffer->bufname.value.string);
+	}
+#endif
 	/* remove from old buffer's list of marks */
 	if (mark == bufmarks(mark->buffer))
 	{

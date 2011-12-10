@@ -32,6 +32,16 @@ extern char	*BC;	/* :bc=: move cursor left */
 # endif
 #endif
 
+/* This macro is used to reset attributes and colors to normal values. */
+#define revert(tw)	if ((tw) == current)\
+				change(colorinfo[COLOR_FONT_NORMAL].fg,\
+					colorinfo[COLOR_FONT_NORMAL].bg,\
+					colorinfo[COLOR_FONT_NORMAL].da.bits);\
+			else\
+				change(colorinfo[COLOR_FONT_IDLE].fg,\
+					colorinfo[COLOR_FONT_IDLE].bg,\
+					colorinfo[COLOR_FONT_IDLE].da.bits)
+
 /* Structs of this type are used to remember the location and size of each 
  * window.  In the termcap interface, all windows must be as wide as the
  * screen, and the sum of all windows' heights must equal the screen size.
@@ -45,51 +55,31 @@ typedef struct twin_s
 	int		newpos;		/* position after screen is rearranged */
 	int		cursx, cursy;	/* logical cursor position */
 	ELVCURSOR	shape;		/* logical cursor shape */
-
-	/* The following buffers hold the escape codes that switch
-	 * between fonts.  The initial values are taken from the termcap
-	 * strings above, but after colors have been set they'll all
-	 * contain computed strings which switch colors in addition to
-	 * fonts.
-	 *
-	 * Note that there is no endnormal[] array.  This is because
-	 * starnormal[] is used in a special way.  Before any colors are
-	 * set, startnormal[] contains an empty string, and the endXXX
-	 * strings point to termcap strings.  After colors have been set,
-	 * though, startnormal is loaded with the escape sequence for
-	 * switching to the normal colors, and the endXXX strings are
-	 * loaded with copies of this (except for endunderline, which
-	 * contains that string plus the regular UE termcap string).
-	 */
-	char	startnormal[30];
-	char	startfixed[30], endfixed[30];
-	char	startbold[30], endbold[30];
-	char	startemph[30], endemph[30];
-	char	startitalic[30], enditalic[30];
-	char	startunderline[30], endunderline[30];
-	char	starthilite[30], endhilite[30]; /* regardless of font */
 } TWIN;
 
+static TWIN	*twins;		/* list of windows */
+static TWIN	*current;	/* window with keyboard focus */
 
 #if USE_PROTOTYPES
-static BOOLEAN ansi_color(TWIN *tw, _char_ font, char *fgname, char *bgname);
-static BOOLEAN clrtoeol(GUIWIN *gw);
-static BOOLEAN color(GUIWIN *gw, _char_ font, CHAR *fg, CHAR *bg);
-static BOOLEAN creategw(char *name,char * attributes);
-static BOOLEAN focusgw(GUIWIN *gw);
-static BOOLEAN scroll(GUIWIN *gw, int qty, BOOLEAN notlast);
-static BOOLEAN shift(GUIWIN *gw, int qty, int rows);
-static BOOLEAN tabcmd(GUIWIN *gw, _CHAR_ key2, long count);
+static ELVBOOL clrtoeol(GUIWIN *gw);
+static ELVBOOL color(int fontcode, CHAR *colornam, ELVBOOL isfg, long *colorptr, unsigned char rgb[3]);
+static ELVBOOL creategw(char *name,char * attributes);
+static ELVBOOL focusgw(GUIWIN *gw);
+static ELVBOOL scroll(GUIWIN *gw, int qty, ELVBOOL notlast);
+static ELVBOOL shift(GUIWIN *gw, int qty, int rows);
+static ELVBOOL tabcmd(GUIWIN *gw, _CHAR_ key2, long count);
 static char *manynames(char *names);
 static int init(int argc, char **argv);
 static int keylabel(CHAR *given, int givenlen, CHAR **label, CHAR **rawptr);
 static int test(void);
 static int ttych(int ch);
 static void beep(GUIWIN *gw);
-static void destroygw(GUIWIN *gw, BOOLEAN force);
-static void drawgraphic(GUIWIN *gw, _char_ font, CHAR *text, int len);
-static void draw(GUIWIN *gw, _char_ font, CHAR *text, int len);
+static void destroygw(GUIWIN *gw, ELVBOOL force);
+static void drawgraphic(GUIWIN *gw, long fg, long bg, int bits, CHAR *text, int len);
+static void draw(GUIWIN *gw, long fg, long bg, int bits, CHAR *text, int len);
+#ifdef FEATURE_SPLIT
 static void drawborder(TWIN *tw);
+#endif
 static void endtcap(void);
 static void flush(void);
 static void loop(void);
@@ -98,26 +88,27 @@ static void movecurs(TWIN *tw);
 static void moveto(GUIWIN *gw, int column, int row);
 static void musthave(char **T, char *s);
 static void pair(char **T, char **U, char *sT, char *sU);
-static void revert(TWIN *tw);
+static void change(long fg, long bg, int bits);
 static void starttcap(void);
 static void term(void);
 static void ttyflush(void);
 static void ttygetsize(void);
-static BOOLEAN ttyprgopen(char *command, BOOLEAN willwrite, BOOLEAN willread);
+static ELVBOOL ttyprgopen(char *command, ELVBOOL willwrite, ELVBOOL willread);
 static int ttyprgclose(void);
-static RESULT stop(BOOLEAN alwaysfork);
+static RESULT stop(ELVBOOL alwaysfork);
 #endif
 
 static void reset P_((void));
-static void chgsize P_((TWIN *tw, int newheight, BOOLEAN winch));
+static void chgsize P_((TWIN *tw, int newheight, ELVBOOL winch));
 static void cursorshape P_((ELVCURSOR shape));
 
 /* termcap values */
-static BOOLEAN	AM;		/* :am:  boolean: auto margins? */
-static BOOLEAN	PT;		/* :pt:  boolean: physical tabs? */
+static ELVBOOL	AM;		/* :am:  boolean: auto margins? */
+static ELVBOOL	PT;		/* :pt:  boolean: physical tabs? */
        char	PC;		/* :pc=: pad character (not a string var!) */
 static char	*VB;		/* :vb=: visible bell */
        char	*UP;		/* :up=: move cursor up */
+static char	*AF;		/* :AF=: change the foreground color */
 static char	*SO;		/* :so=: standout start */
 static char	*SE;		/* :se=: standout end */
 static char	*US;		/* :us=: underline start */
@@ -149,6 +140,7 @@ static char	*CX;		/* :cX=: cursor used for EX command/entry */
 static char	*CV;		/* :cV=: cursor used for VI command mode */
 static char	*CI;		/* :cI=: cursor used for VI input mode */
 static char	*CR;		/* :cR=: cursor used for VI replace mode */
+#ifdef FEATURE_MISC
 static char	*GS;		/* :GS=:as=: start graphic character mode */
 static char	*GE;		/* :GE=:ae=: end graphic character mode */
 static char	GC_V;		/* vertical bar character */
@@ -162,8 +154,7 @@ static char	GC_6;		/* vertical line with left-tick character */
 static char	GC_7;		/* upper left corner character */
 static char	GC_8;		/* horizontal line with down-tick character */
 static char	GC_9;		/* upper right corner character */
-
-
+#endif
 
 /* This is a table of keys which should be mapped, if present */
 static struct
@@ -185,10 +176,13 @@ static struct
 	{"<Home>",	"HMkhK1",	"^",	MAP_ALL},
 	{"<End>",	"ENkHK5@7",	"$",	MAP_ALL},
 	{"<Insert>",	"kI",		"i",	MAP_ALL},
+#ifdef FEATURE_MISC
 	{"<Delete>",	"kD",		"x",	MAP_ALL},
 	{"<Compose>",	"k+",		"\013",	MAP_INPUT},
-	{"<CLeft>",	"#4KL",		"B",	MAP_ALL},
-	{"<CRight>",	"%iKR",		"W",	MAP_ALL},
+	{"<C-Left>",	"#4KL",		"B",	MAP_ALL},
+	{"<C-Right>",	"%iKR",		"W",	MAP_ALL},
+	{"<S-Tab>",	"kB",		"g\t",	MAP_COMMAND},
+#endif
 	{"#1",		"k1"},
 	{"#2",		"k2"},
 	{"#3",		"k3"},
@@ -199,6 +193,7 @@ static struct
 	{"#8",		"k8"},
 	{"#9",		"k9"},
 	{"#10",		"k0kak;"},
+#ifdef FEATURE_MISC
 	{"#1s",		"s1"},
 	{"#2s",		"s2"},
 	{"#3s",		"s3"},
@@ -229,21 +224,20 @@ static struct
 	{"#8a",		"a8"},
 	{"#9a",		"a9"},
 	{"#10a",	"a0"}
+#endif
 };
 
 /* These are GUI-dependent global options */
 static OPTDESC goptdesc[] =
 {
-	{"term", "ttytype",	optsstring,	optisstring},
-	{"ttyrows", "ttylines",	optnstring,	optisnumber},
-	{"ttycolumns", "ttycolumns",optnstring,	optisnumber},
-	{"ttyunderline", "ttyu",NULL,		NULL	   },
+	{"term", "ttytype",		optsstring,	optisstring},
+	{"ttyrows", "ttylines",		optnstring,	optisnumber},
+	{"ttycolumns", "ttycolumns",	optnstring,	optisnumber},
+	{"ttyunderline", "ttyu",	NULL,		NULL	   },
+	{"ttyitalic", "ttyi",		NULL,		NULL	   },
+	{"ttywrap", "ttyw",		NULL,		NULL	   }
 };
 struct ttygoptvals_s ttygoptvals;
-#define o_term		ttygoptvals.term.value.string
-#define o_ttyrows	ttygoptvals.ttyrows.value.number
-#define o_ttycolumns	ttygoptvals.ttycolumns.value.number
-#define o_ttyunderline	ttygoptvals.ttyunderline.value.boolean
 
 
 /*----------------------------------------------------------------------------*/
@@ -253,8 +247,6 @@ struct ttygoptvals_s ttygoptvals;
 static char ttybuf[1500];	/* the output buffer */
 static int  ttycount;		/* number of characters in ttybuf */
 static char ttyerasekey;	/* taken from the ioctl structure */
-static char *startfont="";	/* string for starting current font */
-static char *endfont="";	/* string for ending current font */
 long        ttycaught;		/* bitmap of recently-received signals */
 
 /* This indicates whether we've found the termcap entry yet */
@@ -287,26 +279,156 @@ static int ttych(ch)
 }
 
 
-/* Revert to the normal font for a given window... or just end any special
- * fonts if no window is given.
+/* These store masks for resetting COLOR_XXX attribute bits.  Although each
+ * of these is intended to reset only its own attribute bits, it is possible
+ * that some terminals will use a single string for resetting multiple
+ * attributes, so the masks must be computed at run time, after the termcap
+ * entry has been read.
  */
-static void revert(tw)
-	TWIN	*tw;	/* window whose normal font is to be used, or NULL */
+static int UEmask; /* attributes reset by :ue=: -- normally UNDERLINE */
+static int SEmask; /* attributes reset by :se=: -- normally SET (standout) */
+static int MEmask; /* attributes reset by :me=: -- normally BOLD and ITALIC */
+
+static ELVBOOL	fgcolored;	/* have foreground colors been set? */
+static ELVBOOL	bgcolored;	/* have background colors been set? */
+
+static long	currentfg;	/* foreground color code */
+static long	currentbg;	/* background color code */
+static int	currentbits;	/* bitmap of other attributes */
+
+static int	viscreen;	/* is terminal switched to edit screen yet? */ 
+
+/* Change attributes.  The color support assumes your terminal is ANSI-like
+ * (which is safe since color() only allows you to set colors for ANSI-like
+ * terminals) but the rest of the code is purely termcap-driven.
+ */
+static void change(fg, bg, bits)
+	long	fg;	/* new foreground color, if fgcolored */
+	long	bg;	/* new background color, if bgcolored */
+	int	bits;	/* attribute bits */
 {
-	/* revert to the normal font */
-	if (*endfont)
+	char	ansicolor[50];
+	int	resetting, setting;
+
+	/* Don't change colors while the other screen is being displayed */
+	if (!viscreen)
+		return;
+
+	/* If foreground is set to a bright color, then we want to convert it
+	 * to either a dim color + bold (if bold wasn't set already), or to
+	 * white + bold (if bold was already set).
+	 */
+	if (fgcolored && fg >= 10)
 	{
-		tputs(endfont, 0, ttych);
-		startfont = endfont = "";
+		if (bits & COLOR_BOLD)
+			fg = 7;
+		else
+			fg -= 10, bits |= COLOR_BOLD;
 	}
 
-	/* If a window is specified, and its normal font string isn't empty,
-	 * then output it.
+	/* Italics are shown via underlining, if there is no :mh=: string */
+	if (!MH && (bits & COLOR_ITALIC))
+		bits = (bits & ~COLOR_ITALIC) | COLOR_UNDERLINED;
+
+	/* Underlining is disabled if "nottyunderline" and we have bg color */
+	/* If "nottyitalic", then never use underline ever */
+	if (!o_ttyunderline && (!o_ttyitalic || bgcolored))
+		bits &= ~COLOR_UNDERLINED;
+
+	/* Italic is disabled if "nottyitalic" */
+	if (!o_ttyitalic)
+		bits &= ~COLOR_ITALIC;
+
+	/* Termcap doesn't allow bold & italics to mix.  If attempting to mix,
+	 * then use plain bold.
 	 */
-	if (tw && tw->startnormal[0] != '\0')
+	if ((bits & (COLOR_BOLD|COLOR_ITALIC)) == (COLOR_BOLD|COLOR_ITALIC))
+		bits &= ~COLOR_ITALIC;
+
+	/* Okay, we are finally ready to begin outputting escape sequences.
+	 * This proceeds in three phases: First we turn off any attributes
+	 * that must be off, then we change colors, and finally we turn on
+	 * any attributes which should be on.  We do it this way because
+	 * sometimes turning off an attribute will affect colors or other
+	 * attributes.
+	 */
+
+	/* Decide which attributes to turn off. */
+	resetting = currentbits & ~bits;
+	if ((resetting & (COLOR_BOLD|COLOR_ITALIC)) && ME)
 	{
-		tputs(tw->startnormal, 0, ttych);
+		tputs(ME, 1, ttych);
+		currentbits &= MEmask;
+		currentfg = currentbg = -1;
 	}
+	if ((resetting & COLOR_UNDERLINED) && UE)
+	{
+		tputs(UE, 1, ttych);
+		currentbits &= UEmask;
+		currentfg = currentbg = -1;
+	}
+	if ((resetting & (COLOR_BOXED|COLOR_LEFTBOX|COLOR_RIGHTBOX)) && SE)
+	{
+		tputs(SE, 1, ttych);
+		currentbits &= SEmask;
+		currentfg = currentbg = -1;
+	}
+
+	/* Change foreground, if set & different */
+	if (fgcolored && fg != currentfg)
+	{
+		/* Try to fold bold & bg into the change */
+		if (bgcolored && bg != currentbg)
+		{
+			if (bg < 8)
+				sprintf(ansicolor, "\033[%ld;%ld%sm", bg + 40,
+					fg + 30, bits & COLOR_BOLD ? ";1" : "");
+			else
+			{
+				sprintf(ansicolor, "\033[m\033[%ld%sm",
+					fg + 30, bits & COLOR_BOLD ? ";1" : "");
+				currentbits = 0;
+			}
+			tputs(ansicolor, 1, ttych);
+			currentbits |= (bits & COLOR_BOLD);
+			currentbg = bg;
+		}
+		else
+		{
+			sprintf(ansicolor, "\033[%ld%sm", 
+					fg + 30, bits & COLOR_BOLD ? ";1" : "");
+			tputs(ansicolor, 1, ttych);
+			currentbits |= (bits & COLOR_BOLD);
+		}
+		currentfg = fg;
+	}
+
+	/* Change background, if set & different */
+	if (bgcolored && bg != currentbg)
+	{
+		/* Just change the background */
+		if (bg < 8)
+			sprintf(ansicolor, "\033[%ldm", bg + 40);
+		else
+		{
+			strcpy(ansicolor, "\033[m");
+			currentbits = 0;
+		}
+		tputs(ansicolor, 1, ttych);
+		currentbg = bg;
+	}
+
+	/* Set attributes */
+	setting = bits & ~currentbits;
+	if ((setting & COLOR_BOLD) && MD)
+		tputs(MD, 1, ttych);
+	if ((setting & COLOR_ITALIC) && MH)
+		tputs(MH, 1, ttych);
+	if ((setting & COLOR_UNDERLINED) && US)
+		tputs(US, 1, ttych);
+	if ((setting & (COLOR_BOXED|COLOR_LEFTBOX|COLOR_RIGHTBOX)) && SO)
+		tputs(SO, 1, ttych);
+	currentbits = bits;
 }
 
 
@@ -319,6 +441,7 @@ void ttysuspend()
 	/* restore some things */
 	if (CQ) tputs(CQ, 1, ttych);	/* restore cursor shape */
 	if (TE) tputs(TE, 1, ttych);	/* restore terminal mode/page */
+	viscreen = 0;
 	if (KE) tputs(KE, 1, ttych);	/* restore keypad mode */
 	if (RC) tputs(RC, 1, ttych);	/* restore cursor & attributes */
 
@@ -333,7 +456,7 @@ void ttysuspend()
 
 /* Put the terminal in RAW mode.  Send any required strings */
 void ttyresume(sendstr)
-	BOOLEAN	sendstr;	/* send strings? */
+	ELVBOOL	sendstr;	/* send strings? */
 {
 	/* change the terminal mode to cbreak/noecho */
 	ttyerasekey = ELVCTRL('H');/* the default */
@@ -345,6 +468,7 @@ void ttyresume(sendstr)
 		ttych('\r');
 		tputs(CE, (int)o_ttycolumns, ttych);
 		if (TI) tputs(TI, 1, ttych);
+		viscreen = 1;
 		if (KS) tputs(KS, 1, ttych);
 	}
 
@@ -490,6 +614,27 @@ static void starttcap()
 	}
 	optflags(o_term) |= OPT_SET|OPT_LOCK|OPT_NODFLT;
 
+	/* If the background option wasn't set via the $ELVISBG environment
+	 * variable, then we should try to guess whether this terminal has
+	 * a light or dark background.  Our guess: The background is probably
+	 * dark unless this is an xterm-like terminal emulator, or KDE's "kvt"
+	 * which breaks a lot of xterm conventions, or has a name that ends
+	 * with "-r" or "-rv" -- those two suffixes commonly denote reverse
+	 * video versions of termcap/terminfo entries.
+	 */
+	if (getenv("ELVISBG") == NULL)
+	{
+		o_background = 'd';	/* "dark" */
+		if (getenv("WINDOWID") != NULL
+		 || !CHARcmp(o_term, toCHAR("kvt"))
+		 || !CHARcmp(o_term, toCHAR("xterm"))
+		 || ((str = strrchr(tochar8(o_term), '-')) != NULL
+			&& str[1] == 'r'))
+		{
+			o_background = 'l';	/* "light" */
+		}
+	}
+
 	/* allocate memory for capbuf */
 	capbuf = cbmem;
 
@@ -516,6 +661,7 @@ static void starttcap()
 	mayhave(&TE, "te");
 	pair(&SC, &RC, "sc", "rc");	/* cursor save/restore */
 	pair(&KS, &KE, "ks", "ke");	/* keypad enable/disable */
+	mayhave(&AF, "AF");
 	if (tgetnum("sg") <= 0)
 	{
 		pair(&SO, &SE, "so", "se");
@@ -531,6 +677,12 @@ static void starttcap()
 		{
 			mayhave(&MD, "md");
 			mayhave(&MH, "mh");
+			mayhave(&str, "mr");
+			if (str && (!SO || !strcmp(str, SO)))
+			{
+				SO = str;
+				SE = ME;
+			}
 		}
 	}
 	mayhave(&ICmany, "IC");
@@ -565,6 +717,7 @@ static void starttcap()
 		CR = CV;
 	}
 
+#ifdef FEATURE_MISC
 	/* graphic characters */
 	str = tgetstr("ac", &capbuf);
 	if (str)
@@ -621,6 +774,7 @@ static void starttcap()
 			if (GC_9) GC_9 |= 0x80;
 		}
 	}
+#endif /* FEATURE_MISC */
 
 	/* key strings */
 	for (i = 0; i < QTY(keys); i++)
@@ -629,13 +783,27 @@ static void starttcap()
 	}
 
 	/* other termcap stuff */
-	AM = (BOOLEAN)(tgetflag("am") && !tgetflag("xn"));
-	PT = (BOOLEAN)tgetflag("pt");
+	AM = (ELVBOOL)(tgetflag("am") && !tgetflag("xn"));
+	PT = (ELVBOOL)tgetflag("pt");
+
+	/* Compute the attribute resetting masks.  Sometimes the same string
+	 * will reset more than one attribute, so we need to check for identical
+	 * strings and combine their effect on attributes.
+	 */
+	SEmask = ~(COLOR_BOXED|COLOR_LEFTBOX|COLOR_RIGHTBOX);
+	UEmask = ~COLOR_UNDERLINED;
+	MEmask = ~(COLOR_BOLD|COLOR_ITALIC);
+	if (SE && UE && !strcmp(SE, UE))
+		SEmask = UEmask &= SEmask;
+	if (SE && ME && !strcmp(SE, ME))
+		SEmask = MEmask &= SEmask;
+	if (UE && ME && !strcmp(UE, ME))
+		UEmask = MEmask &= UEmask;
 
 	/* change the terminal mode to cbreak/noecho */
 	ttyinit();
 	if (SC) tputs(SC, 1, ttych);
-	ttyresume(True);
+	ttyresume(ElvTrue);
 
 	/* try to get true screen size, from the operating system */
 	ttygetsize();
@@ -655,223 +823,10 @@ static void endtcap()
 
 static int	afterprg;	/* expose windows (after running prg) */
 static int	afterscrl;	/* number of status lines (after running prg) */
-static BOOLEAN	fgcolored;	/* have foreground colors been set? */
-static BOOLEAN	bgcolored;	/* have background colors been set? */
 static int	physx, physy;	/* physical cursor position */
-static TWIN	*twins;		/* list of windows */
-static TWIN	*current;	/* window with keyboard focus */
-static TWIN	defcolors;	/* default color strings */
 static int	nwindows;	/* number of windows allocated */
 
 /*----------------------------------------------------------------------------*/
-/* The following are used for replacing character attributes with colors.
- * Currently only "ansi" colors are supported.  This is the color scheme used
- * by the ANSI.SYS MS-DOS driver, and by most other PC operating systems.
- */
-
-static struct
-{
-	char	*name;	/* name of the color */
-	int	ansi;	/* ANSI.SYS color; if >10, then set "bold" attribute */
-} colors[] =
-{
-	{"black",	0},
-	{"red",		1},
-	{"green",	2},
-	{"brown",	3},
-	{"blue",	4},
-	{"magenta",	5},
-	{"cyan",	6},
-	{"white",	7},
-	{"gray",	10},
-	{"grey",	10},
-	{"yellow",	13},
-	{(char *)0}
-};
-
-static BOOLEAN ansi_color(tw, font, fgname, bgname)
-	TWIN	*tw;	/* window whose colors are to be set */
-	_char_	font;	/* font code, one of n/b/i/u/e/o/N */
-	char	*fgname;/* foreground color */
-	char	*bgname;/* background color name, or NULL */
-{
-	BOOLEAN	bright;	/* set the brightness bit? */
-	int	fg, bg;
-	char	*build;
-	static	int	normbg = -1;
-
-	/* see if we're supposed to set the brightness bit */
-	bright = False;
-	if (!strncmp(fgname, "light", 5)) bright = True, fgname += 5;
-	if (!strncmp(fgname, "lt", 2)) bright = True, fgname += 2;
-	if (!strncmp(fgname, "bright", 6)) bright = True, fgname += 6;
-
-	/* skip leading garbage characters */
-	while (*fgname && !isalpha(*fgname))
-	{
-		fgname++;
-	}
-
-	/* try to find the foreground color */
-	for (fg = 0; colors[fg].name && strcmp(colors[fg].name, fgname); fg++)
-	{
-	}
-	if (!colors[fg].name)
-	{
-		msg(MSG_ERROR, "[s]invalid color $1", fgname);
-		return False;
-	}
-	fg = colors[fg].ansi;
-
-	/* try to find the background color, if given */
-	if (bgname && *bgname)
-	{
-		for (bg = 0; colors[bg].name && strcmp(colors[bg].name, bgname); bg++)
-		{
-		}
-		if (!colors[bg].name)
-		{
-			msg(MSG_ERROR, "[s]invalid color $1", bgname);
-			return False;
-		}
-		bg = colors[bg].ansi;
-	}
-	else /* no background specified */
-	{
-		/* use "normal" background color, if defined */
-		bg = normbg;
-	}
-
-	/* if foreground color implies "bold", remember that! */
-	if (fg >= 10)
-	{
-		bright = True;
-		fg -= 10;
-	}
-
-	/* background can't be bold */
-	if (bg >= 0)
-	{
-		if (colors[bg].ansi >= 10)
-		{
-			msg(MSG_ERROR, "background can't be bright");
-			return False;
-		}
-	}
-
-	/* build the string */
-	switch (font)
-	{
-	  case 'n':	build = tw->startnormal;	break;
-	  case 'f':	build = tw->startfixed;		break;
-	  case 'b':	build = tw->startbold;		break;
-	  case 'e':	build = tw->startemph;		break;
-	  case 'i':	build = tw->startitalic;	break;
-	  case 'u':	build = tw->startunderline;	break;
-	  default:	build = tw->starthilite;	break;
-	}
-	if (bg >= 0)
-	{
-		sprintf(build, "\033[0;%dm\033[%s%dm",
-			40 + bg,		/* background color */
-			bright ? "1;" : "",	/* brightness */
-			30 + fg);		/* foreground color */
-		if (o_ttyunderline && US && font == 'u')
-			strcat(build, US);
-	}
-	else /* no background specified; only affect foreground */
-	{
-		sprintf(build, "\033[0;%s%dm",
-			bright ? "1;" : "",	/* brightness */
-			30 + fg);		/* foreground color */
-		if (o_ttyunderline && US && font == 'u')
-			strcat(build, US);
-	}
-
-	/* if 'n' font, copy startnormal into endXXX */
-	if (font == 'n')
-	{
-		/* but first! if this the first color setting, then choose
-		 * defaults for all other attributes.
-		 */
-		if (!fgcolored || (bg >= 0 && !bgcolored))
-		{
-			/* If we have a background color... */
-			if (bg >= 0)
-			{
-				/* if normal is bright, then bold must be bright white */
-				if (bright)
-				{
-					sprintf(tw->startbold, "\033[0;%dm\033[1;37m", 40 + bg);
-				}
-				else
-				{
-					sprintf(tw->startbold, "\033[0;%dm\033[1;%dm", 40 + fg, 30 + bg);
-				}
-
-				/* emphasized is same as bold */
-				strcpy(tw->startemph, tw->startbold);
-
-				/* italic is a dim version of normal */
-				sprintf(tw->startitalic, "\033[0;%d;%dm", 30 + fg, 40 + bg);
-
-				/* underline is dim underlined version of normal */
-				sprintf(tw->startunderline, "\033[0;%d;%dm%s",
-					30 + fg, 40 + bg, (o_ttyunderline && US) ? US : "");
-
-				/* reverse video swaps foreground & background; always dim */
-				sprintf(tw->starthilite, "\033[0;%d;%dm", 30 + bg, 40 + fg);
-
-				/* other font is same as normal */
-				strcpy(tw->startfixed, tw->startnormal);
-			}
-			else /* no background color */
-			{
-				/* if normal is bright, then bold must be bright white */
-				if (bright)
-				{
-					strcpy(tw->startbold, "\033[0;1;37m");
-				}
-				else
-				{
-					sprintf(tw->startbold, "\033[0;1;%dm", 30 + fg);
-				}
-
-				/* emphasized is same as bold */
-				strcpy(tw->startemph, tw->startbold);
-
-				/* italic is a dim version of normal */
-				sprintf(tw->startitalic, "\033[0;%dm", 30 + fg);
-
-				/* underline is dim underlined version of normal */
-				sprintf(tw->startunderline, "\033[0;%dm%s",
-					30 + fg, (o_ttyunderline && US) ? US : "");
-
-				/* reverse video is reverse+normal colors */
-				sprintf(tw->starthilite, "\033[0;%d;7m", 30 + fg);
-
-				/* other font is same as normal */
-				strcpy(tw->startfixed, tw->startnormal);
-			}
-		}
-
-		/* remember the new background color (if any) */
-		normbg = bg;
-
-		/* copy the normal string to each font's endXXX string */
-		strcpy(tw->endbold, tw->startnormal);
-		strcpy(tw->endemph, tw->startnormal);
-		strcpy(tw->enditalic, tw->startnormal);
-		*tw->endunderline = '\0';
-			if (UE) strcpy(tw->endunderline, UE);
-			strcat(tw->endunderline, tw->startnormal);
-		strcpy(tw->endhilite, tw->startnormal);
-		strcpy(tw->endfixed, tw->startnormal);
-	}
-
-	/* success! */
-	return True;
-}
 
 /* This is an internal function which moves the physical cursor to the logical
  * position of the cursor in a given window, if it isn't there already.
@@ -938,7 +893,7 @@ static void movecurs(tw)
 }
 
 /* clear to end of line */
-static BOOLEAN clrtoeol(gw)
+static ELVBOOL clrtoeol(gw)
 	GUIWIN	*gw;	/* window whose row is to be cleared */
 {
 	TWIN	*tw = (TWIN *)gw;
@@ -946,7 +901,7 @@ static BOOLEAN clrtoeol(gw)
 	/* after running a program, disable the :ce: string for a while. */
 	/* JohnW 13/08/96 Not disabled for the bottom line of window */
 	if (afterprg && tw->cursy != (int)tw->height - 1)
-		return True;
+		return ElvTrue;
 
 	/* if we're on the bottom row of a window which doesn't end at the
 	 * bottom of the screen, then fail.  This will cause elvis to output
@@ -956,7 +911,7 @@ static BOOLEAN clrtoeol(gw)
 	if ( !afterprg && /* JohnW 13/08/96 Not after a prog... */
 	    tw->cursy == tw->height - 1 && tw->pos + tw->height != o_ttyrows)
 	{
-		return False;
+		return ElvFalse;
 	}
 
 	/* revert to the normal font */
@@ -968,11 +923,11 @@ static BOOLEAN clrtoeol(gw)
 	/* output the clear-to-eol string */
 	tputs(CE, (int)(o_ttycolumns - tw->cursx), ttych);
 
-	return True;
+	return ElvTrue;
 }
 
 /* insert or delete columns */
-static BOOLEAN shift(gw, qty, rows)
+static ELVBOOL shift(gw, qty, rows)
 	GUIWIN	*gw;	/* window to be shifted */
 	int	qty;	/* columns to insert (may be negative to delete) */
 	int	rows;	/* number of rows affected (always 1 for this GUI) */
@@ -1000,7 +955,7 @@ static BOOLEAN shift(gw, qty, rows)
 		else
 		{
 			/* don't know how to insert */
-			return False;
+			return ElvFalse;
 		}
 	}
 	else
@@ -1023,17 +978,17 @@ static BOOLEAN shift(gw, qty, rows)
 		else
 		{
 			/* don't know how to delete */
-			return False;
+			return ElvFalse;
 		}
 	}
-	return True;
+	return ElvTrue;
 }
 
 /* insert or delete rows.  qty is positive to insert, negative to delete */
-static BOOLEAN scroll(gw, qty, notlast)
+static ELVBOOL scroll(gw, qty, notlast)
 	GUIWIN	*gw;	/* window to be scrolled */
 	int	qty;	/* rows to insert (may be nagative to delete) */
-	BOOLEAN notlast;/* if True, then leave last row unchanged */
+	ELVBOOL notlast;/* if ElvTrue, then leave last row unchanged */
 {
 	TWIN	*tw = (TWIN *)gw;
 	char	*op;
@@ -1051,7 +1006,7 @@ static BOOLEAN scroll(gw, qty, notlast)
 	 */
 	if (twins->next)
 	{
-		return False;
+		return ElvFalse;
 	}
 
 	/* revert to the normal font */
@@ -1076,7 +1031,7 @@ static BOOLEAN scroll(gw, qty, notlast)
 			/* if we don't know how to do this, we're screwed */
 			if (!op || qty > o_ttyrows / 2)
 			{
-				return False;
+				return ElvFalse;
 			}
 
 			/* a bunch of little insertions */
@@ -1106,7 +1061,7 @@ static BOOLEAN scroll(gw, qty, notlast)
 			/* if we don't know how to do this, we're screwed */
 			if (!op || qty > o_ttyrows / 2)
 			{
-				return False;
+				return ElvFalse;
 			}
 
 			/* a bunch of little deletions */
@@ -1117,19 +1072,20 @@ static BOOLEAN scroll(gw, qty, notlast)
 			}
 		}
 	}
-	return True;
+	return ElvTrue;
 }
 
 /* Forget where the cursor is, and which mode we're in */
-static void reset P_((void))
+static void reset()
 {
 	physx = physy = 9999;
-	revert(&defcolors);
+	currentfg = currentbg = -1L;
+	currentbits = -1;
 }
 
 
 /* Flush any changes out to the display */
-static void flush P_((void))
+static void flush()
 {
 	if (current)
 	{
@@ -1151,44 +1107,35 @@ static void moveto(gw, column, row)
 
 
 /* put graphic characters.  This function is called only from draw() */
-static void drawgraphic(gw, font, text, len)
+static void drawgraphic(gw, fg, bg, bits, text, len)
 	GUIWIN	*gw;	/* window where text should be drawn */
-	_char_	font;	/* font to use for drawing this text - 'g' or 'G' */
+	long	fg;	/* foreground color */
+	long	bg;	/* background color */
+	int	bits;	/* attribute bits */
 	CHAR	*text;	/* plain chars to be mapped to graphic chars */
 	int	len;	/* length of text */
 {
 	TWIN	*tw = (TWIN *)gw;
 	int	i;
-	BOOLEAN	graf;
+#ifdef FEATURE_MISC
+	ELVBOOL	graf = ElvFalse;
 	char	gc;
+#endif
 
-	/* if this is supposed to be hilighted, and we aren't already in
-	 * standout mode, then switch to standout mode now.
+	/* Change attributes if necessary.  Note that we mask out COLOR_GRAPHIC
+	 * since COLOR_GRAPHIC is handled within this function.
 	 */
-	if (font == 'G' && startfont != tw->starthilite)
-	{
-		/* end the previous */
-		if (*endfont)
-			tputs(endfont, 1, ttych); 
-			
-		/* start the new one */
-		if (*tw->starthilite)
-			tputs(tw->starthilite, 1, ttych);
-
-		/* remember the font */
-		startfont = tw->starthilite;
-		endfont = tw->endhilite;
-	}
-	else if (font == 'g' && *endfont)
-	{
-		/* end the previous */
-		tputs(endfont, 1, ttych);
-		startfont = endfont = "";
-	}
+	change(fg, bg, bits & ~COLOR_GRAPHIC);
 
 	/* draw each character */
-	for (graf = False, i = 0; i < len; i++)
+	for (i = 0; i < len; i++)
 	{
+#ifndef FEATURE_MISC
+		if (elvdigit(text[i]))
+			ttych('+');
+		else
+			ttych(text[i]);
+#else /* FEATURE_MISC */
 		/* try to convert plain character to graphic character */
 		switch (text[i])
 		{
@@ -1213,7 +1160,7 @@ static void drawgraphic(gw, font, text, len)
 			if (!graf && *GS)
 			{
 				tputs(GS, 1, ttych);
-				graf = True;
+				graf = ElvTrue;
 			}
 			ttych(gc);
 		}
@@ -1223,51 +1170,61 @@ static void drawgraphic(gw, font, text, len)
 			if (graf)
 			{
 				tputs(GE, 1, ttych);
-				graf = False;
+				graf = ElvFalse;
 			}
-			if (isdigit(text[i]))
+			if (elvdigit(text[i]))
 				ttych('+');
 			else
 				ttych(text[i]);
 		}
+#endif /* FEATURE_MISC */
 	}
 
+#ifdef FEATURE_MISC
 	/* if still in graphic mode, then revert to text mode now */
 	if (graf && GE)
 	{
 		tputs(GE, 1, ttych);
 	}
+#endif
 
 	/* drawing the characters has the side-effect of moving the cursor */
 	tw->cursx += len;
 	physx += len;
-	if (physx == o_ttycolumns && AM)
+	if (physx == o_ttycolumns)
 	{
-		physx = 0;
-		physy++;
+		if (o_ttywrap && AM)
+			physx = 0, physy++;
+		else
+			physx = physy = 9999;
 	}
 }
 
 
 /* put characters: first move, then set attribute, then execute char.
  */
-static void draw(gw, font, text, len)
+static void draw(gw, fg, bg, bits, text, len)
 	GUIWIN	*gw;	/* window where text should be drawn */
-	_char_	font;	/* font to use for drawing this text */
+	long	fg;	/* foreground color */
+	long	bg;	/* background color */
+	int	bits;	/* other attributes */
 	CHAR	*text;	/* text to draw */
 	int	len;	/* length of text */
 {
 	TWIN	*tw = (TWIN *)gw;
-	char	*startf, *endf; /* font control strings */
 	int	i;
-#ifndef NDEBUG
-	TWIN	*scan;
 
-	for (scan = twins; scan != tw && scan; scan = scan->next)
+	/* if COLOR_LEFTBOX is set, but not COLOR_BOXED, then draw in two
+	 * phases: First draw a single character with COLOR_LEFTBOX, and then
+	 * draw the remainder without COLOR_LEFTBOX.
+	 */
+	if ((bits & (COLOR_LEFTBOX|COLOR_BOXED)) == COLOR_LEFTBOX && len > 1)
 	{
+		draw(gw, fg, bg, bits, text, 1);
+		bits &= ~COLOR_LEFTBOX;
+		text++;
+		len--;
 	}
-	assert(scan);
-#endif
 
 	/* After a program, don't output any text except messages for a while.
 	 * This is mostly an optimization; the window is about to be redrawn
@@ -1283,14 +1240,14 @@ static void draw(gw, font, text, len)
 			ttych('\r');
 			ttych('\n');
 			ttyflush();
-			font = 'n';
+			bits = 0;
 		}
 	}
 
 	/* if this terminal has :am: automargins (without :xm:), then we
 	 * must never draw a character in the last column of the last row.
 	 */
-	if (AM
+	if ((o_ttywrap || AM)
 		&& tw->pos + tw->cursy == o_ttyrows - 1
 		&& tw->cursx + len >= o_ttycolumns)
 	{
@@ -1305,9 +1262,9 @@ static void draw(gw, font, text, len)
 	movecurs(tw);
 
 	/* if graphic characters, then handle specially */
-	if (font == 'g' || font == 'G')
+	if (bits & COLOR_GRAPHIC)
 	{
-		drawgraphic(gw, font, text, len);
+		drawgraphic(gw, fg, bg, bits, text, len);
 		return;
 	}
 
@@ -1315,55 +1272,21 @@ static void draw(gw, font, text, len)
 	 * then any normal characters should be underlined.  This will give
 	 * us the effect of a window border.
 	 */
-	if (tw->cursy == tw->height - 1 && physy < o_ttyrows - 1 && !isupper(font))
+	if (tw->cursy == tw->height - 1 && physy < o_ttyrows - 1)
 	{
-		font = 'u';
+		bits |= COLOR_UNDERLINED;
 	}
 
-	/* find the font strings */
-	if (isupper(font))
-	{
-		startf = tw->starthilite;
-		endf = tw->endhilite;
-	}
-	else
-	{
-		switch (font)
-		{
-		  case 'b':	startf = tw->startbold; endf = tw->endbold; break;
-		  case 'e':	startf = tw->startemph; endf = tw->endemph; break;
-		  case 'i':	startf = tw->startitalic; endf = tw->enditalic; break;
-		  case 'u':	startf = tw->startunderline; endf = tw->endunderline; break;
-		  case 'f':	startf = tw->startfixed; endf = tw->endfixed; break;
-			/* 'g' is handled separately, above */
-		  case 'p':	startf = tw->starthilite; endf = tw->endhilite; break;
-		  default:	startf = endf = "";
-		}
-	}
+	/* adjust the colors & attributes */
+	change(fg, bg, bits);
 
-	/* if font is different, then change it */
-	if ((startf != startfont && (*startf != '\0' || *startfont != '\0'))
-	 || (endf != endfont && (*endf != '\0' || *endfont != '\0')))
-	{
-		/* end the previous */
-		if (*endfont)
-			tputs(endfont, 1, ttych); 
-
-		/* start the new one */
-		if (*startf)
-			tputs(startf, 1, ttych);
-
-		/* remember the font */
-		startfont = startf;
-		startfont = endfont = endf;
-	}
-
-	/* draw each character.  If this is the bottom row of any window except
-	 * the bottom window, then also replace any blanks with '_' characters.
-	 * This will provide a window border in case the terminal can't do
-	 * real underlining.
+	/* Draw each character.  If this is the bottom row of any window except
+	 * the bottom window, and underlining is not available, then replace
+	 * any blanks with '_' characters.  This will provide a window border.
 	 */
-	if (tw->cursy == tw->height - 1 && physy < o_ttyrows - 1 && !isupper(font))
+	if (tw->cursy == tw->height - 1
+	 && physy < o_ttyrows - 1
+	 && (!US || !o_ttyunderline))
 	{
 		for (i = 0; i < len; i++)
 		{
@@ -1381,17 +1304,19 @@ static void draw(gw, font, text, len)
 	/* drawing the characters has the side-effect of moving the cursor */
 	tw->cursx += len;
 	physx += len;
-	if (physx == o_ttycolumns && AM)
+	if (physx == o_ttycolumns)
 	{
-		physx = 0;
-		physy++;
+		if (o_ttywrap && AM)
+			physx = 0, physy++;
+		else
+			physx = physy = 9999;
 	}
 }
 
 
 
-/* return True if termcap is available. */
-static int test P_((void))
+/* return ElvTrue if termcap is available. */
+static int test()
 {
 	char	*term;
 	char	dummy[40], *dummyptr;
@@ -1419,7 +1344,7 @@ static int test P_((void))
 }
 
 
-/* initialize the PC BIOS interface. */
+/* initialize the termcap interface. */
 static int init(argc, argv)
 	int	argc;	/* number of command-line arguments */
 	char	**argv;	/* values of command-line arguments */
@@ -1427,7 +1352,9 @@ static int init(argc, argv)
 	int	i;
 
 	/* add the global options to the list known to :set */
-	o_ttyunderline = True;
+	o_ttyunderline = ElvTrue;
+	o_ttyitalic = ElvTrue;
+	o_ttywrap = ElvTrue;
 	optinsert("tcap", QTY(goptdesc), goptdesc, &ttygoptvals.term);
 
 	/* initialize the termcap stuff */
@@ -1446,7 +1373,7 @@ static int init(argc, argv)
 			mapinsert(toCHAR(keys[i].rawin), (int)strlen(keys[i].rawin),
 				toCHAR(keys[i].cooked), (int)strlen(keys[i].cooked),
 				toCHAR(keys[i].label),
-				keys[i].flags);
+				keys[i].flags, NULL);
 		}
 	}
 
@@ -1479,13 +1406,17 @@ static void cursorshape(shape)
 }
 
 /* Repeatedly get events (keystrokes), and call elvis' event functions */
-static void loop P_((void))
+static void loop()
 {
 	char	buf[20];
 	int	len;
 	int	timeout = 0;
 	MAPSTATE mst = MAP_CLEAR;
 	TWIN	*scan;
+
+	/* peform the -c command or -t tag */
+	if (mainfirstcmd(windefault))
+		return;
 
 	while (twins)
 	{
@@ -1496,6 +1427,7 @@ static void loop P_((void))
 		if (!current)
 		{
 			current = twins;
+			eventfocus((GUIWIN *)current, ElvTrue);
 		}
 
 		/* redraw the window(s) */
@@ -1545,7 +1477,7 @@ static void loop P_((void))
 			 * other windows to compensate.  If there is only one
 			 * window, then should be resized to the screen size.
 			 */
-			chgsize(current, twins->next ? current->height : (int)o_ttyrows, True);
+			chgsize(current, twins->next ? current->height : (int)o_ttyrows, ElvTrue);
 		}
 		else
 		{
@@ -1581,7 +1513,7 @@ static void loop P_((void))
 				 * or else the eventexpose() won't work right.
 				 */
 				afterprg = 0;
-				ttyresume(True);
+				ttyresume(ElvTrue);
 				for (scan = twins; scan; scan = scan->next)
 				{ 
 					eventexpose((GUIWIN *)scan, 0, 0,
@@ -1595,7 +1527,7 @@ static void loop P_((void))
 				 * read one more keystroke before exposing
 				 * all the windows.
 				 */
-				ttyresume(False);
+				ttyresume(ElvFalse);
 				afterprg = 1;
 			}
 		}
@@ -1603,12 +1535,93 @@ static void loop P_((void))
 }
 
 /* shut down the termcap interface */
-static void term P_((void))
+static void term()
 {
 	cursorshape(CURSOR_NONE);
 	endtcap();
 }
 
+
+#ifndef FEATURE_SPLIT
+# define drawborder(tw)
+
+static void chgsize(tw, newheight, winch)
+	TWIN	*tw;		/* window to be resized */
+	int	newheight;	/* desired height of window */
+	ELVBOOL	winch;		/* Did the whole screen change size? */
+{
+	tw->height = newheight;
+	if (winch)
+		eventresize((GUIWIN *)tw, tw->height, (int)o_ttycolumns);
+}
+
+/* This function creates a window */
+static ELVBOOL creategw(name, firstcmd)
+	char	*name;		/* name of new window's buffer */
+	char	*firstcmd;	/* first command to run in window */
+{
+	/* only allow one window */
+	if (twins)
+		return ElvFalse;
+
+	/* create a window */
+	twins = (TWIN *)safealloc(1, sizeof(TWIN));
+
+	/* initialize the window */
+	twins->height = o_ttyrows;
+	twins->pos = 0;
+	twins->cursx = twins->cursy = 0;
+	twins->shape = CURSOR_NONE;
+	nwindows = 1;
+
+	/* make elvis do its own initialization */
+	if (!eventcreate((GUIWIN *)twins, NULL, name, twins->height, (int)o_ttycolumns))
+	{
+		/* elvis can't make it -- fail */
+		safefree(twins);
+		return ElvFalse;
+	}
+
+	/* make the new window be the current window */
+	current = twins;
+	eventfocus((GUIWIN *)current, ElvTrue);
+
+	/* execute the first command, if any */
+	if (firstcmd)
+	{
+		winoptions(winofgw((GUIWIN *)twins));
+		exstring(windefault, toCHAR(firstcmd), "+cmd");
+	}
+
+	return ElvTrue;
+}
+
+
+/* This function deletes a window */
+static void destroygw(gw, force)
+	GUIWIN	*gw;	/* window to be destroyed */
+	ELVBOOL	force;	/* if ElvTrue, try harder */
+{
+	/* delete the window */
+	twins = NULL;
+	nwindows = 0;
+
+	/* If this is the last window, move the cursor to the last line, and
+	 * erase it.  If the buffer is going to be written, this is where the
+	 * "wrote..." message will appear.
+	 */
+	revert(NULL);
+	tputs(tgoto(CM, 0, (int)(o_ttyrows - 1)), 1, ttych);
+	tputs(CE, 1, ttych);
+
+	/* simulate a "destroy" event */
+	eventdestroy(gw);
+
+	/* free the storage */
+	safefree(gw);
+}
+
+#else /* FEATURE_SPLIT */
 
 /* This draws a bunch of underscores on the physical screen on the bottom
  * row of a window, if that window doesn't end at the bottom of the screen.
@@ -1629,30 +1642,28 @@ static void drawborder(tw)
 	tw->cursx = 0;
 	tw->cursy = tw->height - 1;
 	movecurs(tw);
-	if (startfont != tw->startunderline)
+	revert(tw);
+	change(0L, 0L, COLOR_UNDERLINED);
+	if (currentbits & COLOR_UNDERLINED)
 	{
-		if (*endfont)
+		for (col = 0; col < o_ttycolumns; col++)
 		{
-			tputs(endfont, 1, ttych);
+			ttych(' ');
 		}
-		startfont = tw->startunderline;
-		endfont = tw->endunderline;
-		tputs(startfont, 1, ttych);
-	}
-	for (col = 0; col < o_ttycolumns; col++)
-	{
-		ttych('_');
-	}
-
-	/* figure out where the physical cursor would be after that */
-	if (AM)
-	{
-		physy++;
 	}
 	else
 	{
-		physx = o_ttycolumns - 1;
+		for (col = 0; col < o_ttycolumns; col++)
+		{
+			ttych('_');
+		}
 	}
+
+	/* figure out where the physical cursor would be after that */
+	if (o_ttywrap && AM)
+		physx = 0, physy++;
+	else
+		physx = physy = 9999;
 }
 
 /* This function changes the height of a given window.  The total heights of
@@ -1662,7 +1673,7 @@ static void drawborder(tw)
 static void chgsize(tw, newheight, winch)
 	TWIN	*tw;		/* window to be resized */
 	int	newheight;	/* desired height of window */
-	BOOLEAN	winch;		/* Did the whole screen change size? */
+	ELVBOOL	winch;		/* Did the whole screen change size? */
 {
 	TWIN	*scan;
 	int	pos;
@@ -1768,12 +1779,7 @@ static void chgsize(tw, newheight, winch)
 			}
 			else
 			{
-				/* draw the border the hard way: erase last row */
-				if (*endfont)
-				{
-					tputs(endfont, 1, ttych);
-					startfont = endfont = "";
-				}
+				/* draw border the hard way: erase last row */
 				physy = o_ttyrows - 1;
 				physx = 0;
 				tputs(tgoto(CM, physx, physy), 1, ttych);
@@ -1792,16 +1798,19 @@ static void chgsize(tw, newheight, winch)
 
 
 /* This function creates a window */
-static BOOLEAN creategw(name, firstcmd)
+static ELVBOOL creategw(name, firstcmd)
 	char	*name;		/* name of new window's buffer */
 	char	*firstcmd;	/* first command to run in window */
 {
 	TWIN	*newp;
+#ifdef FEATURE_MISC
+	BUFFER	buf;
+#endif
 
 	/* if we don't have room for any more windows, then fail */
 	if (o_ttyrows / (nwindows + 1) < MINHEIGHT)
 	{
-		return False;
+		return ElvFalse;
 	}
 
 	/* create a window */
@@ -1820,31 +1829,6 @@ static BOOLEAN creategw(name, firstcmd)
 	}
 	newp->cursx = newp->cursy = 0;
 	newp->shape = CURSOR_NONE;
-	if (fgcolored)
-	{
-		/* copy font-switch strings from current window */
-		strcpy(newp->startnormal, defcolors.startnormal);
-		strcpy(newp->startbold, defcolors.startbold);
-		strcpy(newp->endbold, defcolors.endbold);
-		strcpy(newp->startitalic, defcolors.startitalic);
-		strcpy(newp->enditalic, defcolors.enditalic);
-		strcpy(newp->startunderline, defcolors.startunderline);
-		strcpy(newp->endunderline, defcolors.endunderline);
-		strcpy(newp->starthilite, defcolors.starthilite);
-		strcpy(newp->endhilite, defcolors.endhilite);
-	}
-	else
-	{
-		/* set the initial font-switch strings from termcap strings */
-		if (MD) strcpy(newp->startbold, MD), strcpy(newp->endbold, ME);
-		if (US) strcpy(newp->startunderline, US), strcpy(newp->endunderline, UE);
-		if (MH) strcpy(newp->startitalic, MH), strcpy(newp->enditalic, ME);
-		if (SO) strcpy(newp->starthilite, SO), strcpy(newp->endhilite, SE);
-	}
-	strcpy(newp->startfixed, defcolors.startfixed);
-	strcpy(newp->endfixed, defcolors.endfixed);
-	strcpy(newp->startemph, defcolors.startemph);
-	strcpy(newp->endemph, defcolors.endemph);
 
 	/* insert the new window into the list of windows */
 	newp->next = twins;
@@ -1852,23 +1836,31 @@ static BOOLEAN creategw(name, firstcmd)
 	nwindows++;
 
 	/* adjust the heights of the other windows to make room for this one */
-	chgsize(newp, (int)(o_ttyrows / nwindows), False);
+	chgsize(newp, (int)(o_ttyrows / nwindows), ElvFalse);
 	drawborder(newp);
-
-	/* some versions of tcaphelp.c support retitle() */
-	if (gui->retitle)
-		(*gui->retitle)((GUIWIN *)newp, name);
 
 	/* make elvis do its own initialization */
 	if (!eventcreate((GUIWIN *)newp, NULL, name, newp->height, (int)o_ttycolumns))
 	{
 		/* elvis can't make it -- fail */
 		safefree(newp);
-		return False;
+		return ElvFalse;
 	}
+
+#ifdef FEATURE_MISC
+	/* some versions of tcaphelp.c support retitle() */
+	if (gui->retitle)
+	{
+		buf = buffind(toCHAR(name));
+		if (buf && o_filename(buf))
+			name = tochar8(o_filename(buf));
+		(*gui->retitle)((GUIWIN *)newp, name);
+	}
+#endif
 
 	/* make the new window be the current window */
 	current = newp;
+	eventfocus((GUIWIN *)current, ElvTrue);
 
 	/* execute the first command, if any */
 	if (firstcmd)
@@ -1877,14 +1869,14 @@ static BOOLEAN creategw(name, firstcmd)
 		exstring(windefault, toCHAR(firstcmd), "+cmd");
 	}
 
-	return True;
+	return ElvTrue;
 }
 
 
 /* This function deletes a window */
 static void destroygw(gw, force)
 	GUIWIN	*gw;	/* window to be destroyed */
-	BOOLEAN	force;	/* if True, try harder */
+	ELVBOOL	force;	/* if ElvTrue, try harder */
 {
 	TWIN	*scan, *lag;
 	WINDOW	win;
@@ -1902,17 +1894,11 @@ static void destroygw(gw, force)
 		twins = scan->next;
 	}
 
-	/* if it was the current window, it isn't now */
-	if (scan == current)
-	{
-		current = twins;
-	}
-
 	/* adjust the sizes of other windows (if any) */
 	nwindows--;
 	if (nwindows > 0)
 	{
-		chgsize((TWIN *)gw, 0, False);
+		chgsize((TWIN *)gw, 0, ElvFalse);
 	}
 
 	/* If this is the last window, move the cursor to the last line, and
@@ -1932,34 +1918,53 @@ static void destroygw(gw, force)
 	/* free the storage */
 	safefree(gw);
 
+	/* if it was the current window, it isn't now */
+	if (scan == current)
+	{
+		current = twins;
+		if (current)
+			eventfocus((GUIWIN *)current, ElvTrue);
+	}
+
 	/* some versions of tcaphelp.c support retitle() */
 	if (current && gui->retitle && (win=winofgw((GUIWIN *)current)) != NULL)
 	{
 		(*gui->retitle)((GUIWIN *)current,
-			tochar8(o_bufname(markbuffer(win->cursor))));
+			tochar8(o_filename(markbuffer(win->cursor)) ? o_filename(markbuffer(win->cursor)) : o_bufname(markbuffer(win->cursor))));
 	}
 }
+#endif /* FEATURE_SPLIT */
 
 
 /* This function changes window focus */
-static BOOLEAN focusgw(gw)
+static ELVBOOL focusgw(gw)
 	GUIWIN	*gw;	/* window to be the new "current" window */
 {
+#ifdef FEATURE_MISC
 	WINDOW	win;
+	BUFFER	buf;
+#endif
 
 	/* make this window current */
 	current = (TWIN *)gw;
+	eventfocus((GUIWIN *)current, ElvTrue);
 
+#ifdef FEATURE_MISC
 	/* some versions of tcaphelp.c support retitle() */
-	if (gui->retitle && (win = winofgw(gw)) != NULL)
-		(*gui->retitle)(gw, tochar8(o_bufname(markbuffer(win->cursor))));
+	win = winofgw(gw);
+	if (gui->retitle && win != NULL)
+	{
+		buf = markbuffer(win->cursor);
+		(*gui->retitle)(gw, tochar8(o_bufname(buf) ? o_bufname(buf) : o_bufname(buf)));
+	}
+#endif
 
-	return True;
+	return ElvTrue;
 }
 
 
 /* This function handles the visual <Tab> command */
-static BOOLEAN tabcmd(gw, key2, count)
+static ELVBOOL tabcmd(gw, key2, count)
 	GUIWIN	*gw;	/* window that the command should affect */
 	_CHAR_	key2;	/* second key of <Tab> command */
 	long	count;	/* argument of the <Tab> command */
@@ -1971,7 +1976,7 @@ static BOOLEAN tabcmd(gw, key2, count)
 
 	/* if only one window, then we can't change its size */
 	if (nwindows == 1)
-		return False;
+		return ElvFalse;
 
 	/* remember the old position */
 	newheight = oldheight = tw->height;
@@ -2003,11 +2008,11 @@ static BOOLEAN tabcmd(gw, key2, count)
 		newheight = o_ttyrows; /* will be reduced later */
 		break;
 
-	  default:	return False;
+	  default:	return ElvFalse;
 	}
 
 	/* try to change the heights of other windows to make this one fit */
-	chgsize(tw, newheight, False);
+	chgsize(tw, newheight, ElvFalse);
 	newheight = tw->height;
 
 	/* resize/expose this window */
@@ -2021,7 +2026,7 @@ static BOOLEAN tabcmd(gw, key2, count)
 		drawborder(tw);
 		eventexpose(tw, 0, 0, newheight - 1, (int)(o_ttycolumns - 1));
 	}
-	return True;
+	return ElvTrue;
 }
 
 /* This function rings the bell */
@@ -2069,96 +2074,54 @@ static int keylabel(given, givenlen, label, rawptr)
 }
 
 /* This function defines colors for fonts */
-static BOOLEAN color(gw, font, fg, bg)
-	GUIWIN	*gw;	/* window whose colors are being set */
-	_char_	font;	/* font being changed: n/b/i/u else highlighted */
-	CHAR	*fg;	/* name of desired foreground color */
-	CHAR	*bg;	/* name of desired background color */
+static ELVBOOL color(fontcode, colornam, isfg, colorptr, rgb)
+	int	fontcode;	/* name of font being changed */
+	CHAR	*colornam;	/* name of new color */
+	ELVBOOL	isfg;		/* ElvTrue for foreground, ElvFalse for background */
+	long	*colorptr;	/* where to store the color number */
+	unsigned char rgb[3];	/* color broken down into RGB components */
 {
-	TWIN	*tw = (TWIN *)gw;
-	TWIN	*other; /* some other window */
-	BOOLEAN	ret;	/* return code -- True if successful */
-
-	/* we must set normal colors first */
-	if ((!fgcolored || (bg && !bgcolored)) && font != 'n')
+	/* Normal colors must be set first, so we have a way to switch back
+	 * from specialized colors.
+	 */
+	if (fontcode != 1 && !(isfg ? fgcolored : bgcolored))
 	{
 		msg(MSG_ERROR, "must set normal colors first");
-		return False;
+		return ElvFalse;
 	}
 
-	/* if no window specified, or this is the first :color command,
-	 * then we're setting the default colors.
+	/* Set the colors, if we know how for this terminal type.  Since there
+	 * is no standard termcap entry for identifying the coloring style for
+	 * a terminal, we just try to guess whether a terminal is ANSI-like by
+	 * comparing the :up=: string to the standard ANSI `CUP' sequence, or
+	 * the :AF=: string to a typical ANSI foreground sequence.  Note that
+	 * :up=: is mandatory in termcap with tgoto(), but :AF=: is not.
+	 * Another complicating factor is that :AF=: uses a parameter, and
+	 * if we're really using terminfo's termcap emulation functions instead
+	 * of the real termcap library, this means the :AF=: string will be
+	 * different.  We need to try both termcap & terminfo versions of that
+	 * string.
 	 */
-	if (!tw || !fgcolored)
-	{
-		tw = &defcolors;
-	}
+	if ((strcmp(UP,"\033[A") && (!AF || (strcmp(AF, "\033[3%dm") && strcmp(AF, "\033[3%p1%dm"))))
+	 || !coloransi(fontcode, colornam, isfg, colorptr, rgb))
+		return ElvFalse;
 
-	/* revert to normal font now; if we wait until after setting colors,
-	 * we might not know how to do it anymore!
-	 */
-	revert(tw);
-
-	/* set the colors */
-	ret = ansi_color(tw, font, tochar8(fg), tochar8(bg));
-
-	/* if colors weren't set before, then copy colors to all windows */
-	if (!fgcolored || (!bgcolored && bg && *bg))
-	{
-		for (other = twins; other; other = other->next)
-		{
-			/* skip the window that we just set */
-			if (other == tw)
-			{
-				continue;
-			}
-
-			/* copy the colors */
-			strcpy(other->startnormal, tw->startnormal);
-			strcpy(other->startfixed, tw->startfixed);
-			strcpy(other->endfixed, tw->endfixed);
-			strcpy(other->startbold, tw->startbold);
-			strcpy(other->endbold, tw->endbold);
-			strcpy(other->startemph, tw->startemph);
-			strcpy(other->endemph, tw->endemph);
-			strcpy(other->startitalic, tw->startitalic);
-			strcpy(other->enditalic, tw->enditalic);
-			strcpy(other->startunderline, tw->startunderline);
-			strcpy(other->endunderline, tw->endunderline);
-			strcpy(other->starthilite, tw->starthilite);
-			strcpy(other->endhilite, tw->endhilite);
-		}
-
-		/* we've set colors now! */
-		fgcolored = True;
-		if (bg && *bg)
-		{
-			bgcolored = True;
-		}
-	}
-
-	/* remember the current window's colors, to use them as the default
-	 * for any window that gets created after this.
-	 */
-	if (tw != &defcolors)
-	{
-		defcolors = *tw;
-	}
-
-	/* We probably need to reset the screen's current attribute */
-	revert(tw);
-
-	return ret;
+	/* Success!  Remember if we've set foreground or background */
+	if (isfg)
+		fgcolored = ElvTrue;
+	else
+		bgcolored = ElvTrue;
+	return ElvTrue;
 }
 
 
-static BOOLEAN isread;
+static ELVBOOL isread;
 
 /* Suspend curses while running an external program */
-static BOOLEAN ttyprgopen(command, willwrite, willread)
+static ELVBOOL ttyprgopen(command, willwrite, willread)
 	char	*command;	/* the shell command to run */
-	BOOLEAN	willwrite;	/* redirect stdin from elvis */
-	BOOLEAN	willread;	/* redirect stdiout back to elvis */
+	ELVBOOL	willwrite;	/* redirect stdin from elvis */
+	ELVBOOL	willread;	/* redirect stdiout back to elvis */
 {
 	/* unless stdout/stderr is going to be redirected, move the cursor
 	 * to the bottom of the screen before running program.
@@ -2174,19 +2137,22 @@ static BOOLEAN ttyprgopen(command, willwrite, willread)
 	if (!prgopen(command, willwrite, willread))
 	{
 		if (!isread)
-			ttyresume(True);
-		return False;
+			ttyresume(ElvTrue);
+		return ElvFalse;
 	}
 
-	return True;
+	return ElvTrue;
 }
 
 
 /* After running a program, resume curses and redraw all screens */
-static int ttyprgclose P_((void))
+static int ttyprgclose()
 {
 	int	status;
 	WINDOW	win;
+#ifdef FEATURE_MISC
+	CHAR	*title;
+#endif
 
 	/* wait for the program to terminate */
 	status = prgclose();
@@ -2194,7 +2160,7 @@ static int ttyprgclose P_((void))
 	/* resume curses */
 	if (!isread)
 	{
-		ttyresume(False);
+		ttyresume(ElvFalse);
 
 		/* Okay, now we're in a weird sort of situation.  The screen is
 		 * about to be forced to display "Hit <Enter> to continue" on
@@ -2216,10 +2182,16 @@ static int ttyprgclose P_((void))
 		afterscrl = 0;
 	}
 
+#ifdef FEATURE_MISC
 	/* some versions of tcaphelp.c set the title */
 	if (gui->retitle && (win = winofgw((GUIWIN *)current)) != NULL)
-		(*gui->retitle)((GUIWIN *)current,
-				tochar8(o_bufname(markbuffer(win->cursor))));
+	{
+		title = o_filename(markbuffer(win->cursor)); 
+		if (!title)
+			title = o_bufname(markbuffer(win->cursor)); 
+		(*gui->retitle)((GUIWIN *)current, tochar8(title));
+	}
+#endif
 
 	return status;
 }
@@ -2227,14 +2199,14 @@ static int ttyprgclose P_((void))
 
 #ifdef SIGSTOP
 /* This function starts an interactive shell.  It is called with the argument
- * (True) for the :sh command, or (False) for a :stop or :suspend command.
+ * (ElvTrue) for the :sh command, or (ElvFalse) for a :stop or :suspend command.
  * If successful it returns RESULT_COMPLETE after the shell exits; if
  * unsuccessful it issues an error message and returns RESULT_ERROR.  It
  * could also return RESULT_MORE to defer processing to the portable code
  * in ex_suspend().
  */
 static RESULT stop(alwaysfork)
-	BOOLEAN	alwaysfork;	/* fork even if SIGSTOP would work? */
+	ELVBOOL	alwaysfork;	/* fork even if SIGSTOP would work? */
 {
 	RESULT	result;
 
@@ -2267,6 +2239,11 @@ GUIWIN *ttywindow(ttyrow, ttycol, winrow, wincol)
 	int	ttyrow, ttycol;		/* screen coordinates in */
 	int	*winrow, *wincol;	/* window coordinates out */
 {
+#ifndef FEATURE_SPLIT
+	*winrow = ttyrow;
+	*wincol = ttycol;
+	return twins;
+#else
 	TWIN	*tw;
 
 	if (ttycol < 0 || ttycol >= o_ttycolumns)
@@ -2282,6 +2259,7 @@ GUIWIN *ttywindow(ttyrow, ttycol, winrow, wincol)
 		*wincol = ttycol;
 	}
 	return (GUIWIN *)tw;
+#endif /* FEATURE_SPLIT */
 }
 
 
@@ -2290,11 +2268,11 @@ GUI guitermcap =
 {
 	"termcap",	/* name */
 	"Termcap/Terminfo interface with windows & color",
-	False,		/* exonly */
-	False,		/* newblank */
-	False,		/* minimizeclr */
-	True,		/* scrolllast */
-	False,		/* shiftrows */
+	ElvFalse,		/* exonly */
+	ElvFalse,		/* newblank */
+	ElvFalse,		/* minimizeclr */
+	ElvTrue,		/* scrolllast */
+	ElvFalse,		/* shiftrows */
 	3,		/* movecost */
 	0,		/* opts */
 	NULL,		/* optdescs */
@@ -2326,6 +2304,8 @@ GUI guitermcap =
 	NULL,		/* clipread */
 	NULL,		/* clipclose */
 	color,		/* color */
+	NULL,		/* colorfree */
+	NULL,		/* setbg */
 	NULL,		/* guicmd */
 	tabcmd,
 	NULL,		/* save */

@@ -24,8 +24,8 @@ FIRSTCPP =
 RC = rc
 CFLAGS_D_DEXE = /nologo /G2 /Zi /ALu /Od /D "_DEBUG" /D "_DOS" /I "osmsdos" /I "." /Fd"ELVIS.PDB"
 CFLAGS_R_DEXE = /nologo /Gs /G2 /Gf /ALu /O2 /Ob1 /D "NDEBUG" /D "_DOS" /I "osmsdos" /I "." 
-LFLAGS_D_DEXE = /NOLOGO /NOI /STACK:10240 /ONERROR:NOEXE /CO 
-LFLAGS_R_DEXE = /NOLOGO /NOI /STACK:10240 /EXEPACK /ONERROR:NOEXE 
+LFLAGS_D_DEXE = /NOLOGO /NOI /STACK:16384 /ONERROR:NOEXE /CO 
+LFLAGS_R_DEXE = /NOLOGO /NOI /STACK:16384 /EXEPACK /ONERROR:NOEXE 
 LIBS_D_DEXE = oldnames llibce 
 LIBS_R_DEXE = oldnames llibce 
 RCFLAGS = /nologo
@@ -50,7 +50,9 @@ RCDEFINES = $(R_RCDEFINES)
 !endif
 SBRS = BUFFER.SBR \
 		CALC.SBR \
+		COLOR.SBR \
 		CUT.SBR \
+		DESCR.SBR \
 		DIGRAPH.SBR \
 		DISPLAY.SBR \
 		DMHEX.SBR \
@@ -65,6 +67,7 @@ SBRS = BUFFER.SBR \
 		EXEDIT.SBR \
 		EXMAKE.SBR \
 		EXSUBST.SBR \
+		FOLD.SBR \
 		GUI.SBR \
 		GUICURS.SBR \
 		GUIOPEN.SBR \
@@ -89,10 +92,12 @@ SBRS = BUFFER.SBR \
 		OPTIONS.SBR \
 		REGEXP.SBR \
 		REGSUB.SBR \
+		REGION.SBR \
 		SAFE.SBR \
 		SCAN.SBR \
 		SEARCH.SBR \
 		SESSION.SBR \
+		SPELL.SBR \
 		STATE.SBR \
 		TINYTCAP.SBR \
 		URL.SBR \
@@ -155,7 +160,10 @@ BUFFER_DEP = .\elvis.h \
 	.\tagsrch.h \
 	.\tagelvis.h \
 	.\need.h \
-	.\misc.h
+	.\misc.h \
+	.\fold.h \
+	.\spell.h \
+	.\region.h
 
 
 CALC_DEP = .\elvis.h \
@@ -202,7 +210,60 @@ CALC_DEP = .\elvis.h \
 	.\tagsrch.h \
 	.\tagelvis.h \
 	.\need.h \
-	.\misc.h
+	.\misc.h \
+	.\fold.h \
+	.\spell.h \
+	.\region.h
+
+
+COLOR_DEP = .\elvis.h \
+	.\config.h \
+	.\version.h \
+	.\elvctype.h \
+	.\safe.h \
+	.\options.h \
+	.\optglob.h \
+	.\session.h \
+	.\lowbuf.h \
+	.\message.h \
+	.\buffer.h \
+	.\mark.h \
+	.\buffer2.h \
+	.\options2.h \
+	.\scan.h \
+	.\opsys.h \
+	.\map.h \
+	.\gui.h \
+	.\display.h \
+	.\draw.h \
+	.\state.h \
+	.\window.h \
+	.\gui2.h \
+	.\display2.h \
+	.\draw2.h \
+	.\state2.h \
+	.\event.h \
+	.\input.h \
+	.\vi.h \
+	.\regexp.h \
+	.\ex.h \
+	.\move.h \
+	.\vicmd.h \
+	.\operator.h \
+	.\cut.h \
+	.\elvisio.h \
+	.\lp.h \
+	.\calc.h \
+	.\more.h \
+	.\digraph.h \
+	.\tag.h \
+	.\tagsrch.h \
+	.\tagelvis.h \
+	.\need.h \
+	.\misc.h \
+	.\fold.h \
+	.\spell.h \
+	.\region.h
 
 
 CUT_DEP = .\elvis.h \
@@ -249,7 +310,60 @@ CUT_DEP = .\elvis.h \
 	.\tagsrch.h \
 	.\tagelvis.h \
 	.\need.h \
-	.\misc.h
+	.\misc.h \
+	.\fold.h \
+	.\spell.h \
+	.\region.h
+
+
+DESCR_DEP = .\elvis.h \
+	.\config.h \
+	.\version.h \
+	.\elvctype.h \
+	.\safe.h \
+	.\options.h \
+	.\optglob.h \
+	.\session.h \
+	.\lowbuf.h \
+	.\message.h \
+	.\buffer.h \
+	.\mark.h \
+	.\buffer2.h \
+	.\options2.h \
+	.\scan.h \
+	.\opsys.h \
+	.\map.h \
+	.\gui.h \
+	.\display.h \
+	.\draw.h \
+	.\state.h \
+	.\window.h \
+	.\gui2.h \
+	.\display2.h \
+	.\draw2.h \
+	.\state2.h \
+	.\event.h \
+	.\input.h \
+	.\vi.h \
+	.\regexp.h \
+	.\ex.h \
+	.\move.h \
+	.\vicmd.h \
+	.\operator.h \
+	.\cut.h \
+	.\elvisio.h \
+	.\lp.h \
+	.\calc.h \
+	.\more.h \
+	.\digraph.h \
+	.\tag.h \
+	.\tagsrch.h \
+	.\tagelvis.h \
+	.\need.h \
+	.\misc.h \
+	.\fold.h \
+	.\spell.h \
+	.\region.h
 
 
 DIGRAPH_DEP = .\elvis.h \
@@ -296,7 +410,10 @@ DIGRAPH_DEP = .\elvis.h \
 	.\tagsrch.h \
 	.\tagelvis.h \
 	.\need.h \
-	.\misc.h
+	.\misc.h \
+	.\fold.h \
+	.\spell.h \
+	.\region.h
 
 
 DISPLAY_DEP = .\elvis.h \
@@ -343,7 +460,10 @@ DISPLAY_DEP = .\elvis.h \
 	.\tagsrch.h \
 	.\tagelvis.h \
 	.\need.h \
-	.\misc.h
+	.\misc.h \
+	.\fold.h \
+	.\spell.h \
+	.\region.h
 
 
 DMHEX_DEP = .\elvis.h \
@@ -390,7 +510,10 @@ DMHEX_DEP = .\elvis.h \
 	.\tagsrch.h \
 	.\tagelvis.h \
 	.\need.h \
-	.\misc.h
+	.\misc.h \
+	.\fold.h \
+	.\spell.h \
+	.\region.h
 
 
 DMMARKUP_DEP = .\elvis.h \
@@ -437,7 +560,10 @@ DMMARKUP_DEP = .\elvis.h \
 	.\tagsrch.h \
 	.\tagelvis.h \
 	.\need.h \
-	.\misc.h
+	.\misc.h \
+	.\fold.h \
+	.\spell.h \
+	.\region.h
 
 
 DMNORMAL_DEP = .\elvis.h \
@@ -484,7 +610,10 @@ DMNORMAL_DEP = .\elvis.h \
 	.\tagsrch.h \
 	.\tagelvis.h \
 	.\need.h \
-	.\misc.h
+	.\misc.h \
+	.\fold.h \
+	.\spell.h \
+	.\region.h
 
 
 DMSYNTAX_DEP = .\elvis.h \
@@ -531,7 +660,10 @@ DMSYNTAX_DEP = .\elvis.h \
 	.\tagsrch.h \
 	.\tagelvis.h \
 	.\need.h \
-	.\misc.h
+	.\misc.h \
+	.\fold.h \
+	.\spell.h \
+	.\region.h
 
 
 DRAW_DEP = .\elvis.h \
@@ -578,7 +710,10 @@ DRAW_DEP = .\elvis.h \
 	.\tagsrch.h \
 	.\tagelvis.h \
 	.\need.h \
-	.\misc.h
+	.\misc.h \
+	.\fold.h \
+	.\spell.h \
+	.\region.h
 
 
 EVENT_DEP = .\elvis.h \
@@ -625,7 +760,10 @@ EVENT_DEP = .\elvis.h \
 	.\tagsrch.h \
 	.\tagelvis.h \
 	.\need.h \
-	.\misc.h
+	.\misc.h \
+	.\fold.h \
+	.\spell.h \
+	.\region.h
 
 
 EX_DEP = .\elvis.h \
@@ -672,7 +810,10 @@ EX_DEP = .\elvis.h \
 	.\tagsrch.h \
 	.\tagelvis.h \
 	.\need.h \
-	.\misc.h
+	.\misc.h \
+	.\fold.h \
+	.\spell.h \
+	.\region.h
 
 
 EXACTION_DEP = .\elvis.h \
@@ -719,7 +860,10 @@ EXACTION_DEP = .\elvis.h \
 	.\tagsrch.h \
 	.\tagelvis.h \
 	.\need.h \
-	.\misc.h
+	.\misc.h \
+	.\fold.h \
+	.\spell.h \
+	.\region.h
 
 
 EXCONFIG_DEP = .\elvis.h \
@@ -766,7 +910,10 @@ EXCONFIG_DEP = .\elvis.h \
 	.\tagsrch.h \
 	.\tagelvis.h \
 	.\need.h \
-	.\misc.h
+	.\misc.h \
+	.\fold.h \
+	.\spell.h \
+	.\region.h
 
 
 EXEDIT_DEP = .\elvis.h \
@@ -813,7 +960,10 @@ EXEDIT_DEP = .\elvis.h \
 	.\tagsrch.h \
 	.\tagelvis.h \
 	.\need.h \
-	.\misc.h
+	.\misc.h \
+	.\fold.h \
+	.\spell.h \
+	.\region.h
 
 
 EXMAKE_DEP = .\elvis.h \
@@ -860,7 +1010,10 @@ EXMAKE_DEP = .\elvis.h \
 	.\tagsrch.h \
 	.\tagelvis.h \
 	.\need.h \
-	.\misc.h
+	.\misc.h \
+	.\fold.h \
+	.\spell.h \
+	.\region.h
 
 
 EXSUBST_DEP = .\elvis.h \
@@ -907,7 +1060,60 @@ EXSUBST_DEP = .\elvis.h \
 	.\tagsrch.h \
 	.\tagelvis.h \
 	.\need.h \
-	.\misc.h
+	.\misc.h \
+	.\fold.h \
+	.\spell.h \
+	.\region.h
+
+
+FOLD_DEP = .\elvis.h \
+	.\config.h \
+	.\version.h \
+	.\elvctype.h \
+	.\safe.h \
+	.\options.h \
+	.\optglob.h \
+	.\session.h \
+	.\lowbuf.h \
+	.\message.h \
+	.\buffer.h \
+	.\mark.h \
+	.\buffer2.h \
+	.\options2.h \
+	.\scan.h \
+	.\opsys.h \
+	.\map.h \
+	.\gui.h \
+	.\display.h \
+	.\draw.h \
+	.\state.h \
+	.\window.h \
+	.\gui2.h \
+	.\display2.h \
+	.\draw2.h \
+	.\state2.h \
+	.\event.h \
+	.\input.h \
+	.\vi.h \
+	.\regexp.h \
+	.\ex.h \
+	.\move.h \
+	.\vicmd.h \
+	.\operator.h \
+	.\cut.h \
+	.\elvisio.h \
+	.\lp.h \
+	.\calc.h \
+	.\more.h \
+	.\digraph.h \
+	.\tag.h \
+	.\tagsrch.h \
+	.\tagelvis.h \
+	.\need.h \
+	.\misc.h \
+	.\fold.h \
+	.\spell.h \
+	.\region.h
 
 
 GUI_DEP = .\elvis.h \
@@ -954,7 +1160,10 @@ GUI_DEP = .\elvis.h \
 	.\tagsrch.h \
 	.\tagelvis.h \
 	.\need.h \
-	.\misc.h
+	.\misc.h \
+	.\fold.h \
+	.\spell.h \
+	.\region.h
 
 
 GUICURS_DEP = .\elvis.h \
@@ -1001,7 +1210,10 @@ GUICURS_DEP = .\elvis.h \
 	.\tagsrch.h \
 	.\tagelvis.h \
 	.\need.h \
-	.\misc.h
+	.\misc.h \
+	.\fold.h \
+	.\spell.h \
+	.\region.h
 
 
 GUIOPEN_DEP = .\elvis.h \
@@ -1048,7 +1260,10 @@ GUIOPEN_DEP = .\elvis.h \
 	.\tagsrch.h \
 	.\tagelvis.h \
 	.\need.h \
-	.\misc.h
+	.\misc.h \
+	.\fold.h \
+	.\spell.h \
+	.\region.h
 
 
 GUITCAP_DEP = .\elvis.h \
@@ -1095,7 +1310,10 @@ GUITCAP_DEP = .\elvis.h \
 	.\tagsrch.h \
 	.\tagelvis.h \
 	.\need.h \
-	.\misc.h
+	.\misc.h \
+	.\fold.h \
+	.\spell.h \
+	.\region.h
 
 
 INPUT_DEP = .\elvis.h \
@@ -1142,7 +1360,10 @@ INPUT_DEP = .\elvis.h \
 	.\tagsrch.h \
 	.\tagelvis.h \
 	.\need.h \
-	.\misc.h
+	.\misc.h \
+	.\fold.h \
+	.\spell.h \
+	.\region.h
 
 
 IO_DEP = .\elvis.h \
@@ -1189,7 +1410,10 @@ IO_DEP = .\elvis.h \
 	.\tagsrch.h \
 	.\tagelvis.h \
 	.\need.h \
-	.\misc.h
+	.\misc.h \
+	.\fold.h \
+	.\spell.h \
+	.\region.h
 
 
 LOWBUF_DEP = .\elvis.h \
@@ -1236,7 +1460,10 @@ LOWBUF_DEP = .\elvis.h \
 	.\tagsrch.h \
 	.\tagelvis.h \
 	.\need.h \
-	.\misc.h
+	.\misc.h \
+	.\fold.h \
+	.\spell.h \
+	.\region.h
 
 
 LP_DEP = .\elvis.h \
@@ -1283,7 +1510,10 @@ LP_DEP = .\elvis.h \
 	.\tagsrch.h \
 	.\tagelvis.h \
 	.\need.h \
-	.\misc.h
+	.\misc.h \
+	.\fold.h \
+	.\spell.h \
+	.\region.h
 
 
 LPESCAPE_DEP = .\elvis.h \
@@ -1330,7 +1560,10 @@ LPESCAPE_DEP = .\elvis.h \
 	.\tagsrch.h \
 	.\tagelvis.h \
 	.\need.h \
-	.\misc.h
+	.\misc.h \
+	.\fold.h \
+	.\spell.h \
+	.\region.h
 
 
 LPOVRTYP_DEP = .\elvis.h \
@@ -1377,7 +1610,10 @@ LPOVRTYP_DEP = .\elvis.h \
 	.\tagsrch.h \
 	.\tagelvis.h \
 	.\need.h \
-	.\misc.h
+	.\misc.h \
+	.\fold.h \
+	.\spell.h \
+	.\region.h
 
 
 LPPS_DEP = .\elvis.h \
@@ -1424,7 +1660,10 @@ LPPS_DEP = .\elvis.h \
 	.\tagsrch.h \
 	.\tagelvis.h \
 	.\need.h \
-	.\misc.h
+	.\misc.h \
+	.\fold.h \
+	.\spell.h \
+	.\region.h
 
 
 MAIN_DEP = .\elvis.h \
@@ -1471,7 +1710,10 @@ MAIN_DEP = .\elvis.h \
 	.\tagsrch.h \
 	.\tagelvis.h \
 	.\need.h \
-	.\misc.h
+	.\misc.h \
+	.\fold.h \
+	.\spell.h \
+	.\region.h
 
 
 MAP_DEP = .\elvis.h \
@@ -1518,7 +1760,10 @@ MAP_DEP = .\elvis.h \
 	.\tagsrch.h \
 	.\tagelvis.h \
 	.\need.h \
-	.\misc.h
+	.\misc.h \
+	.\fold.h \
+	.\spell.h \
+	.\region.h
 
 
 MARK_DEP = .\elvis.h \
@@ -1565,7 +1810,10 @@ MARK_DEP = .\elvis.h \
 	.\tagsrch.h \
 	.\tagelvis.h \
 	.\need.h \
-	.\misc.h
+	.\misc.h \
+	.\fold.h \
+	.\spell.h \
+	.\region.h
 
 
 MESSAGE_DEP = .\elvis.h \
@@ -1612,7 +1860,10 @@ MESSAGE_DEP = .\elvis.h \
 	.\tagsrch.h \
 	.\tagelvis.h \
 	.\need.h \
-	.\misc.h
+	.\misc.h \
+	.\fold.h \
+	.\spell.h \
+	.\region.h
 
 
 MISC_DEP = .\elvis.h \
@@ -1659,7 +1910,10 @@ MISC_DEP = .\elvis.h \
 	.\tagsrch.h \
 	.\tagelvis.h \
 	.\need.h \
-	.\misc.h
+	.\misc.h \
+	.\fold.h \
+	.\spell.h \
+	.\region.h
 
 
 MORE_DEP = .\elvis.h \
@@ -1706,7 +1960,10 @@ MORE_DEP = .\elvis.h \
 	.\tagsrch.h \
 	.\tagelvis.h \
 	.\need.h \
-	.\misc.h
+	.\misc.h \
+	.\fold.h \
+	.\spell.h \
+	.\region.h
 
 
 MOVE_DEP = .\elvis.h \
@@ -1753,7 +2010,10 @@ MOVE_DEP = .\elvis.h \
 	.\tagsrch.h \
 	.\tagelvis.h \
 	.\need.h \
-	.\misc.h
+	.\misc.h \
+	.\fold.h \
+	.\spell.h \
+	.\region.h
 
 
 NEED_DEP = .\elvis.h \
@@ -1800,7 +2060,10 @@ NEED_DEP = .\elvis.h \
 	.\tagsrch.h \
 	.\tagelvis.h \
 	.\need.h \
-	.\misc.h
+	.\misc.h \
+	.\fold.h \
+	.\spell.h \
+	.\region.h
 
 
 OPERATOR_DEP = .\elvis.h \
@@ -1847,7 +2110,10 @@ OPERATOR_DEP = .\elvis.h \
 	.\tagsrch.h \
 	.\tagelvis.h \
 	.\need.h \
-	.\misc.h
+	.\misc.h \
+	.\fold.h \
+	.\spell.h \
+	.\region.h
 
 
 OPTGLOB_DEP = .\elvis.h \
@@ -1894,7 +2160,10 @@ OPTGLOB_DEP = .\elvis.h \
 	.\tagsrch.h \
 	.\tagelvis.h \
 	.\need.h \
-	.\misc.h
+	.\misc.h \
+	.\fold.h \
+	.\spell.h \
+	.\region.h
 
 
 OPTIONS_DEP = .\elvis.h \
@@ -1941,7 +2210,10 @@ OPTIONS_DEP = .\elvis.h \
 	.\tagsrch.h \
 	.\tagelvis.h \
 	.\need.h \
-	.\misc.h
+	.\misc.h \
+	.\fold.h \
+	.\spell.h \
+	.\region.h
 
 
 REGEXP_DEP = .\elvis.h \
@@ -1988,7 +2260,60 @@ REGEXP_DEP = .\elvis.h \
 	.\tagsrch.h \
 	.\tagelvis.h \
 	.\need.h \
-	.\misc.h
+	.\misc.h \
+	.\fold.h \
+	.\spell.h \
+	.\region.h
+
+
+REGION_DEP = .\elvis.h \
+	.\config.h \
+	.\version.h \
+	.\elvctype.h \
+	.\safe.h \
+	.\options.h \
+	.\optglob.h \
+	.\session.h \
+	.\lowbuf.h \
+	.\message.h \
+	.\buffer.h \
+	.\mark.h \
+	.\buffer2.h \
+	.\options2.h \
+	.\scan.h \
+	.\opsys.h \
+	.\map.h \
+	.\gui.h \
+	.\display.h \
+	.\draw.h \
+	.\state.h \
+	.\window.h \
+	.\gui2.h \
+	.\display2.h \
+	.\draw2.h \
+	.\state2.h \
+	.\event.h \
+	.\input.h \
+	.\vi.h \
+	.\regexp.h \
+	.\ex.h \
+	.\move.h \
+	.\vicmd.h \
+	.\operator.h \
+	.\cut.h \
+	.\elvisio.h \
+	.\lp.h \
+	.\calc.h \
+	.\more.h \
+	.\digraph.h \
+	.\tag.h \
+	.\tagsrch.h \
+	.\tagelvis.h \
+	.\need.h \
+	.\misc.h \
+	.\fold.h \
+	.\spell.h \
+	.\region.h
 
 
 REGSUB_DEP = .\elvis.h \
@@ -2035,7 +2360,10 @@ REGSUB_DEP = .\elvis.h \
 	.\tagsrch.h \
 	.\tagelvis.h \
 	.\need.h \
-	.\misc.h
+	.\misc.h \
+	.\fold.h \
+	.\spell.h \
+	.\region.h
 
 
 SAFE_DEP = .\elvis.h \
@@ -2082,7 +2410,10 @@ SAFE_DEP = .\elvis.h \
 	.\tagsrch.h \
 	.\tagelvis.h \
 	.\need.h \
-	.\misc.h
+	.\misc.h \
+	.\fold.h \
+	.\spell.h \
+	.\region.h
 
 
 SCAN_DEP = .\elvis.h \
@@ -2129,7 +2460,10 @@ SCAN_DEP = .\elvis.h \
 	.\tagsrch.h \
 	.\tagelvis.h \
 	.\need.h \
-	.\misc.h
+	.\misc.h \
+	.\fold.h \
+	.\spell.h \
+	.\region.h
 
 
 SEARCH_DEP = .\elvis.h \
@@ -2176,7 +2510,10 @@ SEARCH_DEP = .\elvis.h \
 	.\tagsrch.h \
 	.\tagelvis.h \
 	.\need.h \
-	.\misc.h
+	.\misc.h \
+	.\fold.h \
+	.\spell.h \
+	.\region.h
 
 
 SESSION_DEP = .\elvis.h \
@@ -2223,7 +2560,10 @@ SESSION_DEP = .\elvis.h \
 	.\tagsrch.h \
 	.\tagelvis.h \
 	.\need.h \
-	.\misc.h
+	.\misc.h \
+	.\fold.h \
+	.\spell.h \
+	.\region.h
 
 
 STATE_DEP = .\elvis.h \
@@ -2270,7 +2610,10 @@ STATE_DEP = .\elvis.h \
 	.\tagsrch.h \
 	.\tagelvis.h \
 	.\need.h \
-	.\misc.h
+	.\misc.h \
+	.\fold.h \
+	.\spell.h \
+	.\region.h
 
 
 TINYTCAP_DEP = .\elvis.h \
@@ -2317,7 +2660,10 @@ TINYTCAP_DEP = .\elvis.h \
 	.\tagsrch.h \
 	.\tagelvis.h \
 	.\need.h \
-	.\misc.h
+	.\misc.h \
+	.\fold.h \
+	.\spell.h \
+	.\region.h
 
 
 URL_DEP = .\elvis.h \
@@ -2364,7 +2710,10 @@ URL_DEP = .\elvis.h \
 	.\tagsrch.h \
 	.\tagelvis.h \
 	.\need.h \
-	.\misc.h
+	.\misc.h \
+	.\fold.h \
+	.\spell.h \
+	.\region.h
 
 
 VI_DEP = .\elvis.h \
@@ -2411,7 +2760,10 @@ VI_DEP = .\elvis.h \
 	.\tagsrch.h \
 	.\tagelvis.h \
 	.\need.h \
-	.\misc.h
+	.\misc.h \
+	.\fold.h \
+	.\spell.h \
+	.\region.h
 
 
 VICMD_DEP = .\elvis.h \
@@ -2458,7 +2810,10 @@ VICMD_DEP = .\elvis.h \
 	.\tagsrch.h \
 	.\tagelvis.h \
 	.\need.h \
-	.\misc.h
+	.\misc.h \
+	.\fold.h \
+	.\spell.h \
+	.\region.h
 
 
 WINDOW_DEP = .\elvis.h \
@@ -2505,7 +2860,10 @@ WINDOW_DEP = .\elvis.h \
 	.\tagsrch.h \
 	.\tagelvis.h \
 	.\need.h \
-	.\misc.h
+	.\misc.h \
+	.\fold.h \
+	.\spell.h \
+	.\region.h
 
 
 OSPRG_DEP = .\osmsdos\doexec.h
@@ -2566,7 +2924,10 @@ TAG_DEP = .\config.h \
 	.\tagsrch.h \
 	.\tagelvis.h \
 	.\need.h \
-	.\misc.h
+	.\misc.h \
+	.\fold.h \
+	.\spell.h \
+	.\region.h
 
 
 TAGELVIS_DEP = .\elvis.h \
@@ -2613,7 +2974,10 @@ TAGELVIS_DEP = .\elvis.h \
 	.\tagsrch.h \
 	.\tagelvis.h \
 	.\need.h \
-	.\misc.h
+	.\misc.h \
+	.\fold.h \
+	.\spell.h \
+	.\region.h
 
 
 TAGSRCH_DEP = .\elvis.h \
@@ -2660,7 +3024,10 @@ TAGSRCH_DEP = .\elvis.h \
 	.\tagsrch.h \
 	.\tagelvis.h \
 	.\need.h \
-	.\misc.h
+	.\misc.h \
+	.\fold.h \
+	.\spell.h \
+	.\region.h
 
 
 all:	$(PROJ).EXE
@@ -2671,8 +3038,14 @@ BUFFER.OBJ:	BUFFER.C $(BUFFER_DEP)
 CALC.OBJ:	CALC.C $(CALC_DEP)
 	$(CC) $(CFLAGS) $(CUSEPCHFLAG) /c CALC.C
 
+COLOR.OBJ:	COLOR.C $(COLOR_DEP)
+	$(CC) $(CFLAGS) $(CUSEPCHFLAG) /c COLOR.C
+
 CUT.OBJ:	CUT.C $(CUT_DEP)
 	$(CC) $(CFLAGS) $(CUSEPCHFLAG) /c CUT.C
+
+DESCR.OBJ:	DESCR.C $(DESCR_DEP)
+	$(CC) $(CFLAGS) $(CUSEPCHFLAG) /c DESCR.C
 
 DIGRAPH.OBJ:	DIGRAPH.C $(DIGRAPH_DEP)
 	$(CC) $(CFLAGS) $(CUSEPCHFLAG) /c DIGRAPH.C
@@ -2715,6 +3088,9 @@ EXMAKE.OBJ:	EXMAKE.C $(EXMAKE_DEP)
 
 EXSUBST.OBJ:	EXSUBST.C $(EXSUBST_DEP)
 	$(CC) $(CFLAGS) $(CUSEPCHFLAG) /c EXSUBST.C
+
+FOLD.OBJ:	FOLD.C $(FOLD_DEP)
+	$(CC) $(CFLAGS) $(CUSEPCHFLAG) /c FOLD.C
 
 GUI.OBJ:	GUI.C $(GUI_DEP)
 	$(CC) $(CFLAGS) $(CUSEPCHFLAG) /c GUI.C
@@ -2785,6 +3161,9 @@ OPTIONS.OBJ:	OPTIONS.C $(OPTIONS_DEP)
 REGEXP.OBJ:	REGEXP.C $(REGEXP_DEP)
 	$(CC) $(CFLAGS) $(CUSEPCHFLAG) /c REGEXP.C
 
+REGION.OBJ:	REGION.C $(REGION_DEP)
+	$(CC) $(CFLAGS) $(CUSEPCHFLAG) /c REGION.C
+
 REGSUB.OBJ:	REGSUB.C $(REGSUB_DEP)
 	$(CC) $(CFLAGS) $(CUSEPCHFLAG) /c REGSUB.C
 
@@ -2799,6 +3178,9 @@ SEARCH.OBJ:	SEARCH.C $(SEARCH_DEP)
 
 SESSION.OBJ:	SESSION.C $(SESSION_DEP)
 	$(CC) $(CFLAGS) $(CUSEPCHFLAG) /c SESSION.C
+
+SPELL.OBJ:	SPELL.C $(SPELL_DEP)
+	$(CC) $(CFLAGS) $(CUSEPCHFLAG) /c SPELL.C
 
 STATE.OBJ:	STATE.C $(STATE_DEP)
 	$(CC) $(CFLAGS) $(CUSEPCHFLAG) /c STATE.C
@@ -2842,18 +3224,20 @@ TAGELVIS.OBJ:	TAGELVIS.C $(TAGELVIS_DEP)
 TAGSRCH.OBJ:	TAGSRCH.C $(TAGSRCH_DEP)
 	$(CC) $(CFLAGS) $(CUSEPCHFLAG) /c TAGSRCH.C
 
-$(PROJ).EXE::	BUFFER.OBJ CALC.OBJ CUT.OBJ DIGRAPH.OBJ DISPLAY.OBJ DMHEX.OBJ DMMARKUP.OBJ \
-	DMNORMAL.OBJ DMSYNTAX.OBJ DRAW.OBJ EVENT.OBJ EX.OBJ EXACTION.OBJ EXCONFIG.OBJ EXEDIT.OBJ \
-	EXMAKE.OBJ EXSUBST.OBJ GUI.OBJ GUICURS.OBJ GUIOPEN.OBJ GUITCAP.OBJ INPUT.OBJ IO.OBJ \
-	LOWBUF.OBJ LP.OBJ LPESCAPE.OBJ LPOVRTYP.OBJ LPPS.OBJ MAIN.OBJ MAP.OBJ MARK.OBJ \
+$(PROJ).EXE::	BUFFER.OBJ CALC.OBJ COLOR.OBJ CUT.OBJ DESCR.OBJ DIGRAPH.OBJ DISPLAY.OBJ DMHEX.OBJ \
+	DMMARKUP.OBJ DMNORMAL.OBJ DMSYNTAX.OBJ DRAW.OBJ EVENT.OBJ EX.OBJ EXACTION.OBJ EXCONFIG.OBJ \
+	EXEDIT.OBJ EXMAKE.OBJ EXSUBST.OBJ GUI.OBJ GUICURS.OBJ GUIOPEN.OBJ GUITCAP.OBJ INPUT.OBJ \
+	IO.OBJ LOWBUF.OBJ LP.OBJ LPESCAPE.OBJ LPOVRTYP.OBJ LPPS.OBJ MAIN.OBJ MAP.OBJ MARK.OBJ \
 	MESSAGE.OBJ MISC.OBJ MORE.OBJ MOVE.OBJ NEED.OBJ OPERATOR.OBJ OPTGLOB.OBJ OPTIONS.OBJ \
-	REGEXP.OBJ REGSUB.OBJ SAFE.OBJ SCAN.OBJ SEARCH.OBJ SESSION.OBJ STATE.OBJ TINYTCAP.OBJ \
-	URL.OBJ VI.OBJ VICMD.OBJ WINDOW.OBJ OSBLOCK.OBJ OSDIR.OBJ OSPRG.OBJ OSTEXT.OBJ \
-	TCAPHELP.OBJ TAG.OBJ TAGELVIS.OBJ TAGSRCH.OBJ $(OBJS_EXT) $(DEFFILE)
+	REGEXP.OBJ REGION.OBJ REGSUB.OBJ SAFE.OBJ SCAN.OBJ SEARCH.OBJ SESSION.OBJ SPELL.OBJ \
+	STATE.OBJ TINYTCAP.OBJ URL.OBJ VI.OBJ VICMD.OBJ WINDOW.OBJ OSBLOCK.OBJ OSDIR.OBJ \
+	OSPRG.OBJ OSTEXT.OBJ TCAPHELP.OBJ TAG.OBJ TAGELVIS.OBJ TAGSRCH.OBJ $(OBJS_EXT) $(DEFFILE)
 	echo >NUL @<<$(PROJ).CRF
 BUFFER.OBJ +
 CALC.OBJ +
+COLOR.OBJ +
 CUT.OBJ +
+DESCR.OBJ +
 DIGRAPH.OBJ +
 DISPLAY.OBJ +
 DMHEX.OBJ +
@@ -2891,11 +3275,13 @@ OPERATOR.OBJ +
 OPTGLOB.OBJ +
 OPTIONS.OBJ +
 REGEXP.OBJ +
+REGION.OBJ +
 REGSUB.OBJ +
 SAFE.OBJ +
 SCAN.OBJ +
 SEARCH.OBJ +
 SESSION.OBJ +
+SPELL.OBJ +
 STATE.OBJ +
 TINYTCAP.OBJ +
 URL.OBJ +

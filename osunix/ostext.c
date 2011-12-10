@@ -5,8 +5,10 @@
 #include <unistd.h>
 #include <errno.h>
 #include "elvis.h"
+#ifdef FEATURE_RCSID
+char id_ostext[] = "$Id: ostext.c,v 2.9 2003/10/17 17:41:23 steve Exp $";
+#endif
 
-char id_ostext[] = "$Id: ostext.c,v 2.5 1998/11/28 05:14:22 steve Exp $";
 
 /* This is the filedescriptor of the file being read */
 static int fd;
@@ -20,9 +22,9 @@ static int fd;
 int txtopen(filename, rwa, binary)
 	char	*filename;	/* name of file */
 	_char_	rwa;		/* 'r'=read, 'w'=write, 'a'=append */
-	BOOLEAN	binary;		/* (ignored, except under Cygwin) */
+	ELVBOOL	binary;		/* (ignored, except under Cygwin) */
 {
-	int	mode;
+	int	mode = 0;
 
 	assert(rwa == 'r' || rwa == 'w' || rwa == 'a');
 	switch (rwa)

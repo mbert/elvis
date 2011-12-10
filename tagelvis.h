@@ -1,6 +1,6 @@
 /* tagelvis.h */
 
-extern BOOLEAN	tenewtag;
+extern ELVBOOL	tenewtag;
 
 BEGIN_EXTERNC
 
@@ -15,13 +15,17 @@ extern void tefreedef P_((BUFFER buf));
 extern CHAR *telabel P_((MARK cursor));
 #endif
 
+#ifdef DISPLAY_SYNTAX
+spell_t *telibrary P_((char *tagfile, spell_t *dict, ELVBOOL ignorecase, CHAR *prefix));
+#endif
+
 #ifdef FEATURE_COMPLETE
 CHAR *tagcomplete P_((WINDOW win, MARK m));
 #endif
 
 extern void tesametag P_((void));
 extern TAG *tetag P_((CHAR *select));
-extern BUFFER tebrowse P_((BOOLEAN all, CHAR *select));
+extern BUFFER tebrowse P_((ELVBOOL all, CHAR *select));
 extern void tepush P_((WINDOW win, CHAR *label));
 
 END_EXTERNC

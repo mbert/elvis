@@ -10,17 +10,27 @@
 #define guiflush()		if (gui->flush) (*gui->flush)()
 
 BEGIN_EXTERNC
+extern ELVBOOL	guicolorsync P_((WINDOW win));
 extern void	guimoveto P_((WINDOW win, int column, int row));
-extern void	guidraw P_((WINDOW win, _char_ font, CHAR *text, int len));
-extern BOOLEAN	guishift P_((WINDOW win, int qty, int rows));
-extern BOOLEAN	guiscroll P_((WINDOW win, int qty, BOOLEAN notlast));
+extern DRAWATTR	*guidraw P_((WINDOW win, _char_ font, CHAR *text, int len, int forcebits));
+extern ELVBOOL	guishift P_((WINDOW win, int qty, int rows));
+extern ELVBOOL	guiscroll P_((WINDOW win, int qty, ELVBOOL notlast));
 extern void	guiclrtoeol P_((WINDOW win));
 extern void	guireset P_((void));
-extern BOOLEAN	guipoll P_((BOOLEAN reset));
+extern ELVBOOL	guipoll P_((ELVBOOL reset));
 extern void	guibeep P_((WINDOW win));
+extern int	guikeylabel P_((CHAR *given, int givenlen, CHAR **labelptr, CHAR **rawptr));
 END_EXTERNC
 
 extern GUI	*gui;
+
+#ifdef GUI_GNOME
+extern GUI guignome;
+#endif
+
+#ifdef GUI_GNOME
+extern GUI guignome;
+#endif
 
 #ifdef GUI_X11
 extern GUI	guix11;

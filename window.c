@@ -1,9 +1,11 @@
 /* window.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_window[] = "$Id: window.c,v 2.50 1999/10/08 18:04:29 steve Exp $";
 
 #include "elvis.h"
+#ifdef FEATURE_RCSID
+char id_window[] = "$Id: window.c,v 2.72 2003/10/17 17:41:23 steve Exp $";
+#endif
 
 #if USE_PROTOTYPES
 static int setwm(OPTDESC *desc, OPTVAL *val, CHAR *newval);
@@ -119,11 +121,14 @@ static OPTDESC wdesc[] =
 	{"scroll", "scr",	optnstring,	optisnumber	},
 	{"showmatch", "sm",	NULL,		NULL		},
 	{"showmode", "smd",	NULL,		NULL		},
-	{"showstack", "sstk",	NULL,		NULL		},
-	{"showcmd", "sc",	NULL,		NULL		},
 	{"wrap", "wr",		NULL,		NULL		},
 	{"sidescroll", "ss",	optnstring,	optisnumber,	"1:30"	},
-	{"wrapmargin", "wm",	getwm,		setwm		}
+	{"wrapmargin", "wm",	getwm,		setwm		},
+	{"hasfocus", "hf",	NULL,		NULL		},
+	{"folding", "fold",	NULL,		NULL		},
+	{"hllayers", "hll",	optnstring,	optisnumber,	"0:30"	},
+	{"eventcounter", "evct",optnstring,	optisnumber	},
+	{"ww", "ww",		optsstring,	optisstring	}
 };
 
 /* Initialize the window module.  Mostly this makes the windefopts variable
@@ -147,8 +152,11 @@ void wininit()
 	windefopts.wrapmargin.flags = OPT_REDRAW|OPT_HIDE;
 	optflags(o_list(&windefopts)) = OPT_REDRAW;
 	optflags(o_number(&windefopts)) = OPT_REDRAW;
-	optpreset(o_wrap(&windefopts), True, OPT_REDRAW);
+	optpreset(o_wrap(&windefopts), ElvTrue, OPT_REDRAW);
 	o_sidescroll(&windefopts) = 8;
+	optpreset(o_folding(&windefopts), ElvTrue, OPT_REDRAW|OPT_HIDE);
+	optpreset(o_hllayers(&windefopts), 0L, OPT_REDRAW|OPT_HIDE);
+	optflags(o_ww(&windefopts)) = OPT_NODFLT|OPT_HIDE;
 
 	/* make the options accessible to :set */
 	optinsert("defwin", QTY(wdesc), wdesc, &windefopts.windowid);
@@ -180,24 +188,33 @@ WINDOW winalloc(gw, gvals, buf, rows, columns)
 	newp->wantcol = 0;
 	newp->cursx = newp->cursy = -1;
 
-	/* Initialize options */
+	/* Initialize any options that aren't inherited from windefopts */
 	o_windowid(newp) = ++nextwindowid;
 	o_lines(newp) = rows;
 	o_columns(newp) = columns;
 	newp->wrapmargin.value.pointer = (void *)newp;
+	o_hasfocus(newp) = ElvFalse;
 
 	/* allocate storage space for the screen images */
 	newp->di = (DRAWINFO *)drawalloc((int)rows, (int)columns, newp->cursor);
 
 	/* choose the default display mode */
-	if (!dispset(newp, tochar8(o_bufdisplay(buf))))
+	if (!dispset(newp, o_initialsyntax(buf) ? "syntax" : tochar8(o_bufdisplay(buf))))
 		(void)dispset(newp, NULL);
 
 	/* no text is selected, initially */
 	newp->seltop = newp->selbottom = NULL;
 
 	/* there is initially no matching parenthesis */
+#ifdef FEATURE_TEXTOBJ
+	newp->matchend = 
+#endif
 	newp->match = -4;
+
+	/* by default, don't tweak the "normal" font. */
+	newp->defaultfont = 0;
+	newp->fgcolor = colorinfo[COLOR_FONT_NORMAL].fg;
+	newp->bgcolor = colorinfo[COLOR_FONT_NORMAL].bg;
 
 	/* push the initial state */
 	if (gui->moveto)
@@ -217,7 +234,7 @@ WINDOW winalloc(gw, gvals, buf, rows, columns)
 	  case 'i':
 		if (!o_locked(markbuffer(newp->cursor)))
 		{
-			bufwilldo(newp->cursor, True);
+			bufwilldo(newp->cursor, ElvTrue);
 			if (o_bufchars(markbuffer(newp->cursor)) == 0L)
 			{
 				assert(markoffset(newp->cursor) == 0L);
@@ -231,7 +248,7 @@ WINDOW winalloc(gw, gvals, buf, rows, columns)
 	  case 'r':
 		if (!o_locked(markbuffer(newp->cursor)))
 		{
-			bufwilldo(newp->cursor, True);
+			bufwilldo(newp->cursor, ElvTrue);
 			if (o_bufchars(markbuffer(newp->cursor)) == 0L)
 			{
 				assert(markoffset(newp->cursor) == 0L);
@@ -264,12 +281,6 @@ WINDOW winalloc(gw, gvals, buf, rows, columns)
 		assert(newp && windefault);
 	}
 
-	/* If this is the first window, then peform the -c command or -t tag */
-	if (!newp->next)
-	{
-		mainfirstcmd(newp);
-	}
-
 	return newp;
 }
 
@@ -279,7 +290,7 @@ WINDOW winalloc(gw, gvals, buf, rows, columns)
  */
 void winfree(win, force)
 	WINDOW	win;	/* the window to be freed */
-	BOOLEAN	force;	/* If True, try harder */
+	ELVBOOL	force;	/* If ElvTrue, try harder */
 {
 	WINDOW	scan, lag;
 	int	i;
@@ -323,7 +334,7 @@ void winfree(win, force)
 	 * If it succeeds, it will also free the cursor; if it doesn't
 	 * succeed, then we want to free the cursor marks anyway.
 	 */
-	if (!bufunload(markbuffer(win->cursor), force, False))
+	if (!bufunload(markbuffer(win->cursor), force, ElvFalse))
 	{
 		markfree(win->cursor);
 		if (win->prevcursor)
@@ -341,7 +352,11 @@ void winfree(win, force)
 	optfree(QTY(wdesc), &win->windowid);
 
 	/* free the storage space for the window's image */
-	drawfree(win->di);
+	if (win->di)
+	{
+		drawfree(win->di);
+		win->di = NULL;
+	}
 
 	/* free any resources allocated for the display mode */
 	if (win->md)
@@ -363,8 +378,14 @@ void winresize(win, rows, columns)
 	long	columns;/* new width of the window */
 {
 	MARKBUF	oldtop;
+	CHAR	*changed;
 
 	/* update the options */
+	changed = NULL;
+	if (o_lines(win) != rows)
+		changed = toCHAR("lines");
+	else if (o_columns(win) != columns)
+		changed = toCHAR("columns");
 	o_lines(win) = rows;
 	o_columns(win) = columns;
 	if (!(optflags(o_scroll(win)) & OPT_SET))
@@ -374,8 +395,15 @@ void winresize(win, rows, columns)
 
 	/* free the old screen image, and allocate a new one */
 	oldtop = *win->di->topmark;
-	drawfree(win->di);
+	if (win->di)
+		drawfree(win->di);
 	win->di = drawalloc((int)rows, (int)columns, &oldtop);
+
+#ifdef FEATURE_AUTOCMD
+	/* handle OptChanged event for lines or columns now */
+	if (changed);
+		auperform(win, ElvFalse, NULL, AU_OPTCHANGED, changed);
+#endif
 }
 
 /* Cause a different buffer to be associated with this window.  This function
@@ -385,7 +413,7 @@ void winresize(win, rows, columns)
 void winchgbuf(win, buf, force)
 	WINDOW	win;	/* window that will use the new buffer */
 	BUFFER	buf;	/* the new buffer */
-	BOOLEAN	force;	/* if True, try harder */
+	ELVBOOL	force;	/* if ElvTrue, try harder */
 {
 	/* if same buffer, do nothing */
 	if (buf == markbuffer(win->cursor))
@@ -412,7 +440,7 @@ void winchgbuf(win, buf, force)
 	}
 
 	/* release the old buffer, and discard it if that's okay */ 
-	if (bufunload(markbuffer(win->cursor), False, False) || force)
+	if (bufunload(markbuffer(win->cursor), ElvFalse, ElvFalse) || force)
 	{
 		/* good!  now switch buffers */
 		marksetbuffer(win->cursor, buf);
@@ -423,12 +451,12 @@ void winchgbuf(win, buf, force)
 		}
 
 		/* switch to the new buffer's preferred display mode */
-		dispset(win, tochar8(o_bufdisplay(buf)));
+		dispset(win, o_initialsyntax(buf) ? "syntax" : tochar8(o_bufdisplay(buf)));
 
 		/* retitle the GUI window */
 		if (gui->retitle)
 		{
-			(*gui->retitle)(win->gw, tochar8(o_bufname(buf)));
+			(*gui->retitle)(win->gw, tochar8(o_filename(buf) ? o_filename(buf) : o_bufname(buf)));
 		}
 	}
 }
@@ -439,6 +467,10 @@ void winchgbuf(win, buf, force)
 void winoptions(win)
 	WINDOW	win;	/* the new default window */
 {
+#ifdef FEATURE_AUTOCMD
+	ELVBOOL changed = ElvFalse;
+#endif
+
 	/* Delete the default options from the list of settable options.
 	 * It is too late to change them via :set anymore.
 	 */
@@ -447,6 +479,11 @@ void winoptions(win)
 	/* if this window isn't already the default... */
 	if (windefault != win)
 	{
+#ifdef FEATURE_AUTOCMD
+		if (windefault)
+			(void)auperform(windefault, ElvFalse, NULL, AU_WINLEAVE, NULL);
+#endif
+
 		/* delete the old default window's options */
 		if (windefault)
 		{
@@ -473,6 +510,9 @@ void winoptions(win)
 		}
 
 		windefault = win;
+#ifdef FEATURE_AUTOCMD
+		changed = ElvTrue;
+#endif
 	}
 
 	if (win)
@@ -489,6 +529,11 @@ void winoptions(win)
 		bufoptions(NULL);
 		dispoptions(NULL, NULL);
 	}
+
+#ifdef FEATURE_AUTOCMD
+	if (changed && windefault)
+		(void)auperform(windefault, ElvFalse, NULL, AU_WINENTER, NULL);
+#endif
 }
 
 

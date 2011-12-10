@@ -1,6 +1,8 @@
 /* tcapsysv.h */
 
-char id_tcapsysv[] = "$Id: tcapsysv.h,v 2.9 1996/12/23 22:23:06 steve Exp $";
+#ifdef FEATURE_RCSID
+char id_tcapsysv[] = "$Id: tcapsysv.h,v 2.12 2003/01/26 19:41:36 steve Exp $";
+#endif
 
 #include <termio.h>
 #include <signal.h>
@@ -13,7 +15,7 @@ static struct termio	oldtermio;	/* original tty mode */
 static struct termio	newtermio;	/* cbreak/noecho tty mode */
 
 /* signal catching function */
-void catchsig(signo)
+static void catchsig(signo)
 	int	signo;
 {
 	caught |= (1<<signo);
@@ -21,16 +23,16 @@ void catchsig(signo)
 
 
 /* remember the original tty state */
-void ttyinit()
+static void ttyinit2()
 {
 	/* get the old tty state */
-	ioctl(0, TCGETA, &oldtermio);
+	ioctl(ttykbd, TCGETA, &oldtermio);
 }
 
 /* switch back to the original tty state */
 void ttynormal()
 {
-	ioctl(0, TCSETAW, &oldtermio);
+	ioctl(ttykbd, TCSETAW, &oldtermio);
 }
 
 /* switch to the tty state that elvis runs in */
@@ -71,7 +73,7 @@ void ttyraw(erasekey)
 #  ifdef VDSUSP
 	newtermio.c_cc[VSUSP] = 0;
 #  endif
-	ioctl(0, TCSETAW, &newtermio);
+	ioctl(ttykbd, TCSETAW, &newtermio);
 }
 
 /* For System-V, we use VMIN/VTIME to implement the timeout.  For no
@@ -96,7 +98,7 @@ int ttyread(buf, len, timeout)
 #endif
 
 	/* arrange for timeout, and disable special keys */
-	ioctl(0, TCGETA, &t);
+	ioctl(ttykbd, TCGETA, &t);
 	oldt = t;
 	if (timeout)
 	{
@@ -112,13 +114,13 @@ int ttyread(buf, len, timeout)
 #ifdef VSTART
 	t.c_cc[VSTART] = t.c_cc[VSTOP] = 0;
 #endif
-	ioctl(0, TCSETA, &t);
+	ioctl(ttykbd, TCSETA, &t);
 
 	/* Perform the read. */
-	bytes = read(0, buf, (unsigned)len);
+	bytes = read(ttykbd, buf, (unsigned)len);
 	
 	/* set the tty back to ordinary raw mode */
-	ioctl(0, TCSETA, &oldt);
+	ioctl(ttykbd, TCSETA, &oldt);
 
 	/* return the number of bytes read */
 	return bytes;

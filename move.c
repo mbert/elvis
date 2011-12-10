@@ -1,10 +1,16 @@
 /* move.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_move[] = "$Id: move.c,v 2.48 1999/10/20 17:33:49 steve Exp $";
 
 #include "elvis.h"
+#ifdef FEATURE_RCSID
+char id_move[] = "$Id: move.c,v 2.66 2003/10/17 17:41:23 steve Exp $";
+#endif
 
+#ifdef FEATURE_G
+static void gdraw P_((CHAR *p, long qty, _char_ font, long offset));
+static long gstartrow P_((WINDOW win, long col));
+#endif
 
 /* This function implements the "h" command */
 RESULT m_left(win, vinf)
@@ -52,7 +58,7 @@ RESULT m_right(win, vinf)
 	 * past the end of the line.
 	 */
 	if (vinf->oper && !win->state->acton)
-		tmp = (*win->md->move)(win, win->cursor, 0L, INFINITY, False);
+		tmp = (*win->md->move)(win, win->cursor, 0L, INFINITY, ElvFalse);
 	else
 		tmp = dispmove(win, 0L, INFINITY);
 
@@ -175,16 +181,25 @@ RESULT m_absolute(win, vinf)
 	VIINFO	*vinf;	/* information about the command */
 {
 	BUFFER	buf = markbuffer(win->state->cursor);
-	CHAR	prepchar;	/* preprocessor character, usually '#' */
 	CHAR	match;		/* the parenthesis we want (for <%> command) */
 	CHAR	nest = 0;	/* the starting parenthesis */
 	CHAR	*cp, *cp2;	/* used for scanning through text */
 	long	count;		/* nesting depth */
 	EXINFO	xinfb;		/* an ex command */
-	BOOLEAN	fwd;		/* forward search? (else backward) */
+	ELVBOOL	fwd;		/* forward search? (else backward) */
 #ifdef DISPLAY_SYNTAX
- static	BOOLEAN	fwdelse;	/* last "else" move direction */
+ static	ELVBOOL	fwdelse;	/* last "else" move direction */
+	CHAR	prepchar;	/* preprocessor character, usually '#' */
 	char	prepname[3];	/* first two chars of preprocessor directive */
+#endif
+#ifdef FEATURE_TEXTOBJ
+	VIINFO	vicmd;		/* describes a text object */
+	MARKBUF	start, end;	/* endpoints of an object */
+	MARKBUF	beststart,bestend;/* endpoints of best object */
+	CHAR	*mustfree;	/* temporarily holds non-object pairs */
+
+	mustfree = NULL;
+	end.buffer = NULL;
 #endif
 
 	assert(vinf->command == 'G' || vinf->command == ELVCTRL('G') || vinf->command == '%');
@@ -234,15 +249,79 @@ RESULT m_absolute(win, vinf)
 			prepchar = dmspreprocessor(win);
 #endif
 
+#ifdef FEATURE_TEXTOBJ
+			/* scan for text objects in matchchar */
+			bestend.buffer = NULL;
+			for (cp2 = o_matchchar; cp2[0] && cp2[1]; cp2 += 2)
+			{
+				if (*cp2 == 'a' || *cp2 == 'i')
+				{
+					memset(&vicmd, 0, sizeof vicmd);
+					vicmd.command = *cp2;
+					vicmd.key2 = cp2[1];
+					if (vitextobj(win, &vicmd, &start, &end) == RESULT_COMPLETE
+					 && (bestend.buffer == NULL
+					  || end.offset < bestend.offset))
+					{
+						beststart = start;
+						bestend = end;
+					}
+				}
+				else
+				{
+					buildCHAR(&mustfree, cp2[0]);
+					buildCHAR(&mustfree, cp2[1]);
+				}
+			}
+#endif /* FEATURE_TEXTOBJ */
+
 			/* search forward within line for one of "[](){}" */
 			for (match = '\0', scanalloc(&cp, win->state->cursor); !match;)
 			{
+#ifdef FEATURE_TEXTOBJ
+				/* if hit end of text object, then we'll be
+				 * doing the textobject bouncy thing.
+				 */
+				if (bestend.buffer
+				 && (!cp || markoffset(scanmark(&cp)) >= bestend.offset))
+				{
+					/* is the cursor already at the front?*/
+					if (markoffset(win->state->cursor) <= beststart.offset)
+						marksetoffset(win->state->cursor, bestend.offset - 1L);
+					else
+						marksetoffset(win->state->cursor, beststart.offset);
+					scanfree(&cp);
+					if (mustfree)
+						safefree(mustfree);
+					return RESULT_COMPLETE;
+
+				}
+#endif /* FEATURE_TEXTOBJ */
+
 				/* if hit end-of-line or end-of-buffer without
 				 * finding a matchable character, then fail.
 				 */
-				if (!cp || *cp == '\n')
+				if (!cp || *cp == '\n'
+#ifdef FEATURE_TEXTOBJ
+				 ||  (bestend.buffer
+				   && markoffset(scanmark(&cp)) >= bestend.offset)
+#endif
+				   )
 				{
 					scanfree(&cp);
+#ifdef FEATURE_TEXTOBJ
+					if (mustfree)
+						safefree(mustfree);
+					if (bestend.buffer)
+					{
+						/* is the cursor already at the front?*/
+						if (markoffset(win->state->cursor) <= beststart.offset)
+							marksetoffset(win->state->cursor, bestend.offset - 1L);
+						else
+							marksetoffset(win->state->cursor, beststart.offset);
+						return RESULT_COMPLETE;
+					}
+#endif
 					return RESULT_ERROR;
 				}
 
@@ -262,22 +341,22 @@ RESULT m_absolute(win, vinf)
 					memset(prepname, 0, sizeof prepname);
 					if (cp2)
 					{
-						prepname[0] = tolower(*cp2);
+						prepname[0] = elvtolower(*cp2);
 						scannext(&cp2);
 						if (cp2)
-							prepname[1] = tolower(*cp2);
+							prepname[1] = elvtolower(*cp2);
 					}
 					scanfree(&cp2);
 
 					/* choose direction from name */
 					if (!strcmp(prepname, "if"))
 					{
-						fwd = fwdelse = True;
+						fwd = fwdelse = ElvTrue;
 						match = prepchar;
 					}
 					else if (!strcmp(prepname, "en"))
 					{
-						fwd = fwdelse = False;
+						fwd = fwdelse = ElvFalse;
 						match = prepchar;
 					}
 					else if (!strcmp(prepname, "el"))
@@ -288,16 +367,25 @@ RESULT m_absolute(win, vinf)
 					else
 					{
 						/* UNRECOGNIZED DIRECTIVE */
-						scannext(&cp);
+						scanfree(&cp);
+#ifdef FEATURE_TEXTOBJ
+						if (mustfree)
+							safefree(mustfree);
+#endif
+						return RESULT_ERROR;
 					}
 				}
 				else
 #endif /* defined(DISPLAY_SYNTAX) */
 				{
 					/* look in matchchar option... */
-					for (cp2 = o_matchchar, fwd = True;
+#ifdef FEATURE_TEXTOBJ
+					for (cp2 = mustfree, fwd = ElvTrue;
+#else
+					for (cp2 = o_matchchar, fwd = ElvTrue;
+#endif
 					     cp2 && *cp2 && *cp2 != nest;
-					     cp2++, fwd = (BOOLEAN)!fwd)
+					     cp2++, fwd = (ELVBOOL)!fwd)
 					{
 					}
 					if (!cp2 || !*cp2)
@@ -322,20 +410,22 @@ RESULT m_absolute(win, vinf)
 					if (nest == match)
 					{
 						scandup(&cp2, &cp);
-						for (fwd = True;
+						for (fwd = ElvTrue;
 						     cp2 && *cp2 != '\n';
 						     scannext(&cp2))
 						{
 							if (*cp2 == nest)
-								fwd = (BOOLEAN)!fwd;
+								fwd = (ELVBOOL)!fwd;
 						}
 						scanfree(&cp2);
 					}
 				}
 			}
 			assert(cp != NULL);
+#ifdef FEATURE_SYNTAX
 			if (prepchar != match)
 				prepchar = '\0';
+#endif
 
 			/* search forward or backward for match */
 			if (!fwd)
@@ -370,10 +460,10 @@ RESULT m_absolute(win, vinf)
 					/* for benefit of preprocessor, shift
 					 * non-whitespace chars into prepname[]
 					 */
-					if (!isspace(*cp))
+					if (!elvspace(*cp))
 					{
 						prepname[1] = prepname[0];
-						prepname[0] = tolower(*cp);
+						prepname[0] = elvtolower(*cp);
 					}
 #endif
 				}
@@ -402,10 +492,10 @@ RESULT m_absolute(win, vinf)
 						memset(prepname, 0, sizeof prepname);
 						if (cp2)
 						{
-							prepname[0] = tolower(*cp2);
+							prepname[0] = elvtolower(*cp2);
 							scannext(&cp2);
 							if (cp2)
-								prepname[1] = tolower(*cp2);
+								prepname[1] = elvtolower(*cp2);
 						}
 						scanfree(&cp2);
 
@@ -429,6 +519,10 @@ RESULT m_absolute(win, vinf)
 			if (!cp)
 			{
 				scanfree(&cp);
+#ifdef FEATURE_TEXTOBJ
+				if (mustfree)
+					safefree(mustfree);
+#endif
 				return RESULT_ERROR;
 			}
 
@@ -439,6 +533,10 @@ RESULT m_absolute(win, vinf)
 		else if (vinf->count < 1 || vinf->count > 100)
 		{
 			msg(MSG_ERROR, "bad percentage");
+#ifdef FEATURE_TEXTOBJ
+			if (mustfree)
+				safefree(mustfree);
+#endif
 			return RESULT_ERROR;
 		}
 		else
@@ -459,9 +557,12 @@ RESULT m_absolute(win, vinf)
 			}
 			vinf->tweak |= TWEAK_FRONT;
 		}
-		return RESULT_COMPLETE;
 	}
 
+#ifdef FEATURE_TEXTOBJ
+	if (mustfree)
+		safefree(mustfree);
+#endif
 	return RESULT_COMPLETE;
 }
 
@@ -475,9 +576,9 @@ RESULT m_mark(win, vinf)
 	/* check for <'><'> or <`><`> */
 	if (vinf->command == vinf->key2)
 	{
-		if (win->prevcursor)
+		if (win->prevcursor
+		 && markbuffer(win->state->cursor) == markbuffer(win->prevcursor))
 		{
-			assert(markbuffer(win->state->cursor) == markbuffer(win->prevcursor));
 			marksetoffset(win->state->cursor, markoffset(win->prevcursor));
 			return RESULT_COMPLETE;
 		}
@@ -518,12 +619,12 @@ RESULT m_bigword(win, vinf)
 	WINDOW	win;	/* window where command was typed */
 	VIINFO	*vinf;	/* information about the command */
 {
-	BOOLEAN	whitespace;	/* do we include following whitespace? */
-	BOOLEAN backward;	/* are we searching backwards? */
+	ELVBOOL	whitespace;	/* do we include following whitespace? */
+	ELVBOOL backward;	/* are we searching backwards? */
 	long	offset;		/* offset of *cp character */
 	long	count;		/* number of words to skip */
 	long	end;		/* offset of the end of the buffer */
-	BOOLEAN	inword;		/* are we currently in a word? */
+	ELVBOOL	inword;		/* are we currently in a word? */
 	CHAR	*cp;		/* used for scanning chars of buffer */
 
 	DEFAULT(1);
@@ -539,24 +640,24 @@ RESULT m_bigword(win, vinf)
 	switch (vinf->command)
 	{
 	  case 'B':
-		backward = True;
-		whitespace = False;
-		inword = False;
+		backward = ElvTrue;
+		whitespace = ElvFalse;
+		inword = ElvFalse;
 		break;
 
 	  case 'E':
-		backward = False;
-		whitespace = False;
-		inword = False;
+		backward = ElvFalse;
+		whitespace = ElvFalse;
+		inword = ElvFalse;
 		break;
 
 	  default:
-		backward = False;
-		inword = (BOOLEAN)!isspace(*cp);
+		backward = ElvFalse;
+		inword = (ELVBOOL)!elvspace(*cp);
 		if (vinf->oper == 'c')
 		{
 			/* "cW" acts like "cE", pretty much */
-			whitespace = False;
+			whitespace = ElvFalse;
 			vinf->tweak |= TWEAK_INCL;
 
 			/* starting on whitespace? */
@@ -589,7 +690,7 @@ RESULT m_bigword(win, vinf)
 		}
 		else
 		{
-			whitespace = True;
+			whitespace = ElvTrue;
 		}
 		break;
 	}
@@ -604,17 +705,17 @@ RESULT m_bigword(win, vinf)
 		{
 			scanprev(&cp);
 			assert(cp != NULL);
-			if (isspace(*cp))
+			if (elvspace(*cp))
 			{
 				if (inword)
 				{
 					count--;
 				}
-				inword = False;
+				inword = ElvFalse;
 			}
 			else
 			{
-				inword = True;
+				inword = ElvTrue;
 			}
 			if (count > 0)
 			{
@@ -635,7 +736,7 @@ RESULT m_bigword(win, vinf)
 		{
 			scannext(&cp);
 			assert(cp != NULL);
-			if (isspace(*cp))
+			if (elvspace(*cp))
 			{
 				if (vinf->oper && *cp == '\n' && count == 1)
 				{
@@ -647,7 +748,7 @@ RESULT m_bigword(win, vinf)
 				{
 					count--;
 				}
-				inword = False;
+				inword = ElvFalse;
 				if (count > 0)
 				{
 					offset++;
@@ -659,7 +760,7 @@ RESULT m_bigword(win, vinf)
 				{
 					count--;
 				}
-				inword = True;
+				inword = ElvTrue;
 				offset++;
 			}
 		}
@@ -687,8 +788,8 @@ RESULT m_word(win, vinf)
 	WINDOW	win;	/* window where command was typed */
 	VIINFO	*vinf;	/* information about the command */
 {
-	BOOLEAN	whitespace;	/* include trailing whitespace? */
-	BOOLEAN backward;	/* are we moving backward? */
+	ELVBOOL	whitespace;	/* include trailing whitespace? */
+	ELVBOOL backward;	/* are we moving backward? */
 	long	span;		/* offset of starting position */
 	long	newline;	/* offset of newline */
 	CHAR	*cp;		/* used for scanning backward for newline */
@@ -700,21 +801,21 @@ RESULT m_word(win, vinf)
 	switch (vinf->command)
 	{
 	  case 'b':
-		backward = True;
-		whitespace = False;
+		backward = ElvTrue;
+		whitespace = ElvFalse;
 		break;
 
 	  case 'e':
-		backward = False;
-		whitespace = False;
+		backward = ElvFalse;
+		whitespace = ElvFalse;
 		break;
 
 	  default:
-		backward = False;
+		backward = ElvFalse;
 		if (vinf->oper == 'c')
 		{
 			/* "cw" acts like "ce", pretty much */
-			whitespace = False;
+			whitespace = ElvFalse;
 			vinf->tweak |= TWEAK_INCL;
 
 			/* starting on whitespace? */
@@ -746,7 +847,7 @@ RESULT m_word(win, vinf)
 		}
 		else
 		{
-			whitespace = True;
+			whitespace = ElvTrue;
 		}
 		break;
 	}
@@ -833,20 +934,20 @@ RESULT	m_scroll(win, vinf)
 	switch (vinf->command)
 	{
 	  case ELVCTRL('U'):
-		markset(win->di->topmark, (*win->md->move)(win, win->di->topmark, -vinf->count, 0, True));
-		markset(win->di->bottommark, (*win->md->move)(win, win->di->bottommark, -vinf->count, 0, True));
+		markset(win->di->topmark, (*win->md->move)(win, win->di->topmark, -vinf->count, 0, ElvTrue));
+		markset(win->di->bottommark, (*win->md->move)(win, win->di->bottommark, -vinf->count, 0, ElvTrue));
 		marksetoffset(win->cursor, markoffset(dispmove(win, -vinf->count, 0)));
 		break;
 
 	  case ELVCTRL('D'):
-		markset(win->di->topmark, (*win->md->move)(win, win->di->topmark, vinf->count, 0, True));
-		markset(win->di->bottommark, (*win->md->move)(win, win->di->bottommark, vinf->count, 0, True));
+		markset(win->di->topmark, (*win->md->move)(win, win->di->topmark, vinf->count, 0, ElvTrue));
+		markset(win->di->bottommark, (*win->md->move)(win, win->di->bottommark, vinf->count, 0, ElvTrue));
 		marksetoffset(win->cursor, markoffset(dispmove(win, vinf->count, 0)));
 		break;
 
 	  case ELVCTRL('Y'):
-		markset(win->di->topmark, (*win->md->move)(win, win->di->topmark, -vinf->count, 0, True));
-		markset(win->di->bottommark, (*win->md->move)(win, win->di->bottommark, -vinf->count, 0, True));
+		markset(win->di->topmark, (*win->md->move)(win, win->di->topmark, -vinf->count, 0, ElvTrue));
+		markset(win->di->bottommark, (*win->md->move)(win, win->di->bottommark, -vinf->count, 0, ElvTrue));
 		marksetoffset(win->cursor, markoffset(dispmove(win, 0, win->wantcol)));
 		if (markoffset(win->cursor) >= markoffset(win->di->bottommark))
 		{
@@ -856,8 +957,8 @@ RESULT	m_scroll(win, vinf)
 		break;
 
 	  case ELVCTRL('E'):
-		markset(win->di->topmark, (*win->md->move)(win, win->di->topmark, vinf->count, 0, True));
-		markset(win->di->bottommark, (*win->md->move)(win, win->di->bottommark, vinf->count, 0, True));
+		markset(win->di->topmark, (*win->md->move)(win, win->di->topmark, vinf->count, 0, ElvTrue));
+		markset(win->di->bottommark, (*win->md->move)(win, win->di->bottommark, vinf->count, 0, ElvTrue));
 		if (markoffset(win->cursor) < markoffset(win->di->topmark))
 		{
 			marksetoffset(win->cursor, markoffset(win->di->topmark));
@@ -876,7 +977,7 @@ RESULT	m_scroll(win, vinf)
 			marksetoffset(win->cursor, markoffset(win->di->bottommark));
 			markset(win->di->topmark, dispmove(win, -2L, 0));
 			marksetoffset(win->cursor, markoffset(win->di->topmark));
-			markset(win->di->bottommark, (*win->md->move)(win, win->di->topmark, o_lines(win), 0, True));
+			markset(win->di->bottommark, (*win->md->move)(win, win->di->topmark, o_lines(win), 0, ElvTrue));
 		}
 		break;
 
@@ -889,7 +990,7 @@ RESULT	m_scroll(win, vinf)
 		{
 			marksetoffset(win->cursor, markoffset(win->di->topmark));
 			markset(win->di->topmark, dispmove(win, 3L - o_lines(win), 0));
-			markset(win->di->bottommark, (*win->md->move)(win, win->di->topmark, o_lines(win), 0, True));
+			markset(win->di->bottommark, (*win->md->move)(win, win->di->topmark, o_lines(win), 0, ElvTrue));
 			markset(win->cursor, dispmove(win, 1L, 0));
 		}
 		break;
@@ -971,11 +1072,11 @@ RESULT	m_csearch(win, vinf)
 	front = markoffset(dispmove(win, 0, 0));
 	if (win->state->acton)
 	{
-		end = markoffset((*dmnormal.move)(win, win->state->cursor, 0, INFINITY, True));
+		end = markoffset((*dmnormal.move)(win, win->state->cursor, 0, INFINITY, ElvTrue));
 	}
 	else
 	{
-		end = markoffset((*win->md->move)(win, win->state->cursor, 0, INFINITY, True));
+		end = markoffset((*win->md->move)(win, win->state->cursor, 0, INFINITY, ElvTrue));
 	}
 
 	/* comma and semicolon recall the previous character search */
@@ -993,13 +1094,13 @@ RESULT	m_csearch(win, vinf)
 		{
 			vinf->command = prevcmd;
 		}
-		else if (isupper(prevcmd))
+		else if (elvupper(prevcmd))
 		{
-			vinf->command = tolower(prevcmd);
+			vinf->command = elvtolower(prevcmd);
 		}
 		else
 		{
-			vinf->command = toupper(prevcmd);
+			vinf->command = elvtoupper(prevcmd);
 		}
 
 		/* use the previous target character, too */
@@ -1015,7 +1116,7 @@ RESULT	m_csearch(win, vinf)
 	/* Which way should we scan?  Forward or backward? */
 	offset = markoffset(win->state->cursor);
 	(void)scanalloc(&cp, win->state->cursor);
-	if (islower(vinf->command))
+	if (elvlower(vinf->command))
 	{
 		/* scan forward */
 		while (vinf->count > 0 && scannext(&cp) && ++offset <= end)
@@ -1061,12 +1162,15 @@ RESULT	m_csearch(win, vinf)
 	return RESULT_COMPLETE;
 }
 
-/* This funtion moves the cursor to the next tag in the current buffer */
+/* This function moves the cursor to the next tag in the current buffer */
 RESULT m_tag(win, vinf)
 	WINDOW	win;	/* window where command was typed */
 	VIINFO	*vinf;	/* information about the command */
 {
 	MARK	next;	/* where the next tag is located */
+#ifdef FEATURE_G
+	MARKBUF	tmp;
+#endif
 
 	/* This only works when editing the main stratum */
 	if (win->state->acton)
@@ -1077,13 +1181,30 @@ RESULT m_tag(win, vinf)
 		return RESULT_ERROR;
 
 	/* else call the "next tag" function */
-	next = (*win->md->tagnext)(win->cursor);
+#ifdef FEATURE_G
+	if (vinf->command == ELVG('\t'))
+	{
+		next = marktmp(tmp, markbuffer(win->cursor), 0L);
+		do
+		{
+			if (next != &tmp)
+				tmp = *next;
+			next = (*win->md->tagnext)(next);
+		} while (next && markoffset(next) < markoffset(win->cursor));
+		next = (tmp.offset == 0) ? NULL : &tmp;
+	}
+	else
+#endif
+		next = (*win->md->tagnext)(win->cursor);
 	if (!next)
 		return RESULT_ERROR;
 
-	/* move the cursor to the next tag */
+	/* move the cursor */
 	assert(markbuffer(next) == markbuffer(win->state->cursor));
 	marksetoffset(win->state->cursor, markoffset(next));
+
+	/* may also require the window to be redrawn  -- we'd better check */
+	win->di->logic = DRAW_CHANGED;
 	return RESULT_COMPLETE;
 }
 
@@ -1097,7 +1218,8 @@ RESULT m_bsection(win, vinf)
 	CHAR	*cp;
 	CHAR	nroff[3];	/* characters after current position */
 	CHAR	*codes;
-	BOOLEAN	sect;		/* are we looking through section? */
+	ELVBOOL	sect;		/* are we looking through section? */
+	long	curly;
 
 	DEFAULT(1);
 
@@ -1106,7 +1228,7 @@ RESULT m_bsection(win, vinf)
 	/* if this is the start of a "learn" mode, do that! */
 	if (vinf->command == '[' && vinf->key2 != '[')
 	{
-		return maplearn(vinf->key2, True);
+		return maplearn(vinf->key2, ElvTrue);
 	}
 
 	/* search backward for a section or paragraph */
@@ -1115,28 +1237,33 @@ RESULT m_bsection(win, vinf)
 	memset(nroff, 0, sizeof nroff);
 	nroff[0] = (*cp == '{' ? ' ' : *cp);
 	nroff[1] = '\n';
+	curly = -1L;
 	do
 	{
 		/* move back one character */
 		if (!scanprev(&cp))
 			break;
 
+		/* if curly, then remember it for duration of line */
+		if (o_tweaksection && *cp == '{')
+			curly = markoffset(scanmark(&cp));
+
 		/* if this is a newline, look for special stuff... */
 		if (*cp == '\n')
 		{
-			if (nroff[0] == '{')
+			if (nroff[0] == '{' || (curly >= 0L && !elvspace(nroff[0])))
 				vinf->count--;
 			else if (nroff[1] != '\n' && nroff[0] == '\n' && vinf->command == '{')
 				vinf->count--;
 			else if (nroff[0] == '.')
 			{
-				for (codes = o_sections(buf), sect = (BOOLEAN)(vinf->command == '{');
+				for (codes = o_sections(buf), sect = (ELVBOOL)(vinf->command == '{');
 				     codes && *codes;
 				     )
 				{
 					if (codes[0] == nroff[1] &&
 						(codes[1] == nroff[2] ||
-						    (!isalnum(nroff[2]) &&
+						    (!elvalnum(nroff[2]) &&
 							(!codes[1] ||
 							    codes[1] == ' '
 							)
@@ -1152,7 +1279,7 @@ RESULT m_bsection(win, vinf)
 					if ((!codes[1] || !codes[2]) && sect)
 					{
 						codes = o_paragraphs(buf);
-						sect = False;
+						sect = ElvFalse;
 					}
 					else if (!codes[1])
 						codes++;
@@ -1160,6 +1287,10 @@ RESULT m_bsection(win, vinf)
 						codes += 2;
 				}
 			}
+
+			/* moving into new line, forget curly from this line */
+			if (vinf->count > 0L)
+				curly = -1L;
 		}
 
 		/* shift this character into "nroff" string */
@@ -1173,7 +1304,8 @@ RESULT m_bsection(win, vinf)
 	 * or it is NULL because we hit the top of the buffer.  If it is NULL
 	 * and we were only looking to go back one more section/paragraph, and
 	 * the cursor wasn't already at the top of the buffer, then we should
-	 * move the cursor to the top of the buffer.  Otherwise a NULL cp
+	 * move the cursor to the top of the buffer.  If we hit a curly brace
+	 * on the final (top) line, then use that.  Otherwise a NULL cp
 	 * indicates an error.  A non-NULL cp should cause the cursor to be
 	 * left after the newline that it points to.
 	 */
@@ -1181,6 +1313,10 @@ RESULT m_bsection(win, vinf)
 	if (!cp && vinf->count == 1 && markoffset(win->state->cursor) != 0)
 	{
 		marksetoffset(win->state->cursor, 0);
+	}
+	else if (curly >= 0L)
+	{
+		marksetoffset(win->state->cursor, curly);
 	}
 	else if (!cp)
 	{
@@ -1204,14 +1340,15 @@ RESULT m_fsection(win, vinf)
 {
 	BUFFER	buf;	/* buffer being addressed */
 	CHAR	*cp;
-	CHAR	nroff[3];	/* characters after current position */
+	CHAR	nroff[3];	/* characters before current position */
 	CHAR	*codes;
 	long	offset;		/* offset of potential destination */
-	BOOLEAN	sect;		/* are we looking through section? */
+	ELVBOOL	sect;		/* are we looking through section? */
+	ELVBOOL	indented;	/* does current line start with whitespace? */
 
 	DEFAULT(1);
 
-	assert(vinf->command == ']' || vinf->command == '}');
+	assert(vinf->command == ']' || vinf->command == /*{*/'}');
 
 	/* Initialize "offset" just to silence a compiler warning */
 	offset = 0;
@@ -1219,7 +1356,7 @@ RESULT m_fsection(win, vinf)
 	/* if this is the end of a "learn" mode, do that! */
 	if (vinf->command == ']' && vinf->key2 != ']')
 	{
-		return maplearn(vinf->key2, False);
+		return maplearn(vinf->key2, ElvFalse);
 	}
 
 	/* search forward for a section or paragraph */
@@ -1228,14 +1365,21 @@ RESULT m_fsection(win, vinf)
 	memset(nroff, 0, sizeof nroff);
 	nroff[2] = *cp;
 	nroff[1] = (*cp == '.' ? '\0' : '\n');
+	indented = ElvTrue;
 	do
 	{
 		/* move ahead one character */
 		if (!scannext(&cp))
 			break;
 
+		/* if start of line, then test for indentation */
+		if (nroff[2] == '\n')
+			indented = (ELVBOOL)elvspace(*cp);
+		else if (!o_tweaksection)
+			indented = ElvTrue;
+
 		/* look for special stuff... */
-		if (nroff[2] == '\n' && *cp == '{')
+		if (!indented && *cp == '{')
 		{
 			offset = markoffset(scanmark(&cp));
 			vinf->count--;
@@ -1247,13 +1391,13 @@ RESULT m_fsection(win, vinf)
 		}
 		else if (nroff[0] == '\n' && nroff[1] == '.')
 		{
-			for (codes = o_sections(buf), sect = (BOOLEAN)(vinf->command == '}');
+			for (codes = o_sections(buf), sect = (ELVBOOL)(vinf->command == '}');
 			     codes && *codes;
 			     )
 			{
 				if (codes[0] == nroff[2] &&
 					(codes[1] == *cp ||
-					    (!isalnum(*cp) &&
+					    (!elvalnum(*cp) &&
 						(!codes[1] || codes[1] == ' ')
 					    )
 					)
@@ -1268,7 +1412,7 @@ RESULT m_fsection(win, vinf)
 				if ((!codes[1] || !codes[2]) && sect)
 				{
 					codes = o_paragraphs(buf);
-					sect = False;
+					sect = ElvFalse;
 				}
 				else if (!codes[1])
 					codes++;
@@ -1377,7 +1521,7 @@ RESULT m_scrnrel(win, vinf)
 	if (delta != 0)
 	{
 		(void)marktmp(srcbuf, markbuffer(win->state->cursor), srcoff);
-		tmp = (*win->md->move)(win, &srcbuf, delta, 0, False);
+		tmp = (*win->md->move)(win, &srcbuf, delta, 0, ElvFalse);
 		if (!tmp)
 			return RESULT_ERROR;
 		srcoff = markoffset(tmp);
@@ -1465,8 +1609,8 @@ RESULT m_fsentence(win, vinf)
 	WINDOW	win;	/* window where command was typed */
 	VIINFO	*vinf;	/* information about the command */
 {
-	BOOLEAN	ending;	/* have we seen at least one sentence ender? */
-	BOOLEAN	didpara;/* between paragraph and first sentence in paragraph */
+	ELVBOOL	ending;	/* have we seen at least one sentence ender? */
+	ELVBOOL	didpara;/* between paragraph and first sentence in paragraph */
 	int	spaces;	/* number of spaces seen so far */
 	CHAR	*cp;	/* used for scanning through text */
 	CHAR	*end;	/* characters that end a sentence */
@@ -1527,8 +1671,8 @@ RESULT m_fsentence(win, vinf)
 	for (; cp && count > 0; count--)
 	{
 		/* for each character in the sentence... */
-		for (ending = didpara = False, spaces = 0;
-		     cp && (!ending || spaces < o_sentencegap || isspace(*cp));
+		for (ending = didpara = ElvFalse, spaces = 0;
+		     cp && (!ending || spaces < o_sentencegap || elvspace(*cp));
 		     scannext(&cp), offset++)
 		{
 			/* if paragraph, then... */
@@ -1543,15 +1687,15 @@ RESULT m_fsentence(win, vinf)
 					 */
 					count--;
 					newline = -1;
-					ending = True;
+					ending = ElvTrue;
 					if (*cp == '\n')
 					{
-						didpara = False;
+						didpara = ElvFalse;
 						spaces = o_sentencegap;
 					}
 					else
 					{
-						didpara = True;
+						didpara = ElvTrue;
 						spaces = 0;
 					}
 
@@ -1579,18 +1723,18 @@ RESULT m_fsentence(win, vinf)
 			if (*cp == '\n')
 			{
 				spaces = o_sentencegap;
-				didpara = False;
+				didpara = ElvFalse;
 				if (newline < 0)
 					newline = markoffset(scanmark(&cp));
 			}
 			else if (didpara)
 				/* skip characters in a ".P" line */;
-			else if (isspace(*cp))
+			else if (elvspace(*cp))
 				spaces++;
 			else if (CHARchr(end, *cp))
-				newline = -1, ending = True, spaces = 0;
+				newline = -1, ending = ElvTrue, spaces = 0;
 			else if (!CHARchr(quote, *cp))
-				newline = -1, ending = False, spaces = 0;
+				newline = -1, ending = ElvFalse, spaces = 0;
 			else /* quote character */
 				newline = -1;
 		}
@@ -1616,10 +1760,10 @@ RESULT m_bsentence(win, vinf)
 	WINDOW	win;	/* window where command was typed */
 	VIINFO	*vinf;	/* information about the command */
 {
-	BOOLEAN	first;	/* True until we pass some mid-sentence stuff */
-	BOOLEAN	ending;	/* have we seen at least one sentence ender? */
-	BOOLEAN	anynext;/* any text seen on following line */
-	BOOLEAN	anythis;/* any text seen on this line */
+	ELVBOOL	first;	/* ElvTrue until we pass some mid-sentence stuff */
+	ELVBOOL	ending;	/* have we seen at least one sentence ender? */
+	ELVBOOL	anynext;/* any text seen on following line */
+	ELVBOOL	anythis;/* any text seen on this line */
 	int	spaces;	/* number of spaces seen so far */
 	CHAR	*cp;	/* used for scanning through text */
 	CHAR	*end;	/* characters that end a sentence */
@@ -1636,7 +1780,7 @@ RESULT m_bsentence(win, vinf)
 	quote = o_sentencequote ? o_sentencequote : toCHAR("\")]");
 
 	/* misc initialization */
-	anynext = anythis = False;
+	anynext = anythis = ElvFalse;
 	offset = markoffset(win->state->cursor);
 
 	/* NOTE: The "first" variable is used to handle the situation where
@@ -1644,7 +1788,7 @@ RESULT m_bsentence(win, vinf)
 	 * to go back one extra sentence-end; otherwise <(> would just move
 	 * us to the start of the same sentence.
 	 */
-	first = True;
+	first = ElvTrue;
 
 	/* Start scanning at the cursor location */
 	scanalloc(&cp, win->state->cursor);
@@ -1659,7 +1803,7 @@ RESULT m_bsentence(win, vinf)
 	for (; cp && count > 0; count--)
 	{
 		/* for each character in the sentence... */
-		for (ending = True, anythis = anynext = False, spaces = 0,
+		for (ending = ElvTrue, anythis = anynext = ElvFalse, spaces = 0,
 			scanprev(&cp), offset = markoffset(scanmark(&cp));
 		     cp && offset != para &&
 			(!ending || spaces<o_sentencegap || !CHARchr(end,*cp));
@@ -1668,24 +1812,24 @@ RESULT m_bsentence(win, vinf)
 			if (*cp == '\n')
 			{
 				spaces = o_sentencegap;
-				ending = True;
+				ending = ElvTrue;
 				anynext = anythis;
-				anythis = False;
+				anythis = ElvFalse;
 			}
-			else if (isspace(*cp))
+			else if (elvspace(*cp))
 			{
 				spaces++,
-				ending = True;
+				ending = ElvTrue;
 			}
 			else if (!CHARchr(quote, *cp))
 			{
-				first = ending = False;
-				anythis = True;
+				first = ending = ElvFalse;
+				anythis = ElvTrue;
 				spaces = 0;
 			}
 			else
 			{
-				anythis = True;
+				anythis = ElvTrue;
 			}
 		}
 
@@ -1731,7 +1875,7 @@ RESULT m_bsentence(win, vinf)
 			{
 				scannext(&cp);
 				assert(cp);
-			} while (isspace(*cp) || CHARchr(quote, *cp));
+			} while (elvspace(*cp) || CHARchr(quote, *cp));
 			marksetoffset(win->state->cursor, markoffset(scanmark(&cp)));
 		}
 		else if (anynext)
@@ -1744,7 +1888,7 @@ RESULT m_bsentence(win, vinf)
 			{
 				scannext(&cp);
 			}
-			while (cp && isspace(*cp))
+			while (cp && elvspace(*cp))
 			{
 				scannext(&cp);
 			}
@@ -1778,4 +1922,396 @@ RESULT m_bsentence(win, vinf)
 	}
 	scanfree(&cp);
 	return result;
+}
+
+
+/* find the next misspelled word */
+RESULT m_spell(win, vinf)
+	WINDOW	win;	/* window where command was typed */
+	VIINFO	*vinf;	/* information about the command */
+{
+#ifdef FEATURE_SPELL
+	MARK	badword;
+
+	/* only works in window's main edit buffer */
+	if (win->state->cursor != win->cursor)
+		return RESULT_ERROR;
+
+	/* if given a count, then try to find the count'th alternative for
+	 * the current word, and replace the bad word with it.  This only
+	 * works if the "show" option's value contains "spell".
+	 */
+	if (vinf->count > 0)
+	{
+		if (!spellcount(win->cursor, vinf->count))
+		{
+			return RESULT_ERROR;
+		}
+	}
+
+	/* find the next bad word */
+	badword = spellnext(win, win->cursor);
+	if (badword)
+	{
+		marksetoffset(win->cursor, markoffset(badword));
+		return RESULT_COMPLETE;
+	}
+
+	/* I guess there weren't any */
+	msg(MSG_ERROR, "no misspelled words below");
+#endif
+	return RESULT_ERROR;
+}
+
+/* move to the end of the current spelling word */
+RESULT m_endspell(win, vinf)
+	WINDOW	win;	/* window where command was typed */
+	VIINFO	*vinf;	/* information about the command */
+{
+#ifdef FEATURE_SPELL
+
+	/* find the extents of the current word */
+	if (wordatcursor(win->state->cursor, ElvTrue) != NULL)
+	{
+		markaddoffset(win->state->cursor, -1L);
+		return RESULT_COMPLETE;
+	}
+#endif
+	return RESULT_ERROR;
+}
+
+
+#ifdef FEATURE_G
+static long *goffsets;	/* list of offsets */
+static long gwidth;	/* width of line (length of goffsets array) */
+static CHAR gcommand;	/* this affects which whitespace is allowed */
+
+/* This function is used as the "draw" function by a display mode's image()
+ * function.  It builds a list of offsets.  This function is only used by the
+ * m_g() motion function, below.
+ *
+ * Actually, the offset list is a little complicated.  Synthesized characters
+ * are distinguished by a negative offset; we can't move the cursor onto them.
+ * Control characters do come from the buffer, but should act as though they
+ * are synthesized so we don't leave the cursor on a newline.  Some commands
+ * also ignore other whitespace.
+ */
+static void gdraw(p, qty, font, offset)
+	CHAR	*p;	/* first letter of text to draw */
+	long	qty;	/* quantity to draw (negative to repeat *p) */
+	_char_	font;	/* font code of the text */
+	long	offset;	/* buffer offset of *p */
+{
+	long	delta;		/* value to add to "offset" */
+	long	*newoff;
+
+	/* A negative qty value indicates that all characters have the same
+	 * offset.  Otherwise the characters will have consecutive offsets.
+	 */
+	if (qty < 0)
+	{
+		qty = -qty;
+		delta = 0;
+	}
+	else
+	{
+		delta = 1;
+	}
+
+	/* for each character... */
+	for ( ; qty > 0; qty--, offset += delta, p += delta)
+	{
+		/* if necessary, expand the goffsets array */
+		if (gwidth % 1024 == 0)
+		{
+			newoff = safealloc(gwidth + 1024, sizeof(long));
+			if (gwidth > 0)
+			{
+				memcpy(newoff, goffsets, gwidth * sizeof(long));
+				safefree(goffsets);
+			}
+			goffsets = newoff;
+		}
+
+		/* store this offset */
+		if (*p < ' ' || (*p == ' ' && gcommand == '^'))
+			goffsets[gwidth++] = -1L;
+		else
+			goffsets[gwidth++] = offset;
+	}
+}
+
+/* This returns the (line-oriented) column position of the start of a row,
+ * given a (line-oriented) column position in that row.
+ */
+static long gstartrow(win, col)
+	WINDOW	win;	/* window containing the line */
+	long	col;	/* line-oriented column position */
+{
+	ELVBOOL number;	/* does this line start with a line number? */
+
+	number = (ELVBOOL)(o_number(win) && win->cursor == win->state->cursor);
+	if (number)
+		col += 8;
+	col -= col % o_columns(win);
+	if (number)
+	{
+		col -= 8;
+		if (col < 0)
+			col = 0;
+	}
+	return col;
+}
+#endif /* FEATURE_G */
+
+
+/* This implements the g0, g^, g$, gh, and gl motion commands */
+RESULT m_g (win, vinf)
+	WINDOW	win;	/* window where command was typed */
+	VIINFO	*vinf;	/* information about the command */
+{
+#ifdef FEATURE_G
+	MARKBUF	mark;
+	MARK	line;
+	long	i;
+	long	start, end, hardend;	/* where cursor's row starts & ends */
+	ELVBOOL	history;
+
+	/* This is just to silence a bogus compiler warning */
+	i = 0;
+
+	/* All of these commands format a line, and try to move with it by
+	 * its image, skipping over hidden characters and taking wrap into
+	 * account.  Build an array of offsets.
+	 */
+	goffsets = NULL;
+	gwidth = 0;
+	gcommand = ELVUNG(vinf->command);
+	mark = *win->state->cursor;
+	marksetoffset(&mark, o_bufchars(markbuffer(&mark)));
+	history = (ELVBOOL)(win->state->cursor != win->cursor);
+	if (history)
+	{
+		line = (*dmnormal.setup)(win, win->state->cursor,
+						markoffset(win->state->cursor),
+						&mark, NULL);
+		line = (*dmnormal.image)(win, line, win->mi, gdraw);
+	}
+	else
+	{
+		line = (*win->md->setup)(win, win->cursor,
+						markoffset(win->cursor),
+						&mark, win->mi);
+		line = (*win->md->image)(win, line, win->mi, gdraw);
+	}
+	assert(gwidth > 0);
+
+	/* find the start & end of the cursor's row */
+	if (o_wrap(win))
+	{
+		for (i = 0; i < gwidth && goffsets[i] < markoffset(win->state->cursor); i++)
+		{
+		}
+		start = gstartrow(win, i);
+		end = gstartrow(win, start + o_columns(win));
+	}
+	else
+	{
+		start = win->di->skipped;
+		end = start + o_columns(win);
+	}
+	hardend = end;
+	if (end > gwidth)
+		end = gwidth;
+
+	/* find the index of the desired character */
+	switch (vinf->command)
+	{
+	  case ELVG('0'):
+	  case ELVG('^'):
+		for (i = start; i < end && goffsets[i] < 0; i++)
+		{
+		}
+		if (i >= end)
+			goto Fail;
+		break;
+
+	  case ELVG('$'):
+		for (i = end; --i >= start && goffsets[i] < 0; )
+		{
+		}
+		if (i < start)
+			goto Fail;
+		win->wantcol = hardend - 1L;
+		break;
+
+	  case ELVG('h'):
+		DEFAULT(1);
+
+		/* find the cursor */
+		for (i = 0; i < gwidth && goffsets[i] < markoffset(win->state->cursor); i++)
+		{
+		}
+
+		/* move left, skipping non-buffer chars & duplicates */
+		while (vinf->count > 0 && --i >= 0)
+			if (goffsets[i] >= 0 && (i+1 >= gwidth || goffsets[i] != goffsets[i+1]))
+				vinf->count--;
+		if (vinf->count > 0)
+			goto Fail;
+		break;
+
+	  case ELVG('l'):
+		DEFAULT(1);
+
+		/* find the cursor */
+		for (i = 0; i < gwidth && goffsets[i] < markoffset(win->state->cursor); i++)
+		{
+		}
+
+		/* move right, skipping non-buffer chars & duplicates */
+		while (vinf->count > 0 && ++i < gwidth)
+			if (goffsets[i] >= 0 && goffsets[i] != goffsets[i-1])
+				vinf->count--;
+		if (vinf->count > 0)
+			goto Fail;
+		break;
+	}
+
+	/* adjust the cursor's offset */
+	assert(i >= 0 && i < gwidth);
+	assert(goffsets[i] >= 0);
+	marksetoffset(win->state->cursor, goffsets[i]);
+
+	safefree(goffsets);
+	return RESULT_COMPLETE;
+
+Fail:
+	safefree(goffsets);
+#endif /* FEATURE_G */
+	return RESULT_ERROR;
+}
+
+
+/* implements the gj and gk commands */
+RESULT m_gupdown(win, vinf)
+	WINDOW	win;	/* window where command was typed */
+	VIINFO	*vinf;	/* information about the command */
+{
+#ifdef FEATURE_G
+	long	wantcol;/* desired column within a line */
+	long	col;	/* some other column */
+	long	rowcol;	/* column number of start of row */
+	MARK	newcurs;
+	long	origoff;
+
+	DEFAULT(1);
+
+	/* This is just to silence a bogus compiler warning */
+	col = 0;
+
+	/* If "wrap" is off, then gj and gk are the same as j and k.  For the
+	 * sake of simplicity, we will also treat them the same if we're editing
+	 * a history buffer -- even though gj and gk could conceivably be useful
+	 * when entering long command lines, this doesn't seem useful enough to
+	 * justify the effort needed.
+	 */
+	if (!o_wrap(win) || win->state->cursor != win->cursor)
+	{
+		vinf->command = ELVUNG(vinf->command);
+		return m_updown(win, vinf);
+	}
+
+	/* Otherwise, we try to move using the 'wantcol' column.  This is
+	 * trickier than you might think, since we need to convert line-oriented
+	 * columns to row-oriented columns -- i.e., if win->wantcol == 60, and
+	 * lines wrap at 80 columns, you could be moving from 140 to 220.
+	 */
+
+	/* some initialization */
+	origoff = markoffset(win->cursor);
+	wantcol = win->wantcol;
+	if (vinf->command == ELVG('j'))
+	{
+		newcurs = dispmove(win, 0L, INFINITY);
+		marksetoffset(win->cursor, markoffset(newcurs));
+		col = dispmark2col(win);
+	}
+
+	/* for each row that the user wants to move... */
+	while (--vinf->count >= 0)
+	{
+		switch (vinf->command)
+		{
+		  case ELVG('k'):
+			if (gstartrow(win, wantcol) > 0)
+			{
+				/* adjust wantcol within this line */
+				wantcol -= o_columns(win);
+
+				/* When line numbers are shown, it is possible
+				 * for wantcol to be negative.  Although the
+				 * gj and gk commands could do useful things
+				 * with this, wantcol is also used elsewhere
+				 * by functions that don't like negative column
+				 * numbers, so we force it to 0 here.
+				 */
+				if (wantcol < 0)
+					wantcol = 0;
+			}
+			else
+			{
+				/* move up to previous line.  fail at top */
+				newcurs = dispmove(win, -1L, INFINITY);
+				if (markoffset(newcurs) >= markoffset(win->cursor))
+					goto Fail;
+				marksetoffset(win->cursor, markoffset(newcurs));
+
+				/* get the column number at the end of the line */
+				col = dispmark2col(win);
+
+				/* we want the column on the last row of the
+				 * line.  This may be past the physical end of
+				 * the line, but that's okay.
+				 */
+				rowcol = gstartrow(win, col);
+				while (gstartrow(win, wantcol) < rowcol)
+					wantcol += o_columns(win);
+			}
+			break;
+
+		  case ELVG('j'):
+			rowcol = gstartrow(win, col);
+			if (gstartrow(win, wantcol) < rowcol)
+			{
+				wantcol += o_columns(win);
+			}
+			else
+			{
+				/* need to move down a line */
+				newcurs = dispmove(win, 1L, INFINITY);
+				if (markoffset(newcurs) == markoffset(win->cursor))
+					goto Fail;
+				marksetoffset(win->cursor, markoffset(newcurs));
+				col = dispmark2col(win);
+				wantcol %= o_columns(win);
+				if (gstartrow(win, wantcol) > 0)
+					wantcol = 0;
+			}
+			break;
+		}
+	}
+
+	/* Success!  We're already in the desired line, so now we just need to
+	 * move to the desired row.
+	 */
+	newcurs = dispmove(win, 0L, wantcol);
+	marksetoffset(win->cursor, markoffset(newcurs));
+	win->wantcol = wantcol;
+	return RESULT_COMPLETE;
+
+Fail:
+	marksetoffset(win->cursor, origoff);
+#endif /* FEATURE_G */
+	return RESULT_ERROR;
 }

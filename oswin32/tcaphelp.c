@@ -1,17 +1,17 @@
 /* oswin32/tcaphelp.c */
 
-char id_tcaphelp[] = "$Id: tcaphelp.c,v 2.27 1999/09/28 22:03:08 steve Exp $";
 
 #include "elvis.h"
+#ifdef FEATURE_RCSID
+char id_tcaphelp[] = "$Id: tcaphelp.c,v 2.34 2003/10/17 17:41:23 steve Exp $";
+#endif
 #if defined(GUI_TERMCAP) || defined(GUI_OPEN)
 # define CHAR CHAR_nt
-# define BOOLEAN BOOLEAN_nt
 # include <windows.h>
 # include <fcntl.h>
 # include <io.h>
 # include <signal.h>
 # undef CHAR
-# undef BOOLEAN
 # define SMART_LINE_WRAP 1
 
 /* This file includes low-level tty control functions used by the termcap
@@ -33,7 +33,7 @@ extern long ttycaught;
 
 static void catchsig(int signo);
 static void retitle(GUIWIN *gw, char *name);
-static BOOLEAN clipopen(BOOLEAN forwrite);
+static ELVBOOL clipopen(ELVBOOL forwrite);
 static int clipwrite(CHAR *text, int len);
 static int clipread(CHAR *text, int len);
 static void clipclose(void);
@@ -42,14 +42,14 @@ static int optisttyrows(OPTDESC *opt, OPTVAL *val, CHAR *newval);
 static int optisttycols(OPTDESC *opt, OPTVAL *val, CHAR *newval);
 static void ttyresize(int rows, int cols);
 
-static BOOLEAN	useconsole = True;
+static ELVBOOL	useconsole = ElvTrue;
 static HANDLE	inConsole, outConsole;	/* the DOS console buffer */
 static HANDLE	myConsole;		/* elvis' console buffer */
 static HANDLE	console;		/* the current console buffer */
 static CONSOLE_SCREEN_BUFFER_INFO consinfo;/* info about the console */
 static DWORD	inMode, outMode;	/* I/O modes of DOS console buffer */
 static int	prevWidth, prevHeight;	/* size of DOS console buffer */
-static BOOLEAN	resized;		/* has screen size changed lately? */
+static ELVBOOL	resized;		/* has screen size changed lately? */
 static WORD	origattr;		/* DOS console attributes */
 static WORD	myattr;			/* elvis' console attributes */
 static WORD	attr;	/* attribute byte for writing subsequent text */
@@ -109,7 +109,7 @@ static int optisttyrows (opt, val, newval)
 	o_ttyrows = lines;
 	o_ttycolumns = cols;
 	if (windefault)
-		resized = True;
+		resized = ElvTrue;
 
         return 1;
 }
@@ -133,7 +133,7 @@ static int optisttycols (opt, val, newval)
 	o_ttyrows = lines;
 	o_ttycolumns = cols;
 	if (windefault)
-		resized = True;
+		resized = ElvTrue;
 
         return 1;
 }
@@ -276,6 +276,8 @@ static void switchcsbi(HANDLE which)
 {
 	int	savedHeight;
 	int	savedWidth;
+	COORD	coord;		/* coordinates of cursor position */
+	long	dummy;
 
 #if 1
 	/* if no change, then do nothing */
@@ -301,8 +303,18 @@ static void switchcsbi(HANDLE which)
 	/* if switching to non-elvis screen, then restore the title */
 	if (console == outConsole)
 	{
+		/* set the title */
 		SetConsoleTitle(orig_title);
+
+		/* use the original attributes */
 		attr = origattr;
+
+		/* move to the bottom row, and clear to EOL */
+		coord.X = 0;
+		coord.Y = consinfo.dwSize.Y - 1;
+		SetConsoleCursorPosition(console, coord);
+		FillConsoleOutputCharacter(console, ' ', consinfo.dwSize.X, coord, &dummy);
+		FillConsoleOutputAttribute(console, origattr, consinfo.dwSize.Y, coord, &dummy);
 	}
 	else
 	{
@@ -339,9 +351,9 @@ static	DWORD	prevmb;	/* previous mouse button state */
 	GUIWIN	*gw;	/* window where mouse event happened */
 static	GUIWIN	*selgw;	/* window where selection is taking place */
 	int	y, x;	/* coordinates of mouse within "gw" window */
-static	BOOLEAN	justpressed;/* between a press and the start of a drag */
+static	ELVBOOL	justpressed;/* between a press and the start of a drag */
 static	int	prevy, prevx;/* cell where originally pressed */
-static	BOOLEAN	justdbl;/* between double-click & bogus single-click */
+static	ELVBOOL	justdbl;/* between double-click & bogus single-click */
 
 	/* reset the "ttycaught" variable */
 	signal(SIGINT, catchsig);
@@ -363,7 +375,7 @@ static	BOOLEAN	justdbl;/* between double-click & bogus single-click */
 	 */
 	if (resized)
 	{
-		resized = False;
+		resized = ElvFalse;
 		return -1;
 	}
 
@@ -403,8 +415,15 @@ static	BOOLEAN	justdbl;/* between double-click & bogus single-click */
 				     x > 0 && got + 2 < len;
 				     x--)
 				{
-					if (event.Event.KeyEvent.uChar.AsciiChar)
+					if (event.Event.KeyEvent.uChar.AsciiChar == '\t'
+					 && (event.Event.KeyEvent.dwControlKeyState & SHIFT_PRESSED) != 0)
 					{
+						buf[got++] = '#';
+						buf[got++] = '\t';
+					}
+					else if (event.Event.KeyEvent.uChar.AsciiChar)
+					{
+						/* plain text character*/
 						buf[got++] = event.Event.KeyEvent.uChar.AsciiChar;
 					}
 					else if (3 == (char)event.Event.KeyEvent.wVirtualScanCode)
@@ -434,7 +453,7 @@ static	BOOLEAN	justdbl;/* between double-click & bogus single-click */
 			{
 				prevmb = event.Event.MouseEvent.dwButtonState;
 				if (prevmb == 0)
-					justdbl = False;
+					justdbl = ElvFalse;
 				break;
 			}
 			else if (event.Event.MouseEvent.dwButtonState == 0
@@ -454,7 +473,7 @@ static	BOOLEAN	justdbl;/* between double-click & bogus single-click */
 
 			/* Make the window become the current window */
 			(*gui->focusgw)(gw);
-			eventfocus(gw);
+			eventfocus(gw, ElvTrue);
 
 			/* process the event */
 			if (event.Event.MouseEvent.dwEventFlags & DOUBLE_CLICK)
@@ -466,7 +485,7 @@ static	BOOLEAN	justdbl;/* between double-click & bogus single-click */
 					eventclick(gw, y, x, CLICK_UNTAG);
 				SetConsoleMode(inConsole, mode);
 				selgw = NULL;
-				justdbl = True;
+				justdbl = ElvTrue;
 				return -2;
 			}
 			if ((event.Event.MouseEvent.dwEventFlags & MOUSE_MOVED) != 0 && justpressed && (x != prevx || y != prevy))
@@ -485,14 +504,14 @@ static	BOOLEAN	justdbl;/* between double-click & bogus single-click */
 				  default:
 					eventclick(gw, prevy, prevx, CLICK_SELRECT);
 				}
-				justpressed = False;
+				justpressed = ElvFalse;
 			}
 			else if (press != 0)
 			{
 				/* button was pressed */
 				if (press & 1)
 					eventclick(gw, y, x, CLICK_CANCEL);
-				justpressed = True;
+				justpressed = ElvTrue;
 				selgw = gw;
 			}
 			else if (prevmb == 0)
@@ -536,8 +555,9 @@ void ttywrite(buf, len)
  static int	   arg[9];	/* arguments to escape sequence */
  static int	   argno = -1;	/* -1 normally, else index of escape sequence argument */
  static COORD	   coord;	/* coordinates of cursor position */
- static BOOLEAN	   bgset = False;/* has the background color been set? */
- static BOOLEAN	   boldset = False;/* has the foreground brightness been set? */
+ static ELVBOOL	   bgset = ElvFalse;/* has the background color been set? */
+ static ELVBOOL	   boldset = ElvFalse;/* is the foreground brightness set? */
+ static ELVBOOL	   soset = ElvFalse;/* is standout set? */
 	SMALL_RECT rect;	/* source for inserting/deleting/scrolling */
 	COORD	   dest;	/* destination for inserting/deletingi/scrolling */
 	CHAR_INFO  ci;		/* fill info */
@@ -580,10 +600,11 @@ void ttywrite(buf, len)
 		}
 		else if (buf[i] == '\b')
 		{
-			coord.X--;
-			if (coord.X < 0)
+			if (coord.X > 0)
+				coord.X--;
+			else
 			{
-				coord.X += consinfo.dwSize.X;
+				coord.X = consinfo.dwSize.X - 1;
 				if (coord.Y > 0)
 					coord.Y--;
 			}
@@ -811,7 +832,7 @@ void ttywrite(buf, len)
 				else if (arg[0] == 12)
 				{
 					cci.dwSize = 50;
-					cci.bVisible = True;
+					cci.bVisible = ElvTrue;
 					SetConsoleCursorInfo(myConsole, &cci);
 				}
 				argno = -1;
@@ -825,7 +846,7 @@ void ttywrite(buf, len)
 				else if (arg[0] == 12)
 				{
 					cci.dwSize = 20;
-					cci.bVisible = True;
+					cci.bVisible = ElvTrue;
 					SetConsoleCursorInfo(myConsole, &cci);
 				}
 				argno = -1;
@@ -838,8 +859,9 @@ void ttywrite(buf, len)
 					{
 					  case 0:
 						myattr = origattr;
-						bgset = False;
-						boldset = False;
+						bgset = ElvFalse;
+						boldset = ElvFalse;
+						soset = ElvFalse;
 						break;
 
 					  case 1:
@@ -848,7 +870,7 @@ void ttywrite(buf, len)
 							myattr |= FOREGROUND_RED|FOREGROUND_GREEN|FOREGROUND_BLUE;
 						else
 							myattr |= FOREGROUND_INTENSITY;
-						boldset = True;
+						boldset = ElvTrue;
 						break;
 
 					  case 4:
@@ -857,10 +879,14 @@ void ttywrite(buf, len)
 						break;
 
 					  case 7:
-						myattr ^= FOREGROUND_RED|FOREGROUND_GREEN|FOREGROUND_BLUE
-							| BACKGROUND_RED|BACKGROUND_GREEN|BACKGROUND_BLUE;
-						if (!boldset)
-							myattr &= ~FOREGROUND_INTENSITY;
+						if (!soset)
+						{
+							myattr ^= FOREGROUND_RED|FOREGROUND_GREEN|FOREGROUND_BLUE
+								| BACKGROUND_RED|BACKGROUND_GREEN|BACKGROUND_BLUE;
+							if (!boldset)
+								myattr &= ~FOREGROUND_INTENSITY;
+							soset = ElvTrue;
+						}
 						break;
 
 					  case 30: 
@@ -880,6 +906,14 @@ void ttywrite(buf, len)
 							myattr |= FOREGROUND_GREEN;
 						if ((arg[j] - 30) & 4)
 							myattr |= FOREGROUND_BLUE;
+						if (soset)
+							myattr ^= (FOREGROUND_RED|FOREGROUND_GREEN|FOREGROUND_BLUE);
+						break;
+
+					  case 39:
+						myattr &= ~(FOREGROUND_RED|FOREGROUND_GREEN|FOREGROUND_BLUE|FOREGROUND_INTENSITY);
+						myattr |= origattr & (FOREGROUND_RED|FOREGROUND_GREEN|FOREGROUND_BLUE|FOREGROUND_INTENSITY);
+						boldset = (myattr & FOREGROUND_INTENSITY) != 0;
 						break;
 
 					  case 40:
@@ -897,8 +931,16 @@ void ttywrite(buf, len)
 							myattr |= BACKGROUND_GREEN;
 						if ((arg[j] - 40) & 4)
 							myattr |= BACKGROUND_BLUE;
-						bgset = True;
+						if (soset)
+							myattr ^= (BACKGROUND_RED|BACKGROUND_GREEN|BACKGROUND_BLUE);
+						bgset = ElvTrue;
 						break;
+
+					  case 49:
+						myattr &= ~(BACKGROUND_RED|BACKGROUND_GREEN|BACKGROUND_BLUE);
+						myattr |= origattr & (BACKGROUND_RED|BACKGROUND_GREEN|BACKGROUND_BLUE);
+						break;
+
 					}
 				}
 
@@ -952,18 +994,18 @@ char *ttytermtype()
 
 
 /* This function gets the window size. */
-BOOLEAN ttysize(linesptr, colsptr)
+ELVBOOL ttysize(linesptr, colsptr)
 	int	*linesptr;	/* where to store the number of rows */
 	int	*colsptr;	/* where to store the number of columns */
 {
 	SMALL_RECT size;
 
 	if (!useconsole)
-		return False;
+		return ElvFalse;
 
 	/* Get the console buffer size */
 	if (!GetConsoleScreenBufferInfo(myConsole, &consinfo))
-		return False;
+		return ElvFalse;
 #if 0
 	prevHeight = *linesptr = consinfo.dwSize.Y;
 	prevWidth = *colsptr = consinfo.dwSize.X;
@@ -978,18 +1020,18 @@ BOOLEAN ttysize(linesptr, colsptr)
 	size.Bottom = *linesptr - 1;
 	size.Right = *colsptr - 1;
 	(void)SetConsoleWindowInfo(myConsole, TRUE, &size);
-	return True;
+	return ElvTrue;
 }
 
 
 /* Check for signs of boredom from user, so we can abort a time-consuming
  * operation.  Here we check to see if SIGINT has been caught recently.
- * Returns True to abort an operation, or False to continue it.
+ * Returns ElvTrue to abort an operation, or ElvFalse to continue it.
  */
-BOOLEAN ttypoll(reset)
-	BOOLEAN reset;
+ELVBOOL ttypoll(reset)
+	ELVBOOL reset;
 {
-	return (BOOLEAN)((ttycaught & (1 << SIGINT)) != 0);
+	return (ELVBOOL)((ttycaught & (1 << SIGINT)) != 0);
 }
 
 /* This function resizes the terminal */
@@ -1042,22 +1084,22 @@ static void retitle(GUIWIN *gw, char *name)
 
 
 /* This function opens the clipboard */
-static BOOLEAN clipopen(BOOLEAN forwrite)
+static ELVBOOL clipopen(ELVBOOL forwrite)
 {
-	BUFFER	buf = cutbuffer ('>', False);
+	BUFFER	buf = cutbuffer ('>', ElvFalse);
 
 	/* check if something to do */
 	if (!forwrite &&
 	    !IsClipboardFormatAvailable (CF_TEXT) &&
 	    !IsClipboardFormatAvailable (CF_OEMTEXT))
-		return False;
+		return ElvFalse;
 
 	if (forwrite && buf == NULL)
-		return False;
+		return ElvFalse;
 
 	/* open the clipboard */
 	if (!OpenClipboard (GetActiveWindow ()))
-		return False;
+		return ElvFalse;
 
 	/* allocate memory if writing */
 	if (forwrite) {
@@ -1065,7 +1107,7 @@ static BOOLEAN clipopen(BOOLEAN forwrite)
 		clip_hGlob = GlobalAlloc (GMEM_MOVEABLE | GMEM_DDESHARE,
 						(DWORD)clip_len + 1);
 		if (clip_hGlob == NULL)
-			return False;
+			return ElvFalse;
 
 		clip_data = (char *)GlobalLock (clip_hGlob);
 		clip_offset = 0;
@@ -1073,7 +1115,7 @@ static BOOLEAN clipopen(BOOLEAN forwrite)
 	}
 
 	/* indicate success */
-	return True;
+	return ElvTrue;
 }
 
 /* This function writes to the clipboard */

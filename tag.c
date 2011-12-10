@@ -6,29 +6,54 @@
 
 #include "elvis.h"
 
+#ifdef FEATURE_TAGS
+# if USE_PROTOTYPES
+  static ELVBOOL tagbefore(TAG *t1, TAG *t2);
+# endif
+
 /* This array stores the (dynamically allocated) names of attributes. */
 char *tagattrname[MAXATTR] = {"tagname", "tagfile", "tagaddress"};
 
 /* This stores the search direction to be used with regular expressions */
-BOOLEAN	tagforward;
+ELVBOOL	tagforward;
 
 /* This variable stores a list of tags.  Tags can be added to the list via
  * the tagadd() function, and deleted via tagdelete()
  */
 TAG *taglist;
 
-/* Tag comparison macro, returns non-zero if t1 should be inserted before t2.
- * Requires the declaration of an "int cmp" variable.
+/* Tag comparison function, returns non-zero if t1 should be inserted before t2.
  */
-#define TAGBEFORE(t1, t2) \
-		((cmp = strcmp((t1)->TAGNAME, (t2)->TAGNAME)) < 0 \
-		 || (cmp == 0 && (t1)->match > (t2)->match))
+static ELVBOOL tagbefore(t1, t2)
+	TAG *t1, *t2;
+{
+	long cmp;
+	char tmptime[20];
+
+	/* First compare them by tag name.  If that doesn't resolve it, then
+	 * compare them by how well they match previously accepted tags.  As a
+	 * last resort, compare them by timestamp
+	 */
+	cmp = strcmp(t1->TAGNAME, t2->TAGNAME);
+	if (cmp == 0)
+	{
+		cmp = t2->match - t1->match;
+	}
+	if (cmp == 0)
+	{
+		strcpy(tmptime, dirtime(t1->TAGFILE));
+		cmp = strcmp(dirtime(t2->TAGFILE), tmptime);
+	}
+
+	/* return the comparison result */
+	return (ELVBOOL)(cmp < 0);
+}
 
 /* This function frees any names in the tagattrname[] array.  It should be
  * called when switching to a different tag file, after the last TAG structure
  * from the previous file has been freed.
  */
-void tagnamereset P_((void))
+void tagnamereset()
 {
 	int	i;
 
@@ -62,10 +87,10 @@ TAG *tagdup(tag)
 	return ret;
 }
 
-/* This function adds a named attribute to a tag.  Returns True if succcessful,
- * or False if the tag already has too many named attributes.
+/* This function adds a named attribute to a tag.  Returns ElvTrue if successful,
+ * or ElvFalse if the tag already has too many named attributes.
  */
-BOOLEAN tagattr(tag, name, value)
+ELVBOOL tagattr(tag, name, value)
 	TAG	*tag;	/* the tag to receive the value */
 	char	*name;	/* name of the attribute */
 	char	*value;	/* value of the attribute */
@@ -77,13 +102,13 @@ BOOLEAN tagattr(tag, name, value)
 	{
 	}
 	if (i >= MAXATTR)
-		return False;
+		return ElvFalse;
 	if (!tagattrname[i])
 		tagattrname[i] = safedup(name);
 
 	/* store the value */
 	tag->attr[i] = value;
-	return True;
+	return ElvTrue;
 }
 
 
@@ -113,7 +138,7 @@ TAG *tagfree(tag)
  * After the last tag has been deleted, the tag attribute names are reset.
  */
 void tagdelete(all)
-	BOOLEAN all;	/* if True, delete all tags (else just first tag) */
+	ELVBOOL all;	/* if ElvTrue, delete all tags (else just first tag) */
 {
 	/* delete the tag(s) */
 	if (taglist)
@@ -134,52 +159,42 @@ void tagdelete(all)
 
 /* This function inserts a tag into the tag list.  The list is sorted primarily
  * by name; within each name, they are sorted by the likelyhood factor (highest
- * first).  Returns True of another tag with that name was previously in the
- * list, or False if the new tag's name is unique so far.
+ * first).  Returns ElvTrue of another tag with that name was previously in the
+ * list, or ElvFalse if the new tag's name is unique so far.
  *
  * NOTE: This uses a special type of list, which uses an extra pointer to boost
  * its update effiency to be about the same as a binary tree.  Consequently,
  * it should be efficient, even for fairly large lists.
  */
-BOOLEAN tagadd(tag)
+void tagadd(tag)
 	TAG	*tag;
 {
 	TAG	*scan;
-	int	cmp;
-	BOOLEAN	isdup;
 
 	/* if empty list, this is easy */
 	if (!taglist)
 	{
 		taglist = tag;
-		return False;
+		return;
 	}
 
 	/* if before head, then insert as new head */
-	if (TAGBEFORE(tag, taglist))
+	if (tagbefore(tag, taglist))
 	{
 		tag->next = taglist;
 		tag->bighop = taglist->bighop;
 		taglist->bighop = NULL;
 		taglist = tag;
-		return False;
+		return;
 	}
 
 	/* search for the insertion point */
-	isdup = False;
-	for (scan = taglist; scan->next && !TAGBEFORE(tag, scan->next); )
+	for (scan = taglist; scan->next && !tagbefore(tag, scan->next); )
 	{
-		if (cmp == 0)
-		{
-			isdup = True;
-		}
-
 		/* if there is a bighop value, try it */
-		if (scan->bighop && !TAGBEFORE(tag, scan->bighop))
+		if (scan->bighop && !tagbefore(tag, scan->bighop))
 		{
 			scan = scan->bighop;
-			if (cmp == 0)
-				isdup = True;
 		}
 		else
 		{
@@ -192,8 +207,6 @@ BOOLEAN tagadd(tag)
 	scan->next = tag;
 	if (!scan->bighop)
 		scan->bighop = tag;
-
-	return isdup;
 }
 
 
@@ -247,10 +260,10 @@ TAG *tagparse(line)
 
 	/* parse the line address */
 	address = line;
-	if (isdigit(*address))
+	if (elvdigit(*address))
 	{
 		/* number -- use all digits */
-		for (; isdigit(*line); line++)
+		for (; elvdigit(*line); line++)
 		{
 		}
 	}
@@ -375,3 +388,4 @@ TAG *tagparse(line)
 
 	return &tag;
 }
+#endif /* FEATURE_TAGS */

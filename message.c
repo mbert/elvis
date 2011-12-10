@@ -1,9 +1,11 @@
 /* message.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_message[] = "$Id: message.c,v 2.39 1999/04/08 22:11:43 steve Exp $";
 
 #include "elvis.h"
+#ifdef FEATURE_RCSID
+char id_message[] = "$Id: message.c,v 2.52 2003/10/18 04:47:18 steve Exp $";
+#endif
 #if USE_PROTOTYPES
 # include <stdarg.h>
 #else
@@ -16,7 +18,8 @@ static void translate(char *terse);
 
 static CHAR	verbose[200];
 static FILE	*fperr, *fpinfo;
-static BOOLEAN	msghiding;
+static ELVBOOL	msghiding;
+
 
 /* redirect messages to a log file.  If "filename" is NULL then revert to
  * the normal reporting (stdout and stderr)
@@ -37,7 +40,7 @@ void msglog(filename)
  */
 static char	*scriptnamedup;
 static long	scriptline;
-static BOOLEAN	scriptknown;
+static ELVBOOL	scriptknown;
 
 /* This is called by other code to inform the message module of the location
  * of the current command.  This allows the message module to report the file
@@ -48,7 +51,9 @@ static BOOLEAN	scriptknown;
  * should describe the origin of the string: an alias name, or something else
  * for other strings.
  */
-void msgscriptline(MARK mark, char *name)
+void msgscriptline(mark, name)
+	MARK mark;
+	char *name;
 {
 	char	newname[300];
 
@@ -66,13 +71,13 @@ void msgscriptline(MARK mark, char *name)
 				else
 					scriptline++;
 			}
-			scriptknown = True;
+			scriptknown = ElvTrue;
 			return;
 		}
 		else if (!scriptnamedup)
 			scriptnamedup = strdup("unknown script");
 		scriptline++;
-		scriptknown = False;
+		scriptknown = ElvFalse;
 		return;
 	}
 	if (o_filename(markbuffer(mark)))
@@ -85,7 +90,7 @@ void msgscriptline(MARK mark, char *name)
 		scriptnamedup = strdup(newname);
 	}
 	scriptline = markline(mark);
-	scriptknown = True;
+	scriptknown = ElvTrue;
 }
 
 /* Copy a message into static verbose[] buffer, declared at the top of this
@@ -99,7 +104,7 @@ static void translate(terse)
 	MARKBUF	mark;	/* the start of the buffer */
 	CHAR	*scan;	/* used for scanning the buffer */
 	CHAR	*build;	/* used for copying chars into the verbose[] buffer */
-	BOOLEAN	bol;	/* are we at the start of a line? */
+	ELVBOOL	bol;	/* are we at the start of a line? */
 	int	match;	/* used for counting characters that match */
 
 	/* Copy the terse string into the verbose buffer, as a default */
@@ -129,14 +134,14 @@ static void translate(terse)
 	/* Scan the buffer for a line which starts with the terse message
 	 * followed by a colon.  If there is no such line, then we're done.
 	 */
-	for (scanalloc(&scan, marktmp(mark, buf, 0L)), match = 0, bol = True;
+	for (scanalloc(&scan, marktmp(mark, buf, 0L)), match = 0, bol = ElvTrue;
 	     scan;
 	     scannext(&scan))
 	{
 		/* if this is a newline, then set "bol" and zero "match" */
 		if (*scan == '\n')
 		{
-			bol = True;
+			bol = ElvTrue;
 			match = 0;
 			continue;
 		}
@@ -170,7 +175,7 @@ static void translate(terse)
 		scannext(&scan);
 
 		/* at this point, the previous character was not a newline */
-		bol = False;
+		bol = ElvFalse;
 
 		/* copy the verbose message from the buffer */
 		for (build = verbose; build < &verbose[QTY(verbose) - 1]; )
@@ -186,7 +191,7 @@ static void translate(terse)
 			/* skip whitespace */
 			while (scan && (*scan == ' ' || *scan == '\t' || *scan == '\n'))
 			{
-				bol = (*scan == '\n') ? True : False;
+				bol = (*scan == '\n') ? ElvTrue : ElvFalse;
 				scannext(&scan);
 			}
 
@@ -219,10 +224,10 @@ static void translate(terse)
 
 
 /* Set the message hiding flag to a given value & return its previous value */
-BOOLEAN msghide(hide)
-	BOOLEAN	hide;	/* should we hide messages? (else reveal them) */
+ELVBOOL msghide(hide)
+	ELVBOOL	hide;	/* should we hide messages? (else reveal them) */
 {
-	BOOLEAN	previous = msghiding;
+	ELVBOOL	previous = msghiding;
 
 	msghiding = hide;
 	return previous;
@@ -234,7 +239,7 @@ BOOLEAN msghide(hide)
  * buffer "Elvis messages" is scanned to perform a user-configurable
  * transformation, such as translating it into a native language.
  * Then the message is evaluated via the calculate() function with
- * its "asmsg" parameter set to True.
+ * its "asmsg" parameter set to ElvTrue.
  *
  * The arg[] array passed into calculate() is built from the extra arguments
  * supplied to msg.  The beginning of the terse string can begin with a list
@@ -268,12 +273,17 @@ void msg(imp, terse, va_alist)
 	int	i;
 	BUFFER	buf;
 	MARKBUF	mark;
-	BOOLEAN	ding;
+	ELVBOOL	ding;
 
 	/* if fperr and fpinfo are NULL, then use stderr and stdout */
 	if (!fperr)
 	{
 		fperr = stderr;
+#ifdef FEATURE_STDIN
+		if (stdin_not_kbd)
+			fpinfo = stderr;
+		else
+#endif
 		fpinfo = stdout;
 	}
 
@@ -283,9 +293,12 @@ void msg(imp, terse, va_alist)
 		if (imp == MSG_FATAL)
 		{
 			fprintf(fperr, "%s\n", terse);
-			o_tempsession = False;
+			o_tempsession = ElvFalse;
 			sesclose();
-			if (gui) (*gui->term)();
+			if (gui)
+				(*gui->term)();
+			else if (chosengui)
+				(*chosengui->term)();
 #ifdef NDEBUG
 			exit(1);
 #else
@@ -378,9 +391,9 @@ void msg(imp, terse, va_alist)
 		translate(terse);
 
 		/* expand any arguments or option names */
-		scan = calculate(verbose, arg, True);
+		scan = calculate(verbose, arg, CALC_MSG);
 		if (!scan)
-			scan = calculate(toCHAR(terse), arg, True);
+			scan = calculate(toCHAR(terse), arg, CALC_MSG);
 		if (!scan)
 			scan = toCHAR(terse);
 	}
@@ -392,15 +405,15 @@ void msg(imp, terse, va_alist)
 	{
 	  case MSG_ERROR:	ding = o_errorbells;	break;
 	  case MSG_WARNING:	ding = o_warningbells;	break;
-	  default:		ding = False;
+	  default:		ding = ElvFalse;
 	}
 	if (*scan == ELVCTRL('G'))
 	{
 		scan++;
-		ding = True;
+		ding = ElvTrue;
 	}
 
-	/* if warning or error from a script, then put a line number a the
+	/* if warning or error from a script, then put a line number at the
 	 * start of the message.
 	 */
 	if (scan != verbose
@@ -428,6 +441,10 @@ void msg(imp, terse, va_alist)
 	/* Status and fatal messages are shown immediately, without flushing
 	 * the message buffer.  During the initialization phase, other messages
 	 * may also be output immediately.
+	 *
+	 * Also, since scan & change operations can't be done simultaneously,
+	 * if there is currently a scan operation in progress then output the
+	 * message immediately.
 	 */
 	if (!verbose[0] && imp != MSG_FATAL)
 	{
@@ -435,9 +452,12 @@ void msg(imp, terse, va_alist)
 	}
 	else  if ((o_verbose >= 1 && !windefault)
 		|| !gui
-		/* || (eventcounter <= 1 && imp == MSG_ERROR)*/
+#ifndef GUI_WIN32
+		|| (eventcounter <= 1 && imp == MSG_ERROR)
+#endif
 		|| imp == MSG_STATUS
-		|| imp == MSG_FATAL)
+		|| imp == MSG_FATAL
+		|| scan__top != NULL)
 	{
 		/* show the message */
 		if (gui && windefault)
@@ -458,7 +478,7 @@ void msg(imp, terse, va_alist)
 		else if (!gui || !gui->msg || !gui->exonly || !(*gui->msg)(0, imp, verbose, (int)(scan - verbose)))
 		{
 			/* no GUI yet, so just write it to fpinfo/fperr */
-			if (imp == MSG_FATAL)
+			if (imp == MSG_FATAL || imp == MSG_ERROR)
 			{
 				fprintf(fperr, "%s\n", verbose);
 			}
@@ -471,9 +491,12 @@ void msg(imp, terse, va_alist)
 		/* clean up & exit */
 		if (imp == MSG_FATAL)
 		{
-			o_tempsession = False;
+			o_tempsession = ElvFalse;
 			sesclose();
-			if (gui) (*gui->term)();
+			if (gui)
+				(*gui->term)();
+			else if (chosengui)
+				(*chosengui->term)();
 #ifdef NDEBUG
 			exit(1);
 #else
@@ -484,7 +507,7 @@ void msg(imp, terse, va_alist)
 	else
 	{
 		/* append the message to the message buffer */
-		buf = bufalloc(toCHAR(MSGQUEUE_BUF), 0, True);
+		buf = bufalloc(toCHAR(MSGQUEUE_BUF), 0, ElvTrue);
 		(void)marktmp(mark, buf, o_bufchars(buf));
 		bufreplace(&mark, &mark, toCHAR("\n"), 1L);
 		bufreplace(&mark, &mark, verbose, (long)CHARlen(verbose));

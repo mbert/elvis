@@ -1,11 +1,15 @@
 /* map.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_map[] = "$Id: map.c,v 2.37 1998/08/14 16:29:37 steve Exp $";
 
 #include "elvis.h"
+#ifdef FEATURE_RCSID
+char id_map[] = "$Id: map.c,v 2.54 2003/10/17 17:41:23 steve Exp $";
+#endif
 
+#ifdef FEATURE_MAPDB
 static void trace P_((char *where));
+#endif
 
 /* This structure is used to store maps and abbreviations.  The distinction
  * between them is that maps are stored in the list referenced by the "maps"
@@ -17,10 +21,11 @@ typedef struct _map
 	CHAR		*label;	/* label of the map/abbr, or NULL */
 	CHAR		*rawin;	/* the "rawin" characters */
 	CHAR		*cooked;/* the "cooked" characters */
+	CHAR		*mode;	/* mapmode setting to use (NULL for any) */
 	short		rawlen;	/* length of the "rawin" characters */
 	short		cooklen;/* length of the "cooked" characters */
 	MAPFLAGS	flags;	/* various flags */
-	BOOLEAN		invoked;/* has the map been used lately? */
+	ELVBOOL		invoked;/* has the map been used lately? */
 } MAP;
 
 static MAP	*maps;	/* the map table */
@@ -46,186 +51,251 @@ static MAP	*abbrs;	/* the abbreviation table */
  *
  * "flags" indicates when the map should be effective.
  */
-void mapinsert(rawin, rawlen, cooked, cooklen, label, flags)
+void mapinsert(rawin, rawlen, cooked, cooklen, label, flags, mode)
 	CHAR	*rawin;	/* characters sent by key */
 	int	rawlen;	/* length of rawin */
 	CHAR	*cooked;/* characters that the key should appear to send */
 	int	cooklen;/* length of cooked */
 	CHAR	*label;	/* label of the key */
 	MAPFLAGS flags;	/* when the map should take effect */
+	CHAR	*mode;	/* mapmode value, or NULL for any */
 {
 	MAP	*scan, *lag;
 	MAP	**head;	/* points to either "maps" or "abbrs" */
+	CHAR	*dummy;
+	CHAR	*mustfree = NULL;
 	int	i;
-	MAPFLAGS parser;
+
+	assert(flags & MAP_WHEN);
 
 	/* Determine whether this will be a map or abbreviation */
 	head = (flags & MAP_ABBR) ? &abbrs : &maps;
 
-	/* If the cooked string starts with "visual " then the command should
-	 * always be executed as VI commands.  This also implies that the map
-	 * should be defined for input mode as well.
-	 */
-	if (cooklen > 7 && !CHARncmp(cooked, toCHAR("visual "), 7))
-	{
-		flags |= (MAP_INPUT|MAP_ASCMD);
-		cooklen -= 7;
-		cooked += 7;
-	}
-
-	/* extract the parser bits from flags */
-	parser = (flags & (MAP_INPUT|MAP_COMMAND));
-	assert(parser);
-
-	/* If more that one parser was requested, then recursively map each
-	 * one separately.
-	 */
-	if (parser != MAP_INPUT && parser != MAP_COMMAND)
-	{
-		flags &= ~(MAP_INPUT|MAP_COMMAND);
-		if (parser & MAP_INPUT)
-			mapinsert(rawin, rawlen, cooked, cooklen, label, flags|MAP_INPUT);
-		if (parser & MAP_COMMAND)
-			mapinsert(rawin, rawlen, cooked, cooklen, label, flags|MAP_COMMAND);
-		return;
-	}
-
-	/* In MAP_COMMAND mode, MAP_ASCMD is unnecessary */
-	if (parser & MAP_COMMAND)
-	{
-		flags &= ~MAP_ASCMD;
-	}
-
 	/* if no label was supplied, maybe we should try to find one? */
-	if (head == &maps && !label && gui->keylabel)
+	if (head == &maps && !label)
 	{
-		i = (*gui->keylabel)(rawin, rawlen, &label, &rawin);
+		/* convert <key> to the raw version */
+		i = guikeylabel(rawin, rawlen, &label, &rawin);
 		if (i > 0)
 		{
 			rawlen = i;
 		}
+
+		/* make a local copy of the raw text */
+		mustfree = (CHAR *)safealloc(rawlen, sizeof(CHAR));
+		memcpy(mustfree, rawin, rawlen * sizeof(CHAR));
+		rawin = mustfree;
+
+		/* convert <key> symbols in the rhs too */
+		cooklen = guikeylabel(cooked, cooklen, &dummy, &cooked);
 	}
 
-	/* see if this is already mapped */
-	for (lag = NULL, scan = *head;
-	     scan &&
-		((scan->flags & (MAP_INPUT|MAP_COMMAND)) != parser ||
-		scan->rawlen != rawlen ||
-			memcmp(scan->rawin, rawin, rawlen * sizeof(CHAR)));
-	     lag = scan, scan = scan->next)
+	/* If any previous map applied to this context & raw value, it doesn't
+	 * apply anymore.  And if that leaves it not applying to anything,
+	 * then delete it.
+	 */
+	for (scan = *head, lag = NULL; scan; )
 	{
-	}
-
-	/* if not mapped, then create a map */
-	if (!scan)
-	{
-		/* allocate & initialize a MAP struct */
-		scan = (MAP *)safekept(1, sizeof(MAP));
-		scan->label = label;
-		scan->rawin = (CHAR *)safekept(rawlen, sizeof(CHAR));
-		memcpy(scan->rawin, rawin, rawlen * sizeof(CHAR));
-		scan->rawlen = rawlen;
-
-		/* link it into the list of maps. */
-		if (lag)
+		/* If raw text or mode doesn't match, then skip it */
+		if (scan->rawlen != rawlen
+		 || memcmp(scan->rawin, rawin, rawlen * sizeof(CHAR))
+		 || (mode && scan->mode && CHARcmp(mode, scan->mode)))
 		{
-			lag->next = scan;
+			lag = scan, scan = scan->next;
+			continue;
+		}
+
+		/* If cooked text also matches, then include the old map's
+		 * contexts with the new map, so the new map can completely
+		 * replace the old one.
+		 */
+		if (scan->cooklen == cooklen
+		 && !memcmp(scan->cooked, cooked, cooklen * sizeof(CHAR)))
+		{
+			flags |= scan->flags & (MAP_WHEN|MAP_ASCMD);
+		}
+
+		/* If existing map's context overlaps the new map's context,
+		 * then tweak the existing flag's context to exclude the new
+		 * map's context, so the new map is the only one that applies.
+		 */
+		if ((scan->flags & flags & MAP_WHEN) != 0)
+		{
+			/* change the existing map's context to exclude the
+			 * contexts of the new map.  Note that "visual" goes
+			 * away if neither "input" nor "history" is set.
+			 */
+			scan->flags &= ~(flags & MAP_WHEN);
+			if ((scan->flags & (MAP_INPUT|MAP_HISTORY)) == 0)
+				scan->flags &= ~MAP_ASCMD;
+
+			/* if existing map doesn't have any context left,
+			 * delete it
+			 */
+			if ((scan->flags & MAP_WHEN) == 0)
+			{
+				/* remove the map from the list of maps */
+				if (lag)
+					lag->next = scan->next;
+				else
+					*head = scan->next;
+			
+				/* free the map */
+				safefree(scan->rawin);
+				safefree(scan->cooked);
+				safefree(scan);
+
+				/* move to next map */
+				scan = (lag ? lag->next : *head);
+			}
+			else
+				lag = scan, scan = scan->next;
 		}
 		else
-		{
-			*head = scan;
-		}
-	}
-	else /* recycle an old map */
-	{
-		/* free the old cooked string */
-		safefree(scan->cooked);
+			lag = scan, scan = scan->next;
 	}
 
-	/* save a copy of the new cooked string */
+	/* allocate & initialize a MAP struct */
+	scan = (MAP *)safekept(1, sizeof(MAP));
+	scan->label = label;
+	scan->rawin = (CHAR *)safekept(rawlen, sizeof(CHAR));
+	memcpy(scan->rawin, rawin, rawlen * sizeof(CHAR));
+	scan->rawlen = rawlen;
 	scan->cooked = (CHAR *)safekept(cooklen, sizeof(CHAR));
 	memcpy(scan->cooked, cooked, cooklen * sizeof(CHAR));
 	scan->cooklen = cooklen;
 	scan->flags = flags;
+	scan->mode = (mode ? CHARkdup(mode) : NULL);
+
+	/* append it to the list of maps */
+	if (lag)
+	{
+		lag->next = scan;
+	}
+	else
+	{
+		*head = scan;
+	}
+
+	/* if we used a temporary string, then free it now */
+	if (mustfree)
+		safefree(mustfree);
 }
 
 /* This function deletes a map, or changes its break flag.  It is used by the
  * :unmap, :break, and :unbreak commands.  The "rawin" string can be either
- * the label or rawin string.  Returns True if succesful, or False if the map
+ * the label or rawin string.  Returns ElvTrue if successful, or ElvFalse if the map
  * couldn't be found.
  */
-BOOLEAN mapdelete(rawin, rawlen, flags, del, brk)
+ELVBOOL mapdelete(rawin, rawlen, flags, mode, del, brk)
 	CHAR	*rawin;	/* the key to be unmapped */
 	int	rawlen;	/* length of rawin */
 	MAPFLAGS flags;	/* when the key is mapped now */
-	BOOLEAN	del;	/* delete the map? (else adjust break flag) */
-	BOOLEAN	brk;	/* what to set the break flag to */
+	CHAR	*mode;	/* mapmode value, or NULL for any */
+	ELVBOOL	del;	/* delete the map? (else adjust break flag) */
+	ELVBOOL	brk;	/* what to set the break flag to */
 {
 	MAP	*scan, *lag;
 	MAP	**head;
 	CHAR	*label;
 	int	i;
+	ELVBOOL	retval = ElvFalse;
 
 	/* Determine whether this will be a map or abbreviation */
 	head = (flags & MAP_ABBR) ? &abbrs : &maps;
 
 	/* When unmapping, we only care about the keystroke parser bits */
-	flags &= (MAP_INPUT|MAP_COMMAND);
+	flags &= MAP_WHEN;
 
 	/* if no label was supplied, maybe we should try to find one? */
-	if (head == &maps && gui->keylabel)
+	if (head == &maps)
 	{
-		i = (*gui->keylabel)(rawin, rawlen, &label, &rawin);
+		i = guikeylabel(rawin, rawlen, &label, &rawin);
 		if (i > 0)
 		{
 			rawlen = i;
 		}
 	}
 
-	/* see if this is already mapped */
-	for (lag = NULL, scan = *head;
-	     scan && (
-		(scan->flags & (MAP_INPUT|MAP_COMMAND)) != flags ||
-		scan->rawlen != rawlen ||
-		memcmp(scan->rawin, rawin, rawlen * sizeof(CHAR)));
-	     lag = scan, scan = scan->next)
+	/* Search for any existing maps which match the given raw text and any
+	 * of the contexts.
+	 */
+	for (scan = *head, lag = NULL; scan; )
 	{
-	}
-
-	/* if not mapped, then fail */
-	if (!scan)
-	{
-		return False;
-	}
-
-	/* perform the action... */
-	if (del)
-	{
-		/* remove the map from the list of maps */
-		if (lag)
+		/* If not for this context, or raw text doesn't match,
+		 * then skip it.
+		 */
+		if ((scan->flags & flags) == 0
+		 || (mode && (!scan->mode || CHARcmp(mode, scan->mode)))
+		 || scan->rawlen != rawlen
+		 || memcmp(scan->rawin, rawin, rawlen * sizeof(CHAR)))
 		{
-			lag->next = scan->next;
+			lag = scan, scan = scan->next;
+			continue;
+		}
+		retval = ElvTrue;
+
+		/* What are we supposed to do with it? */
+		if (del)
+		{
+			/* Remove the given context from this map.  If that
+			 * leaves the map without any context, then delete it.
+			 */
+			scan->flags &= ~flags;
+			if ((scan->flags & MAP_WHEN) == 0)
+			{
+				if ((scan->flags & MAP_WHEN) == 0)
+				{
+					/* remove *scan from the list of maps */
+					if (lag)
+						lag->next = scan->next;
+					else
+						*head = scan->next;
+				
+					/* free the map */
+					safefree(scan->rawin);
+					safefree(scan->cooked);
+					if (scan->mode)
+						safefree(scan->mode);
+					safefree(scan);
+
+					/* move to next map */
+					scan = (lag ? lag->next : *head);
+				}
+				else
+					lag = scan, scan = scan->next;
+			}
+			else
+			{
+				/* The map is still used in some context.
+				 * If it no longer applies to either "input"
+				 * or "history", then it should loose "visual".
+				 */
+				if ((scan->flags & (MAP_INPUT|MAP_HISTORY)) == 0)
+					scan->flags &= ~MAP_ASCMD;
+
+				lag = scan, scan = scan->next;
+			}
+		}
+#ifdef FEATURE_MAPDB
+		else if (brk)
+		{
+			/* set a breakpoint on this map */
+			scan->flags |= MAP_BREAK;
+
+			lag = scan, scan = scan->next;
 		}
 		else
 		{
-			*head = scan->next;
+			/* clear a breakpoint on this map */
+			scan->flags &= ~MAP_BREAK;
+			
+			lag = scan, scan = scan->next;
 		}
-	
-		/* free the map */
-		safefree(scan->rawin);
-		safefree(scan->cooked);
-		safefree(scan);
-	}
-	else if (brk)
-	{
-		scan->flags |= MAP_BREAK;
-	}
-	else
-	{
-		scan->flags &= ~MAP_BREAK;
+#endif /* FEATURE_MAPDB */
 	}
 
-	return True;
+	return retval;
 }
 
 
@@ -236,9 +306,11 @@ static CHAR	queue[500];	/* the mapping queue */
 static int	qty = 0;	/* number of keys in the queue */
 static int	resolved = 0;	/* number of resolved keys (no mapping needed) */
 static long	learning;	/* bitmap of "learn" buffers */
+
+#ifdef FEATURE_MAPDB
 static CHAR	traceimg[60];	/* image of queue, for maptrace option */
-static BOOLEAN	tracereal;	/* any real keys since last trace? */
-static BOOLEAN	tracestep;	/* don't queue next keystroke */
+static ELVBOOL	tracereal;	/* any real keys since last trace? */
+static ELVBOOL	tracestep;	/* don't queue next keystroke */
 
 /* build the trace image, and show it */
 static void trace(where)
@@ -255,7 +327,7 @@ static void trace(where)
 		return;
 
 	/* reset tracereal */
-	tracereal = False;
+	tracereal = ElvFalse;
 
 	/* Decide how much of the queue to show. */
 	for (end = qty; end >= 25; end -= 10)
@@ -265,7 +337,7 @@ static void trace(where)
 	/* generate the image */
 	for (i = j = 0; i < end; i++, j += 2)
 	{
-		if (iscntrl(queue[i]))
+		if (elvcntrl(queue[i]))
 		{
 			traceimg[j] = '^';
 			traceimg[j + 1] = ELVCTRL(queue[i]);
@@ -286,7 +358,7 @@ static void trace(where)
 	/* maybe log it */
 	if (o_maplog != 'o')
 	{
-		log = bufalloc(toCHAR(TRACE_BUF), 0, True);
+		log = bufalloc(toCHAR(TRACE_BUF), 0, ElvTrue);
 		if (o_maplog == 'r')
 		{
 			bufreplace(marktmp(logstart, log, 0L), marktmp(logend, log, o_bufchars(log)), NULL, 0L);
@@ -304,9 +376,10 @@ static void trace(where)
 	if (o_maptrace == 's'
 	 && !(windefault && (windefault->state->mapflags & MAP_DISABLE)))
 	{
-		tracestep = True;
+		tracestep = ElvTrue;
 	}
 }
+#endif /* FEATURE_MAPDB */
 
 /* This function implements mapping.  It is called with either 1 or more new
  * characters from keypress events, or with 0 to indicate that a timeout
@@ -320,8 +393,8 @@ MAPSTATE mapdo(keys, nkeys)
 	MAP		*scan;		/* used for scanning through maps */
 	int		ambkey, ambuser;/* ambiguous key maps and user maps */
 	MAP		*match;		/* longest fully matching map */
-	BOOLEAN		ascmd = False;	/* did we just resolve an ASCMD map? */
-	BOOLEAN		didtimeout;	/* did we timeout? */
+	ELVBOOL		ascmd = ElvFalse;	/* did we just resolve an ASCMD map? */
+	ELVBOOL		didtimeout;	/* did we timeout? */
 	MAPFLAGS	now;		/* current keystroke parsing state */
 	BUFFER		buf;		/* a cut buffer that is in "learn" mode */
 	CHAR		cbname;		/* name of cut buffer */
@@ -332,19 +405,20 @@ MAPSTATE mapdo(keys, nkeys)
 	assert(windefault);
 
 	/* if nkeys==0 then we timed out */
-	didtimeout = (BOOLEAN)(nkeys == 0);
+	didtimeout = (ELVBOOL)(nkeys == 0);
 
+#ifdef FEATURE_MAPDB
 	/* tracing */
-	if (!tracereal && guipoll(False))
+	if (!tracereal && guipoll(ElvFalse))
 	{
-		tracereal = True;
+		tracereal = ElvTrue;
 		mapalert();
 	}
 	if (tracestep)
 	{
 		if (keys[0] == ELVCTRL('C'))
 		{
-			tracereal = True;
+			tracereal = ElvTrue;
 			mapalert();
 		}
 		else if (keys[0] == 'r')
@@ -352,12 +426,21 @@ MAPSTATE mapdo(keys, nkeys)
 			o_maptrace = 'r';
 		}
 		nkeys = 0;
-		tracestep = False;
+		tracestep = ElvFalse;
 	}
 	if (nkeys > 0)
 	{
-		tracereal = True;
+		tracereal = ElvTrue;
 	}
+#endif /* FEATURE_MAPDB */
+
+#ifdef FEATURE_AUTOCMD
+	/* detect when the display mode changes, so we can trigger DispMapLeave
+	 * and DispMapEnter autocmds.  These are often used for implementing
+	 * display-specific maps.
+	 */
+	audispmap();
+#endif
 
 	/* append the keys to any cutbuffer that is in "learn" mode */
 	if (learning)
@@ -366,7 +449,7 @@ MAPSTATE mapdo(keys, nkeys)
 		{
 			if (learning & (1 << (cbname & 0x1f)))
 			{
-				buf = cutbuffer(cbname, False);
+				buf = cutbuffer(cbname, ElvFalse);
 				if (buf)
 				{
 					bufreplace(marktmp(mark, buf,
@@ -400,8 +483,10 @@ MAPSTATE mapdo(keys, nkeys)
 
 				assert(windefault);
 
+#ifdef FEATURE_MAPDB
 				/* maybe show trace */
 				if (!tracereal) trace("cmd");
+#endif
 
 				/* Delete the next keystroke from the queue */
 				resolved--;
@@ -419,7 +504,7 @@ MAPSTATE mapdo(keys, nkeys)
 				 */
 				if (ascmd)
 				{
-					statekey(ELVCTRL('O'));
+					(void)statekey(ELVCTRL('O'));
 				}
 
 				/* Make sure the MAP_DISABLE flag is turned off.
@@ -432,15 +517,17 @@ MAPSTATE mapdo(keys, nkeys)
 				windefault->state->mapflags &= ~MAP_DISABLE;
 
 				/* Send the keystroke to the parser. */
-				statekey((_CHAR_)j);
+				(void)statekey((_CHAR_)j);
 
+#ifdef FEATURE_MAPDB
 				/* if single-stepping, then we're done for now*/
 				if (tracestep)
 				{
 					return MAP_CLEAR;
 				}
+#endif
 			}
-			ascmd = False;
+			ascmd = ElvFalse;
 		}
 
 		/* if all keys have been processed, then return MAP_CLEAR */
@@ -449,7 +536,7 @@ MAPSTATE mapdo(keys, nkeys)
 			assert(resolved == 0);
 			for (scan = maps; scan; scan = scan->next)
 			{
-				scan->invoked = False;
+				scan->invoked = ElvFalse;
 			}
 			return MAP_CLEAR;
 		}
@@ -460,21 +547,28 @@ MAPSTATE mapdo(keys, nkeys)
 			now = 0;
 			windefault->state->mapflags &= ~MAP_DISABLE;
 		}
+		else if (windefault->seltop
+		      && (windefault->state->mapflags & (MAP_COMMAND|MAP_SELECT|MAP_MOTION)) != 0)
+		{
+			now = MAP_SELECT;
+		}
 		else
 		{
-			now = (windefault->state->mapflags &
-					(MAP_INPUT|MAP_COMMAND|MAP_OPEN));
+			now = (windefault->state->mapflags & MAP_WHEN);
 		}
 
 		/* try to match the remaining keys to each map */
 		ambkey = ambuser = 0;
 		match = NULL;
-		if (now & (MAP_INPUT|MAP_COMMAND)) /* if mapping is allowed... */
+		if (now & (MAP_WHEN)) /* if mapping is allowed... */
 		{
 			for (scan = maps; scan; scan = scan->next)
 			{
 				/* ignore maps for a different context */
-				if ((scan->flags & now) != now)
+				if ((scan->flags & now) != now
+				 || (scan->mode
+				     && (!o_mapmode(bufdefault)
+				 	 || CHARcmp(scan->mode, o_mapmode(bufdefault)))))
 				{
 					continue;
 				}
@@ -525,7 +619,7 @@ MAPSTATE mapdo(keys, nkeys)
 			{
 				if (!match->invoked)
 				{
-					match->invoked = True;
+					match->invoked = ElvTrue;
 				}
 				else
 				{
@@ -540,15 +634,17 @@ MAPSTATE mapdo(keys, nkeys)
 					for (scan=maps; scan; scan = scan->next)
 					{
 						if (scan != match)
-							scan->invoked = False;
+							scan->invoked = ElvFalse;
 					}
 				}
 			}
 
+#ifdef FEATURE_MAPDB
 			/* maybe show the the map queue before */
 			if ((match->flags & MAP_BREAK) && o_maptrace == 'r')
 				o_maptrace = 's';
 			trace("map");
+#endif
 
 			/* shift the contents of the queue to allow for cooked
 			 * strings that are of a different length than rawin.
@@ -572,24 +668,34 @@ MAPSTATE mapdo(keys, nkeys)
 				}
 			}
 			qty += match->cooklen - match->rawlen;
-			ascmd = (BOOLEAN)((match->flags & MAP_ASCMD) != 0);
+			ascmd = (ELVBOOL)((match->flags & MAP_ASCMD) != 0);
 
 			/* copy the cooked string into the queue */
 			memcpy(queue, match->cooked, match->cooklen * sizeof(CHAR));
 
 			/* if the "remap" option is off, then the cooked chars
-			 * have now been resolved.
+			 * have now been resolved.  Otherwise, if the rhs starts
+			 * out the same as the lhs, then the matching portion
+			 * is resolved, but not the remainder.
 			 */
-			if (!o_remap)
+			if (!o_remap || (match->flags & MAP_NOREMAP) != 0)
 			{
 				resolved = match->cooklen;
 			}
+			else if (match->rawlen <= match->cooklen
+			    && !memcmp(match->rawin, match->cooked, match->rawlen))
+			{
+				resolved = match->rawlen;
+			}
+			/* else resolved remains 0 */
 
+#ifdef FEATURE_MAPDB
 			/* if single-stepping, then we're done for now */
 			if (tracestep)
 			{
 				return MAP_CLEAR;
 			}
+#endif
 		}
 		else /* no matches of any kind */
 		{
@@ -608,7 +714,7 @@ MAPSTATE mapdo(keys, nkeys)
 void mapunget(keys, nkeys, remap)
 	CHAR	*keys;	/* keys to stuff into the type-ahead buffer */
 	int	nkeys;	/* number of keys */
-	BOOLEAN	remap;	/* are the ungotten keys subject to key maps? */
+	ELVBOOL	remap;	/* are the ungotten keys subject to key maps? */
 {
 	int	i;
 
@@ -618,8 +724,10 @@ void mapunget(keys, nkeys, remap)
 		return;
 	}
 
+#ifdef FEATURE_MAPDB
 	/* maybe show trace */
 	trace("ung");
+#endif
 
 	/* shift old characters to make room for new characters */
 	if (qty > 0)
@@ -659,8 +767,9 @@ void mapunget(keys, nkeys, remap)
  * calling this function once, you *MUST* call it repeatedly until it
  * returns NULL.  No other map functions should be called during this time.
  */
-CHAR *maplist(flags, reflen)
-	MAPFLAGS flags;	/* which maps to output */
+CHAR *maplist(flags, mode, reflen)
+	MAPFLAGS flags;	 /* which maps to output */
+	CHAR	 *mode;	 /* name of mode to list, or NULL for any */
 	int	 *reflen;/* where to store length, or NULL if don't care */
 {
 	static MAP *m;	/* used for scanning map list */
@@ -671,7 +780,7 @@ CHAR *maplist(flags, reflen)
 	/* find first/next map item */
 	m = (m ? m->next : (flags & MAP_ABBR) ? abbrs : maps);
 	flags &= ~MAP_ABBR;
-	while (m && (m->flags & flags) == 0)
+	while (m && ((m->flags & flags) == 0 || (mode && (!m->mode || CHARcmp(mode, m->mode)))))
 	{
 		m = m->next;
 	}
@@ -683,12 +792,49 @@ CHAR *maplist(flags, reflen)
 	}
 
 	memset(buf, ' ', sizeof buf);
+
+	/* if the map has a key label, add it */
 	if (m->label)
 	{
 		i = CHARlen(m->label);
 		CHARncpy(buf, m->label, (size_t)(i>9 ? 9 : i));
 	}
-	for (scan = m->rawin, i = m->rawlen, build = &buf[10];
+
+	/* if no specific mode was requested, and this map has a mode, then
+	 * show the mode
+	 */
+	build = &buf[10];
+	if (!mode && m->mode)
+	{
+		CHARcpy(build, "mode=");
+		build += 5;
+		CHARcpy(build, m->mode);
+		build += CHARlen(build);
+		*build++ = ' ';
+	}
+
+	/* add "when" flags, unless identical to requested flags */
+	if ((m->flags & flags & MAP_WHEN) != (flags & MAP_WHEN))
+	{
+		*--build = '\0';
+		if (m->flags & MAP_NOSAVE)
+			CHARcat(build, toCHAR(" nosave"));
+		if (m->flags & MAP_INPUT)
+			CHARcat(build, toCHAR(" input"));
+		if (m->flags & MAP_HISTORY)
+			CHARcat(build, toCHAR(" history"));
+		if (m->flags & MAP_COMMAND)
+			CHARcat(build, toCHAR(" command"));
+		if (m->flags & MAP_MOTION)
+			CHARcat(build, toCHAR(" motion"));
+		if (m->flags & MAP_SELECT)
+			CHARcat(build, toCHAR(" select"));
+		build += CHARlen(build);
+		*build++ = ' ';
+	}
+
+	/* add the lhs of the map */
+	for (scan = m->rawin, i = m->rawlen;
 	     i > 0 && build < &buf[QTY(buf)-4];
 	     i--, scan++)
 	{
@@ -706,11 +852,20 @@ CHAR *maplist(flags, reflen)
 	{
 		*build++ = ' ';
 	} while (build < &buf[20]);
-	if (m->flags & MAP_ASCMD)
+
+	/* add "visual noremap" before rhs, if necessary */
+	if ((m->flags & MAP_ASCMD) != 0 && (flags & (MAP_INPUT|MAP_HISTORY)) != 0)
 	{
 		CHARncpy(build, toCHAR("visual "), 7);
 		build += 7;
 	}
+	if (m->flags & MAP_NOREMAP)
+	{
+		CHARncpy(build, toCHAR("noremap "), 8);
+		build += 8;
+	}
+
+	/* Add the rhs */
 	for (scan = m->cooked, i = m->cooklen;
 	     i > 0 && build < &buf[QTY(buf)-3];
 	     i--, scan++)
@@ -740,7 +895,7 @@ CHAR *maplist(flags, reflen)
 /* This function causes future keystrokes to be stored in a cut buffer */
 RESULT maplearn(cbname, start)
 	_CHAR_	cbname;
-	BOOLEAN	start;
+	ELVBOOL	start;
 {
 	long	bit;
 	MARKBUF	tmp, end;
@@ -769,10 +924,10 @@ RESULT maplearn(cbname, start)
 	/* If we're starting and the cut buffer name is lowercase,
 	 * then we need to reset the cut buffer to 0 characters
 	 */
-	if (start && islower(cbname))
+	if (start && elvlower(cbname))
 	{
 		/* reset the cut buffer to zero characters */
-		cutyank(cbname, marktmp(tmp, bufdefault, 0), &tmp, 'c', False);
+		cutyank(cbname, marktmp(tmp, bufdefault, 0), &tmp, 'c', 'y');
 	}
 
 	/* If we're ending and the last two characters were "]a" or "@a" (or
@@ -780,7 +935,7 @@ RESULT maplearn(cbname, start)
 	 */
 	if (!start)
 	{
-		buf = cutbuffer(cbname, False);
+		buf = cutbuffer(cbname, ElvFalse);
 		if (!buf)
 			return RESULT_ERROR;
 		if (o_bufchars(buf) >= 2L
@@ -817,9 +972,9 @@ CHAR maplrnchar(dflt)
 
 
 /* Return TRUE if we're currently executing a map, or FALSE otherwise */
-BOOLEAN mapbusy()
+ELVBOOL mapbusy()
 {
-	return (BOOLEAN)(qty > 0);
+	return (ELVBOOL)(qty > 0);
 }
 
 /* This function implements a POSIX "terminal alert."  This involves discarding
@@ -828,8 +983,10 @@ BOOLEAN mapbusy()
  */
 void mapalert()
 {
+#ifdef FEATURE_MAPDB
 	/* maybe display log info */
 	if (!tracereal) trace(":::");
+#endif
 
 	/* cancel all pending key states, etc. */
 	qty = resolved = learning = 0;
@@ -840,7 +997,7 @@ CHAR *mapabbr(bkwd, oldptr, newptr, exline)
 	CHAR	*bkwd;	/* possible abbreviation, BACKWARDS */
 	long	*oldptr;/* where to store the length of short form */
 	long	*newptr;/* where to store the length of long form */
-	BOOLEAN	exline;	/* inputting an ex command line? (else normal input) */
+	ELVBOOL	exline;	/* inputting an ex command line? (else normal input) */
 {
 	MAP	*m;	/* used for scanning the abbr list */
 	MAP	*match;	/* longest matching abbreviation */
@@ -869,7 +1026,7 @@ CHAR *mapabbr(bkwd, oldptr, newptr, exline)
 		 * match is longer than any previous match, then remember it.
 		 */
 		if (j < 0
-		 && !isalnum(bkwd[i])
+		 && !elvalnum(bkwd[i])
 		 && (!match || match->rawlen < i))
 		{
 			match = m;
@@ -911,43 +1068,192 @@ void mapsave(buf)
 			continue;
 		}
 
+		/* if specifically marked as "nosave", ignore it */
+		if (m->flags & MAP_NOSAVE)
+		{
+			continue;
+		}
+
 		/* construct a "map" command */
 		CHARcpy(text, toCHAR("map"));
 		len = 3;
-		if ((m->flags & MAP_INPUT) != 0)
+		switch (m->flags & MAP_WHEN)
 		{
+		  case MAP_INPUT|MAP_HISTORY:
 			text[len++] = '!';
+			break;
+
+		  case MAP_COMMAND|MAP_MOTION|MAP_SELECT:
+			break;
+
+		  default:
+			if (m->flags & MAP_INPUT)
+				CHARcat(text, toCHAR(" input"));
+			if (m->flags & MAP_HISTORY)
+				CHARcat(text, toCHAR(" history"));
+			if (m->flags & MAP_COMMAND)
+				CHARcat(text, toCHAR(" command"));
+			if (m->flags & MAP_MOTION)
+				CHARcat(text, toCHAR(" motion"));
+			if (m->flags & MAP_SELECT)
+				CHARcat(text, toCHAR(" select"));
+			len = CHARlen(text);
 		}
 		text[len++] = ' ';
+
+		/* append a "mode=..." flag if necessary */
+		if (m->mode)
+		{
+			CHARcpy(&text[len], "mode=");
+			len += 5;
+			CHARcpy(&text[len], m->mode);
+			len += CHARlen(m->mode);
+			text[len++] = ' ';
+		}
 
 		/* Append the raw code.  Use function label if possible */
 		if (m->label)
 		{
+			/* use the label */
 			CHARcpy(&text[len], m->label);
 			len += CHARlen(m->label);
 		}
 		else
 		{
+			/* Use the raw text.  However, protect against the
+			 * case where the raw text looks like a flag.
+			 */
+
+			/* Does raw text look like a flag? (lowercase letters
+			 * followed by whitespace or NUL)
+			 */
+			for (scan = m->rawin; elvlower(*scan); scan++)
+			{
+			}
+			if ((!*scan || elvspace(*scan)) && (int)(scan - m->rawin) > 2)
+			{
+				/* Yes it could be a flag name.  (Even if this
+				 * version of elvis doesn't use that particular
+				 * text as a flag name, some later version
+				 * might.)  Add a ^V before the raw text.
+				 */
+				text[len++] = ELVCTRL('V');
+			}
+
+			/* Add the raw text */
 			for (scan = m->rawin, i = m->rawlen;
 			     i > 0 && len < QTY(text) - 4;
 			     i--, scan++)
 			{
-				if (*scan == ' ' || *scan == '\t' || *scan == '|'
-				 || *scan == ELVCTRL('V') || *scan == '\033')
+				CHAR	*label, *raw;
+				int	rawlen;
+
+				/* try to convert to <key> notation */
+				label = NULL;
+				if ((rawlen = guikeylabel(scan, 1, &label, &raw)) == 1
+				 && *raw == *scan
+				 && label)
 				{
-					text[len++] = ELVCTRL('V');
+					CHARcpy(&text[len], label);
+					len += CHARlen(label);
 				}
-				text[len++] = *scan;
+				else if (elvcntrl(*scan))
+				{
+					text[len++] = '<';
+					text[len++] = 'C';
+					text[len++] = '-';
+					text[len++] = (*scan & 0x1f) + '@';
+					text[len++] = '>';
+				}
+				else
+					text[len++] = *scan;
 			}
+		}
+
+		/* add behavior tweak flags */
+		if (m->flags & MAP_ASCMD)
+		{
+			CHARncpy(&text[len], toCHAR(" visual"), 7);
+			len += 7;
+		}
+		if (m->flags & MAP_NOREMAP)
+		{
+			CHARncpy(&text[len], toCHAR(" noremap"), 8);
+			len += 8;
 		}
 		text[len++] = ' ';
 
-		/* construct the "cooked" string */
-		if (m->flags & MAP_ASCMD)
+		/* Does cooked text look like a flag? (lowercase letters
+		 * followed by whitespace or NUL)
+		 */
+		for (scan = m->cooked; elvlower(*scan); scan++)
 		{
-			CHARncpy(&text[len], toCHAR("visual "), 7);
-			len += 7;
 		}
+		if ((!*scan || elvspace(*scan)) && (int)(scan - m->cooked) > 2)
+		{
+			/* Yes it could be a flag name.  (Even if this
+			 * version of elvis doesn't use that particular
+			 * text as a flag name, some later version
+			 * might.)  Add a ^V before the raw text.
+			 */
+			text[len++] = ELVCTRL('V');
+		}
+
+		/* construct the "cooked" string */
+		for (scan = m->cooked, i = m->cooklen;
+		     i > 0 && len < QTY(text) - 3;
+		     i--, scan++)
+		{
+			CHAR	*label, *raw;
+			int	rawlen;
+
+			/* try to convert to <key> notation */
+			label = NULL;
+			if ((rawlen = guikeylabel(scan, 1, &label, &raw)) == 1
+			 && *raw == *scan
+			 && label)
+			{
+				CHARcpy(&text[len], label);
+				len += CHARlen(label);
+			}
+			else if (elvcntrl(*scan))
+			{
+				text[len++] = '<';
+				text[len++] = 'C';
+				text[len++] = '-';
+				text[len++] = (*scan & 0x1f) + '@';
+				text[len++] = '>';
+			}
+			else
+				text[len++] = *scan;
+		}
+		text[len++] = '\n';
+
+		/* append the command to the buffer */
+		bufreplace(&append, &append, text, len);
+		markaddoffset(&append, len);
+	}
+
+	/* for each abbreviation... */
+	for (m = abbrs; m; m = m->next)
+	{
+		/* construct an "ab" command */
+		CHARcpy(text, toCHAR("ab"));
+		len = 2;
+		if (m->flags & MAP_HISTORY)
+			text[len++] = '!';
+		text[len++] = ' ';
+
+		/* append the abbreviated word */
+		for (scan = m->rawin, i = m->rawlen;
+		     i > 0 && len < QTY(text) - 4;
+		     i--, scan++)
+		{
+			text[len++] = *scan;
+		}
+		text[len++] = ' ';
+
+		/* Append the expanded string */
 		for (scan = m->cooked, i = m->cooklen;
 		     i > 0 && len < QTY(text) - 3;
 		     i--, scan++)

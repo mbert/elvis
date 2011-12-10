@@ -1,0 +1,75 @@
+
+The Gnome/GTK+ GUI extension to Elvis is being written by David Alan Gilbert
+(elvis@treblig.org). It is very much in it's development stages!
+
+1) Intro
+
+GNOME is a user interface being developed for use primarily on Un*x systems
+It is pretty, highly configurable and powerful.  See http://www.gnome.org
+for details of it and how you can contribute.
+
+The GNOME/Elvis front end is my first project written using the GNOME/GTK
+libraries and I'd appreciate any constructive comments, suggestions or
+thoughts on the way I have coded it or on the way the user interface works.
+
+2) Building
+
+Run the elvis configuration program and as long as the GNOME configuration
+scripts are in your path it should pick it up. You'll also need the libglade 
+libraries which should be included with recent GNOME distributions.
+
+3) Configuring
+
+In lib/elvis.gnome is the configuration file which is loaded at startup.
+It configures the menus and toolbar.  The actions of menus and toolbars
+is fully configurable and can cause dialog boxes (defined using the Glade
+user interface designer in lib/elvis.glade) to appear.
+
+{ wibble some notes on the format of the substitution strings for
+dialog actions when they settle down }
+
+set defaultrows=number
+set defaultcols=number
+
+3.1) -client
+
+This version of the Gnome Elvis front end has added a CORBA mechanism which allows
+you to do elvis -client file   to open the file in an exhisting instance of the editor
+resulting in faster start up times.
+
+For this to work you need to create the file 'IDL:Elvis:ElvisPrivate:1.0.gnorba'
+somewhere in the paths that Gnomes GNORBA mechanism can pick up; you should be able to
+put it in /etc/CORBA/servers on some systems.  Or put in a directory of your choice
+and then set the appropriate paths to pick it up.  Once done
+
+elvis -client 
+
+should work.
+
+3.2) Features
+
+You can drag and drop files from the gnome file manager onto Elvis and it loads.
+
+n) Stuff to add/fix/think about
+
+Colours
+  OK except that on a colour change the display requires a scroll up/down to be fixed
+  (timing problems with relation of when zv processes the palette change and when it chose the palette entry?)
+  (Also seems to loose colours after mouse selection?)
+
+Click & drag with mouse - need word/line based accel
+Click & drag - messes up after extension with 3rd button
+
+Drag/drop save?
+
+Finish menu dialogue interactions
+Autoclosing dialogue boxes (e.g. 'About') won't reopen - or close with window manager
+
+Make yes/no confirm more obvious on search/replace
+
+install icon etc on gnome menu
+
+history on gnome_entry's a bit dodgy (storing two copies??)
+Gnome-print
+
+seg on corba edit -> close -> corba edit

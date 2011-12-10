@@ -1,12 +1,14 @@
 /* cut.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_cut[] = "$Id: cut.c,v 2.33 1998/10/12 18:57:49 steve Exp $";
 
 #include "elvis.h"
-#if USE_PROTOTYPES
-static void shiftbufs(void);
+#ifdef FEATURE_RCSID
+char id_cut[] = "$Id: cut.c,v 2.41 2003/10/17 17:41:23 steve Exp $";
 #endif
+
+static void shiftbufs P_((void));
+static void dosideeffect P_((MARK from, MARK to, _CHAR_ sideeffect, _CHAR_ cbname));
 
 
 
@@ -27,7 +29,7 @@ static CHAR previous;
  */
 BUFFER cutbuffer(cbname, create)
 	_CHAR_	cbname;	/* name of cut buffer, or '\0' for anonymous */
-	BOOLEAN	create;	/* create the edit buffer if it doesn't already exist? */
+	ELVBOOL	create;	/* create the edit buffer if it doesn't already exist? */
 {
 	char	tmpname[50];
 	char	*bufname;
@@ -61,14 +63,14 @@ BUFFER cutbuffer(cbname, create)
 		break;
 
 	  default:
-		if ((cbname >= '1' && cbname <= '9') || islower(cbname))
+		if ((cbname >= '1' && cbname <= '9') || elvlower(cbname) || cbname == '_')
 		{
 			sprintf(tmpname, CUTNAMED_BUF, cbname);
 			bufname = tmpname;
 		}
-		else if (isupper(cbname))
+		else if (elvupper(cbname))
 		{
-			sprintf(tmpname, CUTNAMED_BUF, tolower((char)cbname));
+			sprintf(tmpname, CUTNAMED_BUF, elvtolower((char)cbname));
 			bufname = tmpname;
 		}
 		else
@@ -80,11 +82,11 @@ BUFFER cutbuffer(cbname, create)
 
 	/* find the buffer, or create it */
 	previous = cbname;
-	buf = (create ? bufalloc(toCHAR(bufname), 0, True) : buffind(toCHAR(bufname)));
+	buf = (create ? bufalloc(toCHAR(bufname), 0, ElvTrue) : buffind(toCHAR(bufname)));
 	if (buf)
 	{
-		o_internal(buf) = True;	/* probably already set */
-		o_locked(buf) = False;
+		o_internal(buf) = ElvTrue;	/* probably already set */
+		o_locked(buf) = ElvFalse;
 		o_bufid(buf) = 0;
 	}
 	return buf;
@@ -108,7 +110,7 @@ static void shiftbufs()
 		/* Try to find the buffer.  If it doesn't exist then we
 		 * won't really need to delete ANY numbered cut buffer!
 		 */
-		buf = cutbuffer(cbname, False);
+		buf = cutbuffer(cbname, ElvFalse);
 		if (!buf)
 			break;
 
@@ -131,7 +133,7 @@ static void shiftbufs()
 
 		/* find the preceding-numbered buffer */
 		cbname--;
-		buf = cutbuffer(cbname, False);
+		buf = cutbuffer(cbname, ElvFalse);
 
 		/* if the buffer exists, rename it one number higher */
 		if (buf)
@@ -150,6 +152,74 @@ static void shiftbufs()
 	 */
 }
 
+static void dosideeffect(from, to, sideeffect, cbname)
+	MARK	from;		/* start of affected text */
+	MARK	to;		/* end of affected text */
+	_CHAR_	sideeffect;	/* what to do to it */
+	_CHAR_	cbname;		/* replacement char, if sideeffect='g=' */
+{
+#ifdef FEATURE_G
+	CHAR	*cp, *mem;
+	long	len, i;
+#endif
+
+	switch (sideeffect)
+	{
+	  case 'd':
+		bufreplace(from, to, NULL, 0L);
+		break;
+
+	  case 'y':
+	  	/* do nothing */
+	  	break;
+
+#ifdef FEATURE_G
+	  case ELVG('u'):
+		/* convert to lowercase */
+		mem = bufmemory(from, to);
+		len = markoffset(to) - markoffset(from);
+		for (cp = mem, i = len; --i >= 0; cp++)
+			*cp = elvtolower(*cp);
+		bufreplace(from, to, mem, len);
+		safefree(mem);
+		break;
+
+	  case ELVG('U'):
+		/* convert to uppercase */
+		mem = bufmemory(from, to);
+		len = markoffset(to) - markoffset(from);
+		for (cp = mem, i = len; --i >= 0; cp++)
+			*cp = elvtoupper(*cp);
+		bufreplace(from, to, mem, len);
+		safefree(mem);
+		break;
+
+	  case ELVG('~'):
+		/* toggle between uppercase & lowercase */
+		mem = bufmemory(from, to);
+		len = markoffset(to) - markoffset(from);
+		for (cp = mem, i = len; --i >= 0; cp++)
+			if (elvlower(*cp))
+				*cp = elvtoupper(*cp);
+			else
+				*cp = elvtolower(*cp);
+		bufreplace(from, to, mem, len);
+		safefree(mem);
+		break;
+
+	  case ELVG('='):
+		/* replace with cbname (but leave newline alone) */
+		mem = bufmemory(from, to);
+		len = markoffset(to) - markoffset(from);
+		for (cp = mem, i = len; --i >= 0; cp++)
+			if (*cp != '\n')
+				*cp = cbname;
+		bufreplace(from, to, mem, len);
+		safefree(mem);
+		break;
+#endif /* FEATURE_G */
+	}
+}
 
 /* This function copies text between two marks into a cut buffer.  "cbname"
  * is the single-character name of the cut buffer.  "from" and "to" delimit
@@ -161,13 +231,17 @@ static void shiftbufs()
  * mode operators.  This is different from 'l' in that 'L' boundaries have
  * already been adjusted to match line boundaries, but for 'l' the cutyank()
  * function will need to adjust the boundaries itself.
+ *
+ * The "sideeffect" parameter is 'y' to keep the text, or 'd' to delete it.
+ * If FEATURE_G is defined then it can also be one of the gr, gu, gu, or g~
+ * operators, in which case no actual yank takes place and "cbname" is ignored.
  */
-void cutyank(cbname, from, to, type, del)
+void cutyank(cbname, from, to, type, sideeffect)
 	_CHAR_	cbname;	/* name of cut buffer to yank into */
 	MARK	from;	/* start of source */
 	MARK	to;	/* end of source */
 	_CHAR_	type;	/* yank style: c=character, l=line, r=rectangle */
-	BOOLEAN	del;	/* if True, the source text is deleted after it is yanked */
+	_CHAR_	sideeffect;/* what to do to original text */
 {
 	BUFFER	dest;		/* cut buffer we're writing into */
 	MARKBUF	dfrom, dto;	/* region of destination buffer */
@@ -175,13 +249,17 @@ void cutyank(cbname, from, to, type, del)
 	MARK	line;		/* end of current line, when type='r' */
 	long	prevline;	/* used for detecting failed move of "line" */
 	long	origlines;	/* number of lines in cut buffer before yank */
+	long	nlines;
 	CHAR	*cp;
 
 	assert(markbuffer(from) == markbuffer(to) && markoffset(from) <= markoffset(to));
 	assert(type == 'c' || type == 'l' || type == 'r' || type == 'L');
 
+	/* this is just to silence a bogus compiler warning */
+	origlines = 0L;
+
 	/* if yanking into the anonymous cut buffer, then shift numbered */
-	if (!cbname)
+	if (!cbname && (sideeffect == 'y' || sideeffect == 'd'))
 		shiftbufs();
 
 	/* If this is a character-mode cut, and both ends happen to be the
@@ -193,18 +271,18 @@ void cutyank(cbname, from, to, type, del)
 	{
 		if (windefault && markbuffer(from) == markbuffer(windefault->cursor))
 		{
-			if (markoffset((*windefault->md->move)(windefault, from, 0L, 0L, True)) == markoffset(from)
+			if (markoffset((*windefault->md->move)(windefault, from, 0L, 0L, ElvTrue)) == markoffset(from)
 			 && (markoffset(to) == o_bufchars(markbuffer(to))
-				|| markoffset((*windefault->md->move)(windefault, to, 0L, 0L, True)) == markoffset(to)))
+				|| markoffset((*windefault->md->move)(windefault, to, 0L, 0L, ElvTrue)) == markoffset(to)))
 			{
 				type = 'L';
 			}
 		}
 		else
 		{
-			if (markoffset((*dmnormal.move)(windefault, from, 0L, 0L, True)) == markoffset(from)
+			if (markoffset((*dmnormal.move)(windefault, from, 0L, 0L, ElvTrue)) == markoffset(from)
 			 && (markoffset(to) == o_bufchars(markbuffer(to))
-				|| markoffset((*dmnormal.move)(windefault, to, 0L, 0L, True)) == markoffset(to)))
+				|| markoffset((*dmnormal.move)(windefault, to, 0L, 0L, ElvTrue)) == markoffset(to)))
 			{
 				type = 'L';
 			}
@@ -212,73 +290,71 @@ void cutyank(cbname, from, to, type, del)
 	}
 
 	/* find the cut buffer */
-	dest = cutbuffer(cbname, True);
-	if (!dest)
-	{
-		return;
-	}
-
-	/* when editing a cut buffer, you can't yank it into itself */
-	if (markbuffer(from) == dest)
-	{
-		/* for the anonymous cut buffer, just ignore it */
-		if (cbname)
-		{
-			msg(MSG_ERROR, "can't yank a buffer into itself");
-		}
-		return;
-	}
-
-	/* discard the old contents, unless we want to append */
-	if (!isupper(cbname))
-	{
-		(void)marktmp(dfrom, dest, 0);
-		(void)marktmp(dto, dest, o_bufchars(dest));
-		bufreplace(&dfrom, &dto, NULL, 0L);
-		o_putstyle(dest) = tolower(type);
-		origlines = 0;
-	}
+	if (sideeffect != 'y' && sideeffect != 'd')
+		dest = NULL;
 	else
 	{
-		if (o_partiallastline(dest) && type == 'c')
+		dest = cutbuffer(cbname, ElvTrue);
+		if (!dest)
+			return;
+
+		/* when editing a cut buffer, you can't yank it into itself */
+		if (markbuffer(from) == dest)
 		{
-			(void)marktmp(dfrom, dest, o_bufchars(dest) - 1);
+			/* for the anonymous cut buffer, just ignore it */
+			if (cbname)
+			{
+				msg(MSG_ERROR, "can't yank a buffer into itself");
+			}
+			return;
+		}
+
+		/* discard the old contents, unless we want to append */
+		if (!elvupper(cbname))
+		{
+			(void)marktmp(dfrom, dest, 0);
 			(void)marktmp(dto, dest, o_bufchars(dest));
 			bufreplace(&dfrom, &dto, NULL, 0L);
+			o_putstyle(dest) = elvtolower(type);
+			origlines = 0;
 		}
-		origlines = o_buflines(dest);
+		else
+		{
+			if (o_partiallastline(dest) && type == 'c')
+			{
+				(void)marktmp(dfrom, dest, o_bufchars(dest) - 1);
+				(void)marktmp(dto, dest, o_bufchars(dest));
+				bufreplace(&dfrom, &dto, NULL, 0L);
+			}
+			origlines = o_buflines(dest);
+		}
 	}
 
 	/* copy the text into the buffer. */
-	(void)marktmp(dfrom, dest, o_bufchars(dest));
+	if (dest)
+		(void)marktmp(dfrom, dest, o_bufchars(dest));
 	switch (type)
 	{
 	  case 'c':
-		bufpaste(&dfrom, from, to);
-		if (del)
-		{
-			bufreplace(from, to, NULL, 0);
-		}
+		if (dest)
+			bufpaste(&dfrom, from, to);
+		dosideeffect(from, to, sideeffect, cbname);
 		break;
 
 	  case 'l':
-		sfrom = *(*dmnormal.move)(windefault, from, 0, 0, True);
+		sfrom = *(*dmnormal.move)(windefault, from, 0, 0, ElvTrue);
 		markaddoffset(to, -1);
-		sto = *(*dmnormal.move)(windefault, to, 1, INFINITY, True);
+		sto = *(*dmnormal.move)(windefault, to, 1, INFINITY, ElvTrue);
 		markaddoffset(&sto, 1);
-		bufpaste(&dfrom, &sfrom, &sto);
-		if (del)
-		{
-			bufreplace(&sfrom, &sto, NULL, 0);
-		}
+		if (dest)
+			bufpaste(&dfrom, &sfrom, &sto);
+		dosideeffect(from, to, sideeffect, cbname);
 		break;
 
 	  case 'L':
-		bufpaste(&dfrom, from, to);
-		if (del)
-		{
-			bufreplace(from, to, NULL, 0);
-		}
+		if (dest)
+			bufpaste(&dfrom, from, to);
+		dosideeffect(from, to, sideeffect, cbname);
 		break;
 
 	  case 'r':
@@ -294,7 +370,8 @@ void cutyank(cbname, from, to, type, del)
 		 * will therefore be inserted into the cut-buffer at what
 		 * is currently its end.
 		 */
-		(void)marktmp(dfrom, dest, o_bufchars(dest));
+		if (dest)
+			(void)marktmp(dfrom, dest, o_bufchars(dest));
 
 		/* The "to" mark is actually the start of the line *AFTER* the
 		 * last line to be included in the cut.  This makes display
@@ -302,7 +379,7 @@ void cutyank(cbname, from, to, type, del)
 		 * here or else we'll be cutting one line too many.
 		 */
 		line = markdup(to);
-		marksetoffset(line, markoffset((*windefault->md->move)(windefault, line, -1, INFINITY, True)));
+		marksetoffset(line, markoffset((*windefault->md->move)(windefault, line, -1, INFINITY, ElvTrue)));
 
 		/* for each line of the rectangle... */
 		do
@@ -310,8 +387,8 @@ void cutyank(cbname, from, to, type, del)
 			/* Choose the starting point on this line.  Make sure
 			 * the left edge of the character is in the rectangle
 			 */
-			sfrom = *(*windefault->md->move)(windefault, line, 0, windefault->selleft, False);
-			if ((*windefault->md->mark2col)(windefault, &sfrom, False) < windefault->selleft)
+			sfrom = *(*windefault->md->move)(windefault, line, 0, windefault->selleft, ElvFalse);
+			if ((*windefault->md->mark2col)(windefault, &sfrom, ElvFalse) < windefault->selleft)
 			{
 				markaddoffset(&sfrom, 1);
 			}
@@ -320,26 +397,25 @@ void cutyank(cbname, from, to, type, del)
 			 * the final character is included in the yanking, but
 			 * be careful never to yank a newline.
 			 */
-			sto = *(*windefault->md->move)(windefault, line, 0, windefault->selright, False);
+			sto = *(*windefault->md->move)(windefault, line, 0, windefault->selright, ElvFalse);
 			if (scanchar(&sto) != '\n')
 			{
 				markaddoffset(&sto, 1);
 			}
 
 			/* append this slice of the rectangle */
-			bufreplace(&dfrom, &dfrom, toCHAR("\n"), 1);
+			if (dest)
+				bufreplace(&dfrom, &dfrom, toCHAR("\n"), 1);
 			if (markoffset(&sfrom) < markoffset(&sto))
 			{
-				bufpaste(&dfrom, &sfrom, &sto);
-				if (del)
-				{
-					bufreplace(&sfrom, &sto, NULL, 0);
-				}
+				if (dest)
+					bufpaste(&dfrom, &sfrom, &sto);
+				dosideeffect(&sfrom, &sto, sideeffect, cbname);
 			}
 
 			/* locate the next line */
 			prevline = markoffset(line);
-			marksetoffset(line, markoffset((*windefault->md->move)(windefault, line, -1, INFINITY, True)));
+			marksetoffset(line, markoffset((*windefault->md->move)(windefault, line, -1, INFINITY, ElvTrue)));
 			if (prevline == markoffset(line))
 			{
 				marksetoffset(line, markoffset(from));
@@ -351,8 +427,9 @@ void cutyank(cbname, from, to, type, del)
 	}
 
 	/* if this the external cut buffer, then write it */
-	if ((cbname == '>' || cbname == '^') && gui->clipopen && (*gui->clipopen)(True))
+	if (dest && (cbname == '>' || cbname == '^') && gui->clipopen && (*gui->clipopen)(ElvTrue))
 	{
+		assert(dest);
 		for (scanalloc(&cp, marktmp(dfrom, dest, 0L));
 		     cp;
 		     markaddoffset(&dfrom, scanright(&cp)), scanseek(&cp, &dfrom))
@@ -366,12 +443,15 @@ void cutyank(cbname, from, to, type, del)
 	/* if it doesn't end with a newline, then slap a newline onto the
 	 * end so the last line can be edited.
 	 */
-	o_partiallastline(dest) = (BOOLEAN)(o_bufchars(dest) > 0L
-		&& scanchar(marktmp(dto, dest, o_bufchars(dest) - 1)) != '\n');
-	if (o_partiallastline(dest))
+	if (dest)
 	{
-		markaddoffset(&dto, 1L);
-		bufreplace(&dto, &dto, toCHAR("\n"), 1);
+		o_partiallastline(dest) = (ELVBOOL)(o_bufchars(dest) > 0L
+			&& scanchar(marktmp(dto, dest, o_bufchars(dest) - 1)) != '\n');
+		if (o_partiallastline(dest))
+		{
+			markaddoffset(&dto, 1L);
+			bufreplace(&dto, &dto, toCHAR("\n"), 1);
+		}
 	}
 
 	/* Report.  Except that we don't need to report how many new input
@@ -379,19 +459,34 @@ void cutyank(cbname, from, to, type, del)
 	 * the mouse is used to mark text under X11, it is immediately copied
 	 * to the clipboard and we don't want to report that.
 	 */
+	if (!dest)
+		nlines = markline(to) - markline(from);
+	else
+		nlines = o_buflines(dest) - origlines;
 	if (o_report != 0
-	 && (o_partiallastline(dest)
-	 	? (o_buflines(dest) - origlines > o_report)
-	 	: (o_buflines(dest) - origlines >= o_report))
+	 && nlines >= o_report
 	 && cbname != '.'
 	 && ((cbname != '>' && cbname != '^') || !windefault || !windefault->seltop))
 	{
-		if (del)
-			msg(MSG_INFO, "[d]$1 lines deleted", o_buflines(dest) - origlines);
-		else if (isupper(cbname))
-			msg(MSG_INFO, "[d]$1 more lines yanked", o_buflines(dest) - origlines);
-		else
-			msg(MSG_INFO, "[d]$1 lines yanked", o_buflines(dest) - origlines);
+		switch (sideeffect)
+		{
+		  case 'd':
+			msg(MSG_INFO, "[d]$1 lines deleted", nlines);
+			break;
+
+		  case ELVG('='):
+		  case ELVG('u'):
+		  case ELVG('U'):
+		  case ELVG('~'):
+			msg(MSG_INFO, "[d]$1 lines changed", nlines);
+			break;
+
+		  default:
+			if (elvupper(cbname))
+				msg(MSG_INFO, "[d]$1 more lines yanked", nlines);
+			else
+				msg(MSG_INFO, "[d]$1 lines yanked", nlines);
+		}
 	}
 }
 
@@ -402,9 +497,9 @@ MARK cutput(cbname, win, at, after, cretend, lretend)
 	_CHAR_	cbname;	/* cut buffer name */
 	WINDOW	win;	/* window showing that buffer */
 	MARK	at;	/* where to insert the text */
-	BOOLEAN	after;	/* if True, insert after "at"; else insert before */
-	BOOLEAN	cretend;/* if character-mode: True=return first, False=return last */
-	BOOLEAN	lretend;/* if not character-mode: True=return first, False=return last */
+	ELVBOOL	after;	/* if ElvTrue, insert after "at"; else insert before */
+	ELVBOOL	cretend;/* if character-mode: ElvTrue=return first, ElvFalse=return last */
+	ELVBOOL	lretend;/* if not character-mode: ElvTrue=return first, ElvFalse=return last */
 {
 	BUFFER	src;
 	CHAR	iobuf[1000];
@@ -413,7 +508,7 @@ MARK cutput(cbname, win, at, after, cretend, lretend)
 	static MARKBUF ret;
 	int	i;
 	long	line, col, len;
-	BOOLEAN	cmd;
+	ELVBOOL	cmd;
 	long     location;
 
 	/* If anonymous buffer, and most recent paste was from a numbered
@@ -428,7 +523,7 @@ MARK cutput(cbname, win, at, after, cretend, lretend)
 	}
 
 	/* find the cut buffer */
-	src = cutbuffer(cbname, True);
+	src = cutbuffer(cbname, ElvTrue);
 	if (!src)
 	{
 		return NULL;
@@ -448,7 +543,7 @@ MARK cutput(cbname, win, at, after, cretend, lretend)
 	}
 
 	/* if external cut buffer, then fill it from GUI */
-	if ((cbname == '<' || cbname == '^') && gui->clipopen && (*gui->clipopen)(False))
+	if ((cbname == '<' || cbname == '^') && gui->clipopen && (*gui->clipopen)(ElvFalse))
 	{
 		bufreplace(marktmp(sfrom, src, 0), marktmp(sto, src, o_bufchars(src)), NULL, 0L);
 		location = 0L;
@@ -459,7 +554,7 @@ MARK cutput(cbname, win, at, after, cretend, lretend)
 		}
 		(*gui->clipclose)();
 		o_putstyle(src) = 'c';
-		o_partiallastline(src) = (BOOLEAN)(location > 0L
+		o_partiallastline(src) = (ELVBOOL)(location > 0L
 			&& scanchar(marktmp(sfrom, src, location - 1)) != 'n');
 		if (o_partiallastline(src))
 		{
@@ -506,12 +601,12 @@ MARK cutput(cbname, win, at, after, cretend, lretend)
 		/* choose the insertion point */
 		if (after)
 		{
-			ret = *(win->md->move)(win, at, 0, INFINITY, False);
+			ret = *(win->md->move)(win, at, 0, INFINITY, ElvFalse);
 			markaddoffset(&ret, 1);
 		}
 		else
 		{
-			ret = *(win->md->move)(win, at, 0, 0, False);
+			ret = *(win->md->move)(win, at, 0, 0, ElvFalse);
 		}
 
 		/* paste it & set "ret" to the start of the new cursor line */
@@ -519,7 +614,7 @@ MARK cutput(cbname, win, at, after, cretend, lretend)
 		if (lretend)
 		{
 			markaddoffset(&ret, o_bufchars(src));
-			ret = *(win->md->move)(win, &ret, -1, 0, True);
+			ret = *(win->md->move)(win, &ret, -1, 0, ElvTrue);
 		}
 
 		/* move new cursor past any whitespace at start of line */
@@ -537,12 +632,12 @@ MARK cutput(cbname, win, at, after, cretend, lretend)
 		/* choose a starting point, and a column to try for */
 		if (after)
 		{
-			cmd = True;
+			cmd = ElvTrue;
 			col = (*win->md->mark2col)(win, at, cmd) + 1;
 		}
 		else
 		{
-			cmd = False;
+			cmd = ElvFalse;
 			col = (*win->md->mark2col)(win, at, cmd);
 		}
 		ret = *(*win->md->move)(win, at, 0, col, cmd);
@@ -596,7 +691,7 @@ CHAR *cutmemory(cbname)
 	long	len;
 
 	/* Find the cut buffer.  If it looks wrong, then return NULL. */
-	src = cutbuffer(cbname, False);
+	src = cutbuffer(cbname, ElvFalse);
 	if ((cbname == '<' || cbname == '^') || !src || o_bufchars(src) == 0L)
 	{
 		return NULL;

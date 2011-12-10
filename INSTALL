@@ -1,4 +1,4 @@
-HOW TO COMPILE & INSTALL ELVIS 2.1_4
+HOW TO COMPILE & INSTALL ELVIS 2.2
 
 Separate sets of instructions are provided below for UNIX, Windows-NT,
 MS-DOS, and OS/2.
@@ -10,24 +10,21 @@ development environment if you prefer.  Separate instructions are given
 for both compilation methods, for both operating systems.
 
 All of these instructions assume that you have already unpacked the files
-from the source code archive, "elvis-2.1_4.tar.gz".  That's a gzipped tar
+from the source code archive, "elvis-2.2*.tar.gz".  That's a gzipped tar
 archive.  If you don't have the gzip and tar utilities, then the easiest
 way for you to unpack them is to compile the "untar.c" program (available
 via anonymous FTP from ftp://ftp.cs.pdx.edu/pub/elvis/untar.c).  The files
-will be placed in a subdirectory named "elvis-2.1_4".  The MS-DOS *.MAK files
+will be placed in a subdirectory named "elvis-2.2*".  The MS-DOS *.MAK files
 assume that you've unpacked them while in C:\MSVC, so the files themselves
-should end up in C:\MSVC\elvis-2.1_4.
+should end up in C:\MSVC\elvis-2.2*.
 
 Under MS-DOS, the name of the archive will be mangled.  It will probably
 be "elvis-~1.gz", but it may be something else; the exact name depends on
 how you downloaded it, and whether you already had an old version of that
 archive in the same directory.  The MS-DOS version of the "untar" program
 needs to be passed the mangled name, whatever that turns out to be.  The
-Win32 version, on the other hand, can handle the full "elvis-2.1_4.tar.gz"
+Win32 version, on the other hand, can handle the full "elvis-2.2*.tar.gz"
 file name.
-
-Also under MS-DOS, you may see complaints about some OS/2 files.  You can
-ignore that; you don't need those files to compile elvis for MS-DOS.
 
 ================================================================================
 
@@ -77,13 +74,25 @@ UNIX
 	    --bindir=directory
 		    This value is incorporated into the Makefile.  The
 		    command "make install" will copy the executables into
-		    this directory.  The default is /usr/local/bin.
+		    this directory.  The default is /usr/bin.
 
 	    --datadir=directory
 		    This is incorporated into both the Makefile and the
 		    config.h file.  It is the directory where elvis' support
 		    files will reside after a "make install".  The default is
-		    /usr/local/lib/elvis.
+		    /usr/share/elvis.
+
+	    --docdir=directory
+		    This is incorporated into both the Makefile and the
+		    config.h file.  It is the directory where elvis' manual
+		    will reside after a "make install".  The default is
+		    /usr/share/elvis/doc.
+
+	    --prefix=directory
+		    This value is incorporated into the Makefile.  It supplies
+		    leading part of the datadir, docdir, and bindir values.
+		    Its default value is /usr, which is why those directories
+		    all have values starting with "/usr".
 
 	    --libs=string
 		    This option allows you to specify which library to use
@@ -98,23 +107,19 @@ UNIX
 		    header files in /usr/include.
 
      2)	Give the command "make".  This should eventually produce programs
-	named "elvis" and "ref".  Source code is also included for "ctags"
-	and "fmt" but these aren't normally compiled because your UNIX system
-	probably already has better versions of them.  If you want to use
-	elvis' versions of "ctags" and "fmt" then you should edit the Makefile
-	to add those programs to the definition of the ALL macro.
-
-	Exception: Linux gets all four programs by default, because the
-	versions of "ctags" and "fmt" distributed with Linux actually came
-	from elvis 1.8, so the 2.1 versions are newer.
+	named "elvis", "ref", "elvtags", and "elvfmt".  (elvtags and elvfmt
+	are elvis' own versions of the standard ctags and fmt programs.  The
+	names of elvis' versions were changed so they wouldn't clash with the
+	standard ones.)
 
      3)	You should be able to run "elvis" in the source code directory now.
 	Try "e2 README.html" or "e2 config.h".
 
 	Note that we're running the e2 shell script instead of the elvis
 	executable.  e2 simply runs elvis in such a way that it looks for
-	its support files in the "lib" subdirectory, instead of the usual
-	directory.
+	its support files in the "data" subdirectory, instead of the usual
+	directory.  We do this because the support files haven't been
+	installed into their usual directory yet.
 
      4) If all goes well, you can install elvis by becoming the superuser and
         running the command "make install".  (Later, if you decide to uninstall
@@ -192,11 +197,11 @@ MS-Windows/NT (or Windows95?), with Visual C++ 2.0 or later (Method #2):
 MS-DOS, using Visual C++ 1.5 (Method #1):
      REMINDER: MSVC++ 1.5 always puts the complete pathnames of all files
         into its NMAKE files.  Because of this, you *MUST* install the
-        source code into a directory named "C:\MSVC\elvis-2.1_4".  The
-        "elvis-2.1_4" component of that directory name is stored in the
-        "elvis-2.1_4.tar.gz" archive file, so you should be in the C:\MSVC
+        source code into a directory named "C:\MSVC\elvis-2.2*".  The
+        "elvis-2.*" component of that directory name is stored in the
+        "elvis-2.2*.tar.gz" archive file, so you should be in the C:\MSVC
         directory when you extract the files.  After extracting the files,
-        do a "cd elvis-2.1_4"
+        do a "cd elvis-2.2*"
 
      1) Run the "makmsdos.bat" file
 
@@ -216,19 +221,19 @@ MS-DOS, using Visual C++ 1.5 (Method #1):
 MS-DOS, using Visual C++ 1.5 (Method #2):
      REMINDER: MSVC++ 1.5 always puts the complete pathnames of all files
         into its NMAKE files.  Because of this, you *MUST* install the
-        source code into a directory named "C:\MSVC\elvis-2.1_4".  The
-        "elvis-2.1_4" component of that directory name is stored in the
-        "elvis-2.1_4.tar.gz" archive file, so you should be in the C:\MSVC
+        source code into a directory named "C:\MSVC\elvis-2.2*".  The
+        "elvis-2.2*" component of that directory name is stored in the
+        "elvis-2.2*.tar.gz" archive file, so you should be in the C:\MSVC
         directory when you extract the files.
 
-     1) Copy all of the "C:\MSVC\elvis-2.1_4\OSMSDOS\*.MAK" files into the
-	"C:\MSVC\elvis-2.1_4" directory.
+     1) Copy all of the "C:\MSVC\elvis-2.2*\OSMSDOS\*.MAK" files into the
+	"C:\MSVC\elvis-2.2*" directory.
 
 		c:
-		cd \msvc\elvis-2.1_4
+		cd \msvc\elvis-2.2*
 		copy osmsdos\*.mak
 
-     2)	Copy the "\MSVC\elvis-2.1_4\OSMSDOS\OSCONFIG.H" file to
+     2)	Copy the "\MSVC\elvis-2.2*\OSMSDOS\OSCONFIG.H" file to
 	"\MSVC\elvis-2.1\CONFIG.H" Note that the "OS" is dropped from the
 	filename.
 

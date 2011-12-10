@@ -41,32 +41,32 @@ typedef unsigned char VCOLOR;
  */
 typedef struct vwin_s
 {
-        struct vwin_s   *next;          /* some other window on this screen */
-        int             height;         /* size of the window */
-        int             pos;            /* position of the window */
-        int             newheight;      /* height after screen is rearranged */
-        int             newpos;         /* position after screen is rearranged */
-        int             cursx, cursy;   /* logical cursor position */
-        ELVCURSOR       shape;          /* logical cursor shape */
+    struct vwin_s   *next;          /* some other window on this screen */
+    int             height;         /* size of the window */
+    int             pos;            /* position of the window */
+    int             newheight;      /* height after screen is rearranged */
+    int             newpos;         /* position after screen is rearranged */
+    int             cursx, cursy;   /* logical cursor position */
+    ELVCURSOR       shape;          /* logical cursor shape */
 
-		/*
-         * The following buffers hold the colour indices for the various
-         * fonts.
-		 */
-		VCOLOR	vc_normal;
-		VCOLOR	vc_fixed;
-		VCOLOR	vc_bold;
-		VCOLOR	vc_emph;
-		VCOLOR	vc_italic;
-		VCOLOR	vc_underline;
-		VCOLOR	vc_hilite;
+    /*
+     * The following buffers hold the colour indices for the various
+     * fonts.
+    VCOLOR  vc_normal;
+    VCOLOR  vc_fixed;
+    VCOLOR  vc_bold;
+    VCOLOR  vc_emph;
+    VCOLOR  vc_italic;
+    VCOLOR  vc_underline;
+    VCOLOR  vc_hilite;
+     */
 } VWIN;
 
 /*
  * Macro definitions:
  */
 #define PM_RequestUpdate(pw) \
-    { if (!(pw)->destroyed) (pw)->update_me = True; }
+    { if (!(pw)->destroyed) (pw)->update_me = ElvTrue; }
 
 /*
  * GUI function declarations.  (Not all of these are actually defined.)
@@ -74,22 +74,24 @@ typedef struct vwin_s
 static int     vio_test P_((void));
 static int     vio_init P_((int argc, char **argv));
 static void    vio_loop P_((void));
-static BOOLEAN vio_poll P_((BOOLEAN reset));
+static ELVBOOL vio_poll P_((ELVBOOL reset));
 static void    vio_term P_((void));
-static BOOLEAN vio_creategw P_((char *name, char *attributes));
-static void    vio_destroygw P_((GUIWIN *gw, BOOLEAN force));
-static BOOLEAN vio_focusgw P_((GUIWIN *gw));
+static ELVBOOL vio_creategw P_((char *name, char *attributes));
+static void    vio_destroygw P_((GUIWIN *gw, ELVBOOL force));
+static ELVBOOL vio_focusgw P_((GUIWIN *gw));
 static void    vio_reset P_((void));
 static void    vio_flush P_((void));
 static void    vio_moveto P_((GUIWIN *gw, int column, int row));
-static void    vio_draw P_((GUIWIN *gw, _char_ font, CHAR *text, int len));
-static BOOLEAN vio_shift P_((GUIWIN *gw, int qty, int rows));
-static BOOLEAN vio_scroll P_((GUIWIN *gw, int qty, BOOLEAN notlast));
-static BOOLEAN vio_clrtoeol P_((GUIWIN *gw));
+static void    vio_draw P_((GUIWIN *gw, long fg, long bg, 
+                                int bits, CHAR *text, int len));
+static ELVBOOL vio_shift P_((GUIWIN *gw, int qty, int rows));
+static ELVBOOL vio_scroll P_((GUIWIN *gw, int qty, ELVBOOL notlast));
+static ELVBOOL vio_clrtoeol P_((GUIWIN *gw));
 static void    vio_beep P_((GUIWIN *gw));
-static BOOLEAN vio_color P_((GUIWIN *gw, _char_ font, CHAR *fg, CHAR *bg));
-static BOOLEAN vio_tabcmd P_((GUIWIN *gw, _CHAR_ key2, long count));
-static BOOLEAN vio_prgopen P_((char *command, BOOLEAN willwrite, BOOLEAN willread));
+static ELVBOOL vio_color P_((int fontcode, CHAR *name, 
+                        ELVBOOL isfg, long *colorptr, unsigned char *rgb));
+static ELVBOOL vio_tabcmd P_((GUIWIN *gw, _CHAR_ key2, long count));
+static ELVBOOL vio_prgopen P_((char *command, ELVBOOL willwrite, ELVBOOL willread));
 static int     vio_prgclose P_((void));
 
 /* These functions aren't in the Elvis GUI--but they should be. :-) */

@@ -21,11 +21,17 @@ extern RESULT	m_scrnrel P_((WINDOW win, VIINFO *vinf));
 extern RESULT	m_z P_((WINDOW win, VIINFO *vinf));
 extern RESULT	m_fsentence P_((WINDOW win, VIINFO *vinf));
 extern RESULT	m_bsentence P_((WINDOW win, VIINFO *vinf));
+extern RESULT	m_spell P_((WINDOW win, VIINFO *vinf));
+extern RESULT	m_endspell P_((WINDOW win, VIINFO *vinf));
+extern RESULT	m_g P_((WINDOW win, VIINFO *vinf));
+extern RESULT	m_gupdown P_((WINDOW win, VIINFO *vinf));
 
 /* in search.c */
 extern RESULT	m_search P_((WINDOW win, VIINFO *vinf));
+extern char	searchfont;
 extern regexp	*searchre;
-extern BOOLEAN	searchforward;
-extern BOOLEAN	searchhasdelta;
+extern ELVBOOL	searchforward;
+extern ELVBOOL	searchhasdelta;
 extern long	searchdelta;
+extern void	searchhighlight P_((WINDOW win, int linesshown, long end));
 END_EXTERNC

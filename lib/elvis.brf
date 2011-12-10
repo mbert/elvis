@@ -1,3 +1,0 @@
-"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-" TAKE A GUESS AT THE BUFFER'S TYPE
-let! readeol=fileeol(filename)

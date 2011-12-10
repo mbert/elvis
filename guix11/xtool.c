@@ -2,9 +2,11 @@
 
 /* Copyright 1997 by Steve Kirkendall */
 
-char id_xtool[] = "$Id: xtool.c,v 2.10 1998/11/21 01:41:27 steve Exp $";
 
 #include "elvis.h"
+#ifdef FEATURE_RCSID
+char id_xtool[] = "$Id: xtool.c,v 2.20 2003/10/18 18:20:08 steve Exp $";
+#endif
 #ifdef GUI_X11
 # include "guix11.h"
 
@@ -26,14 +28,14 @@ typedef struct tool_s
 	int		width;		/* width of button's label */
 	int		id;		/* index into xw->toolstate[] */
 	unsigned int	textx;		/* label's horiz offset within button */
-	BOOLEAN		safer;		/* run with "safer" flag? */
-	BOOLEAN		gap;		/* precede this option with a gap */
+	ELVBOOL		safer;		/* run with "safer" flag? */
+	ELVBOOL		gap;		/* precede this option with a gap */
 } TOOL;
 
 #if USE_PROTOTYPES
-static TOOL *findtool(char *label);
+static TOOL *findtool(char *label, ELVBOOL *isnew);
 static void freetool(TOOL *tool);
-static BOOLEAN istool(X11WIN *xw, TOOL *tool, int x, int y);
+static ELVBOOL istool(X11WIN *xw, TOOL *tool, int x, int y);
 static void draw1tool(X11WIN *xw, TOOL *tool, int bevel);
 static void addline(CHAR **retptr, char *label, _char_ op, CHAR *value);
 #endif
@@ -47,8 +49,9 @@ static int	bevel;		/* appearance of clicked button */
 /* This function searches for a named item in the toolbar, and returns it.
  * If it doesn't exist, this function creates it.
  */
-static TOOL *findtool(label)
+static TOOL *findtool(label, isnew)
 	char	*label;		/* toolbar legend */
+	ELVBOOL	*isnew;		/* flag to set if new tool */
 {
 	TOOL	*tool, *lag;
 
@@ -80,6 +83,14 @@ static TOOL *findtool(label)
 		}
 		else
 			tools = tool;
+
+		/* This is a new tool */
+		*isnew = ElvTrue;
+	}
+	else
+	{
+		/* This is an old tool */
+		*isnew = ElvFalse;
 	}
 
 	return tool;
@@ -115,7 +126,7 @@ static void freetool(tool)
 
 		/* if this item had a gap, the following item inherits it */
 		if (tool->gap && tool->next)
-			tool->next->gap = True;
+			tool->next->gap = ElvTrue;
 
 		/* delete it from the list */
 		if (lag)
@@ -134,8 +145,8 @@ static void freetool(tool)
 }
 
 
-/* Return True if (x,y) is a point in the given button, on a given window */
-static BOOLEAN istool(xw, tool, x, y)
+/* Return ElvTrue if (x,y) is a point in the given button, on a given window */
+static ELVBOOL istool(xw, tool, x, y)
 	X11WIN	*xw;	/* a top-level app window */
 	TOOL	*tool;	/* a tool to check */
 	int	x, y;	/* a position to test against tool's position */
@@ -145,8 +156,8 @@ static BOOLEAN istool(xw, tool, x, y)
 	 && y >= xw->tb.state[tool->id].y
 	 && y < xw->tb.state[tool->id].y + toolheight
 	 && xw->tb.state[tool->id].bevel != 0)
-		return True;
-	return False;
+		return ElvTrue;
+	return ElvFalse;
 }
 
 
@@ -167,8 +178,8 @@ static void draw1tool(xw, tool, bevel)
 
 	/* draw the button's label */
 	XSetFont(x_display, xw->gc, x_loadedcontrol->fontinfo->fid);
-	XSetForeground(x_display, xw->gc, xw->tb.fglabel);
-	xw->fg = xw->tb.fglabel;
+	xw->fg = colorinfo[bevel == 0 ? x_toolbarcolors : x_toolcolors].fg;
+	XSetForeground(x_display, xw->gc, xw->fg);
 	if (bevel == 0)
 	{
 		x_drawstring(x_display, xw->tb.win, xw->gc,
@@ -261,11 +272,6 @@ void x_tb_predict(xw, w, h)
 	int	 dummy;
 	XCharStruct size;
 
-	/* allocate the colors */
-	xw->tb.bg = x_loadcolor(x_scrollbarbg, x_black);
-	xw->tb.face = x_loadcolor(x_toolbg, x_white);
-	xw->tb.fglabel = x_loadcolor(x_toolfg, x_black);
-
 	/* if no tools, or "set notoolbar", then toolbar height is always 0 */
 	if (!tools || !o_toolbar)
 	{
@@ -276,9 +282,11 @@ void x_tb_predict(xw, w, h)
 	}
 
 	/* compute some info about the font */
-	if (toolheight != x_loadedcontrol->height + 2 * TB_BEVEL)
+	dummy = x_loadedcontrol->fontinfo->ascent
+		+ x_loadedcontrol->fontinfo->descent + 2 * TB_BEVEL;
+	if (toolheight != dummy)
 	{
-		toolheight = x_loadedcontrol->height + 2 * TB_BEVEL;
+		toolheight = dummy;
 
 		/* widths are probably wrong, too */
 		for (scan = tools; scan; scan = scan->next)
@@ -315,7 +323,7 @@ void x_tb_predict(xw, w, h)
 	{
 		/* see how many fit on the current line */
 		for (gwt = wt = 2, scan = first, gfit = fit = 0, gaps = 0;
-		     scan && wt + scan->width + (scan->gap ? TB_GAP : TB_ADJACENT) < w;
+		     scan && (unsigned)(wt + scan->width + (scan->gap ? TB_GAP : TB_ADJACENT)) < w;
 		     scan = scan->next)
 		{
 			fit++;
@@ -362,11 +370,31 @@ void x_tb_create(xw, x, y)
 	X11WIN	 *xw;	/* top-level application window */
 	int	 x, y;	/* position of the toolbar within the top-level window */
 {
+	/* if disabled or empty, then don't create it */
+	if (xw->tb.h == 0)
+		return;
+
 	/* create the window */
-	xw->tb.win = XCreateSimpleWindow(x_display, xw->win,
-		x, y, xw->tb.w, xw->tb.h, 0, xw->tb.fglabel, xw->tb.bg);
-	if (x_mono || xw->tb.fglabel == xw->tb.bg)
-		XSetWindowBackgroundPixmap(x_display, xw->tb.win, x_gray);
+#ifdef FEATURE_IMAGE
+	if (ispixmap(colorinfo[x_toolbarcolors].bg))
+	{
+		xw->tb.win = XCreateSimpleWindow(x_display, xw->win,
+			x, y, xw->tb.w, xw->tb.h, 0,
+			colorinfo[x_toolbarcolors].fg,
+			pixmapof(colorinfo[x_toolbarcolors].bg).pixel);
+		XSetWindowBackgroundPixmap(x_display, xw->tb.win,
+			pixmapof(colorinfo[x_toolbarcolors].bg).pixmap);
+	}
+	else
+#endif
+	{
+		xw->tb.win = XCreateSimpleWindow(x_display, xw->win,
+			x, y, xw->tb.w, xw->tb.h, 0,
+			colorinfo[x_toolbarcolors].fg,
+			colorinfo[x_toolbarcolors].bg);
+		if (x_mono || colorinfo[x_toolbarcolors].fg == colorinfo[x_toolbarcolors].bg)
+			XSetWindowBackgroundPixmap(x_display, xw->tb.win, x_gray);
+	}
 	XSelectInput(x_display, xw->tb.win,
 		ButtonPressMask|ButtonMotionMask|ButtonReleaseMask|ExposureMask);
 
@@ -379,11 +407,6 @@ void x_tb_create(xw, x, y)
 void x_tb_destroy(xw)
 	X11WIN	*xw;	/* top-level application window to loose the toolbar */
 {
-	/* free the colors */
-	x_unloadcolor(xw->tb.bg);
-	x_unloadcolor(xw->tb.face);
-	x_unloadcolor(xw->tb.fglabel);
-
 	/* destroy the window */
 	if (xw->tb.win != None)
 		XDestroyWindow(x_display, xw->tb.win);
@@ -393,7 +416,7 @@ void x_tb_destroy(xw)
 
 void x_tb_draw(xw, fromscratch)
 	X11WIN	*xw;		/* window whose toolbar should be drawn */
-	BOOLEAN	fromscratch;	/* redraw background too? */
+	ELVBOOL	fromscratch;	/* redraw background too? */
 {
 	TOOL	*tool, *lag;
 	int	newstate;
@@ -403,6 +426,30 @@ void x_tb_draw(xw, fromscratch)
 	if (xw->tb.h == 0)
 	{
 		return;
+	}
+
+	/* if recolored, then adjust background and redraw from scratch */
+	if (xw->tb.recolored)
+	{
+#ifdef FEATURE_IMAGE
+		if (ispixmap(colorinfo[x_toolbarcolors].bg))
+			XSetWindowBackgroundPixmap(x_display, xw->tb.win,
+				pixmapof(colorinfo[x_toolbarcolors].bg).pixmap);
+		else
+#endif
+		{
+			XSetWindowBackground(x_display, xw->tb.win,
+				colorinfo[x_toolbarcolors].bg);
+			if (x_mono || colorinfo[x_toolbarcolors].fg == colorinfo[x_toolbarcolors].bg)
+				XSetWindowBackgroundPixmap(x_display, xw->tb.win, x_gray);
+		}
+		fromscratch = ElvTrue;
+		xw->tb.recolored = ElvFalse;
+
+		/* This also affects the appearance of any dialogs for this
+		 * window.  We need to redraw those windows in the new colors.
+		 */
+		x_dl_docolor(xw);
 	}
 
 	/* supposed to draw from scratch? */
@@ -420,7 +467,7 @@ void x_tb_draw(xw, fromscratch)
 	 * calculate() calls below will be looking at the wrong window's
 	 * options.
 	 */
-	(void)eventfocus((GUIWIN *)xw);
+	(void)eventfocus((GUIWIN *)xw, ElvFalse);
 
 	/* for each button... */
 	for (lag = NULL, tool = tools; tool; lag = tool, tool = tool->next)
@@ -433,7 +480,7 @@ void x_tb_draw(xw, fromscratch)
 		}
 		else if (tool->when)
 		{
-			str = calculate(tool->when, NULL, False);
+			str = calculate(tool->when, NULL, CALC_ALL);
 			if (!str)
 			{
 				/* error - disable the button semi-permanently */
@@ -450,7 +497,7 @@ void x_tb_draw(xw, fromscratch)
 		}
 		else if (newstate != 0)
 		{
-			str = calculate(tool->in, NULL, False);
+			str = calculate(tool->in, NULL, CALC_ALL);
 			if (!str)
 			{
 				/* error - forget condition, always display out */
@@ -569,12 +616,12 @@ void x_tb_event(xw, event)
 			eventex((GUIWIN *)xw, clicked->excmd, clicked->safer);
 		}
 
-		x_didcmd = True;
+		x_didcmd = ElvTrue;
 		break;
 
 	  case Expose:
 		if (event->xexpose.count == 0)
-			x_tb_draw(xw, True);
+			x_tb_draw(xw, ElvTrue);
 		break;
 	}
 }
@@ -585,29 +632,35 @@ void x_tb_event(xw, event)
  * each window, sort of like you need to do after a resize.  This is because
  * the height of the toolbar may change, so the positions of the other widgets
  * may change.
+ *
+ * Returns ElvTrue if the screens all need to be reconfigured, ElvFalse otherwise.
  */
-void x_tb_config(gap, label, op, value)
-	BOOLEAN	gap;	/* insert a gap before this item? */
+ELVBOOL x_tb_config(gap, label, op, value)
+	ELVBOOL	gap;	/* insert a gap before this item? */
 	char	*label;	/* name of a toolbar button, or NULL to delete all */
 	_char_	op;	/* :excmd, ?enable, =pushedin, or '~' to delete */
 	char	*value;	/* an ex command or an expression, depending on op */
 {
 	TOOL	*tool;
+	ELVBOOL	changed;/* do we need to reconfigure after this? */
 
 	/* if no label was given, then clobber all tools */
 	if (!label)
 	{
+		changed = (ELVBOOL)(tools && o_toolbar);
 		while (tools)
 		{
 			freetool(tools);
 		}
-		return;
+		return changed;
 	}
 
 	/* find the tool in question */
-	tool = findtool(label);
+	tool = findtool(label, &changed);
 
-	/* If the "gap" argument is True, then set the tool's "gap" flag */
+	/* If the "gap" argument is ElvTrue, then set the tool's "gap" flag */
+	if (!changed && tool->gap != gap)
+		changed = ElvTrue;
 	tool->gap |= gap;
 
 	/* If the value is an empty string, treat it as no value */
@@ -644,40 +697,17 @@ void x_tb_config(gap, label, op, value)
 
 	  case '~':
 	  	freetool(tool);
+	  	changed = ElvTrue;
 	  	break;
 	}
+
+	return changed;
 }
 
-void x_tb_recolor(xw, font)
+void x_tb_recolor(xw)
 	X11WIN	*xw;	/* window to be recolored */
-	_char_	font;	/* indicates which colors were changed */
 {
-	/* Currently it uses the scrollbar's background color for the bar
-	 * itself, and the tool foreground/background colors for the buttons.
-	 */
-	switch (font)
-	{
-	  case 's':
-		x_unloadcolor(xw->tb.bg);
-		xw->tb.bg = x_loadcolor(x_scrollbarbg, x_black);
-
-		/* if there is a toolbar window, change its background */
-		if (xw->tb.h != 0)
-			XSetWindowBackground(x_display, xw->tb.win, xw->tb.bg);
-		break;
-
-	  case 't':
-		x_unloadcolor(xw->tb.face);
-		x_unloadcolor(xw->tb.fglabel);
-		xw->tb.face = x_loadcolor(x_toolbg, x_white);
-		xw->tb.fglabel = x_loadcolor(x_toolfg, x_black);
-		break;
-
-	  default:
-		return;
-	}
-
-	/* redraw the toolbar */
-	x_tb_draw(xw, True);
+	/* Arrange for a complete redraw later */
+	xw->tb.recolored = ElvTrue;
 }
 #endif

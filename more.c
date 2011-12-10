@@ -1,7 +1,6 @@
 /* more.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_more[] = "$Id: more.c,v 2.16 1999/02/17 22:54:22 steve Exp $";
 
 
 /* This file contains code which implements the "Hit <Enter> to continue"
@@ -19,6 +18,9 @@ char id_more[] = "$Id: more.c,v 2.16 1999/02/17 22:54:22 steve Exp $";
  */
 
 #include "elvis.h"
+#ifdef FEATURE_RCSID
+char id_more[] = "$Id: more.c,v 2.19 2003/10/17 17:41:23 steve Exp $";
+#endif
 
 #if USE_PROTOTYPES
 static RESULT perform(WINDOW win);
@@ -27,7 +29,7 @@ static RESULT parse(_CHAR_ key, void *info);
 static ELVCURSOR shape(WINDOW win);
 #endif
 
-BOOLEAN morehit;
+ELVBOOL morehit;
 
 typedef struct
 {
@@ -51,7 +53,7 @@ static RESULT perform(win)
 	win->di->drawstate = DRAW_OPENEDIT;
 
 	/* reset the morehit flag */
-	morehit = True;
+	morehit = ElvTrue;
 
 	return RESULT_COMPLETE;
 }
@@ -87,7 +89,7 @@ static RESULT parse(key, info)
 	if (mi->special != '\0' && key == mi->special)
 	{
 		keyarray[0] = key;
-		mapunget(keyarray, 1, False);
+		mapunget(keyarray, 1, ElvFalse);
 	}
 
 	return RESULT_COMPLETE;
@@ -118,7 +120,7 @@ void morepush(win, special)
 		return;
 
 	/* Create the "more" buffer, and put the prompt into it */
-	buf = bufalloc(toCHAR(MORE_BUF), 0, True);
+	buf = bufalloc(toCHAR(MORE_BUF), 0, ElvTrue);
 	bufreplace(marktmp(from, buf, 0), marktmp(to, buf, o_bufchars(buf)),
 		toCHAR("Hit <Enter> to continue\n"), 24);
 

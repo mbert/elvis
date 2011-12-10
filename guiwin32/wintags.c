@@ -5,10 +5,9 @@
 */
 
 #define CHAR    Char
-#define BOOLEAN Boolean
 #include "elvis.h" 
 #undef CHAR
-#undef BOOLEAN 
+#undef ELVBOOL 
 
 #if defined (GUI_WIN32)
 

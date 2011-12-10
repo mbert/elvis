@@ -24,7 +24,7 @@
 #endif
 
 /* maximum length of a path list */
-#define MAXPATH	1024
+#define MAXPATH	2048
 
 /* compile some of the osdir functions into this module */
 #define JUST_DIRPATH
@@ -140,20 +140,20 @@ void msg(type, msg)
 /* some custom versions of elvis text I/O functions */
 static FILE *iofp;
 #ifdef DEBUG_ALLOC
-BOOLEAN _ioopen(file, line, name, rwa, prgsafe, force, eol)
+ELVBOOL _ioopen(file, line, name, rwa, prgsafe, force, eol)
 	char	*file;
 	int	line;
 #else
-BOOLEAN ioopen(name, rwa, prgsafe, force, eol)
+ELVBOOL ioopen(name, rwa, prgsafe, force, eol)
 #endif
 	char	*name;	/* name of file to open */
 	_char_	rwa;	/* ignored; 'r'=read, 'w'=write, 'a'=append */
-	BOOLEAN	prgsafe;/* ignored; safe to use "!prg" as file name? */
-	BOOLEAN	force;	/* ignored; okay to overwrite existing files? */
+	ELVBOOL	prgsafe;/* ignored; safe to use "!prg" as file name? */
+	ELVBOOL	force;	/* ignored; okay to overwrite existing files? */
 	_char_	eol;	/* ignored; open in binary mode? */
 {
 	iofp = fopen(name, "r");
-	return (BOOLEAN)(iofp != NULL);
+	return (ELVBOOL)(iofp != NULL);
 }
 int ioread(iobuf, len)
 	CHAR	*iobuf;	/* Input buffer */
@@ -161,10 +161,10 @@ int ioread(iobuf, len)
 {
 	return fread(iobuf, sizeof(CHAR), len, iofp);
 }
-BOOLEAN ioclose P_((void))
+ELVBOOL ioclose()
 {
 	fclose(iofp);
-	return True;
+	return ElvTrue;
 }
 
 
@@ -178,6 +178,9 @@ static char *getline(fp)
  static char	buf[1024];
  	int	len;
 
+	/* initialize ch just to avoid a bogus compiler warning */
+	ch = 0;
+
 	for (len = 0; len < QTY(buf) - 1 && (ch = getc(fp)) != EOF && ch != '\n'; )
 	{
 		buf[len++] = ch;
@@ -185,6 +188,8 @@ static char *getline(fp)
 	if (ch == EOF)
 		return NULL;
 	buf[len] = '\0';
+	if (len >= 1 && buf[len - 1] == '\r')
+		buf[len - 1] = '\0';
 	return buf;
 }
 
@@ -258,7 +263,7 @@ static LINECLS classify(line, prev)
 
 	/* is it a continuation of a comment? */
 	if (prev == LC_COMMENT
-	 && !(front[0] == '#' || isalnum(*front)))
+	 && !(front[0] == '#' || elvalnum(*front)))
 	{
 		return LC_COMMENT;
 	}
@@ -289,6 +294,10 @@ static void lookup(tag)
 	LINECLS	lc;	/* line classification */
 	int	len;
 	int	i;
+
+	/* some initializations just to avoid bogus compiler warnings */
+	tagline = NULL;
+	len = 0;
 
 	/* open the file, or the "refs" file if the source file is unreadable */
 	fp = fopen(tag->TAGFILE, "r");
@@ -326,6 +335,16 @@ static void lookup(tag)
 		if (*t == '$')
 			len++;
 		*l = '\0';
+
+		/* If only supposed to output the source line (no comments or
+		 * other definition lines), and the tagaddress contains the
+		 * source line, then just output that.
+		 */
+		if (omit_comment_lines && omit_other_lines && *t == '$')
+		{
+			puts(tagline);
+			return;
+		}
 	}
 
 	/* for each line... */
@@ -433,6 +452,7 @@ int main(argc, argv)
 	int	i, j;
 	char	*dir, *file, *scan;
 	TAG	*tag;
+	char	kindf[10];
 
 	/* check for some standard arguments */
 	if (argc > 1)
@@ -549,6 +569,8 @@ int main(argc, argv)
 
 	/* parse any restrictions */
 	tsreset();
+	strcpy(kindf, "kind:+f");
+	tsparse(kindf);
 	j = i;
 	for ( ; i < argc; i++)
 	{
@@ -566,6 +588,14 @@ int main(argc, argv)
 		tsparse(argv[i]);
 	}
 
+	/* As a last resort, add elvis' data directory path to the tag_path */
+	i = strlen(tag_path);
+	tag_path[i++] = OSPATHDELIM;
+	scan = getenv("ELVISPATH");
+	if (!scan)
+		scan = OSLIBPATH;
+	strcpy(tag_path + i, scan);
+
 	/* for each element of the tag path... */
 	for (dir = tag_path; *dir && (search_all_files || !taglist); dir = scan)
 	{
@@ -578,7 +608,7 @@ int main(argc, argv)
 
 		/* first check to see if there is a tags file there */
 		file = dirpath(*dir ? dir : ".", "tags");
-		if (ioopen(file, 'r', False, False, 't'))
+		if (ioopen(file, 'r', ElvFalse, ElvFalse, 't'))
 		{
 			/* yes, scan the tags file */
 			ioclose();
@@ -663,7 +693,7 @@ int main(argc, argv)
 			printf("\">%s</a></th>\n", tag->TAGNAME);
 			printf("<td>%s</td>\n", tag->TAGFILE);
 			printf("<td>");
-			if (isdigit(*tag->TAGADDR))
+			if (elvdigit(*tag->TAGADDR))
 			{
 				printf("<em>line %s</em>", tag->TAGADDR);
 			}

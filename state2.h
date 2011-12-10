@@ -46,7 +46,7 @@ BEGIN_EXTERNC
 extern void statepush P_((WINDOW win, ELVISSTATE flags));
 extern void statestratum P_((WINDOW win, CHAR *bufname, _CHAR_ prompt, RESULT (*enter)(WINDOW win)));
 extern void statepop P_((WINDOW win));
-extern void statekey P_((_CHAR_ key));
+extern RESULT statekey P_((_CHAR_ key));
 END_EXTERNC
 
 /* This macro returns the buffer that keystrokes act on. */

@@ -5,6 +5,9 @@
  */
 
 #include "elvis.h"
+#ifdef FEATURE_RCSID
+char id_regsub[] = "$Id: regsub.c,v 2.22 2003/10/17 17:41:23 steve Exp $";
+#endif
 
 /* Allocate a new copy of the replacement string, with all ~'s replaced by
  * the previous replacement string.
@@ -95,7 +98,7 @@ Fail:
 CHAR *regsub(re, newp, doit)
 	regexp		*re;	/* a regular expression that has been matched */
 	REG CHAR	*newp;	/* the replacement text */
-	BOOLEAN		doit;	/* perform the substitution? (else just return string) */
+	ELVBOOL		doit;	/* perform the substitution? (else just return string) */
 {
 	MARKBUF		cpy;	/* start of text to copy */
 	long		end;	/* length of text to copy */
@@ -233,11 +236,11 @@ CHAR *regsub(re, newp, doit)
 			/* ordinary character, so just copy it */
 			if (!mod)
 				len = buildCHAR(&inst, c);
-			else if (tolower(mod) == 'l')
-				len = buildCHAR(&inst, tolower(c));
+			else if (elvtolower(mod) == 'l')
+				len = buildCHAR(&inst, elvtolower(c));
 			else
-				len = buildCHAR(&inst, toupper(c));
-			if (islower(mod))
+				len = buildCHAR(&inst, elvtoupper(c));
+			if (elvlower(mod))
 				mod = 0;
 			continue;
 		}
@@ -266,13 +269,13 @@ CHAR *regsub(re, newp, doit)
 			  case 'U':
 			  case 'u':
 				/* convert to uppercase */
-				len = buildCHAR(&inst, (_CHAR_)toupper(*scan));
+				len = buildCHAR(&inst, (_CHAR_)elvtoupper(*scan));
 				break;
 
 			  case 'L':
 			  case 'l':
 				/* convert to lowercase */
-				len = buildCHAR(&inst, (_CHAR_)tolower(*scan));
+				len = buildCHAR(&inst, (_CHAR_)elvtolower(*scan));
 				break;
 
 			  default:

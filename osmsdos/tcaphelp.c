@@ -1,6 +1,5 @@
 /* tcaphelp.c */
 
-char id_tcaphelp[] = "$Id: tcaphelp.c,v 2.27 1998/03/02 18:37:27 steve Exp $";
 
 /* This file includes low-level tty control functions used by the termcap
  * user interface.  These are:
@@ -16,6 +15,9 @@ char id_tcaphelp[] = "$Id: tcaphelp.c,v 2.27 1998/03/02 18:37:27 steve Exp $";
  */
 
 #include "elvis.h"
+#ifdef FEATURE_RCSID
+char id_tcaphelp[] = "$Id: tcaphelp.c,v 2.32 2003/10/17 17:41:23 steve Exp $";
+#endif
 #ifdef GUI_TERMCAP
 # include <fcntl.h>
 # include <dos.h>
@@ -54,7 +56,7 @@ static int	origbrk;	/* was it looking for ^C? */
 static int	origmode;	/* was it in O_TEXT mode, or O_BINARY? */
 
 /* This variable is used to indicate that the BIOS interface is being used */
-static BOOLEAN	usebios;
+static ELVBOOL	usebios;
 
 /* Width  & height of video display */
 static int	pccols, pcrows;
@@ -193,7 +195,7 @@ static dosevent_t getevent(int timeout, char str[3], short *x, short *y)
 #ifdef FEATURE_MOUSE
 	EVENT	mevent;	/* new state of mouse */
  static	EVENT	mstate;	/* previous state of mouse */
- static BOOLEAN	middle;	/* simulating middle button? */
+ static ELVBOOL	middle;	/* simulating middle button? */
  static	long	dbltime;/* time of last click, for detecting double-click */
  static char	dblbtn;	/* button of last click, for detecting double-click */
 #endif
@@ -255,12 +257,12 @@ static dosevent_t getevent(int timeout, char str[3], short *x, short *y)
 
 			  default:
 			  	str[0] = 'M';
-			  	middle = True;
+			  	middle = ElvTrue;
 			  	break;
 			}
 			if (!middle && mevent.fsBtn != LEFT_DOWN && mevent.fsBtn != RIGHT_DOWN)
 			{
-				middle = True;
+				middle = ElvTrue;
 				str[0] = 'M';
 			}
 
@@ -371,7 +373,7 @@ int ttyread(buf, len, timeout)
 
 			/* make it become the current window */
 			(*gui->focusgw)(gw);
-			eventfocus(gw);
+			eventfocus(gw, ElvTrue);
 
 			/* handle the event */
 			switch (buf[got + 1])
@@ -445,9 +447,9 @@ void ttywrite(buf, len)
 static  int	arg[5];		/* arguments to an escape sequence */
 static	int	argno = -1;	/* # of args in arg[], or -1 is not in Esc */
 static	int	x, y;		/* cursor position */
-static	BOOLEAN	rvid;		/* in reverse-video mode? */
-static	BOOLEAN	uvid;		/* in false-underline mode? */
-static	BOOLEAN colored;	/* explicit colors set? (disables uvid) */
+static	ELVBOOL	rvid;		/* in reverse-video mode? */
+static	ELVBOOL	uvid;		/* in false-underline mode? */
+static	ELVBOOL colored;	/* explicit colors set? (disables uvid) */
 	int	i, j;
 
 	/* if not using the BIOS, then just write the characters to stdout */
@@ -606,19 +608,19 @@ static	BOOLEAN colored;	/* explicit colors set? (disables uvid) */
 						if (rvid)
 						{
 							v_attr(0x0000, 0x0077);
-							rvid = False;
+							rvid = ElvFalse;
 						}
 						if (uvid && !colored)
 						{
 							v_attr(0x0000, 0x0040);
-							uvid = False;
+							uvid = ElvFalse;
 						}
-						colored = False;
+						colored = ElvFalse;
 						v_attr(0xff88, 0x0700);
 						break;
 
 					  case 1:
-					  	v_attr(0x0000, 0x0808);
+					  	v_attr(0x0808, 0x0808);
 					  	break;
 
 					  case 4:
@@ -628,13 +630,13 @@ static	BOOLEAN colored;	/* explicit colors set? (disables uvid) */
 						}
 						else
 						{
-							uvid = (BOOLEAN)!uvid;
+							uvid = (ELVBOOL)!uvid;
 							v_attr(0x7700, 0x0140);
 						}
 					  	break;
 
 					  case 5: 
-					  	v_attr(0x0000, 0x8080);
+					  	v_attr(0x8080, 0x8080);
 					  	break;
 
 					  case 7:
@@ -643,26 +645,34 @@ static	BOOLEAN colored;	/* explicit colors set? (disables uvid) */
 						 * because we need to force
 						 * underlining off.
 						 */
-						rvid = (BOOLEAN)!rvid;
+						rvid = (ELVBOOL)!rvid;
 						v_attr(0x7700, rvid ? 0x7077 : 0x0777);
 						break;
 
-					  case 30: v_attr(0x0007, 0x0000); break;
-					  case 31: v_attr(0x0007, 0x0004); break;
-					  case 32: v_attr(0x0007, 0x0002); break;
-					  case 33: v_attr(0x0007, 0x0006); break;
-					  case 34: v_attr(0x0007, 0x0001); break;
-					  case 35: v_attr(0x0007, 0x0005); break;
-					  case 36: v_attr(0x0007, 0x0003); break;
-					  case 37: v_attr(0x0007, 0x0007); break;
-					  case 40: v_attr(0x0070, 0x0000); colored = True; break;
-					  case 41: v_attr(0x0070, 0x0040); colored = True; break;
-					  case 42: v_attr(0x0070, 0x0020); colored = True; break;
-					  case 43: v_attr(0x0070, 0x0060); colored = True; break;
-					  case 44: v_attr(0x0070, 0x0010); colored = True; break;
-					  case 45: v_attr(0x0070, 0x0050); colored = True; break;
-					  case 46: v_attr(0x0070, 0x0030); colored = True; break;
-					  case 47: v_attr(0x0070, 0x0070); colored = uvid; break;
+					  case 30: v_attr(0x0007, 0x0000);break;
+					  case 31: v_attr(0x0007, 0x0004);break;
+					  case 32: v_attr(0x0007, 0x0002);break;
+					  case 33: v_attr(0x0007, 0x0006);break;
+					  case 34: v_attr(0x0007, 0x0001);break;
+					  case 35: v_attr(0x0007, 0x0005);break;
+					  case 36: v_attr(0x0007, 0x0003);break;
+					  case 37: v_attr(0x0007, 0x0007);break;
+					  case 40: v_attr(0x0070, 0x0000);
+						   colored = ElvTrue;	  break;
+					  case 41: v_attr(0x0070, 0x0040);
+						   colored = ElvTrue;	  break;
+					  case 42: v_attr(0x0070, 0x0020);
+						   colored = ElvTrue;	  break;
+					  case 43: v_attr(0x0070, 0x0060);
+						   colored = ElvTrue;	  break;
+					  case 44: v_attr(0x0070, 0x0010);
+						   colored = ElvTrue;	  break;
+					  case 45: v_attr(0x0070, 0x0050);
+						   colored = ElvTrue;	  break;
+					  case 46: v_attr(0x0070, 0x0030);
+						   colored = ElvTrue;	  break;
+					  case 47: v_attr(0x0070, 0x0070);
+						   colored = uvid;	  break;
 					}
 				}
 				argno = -1;
@@ -690,29 +700,29 @@ char *ttytermtype()
 		type = TTY_DEFAULT;
 	if (!strcmp(type, "ansi"))
 		type = "dosansi";
-	usebios = (BOOLEAN)!strcmp(type, "pcbios");
+	usebios = (ELVBOOL)!strcmp(type, "pcbios");
 	return type;
 }
 
 
 /* This function gets the window size. */
-BOOLEAN ttysize(linesptr, colsptr)
+ELVBOOL ttysize(linesptr, colsptr)
 	int	*linesptr;	/* where to store the number of rows */
 	int	*colsptr;	/* where to store the number of columns */
 {
 	pccols = *colsptr = v_cols();
 	pcrows = *linesptr = v_rows();
-	return True;
+	return ElvTrue;
 }
 
 
 /* Check for signs of boredom from user, so we can abort a time-consuming
  * operation.  Here we check to see if SIGINT has been caught recently.
  */
-BOOLEAN ttypoll(reset)
-	BOOLEAN	reset;
+ELVBOOL ttypoll(reset)
+	ELVBOOL	reset;
 {
 	(void)kbhit();
-	return (BOOLEAN)(ttycaught != 0);
+	return (ELVBOOL)(ttycaught != 0);
 }
 #endif /* GUI_TERMCAP */

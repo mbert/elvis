@@ -70,7 +70,7 @@ goto done
 cd exeos2
 del *gcc.exe
 cd ..
-make -f osos2/Makefile.os2 elvis-2.1_4-os2.tar.gz
+make -f osos2/Makefile.os2 elvis-2.2j-os2.tar.gz
 goto done
 
 :all

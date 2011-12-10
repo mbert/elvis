@@ -2,9 +2,11 @@
 
 /* Copyright 1997 by Steve Kirkendall */
 
-char id_xscroll[] = "$Id: xscroll.c,v 2.8 1998/11/21 01:42:04 steve Exp $";
 
 #include "elvis.h"
+#ifdef FEATURE_RCSID
+char id_xscroll[] = "$Id: xscroll.c,v 2.16 2003/10/17 17:41:23 steve Exp $";
+#endif
 #ifdef GUI_X11
 # include "guix11.h"
 
@@ -14,8 +16,8 @@ char id_xscroll[] = "$Id: xscroll.c,v 2.8 1998/11/21 01:42:04 steve Exp $";
 #define SB_BORDER		1	/* width of border around scrollbar */
 #define SB_MINTHUMB		4	/* minimum thumb size */
 
-static	BOOLEAN	paging;		/* clicking on button of current window? */
-static	BOOLEAN	thumbing;	/* dragging thumb of current window?*/
+static	ELVBOOL	paging;		/* clicking on button of current window? */
+static	ELVBOOL	thumbing;	/* dragging thumb of current window?*/
 static	int	dragfrom;	/* clicked height, relative to sb.top */
 
 /* Predict the size of a scrollbar */
@@ -23,10 +25,6 @@ void x_sb_predict(xw, w, h)
 	X11WIN	*xw;	/* top-level window where scrollbar will reside */
 	unsigned w, h;	/* size of the scrollbar */
 {
-	/* allocate the colors */
-	xw->sb.fgscroll = x_loadcolor(x_scrollbarfg, x_white);
-	xw->sb.bgscroll = x_loadcolor(x_scrollbarbg, x_black);
-
 	/* if scrollbar is disabled, then width is 0 */
 	if (!o_scrollbar)
 	{
@@ -57,10 +55,26 @@ void x_sb_create(xw, x, y)
 		return;
 
 	/* create the window for the scrollbar widget */
-	xw->sb.win = XCreateSimpleWindow(x_display, xw->win,
-	    x, y, xw->sb.w, xw->sb.h, 0, xw->sb.fgscroll, xw->sb.bgscroll);
-	if (x_mono)
-		XSetWindowBackgroundPixmap(x_display, xw->sb.win, x_gray);
+#ifdef FEATURE_IMAGE
+	if (ispixmap(colorinfo[x_scrollbarcolors].bg))
+	{
+		xw->sb.win = XCreateSimpleWindow(x_display, xw->win,
+			x, y, xw->sb.w, xw->sb.h, 0,
+			colorinfo[x_scrollcolors].bg,
+			pixmapof(colorinfo[x_scrollbarcolors].bg).pixel);
+		XSetWindowBackgroundPixmap(x_display, xw->sb.win,
+			pixmapof(colorinfo[x_scrollbarcolors].bg).pixmap);
+	}
+	else
+#endif
+	{
+		xw->sb.win = XCreateSimpleWindow(x_display, xw->win,
+				x, y, xw->sb.w, xw->sb.h, 0,
+				colorinfo[x_scrollcolors].bg,
+				colorinfo[x_scrollbarcolors].bg);
+		if (x_mono)
+			XSetWindowBackgroundPixmap(x_display, xw->sb.win, x_gray);
+	}
 	XSelectInput(x_display, xw->sb.win,
 	    ButtonPressMask|ButtonMotionMask|ButtonReleaseMask|ExposureMask);
 
@@ -142,7 +156,7 @@ void x_sb_setstate(xw, newstate)
 		}
 
 		/* draw the stop sign */
-		XSetForeground(x_display, xw->gc, xw->ta.fgcursor);
+		XSetForeground(x_display, xw->gc, colorinfo[x_cursorcolors].fg);
 		XFillPolygon(x_display, xw->sb.win, xw->gc, vertex, 8,
 			Convex, CoordModeOrigin);
 		XSetForeground(x_display, xw->gc, x_white);
@@ -173,12 +187,6 @@ void x_sb_destroy(xw)
 	if (xw->sb.w == 0)
 		return;
 
-	/* free the colors */
-	x_unloadcolor(xw->sb.bgscroll);
-	xw->sb.bgscroll = x_black; 
-	x_unloadcolor(xw->sb.fgscroll);
-	xw->sb.bgscroll = x_white; 
-
 	/* free the window, if it isn't freed already */
 	if (xw->sb.win != None)
 		XDestroyWindow(x_display, xw->sb.win);
@@ -200,6 +208,26 @@ void x_sb_thumb(xw, top, bottom, total)
 	/* compute the positions of the top and bottom */
 	newtop = top * xw->sb.height / total;
 	newbottom = bottom * xw->sb.height / total + SB_MINTHUMB;
+
+	/* If recoloring, then adjust colors and maybe change the state */
+	if (xw->sb.recolored)
+	{
+		/* Adjust the window's background */
+#ifdef FEATURE_IMAGE
+		if (ispixmap(colorinfo[x_scrollbarcolors].bg))
+			XSetWindowBackgroundPixmap(x_display, xw->sb.win,
+				pixmapof(colorinfo[x_scrollbarcolors].bg).pixmap);
+		else
+#endif
+		if (x_mono)
+			XSetWindowBackgroundPixmap(x_display, xw->sb.win, x_gray);
+		else
+			XSetWindowBackground(x_display, xw->sb.win,
+				colorinfo[x_scrollbarcolors].bg);
+		xw->sb.recolored = ElvFalse;
+		x_sb_setstate(xw, X_SB_REDRAW);
+		return;
+	}
 
 	/* if no change, then do nothing */
 	if (newtop == xw->sb.top && newbottom == xw->sb.bottom)
@@ -231,43 +259,43 @@ void x_sb_event(xw, event)
 	switch (event->type)
 	{
 	  case ButtonPress:
-		if (event->xbutton.y < xw->sb.offset)
+		if (event->xbutton.y < (int)xw->sb.offset)
 		{
 			/* clicked on the up arrow */
 			(void)eventscroll((GUIWIN *)xw, SCROLL_BACKLN, 1L, 0L);
-			paging = True;
+			paging = ElvTrue;
 			x_ev_repeat(event, x_repeating ? 0 : o_scrollbartime);
-			x_didcmd = True;
+			x_didcmd = ElvTrue;
 		}
-		else if (event->xbutton.y >= xw->sb.h - xw->sb.offset)
+		else if (event->xbutton.y >= (int)(xw->sb.h - xw->sb.offset))
 		{
 			/* clicked on the down arrow */
 			(void)eventscroll((GUIWIN *)xw, SCROLL_FWDLN, 1L, 0L);
-			paging = True;
+			paging = ElvTrue;
 			x_ev_repeat(event, x_repeating ? 0 : o_scrollbartime);
-			x_didcmd = True;
+			x_didcmd = ElvTrue;
 		}
-		else if (event->xbutton.y < xw->sb.offset + xw->sb.top)
+		else if (event->xbutton.y < (int)(xw->sb.offset + xw->sb.top))
 		{
 			/* clicked before the thumb */
 			(void)eventscroll((GUIWIN *)xw, SCROLL_BACKSCR, 1L, 0L);
-			paging = True;
+			paging = ElvTrue;
 			x_ev_repeat(event, x_repeating ? 0 : o_scrollbartime);
-			x_didcmd = True;
+			x_didcmd = ElvTrue;
 		}
-		else if (event->xbutton.y >= xw->sb.offset + xw->sb.bottom)
+		else if (event->xbutton.y >= (int)(xw->sb.offset + xw->sb.bottom))
 		{
 			/* clicked after the thumb */
 			(void)eventscroll((GUIWIN *)xw, SCROLL_FWDSCR, 1L, 0L);
-			paging = True;
+			paging = ElvTrue;
 			x_ev_repeat(event, x_repeating ? 0 : o_scrollbartime);
-			x_didcmd = True;
+			x_didcmd = ElvTrue;
 		}
 		else
 		{
 			/* clicked on the thumb - prepare for MotionNotify */
 			dragfrom = event->xbutton.y - xw->sb.top;
-			thumbing = True;
+			thumbing = ElvTrue;
 		}
 		break;
 
@@ -279,16 +307,16 @@ void x_sb_event(xw, event)
 			thumbto = event->xbutton.y - dragfrom;
 			if (thumbto < 0)
 				thumbto = 0;
-			else if (thumbto > xw->sb.height)
+			else if (thumbto > (int)xw->sb.height)
 				thumbto = xw->sb.height;
 			(void)eventscroll((GUIWIN *)xw, SCROLL_PERCENT, thumbto, (long)xw->sb.height);
 		}
-		x_didcmd = True;
+		x_didcmd = ElvTrue;
 		break;
 
 	  case ButtonRelease:
 		x_ev_repeat(NULL, 0L);
-		thumbing = paging = False;
+		thumbing = paging = ElvFalse;
 		break;
 
 	  case Expose:
@@ -297,27 +325,10 @@ void x_sb_event(xw, event)
 	}
 }
 
-void x_sb_recolor(xw, font)
-	X11WIN *xw;	/* window to be recolored */
-	_char_	font;	/* indicates which colors were changed */
+void x_sb_recolor(xw)
+	X11WIN	*xw;
 {
-	/* we only care about changes to scrollbar colors */
-	if (font != 's')
-		return;
-
-	/* free the old colors */
-	x_unloadcolor(xw->sb.fgscroll);
-	x_unloadcolor(xw->sb.bgscroll);
-
-	/* load the new colors, defaulting to white-on-black */
-	xw->sb.fgscroll = x_loadcolor(x_scrollbarfg, x_white);
-	xw->sb.bgscroll = x_loadcolor(x_scrollbarbg, x_black);
-
-	/* if we have a scrollbar window, then change its background */
-	if (xw->sb.w != 0)
-		XSetWindowBackground(x_display, xw->sb.win, xw->sb.bgscroll);
-
-	/* redraw the scrollbar */
-	x_sb_setstate(xw, X_SB_REDRAW);
+	/* Arrange for colors to change on next update */
+	xw->sb.recolored = ElvTrue;
 }
 #endif /* defined(GUI_X11) */

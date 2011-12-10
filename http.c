@@ -1,14 +1,17 @@
 /* http.c */
 
 #include "elvis.h"
+#ifdef FEATURE_RCSID
+char id_http[] = "$Id: http.c,v 2.11 2003/10/17 17:41:23 steve Exp $";
+#endif
 #ifdef PROTOCOL_HTTP
 
 static sockbuf_t *sb;
 
-/* Open an HTTP resource for reading.  Returns True if successful, or False
+/* Open an HTTP resource for reading.  Returns ElvTrue if successful, or False
  * for error (after giving an error message).
  */
-BOOLEAN httpopen(site_port, resource)
+ELVBOOL httpopen(site_port, resource)
 	char	*site_port;	/* host name and optional port number */
 	char	*resource;	/* name of file at remote host */
 {
@@ -19,13 +22,13 @@ BOOLEAN httpopen(site_port, resource)
 	if (!sb)
 	{
 		/* error message already given */
-		return False;
+		return ElvFalse;
 	}
 
 	/* Send the "GET" request to the HTTP server.  Note that netputline()
 	 * will add a second CRLF pair after the "HTTP/1.0" string.  This is
 	 * important, because when an HTTP server sees "HTTP/1.0" it expects
-	 * suplemental information to appear on following lines, up to the
+	 * supplemental information to appear on following lines, up to the
 	 * next blank line.  It won't process the request until it sees that
 	 * blank line.
 	 */
@@ -35,7 +38,7 @@ BOOLEAN httpopen(site_port, resource)
 	 || !netputline(sb, "", NULL, NULL))
 	{
 		/* error message already given */
-		return False;
+		return ElvFalse;
 	}
 
 	/* Success, so far.  Now ready to begin reading data. */
@@ -43,7 +46,7 @@ BOOLEAN httpopen(site_port, resource)
 
 	/* Fill the receive buffer. */
 	if (!netread(sb))
-		return False;
+		return ElvFalse;
 
 	/* If the response starts with "HTTP", then assume it is in MIME
 	 * format.  Skip the header, and watch for a "Content-Length:" line.
@@ -55,7 +58,7 @@ BOOLEAN httpopen(site_port, resource)
 			/* Convert the header label to lowercase */
 			for (p = line; *p && *p != ':'; p++)
 			{
-				*p = tolower(*p);
+				*p = elvtolower(*p);
 			}
 
 			/* If "Content-Length:" then allow url.c to display
@@ -68,7 +71,7 @@ BOOLEAN httpopen(site_port, resource)
 		}
 	}
 
-	return True;
+	return ElvTrue;
 }
 
 
@@ -95,7 +98,7 @@ int httpread(buf, nbytes)
 }
 
 /* close the socket */
-void httpclose P_((void))
+void httpclose()
 {
 	netdisconnect(sb);
 }

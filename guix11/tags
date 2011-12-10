@@ -1,0 +1,455 @@
+!_TAG_FILE_FORMAT	2	/supported features/
+!_TAG_FILE_SORTED	1	/0=unsorted, 1=sorted/
+!_TAG_PROGRAM_AUTHOR	Steve Kirkendall	/kirkenda@cs.pdx.edu/
+!_TAG_PROGRAM_NAME	Elvis Ctags	//
+!_TAG_PROGRAM_URL	ftp://ftp.cs.pdx.edu/pub/elvis/README.html	/official site/
+!_TAG_PROGRAM_VERSION	2.2i-beta	//
+APPDEFAULTS	guix11.c	20;"	d	ln:20	file:
+DEFAULT_BACKGROUND	guix11.c	34;"	d	ln:34	file:
+DEFAULT_BLINKTIME	guix11.c	39;"	d	ln:39	file:
+DEFAULT_BORDERWIDTH	guix11.c	27;"	d	ln:27	file:
+DEFAULT_CONTROLFONT	guix11.c	36;"	d	ln:36	file:
+DEFAULT_CURSORCOLOR	guix11.c	37;"	d	ln:37	file:
+DEFAULT_DBLCLICKTIME	guix11.c	35;"	d	ln:35	file:
+DEFAULT_FOREGROUND	guix11.c	33;"	d	ln:33	file:
+DEFAULT_GEOMETRY	guix11.c	32;"	d	ln:32	file:
+DEFAULT_ICON	guix11.c	24;"	d	ln:24	file:
+DEFAULT_NORMALFONT	guix11.c	31;"	d	ln:31	file:
+DEFAULT_OUTLINEMONO	guix11.c	26;"	d	ln:26	file:
+DEFAULT_OWNCOLOR	guix11.c	38;"	d	ln:38	file:
+DEFAULT_SCROLLBAR	guix11.c	46;"	d	ln:46	file:
+DEFAULT_SCROLLBARLEFT	guix11.c	28;"	d	ln:28	file:
+DEFAULT_SCROLLBARTIME	guix11.c	45;"	d	ln:45	file:
+DEFAULT_SCROLLBARWIDTH	guix11.c	44;"	d	ln:44	file:
+DEFAULT_SCROLLWHEELSPEED	guix11.c	47;"	d	ln:47	file:
+DEFAULT_STATUSBAR	guix11.c	30;"	d	ln:30	file:
+DEFAULT_STOPSHELL	guix11.c	25;"	d	ln:25	file:
+DEFAULT_TOOLBAR	guix11.c	29;"	d	ln:29	file:
+DEFAULT_TOOLBARBG	guix11.c	43;"	d	ln:43	file:
+DEFAULT_TOOLBARFG	guix11.c	42;"	d	ln:42	file:
+DEFAULT_TOOLBG	guix11.c	41;"	d	ln:41	file:
+DEFAULT_TOOLFG	guix11.c	40;"	d	ln:40	file:
+DEFAULT_XENCODING	guix11.c	48;"	d	ln:48	file:
+FT_DEFAULT	xdialog.h	10;"	ln:10	enum:X_FIELDTYPE
+FT_FILE	xdialog.h	10;"	ln:10	enum:X_FIELDTYPE
+FT_LOCKED	xdialog.h	10;"	ln:10	enum:X_FIELDTYPE
+FT_NUMBER	xdialog.h	10;"	ln:10	enum:X_FIELDTYPE
+FT_ONEOF	xdialog.h	10;"	ln:10	enum:X_FIELDTYPE
+FT_STRING	xdialog.h	10;"	ln:10	enum:X_FIELDTYPE
+HOMEDEFAULTS	guix11.c	21;"	d	ln:21	file:
+MAXPIXMAPS	guix11.h	47;"	d	ln:47
+MAXTOOLS	xstatus.h	3;"	d	ln:3
+MAXTOOLS	xtool.h	3;"	d	ln:3
+NO_XLOCALE	guix11.h	25;"	d	ln:25
+NUMBER_LENGTH	xdialog.c	11;"	d	ln:11	file:
+SB_BEVEL	xscroll.c	15;"	d	ln:15	file:
+SB_BORDER	xscroll.c	16;"	d	ln:16	file:
+SB_GAP	xscroll.c	14;"	d	ln:14	file:
+SB_MINTHUMB	xscroll.c	17;"	d	ln:17	file:
+STRING_LENGTH	xdialog.c	12;"	d	ln:12	file:
+ST_ADJACENT	xstatus.c	14;"	d	ln:14	file:
+ST_BEVEL	xstatus.c	13;"	d	ln:13	file:
+TB_ADJACENT	xtool.c	14;"	d	ln:14	file:
+TB_BEVEL	xtool.c	13;"	d	ln:13	file:
+TB_GAP	xtool.c	15;"	d	ln:15	file:
+TB_REDRAW	xtool.c	16;"	d	ln:16	file:
+TOOL	xtool.c	/^} TOOL;$/;"	t	ln:33
+WIN2XW	guix11.c	180;"	d	ln:180	file:
+X11WIN	guix11.h	/^typedef struct x11win_s X11WIN;$/;"	t	ln:34
+XK_MISCELLANY	guix11.h	13;"	d	ln:13
+XK_XKB_KEYS	guix11.h	14;"	d	ln:14
+X_BUTTON	xdialog.h	/^} X_BUTTON;$/;"	t	ln:33
+X_FIELD	xdialog.h	/^} X_FIELD;$/;"	t	ln:20
+X_FIELDTYPE	xdialog.h	/^} X_FIELDTYPE;$/;"	v	ln:10
+X_LOADEDCOLOR	xmisc.h	/^} X_LOADEDCOLOR;$/;"	t	ln:23
+X_LOADEDFONT	xmisc.h	/^} X_LOADEDFONT;$/;"	t	ln:12
+X_SB_BLANK	xscroll.h	3;"	ln:3	enum:X_SCROLLSTATE
+X_SB_NORMAL	xscroll.h	3;"	ln:3	enum:X_SCROLLSTATE
+X_SB_REDRAW	xscroll.h	3;"	ln:3	enum:X_SCROLLSTATE
+X_SB_STOP	xscroll.h	3;"	ln:3	enum:X_SCROLLSTATE
+X_SCROLLBAR	xscroll.h	/^} X_SCROLLBAR;$/;"	t	ln:17
+X_SCROLLSTATE	xscroll.h	/^typedef enum { X_SB_REDRAW, X_SB_NORMAL, X_SB_BLANK, X_SB_STOP } X_SCROLLSTATE;$/;"	v	ln:3
+X_STATUSBAR	xstatus.h	/^} X_STATUSBAR;$/;"	t	ln:21
+X_TEXTAREA	xtext.h	/^} X_TEXTAREA;$/;"	t	ln:19
+X_TOOLBAR	xtool.h	/^} X_TOOLBAR;$/;"	t	ln:16
+XrmCombineFileDatabase	xmisc.c	/^void XrmCombineFileDatabase(filename, target_db, override)$/;"	f	ln:478
+addbutton	xdialog.c	/^static X_BUTTON *addbutton(dia, label, shape, key)$/;"	f	ln:31	file:
+addline	xtool.c	/^static void addline(retptr, label, op, value)$/;"	f	ln:202	file:
+allreconfig	guix11.c	/^static BOOLEAN allreconfig;$/;"	v	ln:300	file:
+argv0	guix11.c	/^static char	*argv0;			\/* name of program *\/$/;"	v	ln:149	file:
+base	xdialog.h	62;"	ln:62	struct:dialog_t
+beep	guix11.c	/^static void beep(gw)$/;"	f	ln:2037	file:
+bevel	xtool.c	/^static int	bevel;		\/* appearance of clicked button *\/$/;"	v	ln:47	file:
+bg	xtext.h	19;"	ln:19	struct:X_TEXTAREA
+boolean	guix11.c	56;"	ln:56	file:
+bottom	xscroll.h	17;"	ln:17	struct:X_SCROLLBAR
+button	xdialog.h	62;"	ln:62	struct:dialog_t
+button_s	xdialog.h	/^typedef struct button_s$/;"	s	ln:21
+cancel	xdialog.h	62;"	ln:62	struct:dialog_t
+catchErrors	guix11.c	/^static int catchErrors(disp, err)$/;"	f	ln:701	file:
+cellbase	xtext.h	19;"	ln:19	struct:X_TEXTAREA
+cellh	xtext.h	19;"	ln:19	struct:X_TEXTAREA
+cellw	xdialog.h	62;"	ln:62	struct:dialog_t
+cellw	xtext.h	19;"	ln:19	struct:X_TEXTAREA
+class	guix11.c	56;"	ln:56	file:
+click	xdialog.h	62;"	ln:62	struct:dialog_t
+clicked	xtool.c	/^static TOOL	*clicked;	\/* a tool which has been clicked, not released *\/$/;"	v	ln:44	file:
+clientaction	guix11.c	/^static BOOLEAN clientaction(argc, argv)$/;"	f	ln:709	file:
+clipbuf	xclip.c	/^static char	*clipbuf;	\/* pointer to malloc'ed buffer of chars to\/from X *\/$/;"	v	ln:12	file:
+clipsize	xclip.c	/^static long	clipsize;	\/* total number of bytes in clipbuf *\/$/;"	v	ln:13	file:
+clipused	xclip.c	/^static long	clipused;	\/* if reading, total number of bytes read previously *\/$/;"	v	ln:14	file:
+clipwriting	xclip.c	/^static BOOLEAN	clipwriting;	\/* True if cutting to X, False if pasting from X *\/$/;"	v	ln:15	file:
+clrtoeol	guix11.c	/^static BOOLEAN clrtoeol(gw)$/;"	f	ln:2028	file:
+color	guix11.c	/^static BOOLEAN color(fontcode, colornam, isfg, colorptr, rgb)$/;"	f	ln:2366	file:
+colors	xmisc.c	/^static X_LOADEDCOLOR	*colors;	\/* list of allocated colors *\/$/;"	v	ln:15	file:
+column	xstatus.h	21;"	ln:21	struct:X_STATUSBAR
+columns	xtext.h	19;"	ln:19	struct:X_TEXTAREA
+comment	xtool.c	33;"	ln:33	struct:TOOL
+cooked	guix11.c	194;"	ln:194	file:
+creategw	guix11.c	/^static BOOLEAN creategw(name, firstcmd)$/;"	f	ln:1706	file:
+createic	guix11.c	/^static XIC createic(window)$/;"	f	ln:1636	file:
+current	xdialog.h	62;"	ln:62	struct:dialog_t
+cursor	xdialog.h	62;"	ln:62	struct:dialog_t
+cursor	xtext.h	19;"	ln:19	struct:X_TEXTAREA
+cursx	xtext.h	19;"	ln:19	struct:X_TEXTAREA
+cursy	xtext.h	19;"	ln:19	struct:X_TEXTAREA
+database	guix11.c	/^static XrmDatabase database;		\/* resources for this screen *\/$/;"	v	ln:148	file:
+definecolor	guix11.c	/^static void definecolor(font, foreground, background, fg, bg)$/;"	f	ln:817	file:
+desc	xdialog.h	62;"	ln:62	struct:dialog_t
+destroygw	guix11.c	/^static void destroygw(gw, force)$/;"	f	ln:1250	file:
+dialog_s	xdialog.h	/^typedef struct dialog_s$/;"	s	ln:34
+dialog_t	xdialog.h	/^} dialog_t;$/;"	t	ln:62
+dragfrom	xscroll.c	/^static	int	dragfrom;	\/* clicked height, relative to sb.top *\/$/;"	v	ln:21	file:
+draw	guix11.c	/^static void draw(gw, fg, bg, bits, text, len)$/;"	f	ln:1979	file:
+draw1pane	xstatus.c	/^static int draw1pane(xw, pos, text, wideptr)$/;"	f	ln:31	file:
+draw1tool	xtool.c	/^static void draw1tool(xw, tool, bevel)$/;"	f	ln:165	file:
+drawbutton	xdialog.c	/^static void drawbutton(dia, btn)$/;"	f	ln:80	file:
+drawtext	xdialog.c	/^static void drawtext(dia, row)$/;"	f	ln:137	file:
+excmd	xdialog.h	62;"	ln:62	struct:dialog_t
+excmd	xtool.c	33;"	ln:33	struct:TOOL
+expose	xdialog.c	/^static void expose(dia)$/;"	f	ln:1244	file:
+exposerow	xdialog.c	/^static void exposerow(dia, row, fromscratch)$/;"	f	ln:1157	file:
+field	xdialog.h	62;"	ln:62	struct:dialog_t
+findbutton	xdialog.c	/^static X_BUTTON *findbutton(dia, x, y)$/;"	f	ln:117	file:
+findtool	xtool.c	/^static TOOL *findtool(label, isnew)$/;"	f	ln:52	file:
+flags	guix11.c	194;"	ln:194	file:
+flush	guix11.c	/^static void flush()$/;"	f	ln:1954	file:
+focusgw	guix11.c	/^static BOOLEAN focusgw(gw)$/;"	f	ln:1318	file:
+fontinfo	xmisc.h	12;"	ln:12	struct:X_LOADEDFONT
+fonts	xmisc.c	/^static X_LOADEDFONT	*fonts;		\/* list of allocated fonts *\/$/;"	v	ln:14	file:
+freecolor	guix11.c	/^static void freecolor(color, isfg)$/;"	f	ln:2486	file:
+freetool	xtool.c	/^static void freetool(tool)$/;"	f	ln:103	file:
+fromwin	guix11.c	/^static Window	fromwin;		\/* window which invoked elvis *\/$/;"	v	ln:150	file:
+ft	xdialog.h	20;"	ln:20	struct:X_FIELD
+gap	xtool.c	33;"	ln:33	struct:TOOL
+gc	xdialog.h	62;"	ln:62	struct:dialog_t
+guicmd	guix11.c	/^static BOOLEAN guicmd(gw, extra)$/;"	f	ln:2084	file:
+guix11	guix11.c	/^GUI guix11 =$/;"	v	ln:2543
+h	xdialog.h	33;"	ln:33	struct:X_BUTTON
+h	xdialog.h	62;"	ln:62	struct:dialog_t
+h	xscroll.h	17;"	ln:17	struct:X_SCROLLBAR
+h	xstatus.h	21;"	ln:21	struct:X_STATUSBAR
+h	xtext.h	19;"	ln:19	struct:X_TEXTAREA
+h	xtool.h	16;"	ln:16	struct:X_TOOLBAR
+height	xscroll.h	17;"	ln:17	struct:X_SCROLLBAR
+iconimage	guix11.c	/^static Pixmap iconimage; \/* the custom icon image *\/$/;"	v	ln:173	file:
+iconname	guix11.c	/^static char   *iconname; \/* NULL to use default, else name of loaded xpm file *\/$/;"	v	ln:172	file:
+iconshape	guix11.c	/^static Pixmap iconshape; \/* shape mask for the image *\/$/;"	v	ln:174	file:
+id	xtool.c	33;"	ln:33	struct:TOOL
+id_guix11	guix11.c	/^char id_guix11[] = "$Id: guix11.c,v 2.73 2003\/07\/04 23:59:27 steve Exp $";$/;"	v	ln:8
+id_xclip	xclip.c	/^char id_xclip[] = "$Id: xclip.c,v 2.6 2003\/01\/16 22:21:54 steve Exp $";$/;"	v	ln:6
+id_xdialog	xdialog.c	/^char id_xdialog[] = "$Id: xdialog.c,v 2.28 2003\/01\/17 00:11:56 steve Exp $";$/;"	v	ln:6
+id_xevent	xevent.c	/^char id_xevent[] = "$Id: xevent.c,v 2.24 2003\/07\/04 23:59:27 steve Exp $";$/;"	v	ln:5
+id_xmisc	xmisc.c	/^char id_xmisc[] = "$Id: xmisc.c,v 2.23 2003\/01\/29 20:01:05 steve Exp $";$/;"	v	ln:8
+id_xscroll	xscroll.c	/^char id_xscroll[] = "$Id: xscroll.c,v 2.14 2002\/11\/10 00:31:28 steve Exp $";$/;"	v	ln:8
+id_xstatus	xstatus.c	/^char id_xstatus[] = "$Id: xstatus.c,v 2.14 2002\/11\/10 00:31:28 steve Exp $";$/;"	v	ln:8
+id_xtext	xtext.c	/^char id_xtext[] = "$Id: xtext.c,v 2.29 2003\/01\/26 19:43:33 steve Exp $";$/;"	v	ln:5
+id_xtool	xtool.c	/^char id_xtool[] = "$Id: xtool.c,v 2.17 2003\/01\/22 19:36:14 steve Exp $";$/;"	v	ln:8
+ignoreErrors	guix11.c	/^static int ignoreErrors(disp, err)$/;"	f	ln:648	file:
+in	xtool.c	33;"	ln:33	struct:TOOL
+info	xstatus.h	21;"	ln:21	struct:X_STATUSBAR
+init	guix11.c	/^static int init(argc, argv)$/;"	f	ln:847	file:
+ispixmap	guix11.h	57;"	d	ln:57
+istool	xtool.c	/^static BOOLEAN istool(xw, tool, x, y)$/;"	f	ln:149	file:
+key	xdialog.h	33;"	ln:33	struct:X_BUTTON
+keylabel	guix11.c	/^static int keylabel(given, givenlen, label, rawin)$/;"	f	ln:2261	file:
+keyoneof	xdialog.c	/^static CHAR *keyoneof(dia, key)$/;"	f	ln:831	file:
+keys	guix11.c	/^} keys[] =$/;"	v	ln:194	file:
+keystring	xdialog.c	/^static CHAR *keystring(dia, key)$/;"	f	ln:910	file:
+keystroke	xdialog.c	/^static void keystroke(dia, key)$/;"	f	ln:995	file:
+keytime	xevent.c	/^static long	keytime;$/;"	v	ln:14	file:
+keyxw	xevent.c	/^static X11WIN	*keyxw;$/;"	v	ln:15	file:
+label	guix11.c	194;"	ln:194	file:
+label	xdialog.h	20;"	ln:20	struct:X_FIELD
+label	xdialog.h	33;"	ln:33	struct:X_BUTTON
+label	xtool.c	33;"	ln:33	struct:TOOL
+lablen	xdialog.h	33;"	ln:33	struct:X_BUTTON
+learn	xstatus.h	21;"	ln:21	struct:X_STATUSBAR
+learnpos	xstatus.h	21;"	ln:21	struct:X_STATUSBAR
+learnwidth	xstatus.h	21;"	ln:21	struct:X_STATUSBAR
+limit	xdialog.h	20;"	ln:20	struct:X_FIELD
+line	xstatus.h	21;"	ln:21	struct:X_STATUSBAR
+links	xmisc.h	12;"	ln:12	struct:X_LOADEDFONT
+loadresources	guix11.c	/^static void loadresources P_((void))$/;"	f	ln:304	file:
+loop	guix11.c	/^static void loop P_((void))$/;"	f	ln:1428	file:
+lwidth	xdialog.h	20;"	ln:20	struct:X_FIELD
+makecurrent	xdialog.c	/^static void makecurrent(dia, row)$/;"	f	ln:776	file:
+mode	xstatus.h	21;"	ln:21	struct:X_STATUSBAR
+modepos	xstatus.h	21;"	ln:21	struct:X_STATUSBAR
+modewidth	xstatus.h	21;"	ln:21	struct:X_STATUSBAR
+moveto	guix11.c	/^static void moveto(gw, column, row)$/;"	f	ln:1963	file:
+name	guix11.c	56;"	ln:56	file:
+name	xdialog.h	20;"	ln:20	struct:X_FIELD
+name	xdialog.h	62;"	ln:62	struct:dialog_t
+name	xmisc.h	12;"	ln:12	struct:X_LOADEDFONT
+name	xmisc.h	23;"	ln:23	struct:X_LOADEDCOLOR
+next	xdialog.h	33;"	ln:33	struct:X_BUTTON
+next	xdialog.h	62;"	ln:62	struct:dialog_t
+next	xmisc.h	12;"	ln:12	struct:X_LOADEDFONT
+next	xmisc.h	23;"	ln:23	struct:X_LOADEDCOLOR
+next	xtool.c	33;"	ln:33	struct:TOOL
+nextbgmap	guix11.c	/^static int nextbgmap;$/;"	v	ln:168	file:
+nextcursor	xtext.h	19;"	ln:19	struct:X_TEXTAREA
+nfields	xdialog.h	62;"	ln:62	struct:dialog_t
+number	guix11.c	56;"	ln:56	file:
+o_aasqueeze	guix11.h	167;"	d	ln:167
+o_altkey	guix11.h	149;"	d	ln:149
+o_antialias	guix11.h	166;"	d	ln:166
+o_autoiconify	guix11.h	148;"	d	ln:148
+o_blinktime	guix11.h	140;"	d	ln:140
+o_boldfont	guix11.h	130;"	d	ln:130
+o_borderwidth	guix11.h	156;"	d	ln:156
+o_cancel	guix11.h	162;"	d	ln:162
+o_controlfont	guix11.h	132;"	d	ln:132
+o_dblclicktime	guix11.h	139;"	d	ln:139
+o_firstx	guix11.h	143;"	d	ln:143
+o_firsty	guix11.h	144;"	d	ln:144
+o_focusnew	guix11.h	153;"	d	ln:153
+o_font	guix11.h	129;"	d	ln:129
+o_help	guix11.h	163;"	d	ln:163
+o_icon	guix11.h	145;"	d	ln:145
+o_iconic	guix11.h	146;"	d	ln:146
+o_italicfont	guix11.h	131;"	d	ln:131
+o_outlinemono	guix11.h	155;"	d	ln:155
+o_scrollbar	guix11.h	137;"	d	ln:137
+o_scrollbarleft	guix11.h	136;"	d	ln:136
+o_scrollbartime	guix11.h	135;"	d	ln:135
+o_scrollbarwidth	guix11.h	134;"	d	ln:134
+o_scrollwheelspeed	guix11.h	159;"	d	ln:159
+o_stagger	guix11.h	150;"	d	ln:150
+o_statusbar	guix11.h	138;"	d	ln:138
+o_stopshell	guix11.h	147;"	d	ln:147
+o_submit	guix11.h	161;"	d	ln:161
+o_synccursor	guix11.h	164;"	d	ln:164
+o_textcursor	guix11.h	154;"	d	ln:154
+o_toolbar	guix11.h	133;"	d	ln:133
+o_warpback	guix11.h	151;"	d	ln:151
+o_warpto	guix11.h	152;"	d	ln:152
+o_xcolumns	guix11.h	142;"	d	ln:142
+o_xencoding	guix11.h	160;"	d	ln:160
+o_xrootheight	guix11.h	158;"	d	ln:158
+o_xrootwidth	guix11.h	157;"	d	ln:157
+o_xrows	guix11.h	141;"	d	ln:141
+offset	xscroll.h	17;"	ln:17	struct:X_SCROLLBAR
+paging	xscroll.c	/^static	BOOLEAN	paging;		\/* clicking on button of current window? *\/$/;"	v	ln:19	file:
+parsespec	xdialog.c	/^static void parsespec(dia)$/;"	f	ln:224	file:
+pinned	xdialog.h	62;"	ln:62	struct:dialog_t
+pixel	xmisc.h	23;"	ln:23	struct:X_LOADEDCOLOR
+pixmapof	guix11.h	58;"	d	ln:58
+recolored	xscroll.h	17;"	ln:17	struct:X_SCROLLBAR
+recolored	xstatus.h	21;"	ln:21	struct:X_STATUSBAR
+recolored	xtool.h	16;"	ln:16	struct:X_TOOLBAR
+resources	guix11.c	/^} resources[] =$/;"	v	ln:56	file:
+retitle	guix11.c	/^static void retitle(gw, name)$/;"	f	ln:1929	file:
+rgb	xmisc.h	23;"	ln:23	struct:X_LOADEDCOLOR
+root	guix11.c	/^static Window	root;			\/* root window *\/$/;"	v	ln:146	file:
+rootheight	guix11.c	/^static int	rootheight, rootwidth;	\/* size of root window *\/$/;"	v	ln:147	file:
+rootwidth	guix11.c	/^static int	rootheight, rootwidth;	\/* size of root window *\/$/;"	v	ln:147	file:
+rowh	xdialog.h	62;"	ln:62	struct:dialog_t
+rows	xtext.h	19;"	ln:19	struct:X_TEXTAREA
+rptevent	xevent.c	/^static XEvent	rptevent;$/;"	v	ln:17	file:
+rpttime	xevent.c	/^static long	rpttime;$/;"	v	ln:16	file:
+rulerpos	xstatus.h	21;"	ln:21	struct:X_STATUSBAR
+rulerwidth	xstatus.h	21;"	ln:21	struct:X_STATUSBAR
+safer	xtool.c	33;"	ln:33	struct:TOOL
+scroll	guix11.c	/^static BOOLEAN scroll(gw, qty, notlast)$/;"	f	ln:2012	file:
+scrollbar	guix11.c	/^static void scrollbar(gw, top, bottom, total)$/;"	f	ln:2069	file:
+setbg	guix11.c	/^static void setbg(gw, bg)$/;"	f	ln:2502	file:
+shape	xdialog.h	33;"	ln:33	struct:X_BUTTON
+shift	guix11.c	/^static BOOLEAN shift(gw, qty, rows)$/;"	f	ln:1996	file:
+shift	xdialog.h	62;"	ln:62	struct:dialog_t
+spec	xdialog.h	62;"	ln:62	struct:dialog_t
+spec	xtool.c	33;"	ln:33	struct:TOOL
+state	xdialog.h	33;"	ln:33	struct:X_BUTTON
+state	xscroll.h	17;"	ln:17	struct:X_SCROLLBAR
+status	guix11.c	/^static BOOLEAN status(gw, cmd, line, column, learn, mode)$/;"	f	ln:2241	file:
+statusbase	xstatus.c	/^static int	statusbase;	\/* vertical offset of label within pane *\/$/;"	v	ln:22	file:
+statusheight	xstatus.c	/^static int	statusheight;	\/* height of a pane, including bevel *\/$/;"	v	ln:21	file:
+stop	guix11.c	/^static RESULT stop(alwaysfork)$/;"	f	ln:2518	file:
+string	guix11.c	56;"	ln:56	file:
+submit	xdialog.h	62;"	ln:62	struct:dialog_t
+sym	guix11.c	194;"	ln:194	file:
+term	guix11.c	/^static void term()$/;"	f	ln:1569	file:
+test	guix11.c	/^static int test()$/;"	f	ln:663	file:
+textx	xdialog.h	33;"	ln:33	struct:X_BUTTON
+textx	xtool.c	33;"	ln:33	struct:TOOL
+texty	xdialog.h	33;"	ln:33	struct:X_BUTTON
+thumbing	xscroll.c	/^static	BOOLEAN	thumbing;	\/* dragging thumb of current window?*\/$/;"	v	ln:20	file:
+tool_s	xtool.c	/^typedef struct tool_s$/;"	s	ln:19	file:
+toolbase	xtool.c	/^static int	toolbase;	\/* vertical offset of label within button *\/$/;"	v	ln:46	file:
+toolheight	xtool.c	/^static int	toolheight;	\/* height of a button, including bevel *\/$/;"	v	ln:45	file:
+tools	xtool.c	/^static TOOL	*tools;		\/* items in the toolbar *\/$/;"	v	ln:43	file:
+top	xscroll.h	17;"	ln:17	struct:X_SCROLLBAR
+twidth	xdialog.h	20;"	ln:20	struct:X_FIELD
+undercurs	xtext.h	19;"	ln:19	struct:X_TEXTAREA
+usage	guix11.c	/^static void usage()$/;"	f	ln:1225	file:
+value	xdialog.h	20;"	ln:20	struct:X_FIELD
+w	xdialog.h	33;"	ln:33	struct:X_BUTTON
+w	xdialog.h	62;"	ln:62	struct:dialog_t
+w	xscroll.h	17;"	ln:17	struct:X_SCROLLBAR
+w	xstatus.h	21;"	ln:21	struct:X_STATUSBAR
+w	xtext.h	19;"	ln:19	struct:X_TEXTAREA
+w	xtool.h	16;"	ln:16	struct:X_TOOLBAR
+when	xtool.c	33;"	ln:33	struct:TOOL
+width	xscroll.h	17;"	ln:17	struct:X_SCROLLBAR
+width	xtool.c	33;"	ln:33	struct:TOOL
+win	xdialog.h	62;"	ln:62	struct:dialog_t
+win	xscroll.h	17;"	ln:17	struct:X_SCROLLBAR
+win	xstatus.h	21;"	ln:21	struct:X_STATUSBAR
+win	xtext.h	19;"	ln:19	struct:X_TEXTAREA
+win	xtool.h	16;"	ln:16	struct:X_TOOLBAR
+wpoll	guix11.c	/^static BOOLEAN wpoll(reset)$/;"	f	ln:1555	file:
+x	xdialog.h	33;"	ln:33	struct:X_BUTTON
+x	xscroll.h	17;"	ln:17	struct:X_SCROLLBAR
+x	xstatus.h	21;"	ln:21	struct:X_STATUSBAR
+x	xtext.h	19;"	ln:19	struct:X_TEXTAREA
+x	xtool.h	16;"	ln:16	struct:X_TOOLBAR
+x0	xdialog.h	62;"	ln:62	struct:dialog_t
+x11desc	guix11.c	/^static OPTDESC x11desc[] =$/;"	v	ln:230	file:
+x11win_s	guix11.h	/^struct x11win_s$/;"	s	ln:62
+x_background	guix11.c	/^char *x_background;$/;"	v	ln:277
+x_bgmap	guix11.c	/^struct x_bgmap_s x_bgmap[MAXPIXMAPS];$/;"	t	ln:167
+x_bgmap_s	guix11.h	/^extern struct x_bgmap_s$/;"	u	ln:49
+x_black	guix11.c	/^unsigned long	x_white, x_black;	\/* default color values *\/$/;"	v	ln:124
+x_clipclose	xclip.c	/^void x_clipclose()$/;"	f	ln:241
+x_clipevent	xclip.c	/^void x_clipevent(event)$/;"	f	ln:19
+x_clipopen	xclip.c	/^BOOLEAN	x_clipopen(forwrite)$/;"	f	ln:101
+x_clipread	xclip.c	/^int x_clipread(text, len)$/;"	f	ln:219
+x_clipwrite	xclip.c	/^int x_clipwrite(text, len)$/;"	f	ln:196
+x_colormap	guix11.c	/^Colormap	x_colormap;		\/* colormap shared by elvis windows *\/$/;"	v	ln:123
+x_compound_text	guix11.c	/^Atom		x_compound_text;	\/* value for COMPOUND_TEXT atom *\/$/;"	v	ln:133
+x_cursorcolors	guix11.c	/^int x_cursorcolors;$/;"	v	ln:281
+x_defaultbold	guix11.c	/^X_LOADEDFONT	*x_defaultbold;		\/* bold font, or NULL to fake it *\/$/;"	v	ln:135
+x_defaultitalic	guix11.c	/^X_LOADEDFONT	*x_defaultitalic;	\/* italic font, or NULL to fake it *\/$/;"	v	ln:136
+x_defaultnormal	guix11.c	/^X_LOADEDFONT	*x_defaultnormal;	\/* normal font *\/$/;"	v	ln:134
+x_depth	guix11.c	/^int		x_depth;		\/* bits per pixel *\/$/;"	v	ln:122
+x_dialogs	xdialog.c	/^dialog_t	*x_dialogs;$/;"	v	ln:15
+x_didcmd	xevent.c	/^BOOLEAN		x_didcmd;$/;"	v	ln:11
+x_display	guix11.c	/^Display		*x_display;		\/* X11 display *\/$/;"	v	ln:118
+x_dl_add	xdialog.c	/^void x_dl_add(xw, name, desc, excmd, spec)$/;"	f	ln:452
+x_dl_delete	xdialog.c	/^void x_dl_delete(dia)$/;"	f	ln:705
+x_dl_destroy	xdialog.c	/^void x_dl_destroy(xw)$/;"	f	ln:756
+x_dl_docolor	xdialog.c	/^void x_dl_docolor(X11WIN *xw)$/;"	f	ln:1555
+x_dl_event	xdialog.c	/^void x_dl_event(w, event)$/;"	f	ln:1359
+x_drawbevel	xmisc.c	/^void x_drawbevel(xw, win, x, y, w, h, dir, height)$/;"	f	ln:295
+x_drawstring	xmisc.c	/^void x_drawstring(display, win, gc, x, y, str, len)$/;"	f	ln:447
+x_elvis_cutbuffer	guix11.c	/^Atom		x_elvis_cutbuffer;	\/* value for ELVIS_CUTBUFFER atom *\/$/;"	v	ln:127
+x_elvis_icon	guix11.c	/^Pixmap		x_elvis_icon;		\/* elvis' window icon *\/$/;"	v	ln:140
+x_elvis_icon_height	guix11.c	/^unsigned	x_elvis_icon_height;	\/* height of x_elvis_icon *\/$/;"	v	ln:143
+x_elvis_icon_width	guix11.c	/^unsigned	x_elvis_icon_width;	\/* width of x_elvis_icon *\/$/;"	v	ln:142
+x_elvis_pin_icon	guix11.c	/^Pixmap		x_elvis_pin_icon;	\/* elvis' window icon, with pushpin *\/$/;"	v	ln:141
+x_elvis_server	guix11.c	/^Atom		x_elvis_server;		\/* value for ELVIS_SERVER atom *\/$/;"	v	ln:130
+x_ev_poll	xevent.c	/^BOOLEAN x_ev_poll(reset)$/;"	f	ln:629
+x_ev_process	xevent.c	/^void x_ev_process(event)$/;"	f	ln:176
+x_ev_repeat	xevent.c	/^void x_ev_repeat(event, timeout)$/;"	f	ln:25
+x_ev_wait	xevent.c	/^XEvent *x_ev_wait P_((void))$/;"	f	ln:45
+x_foreground	guix11.c	/^char *x_foreground;$/;"	v	ln:278
+x_gray	guix11.c	/^Pixmap		x_gray;			\/* gray pixmap, for mono screens *\/$/;"	v	ln:139
+x_guidecolors	guix11.c	/^int x_guidecolors;$/;"	v	ln:288
+x_hasfocus	guix11.c	/^X11WIN		*x_hasfocus;		\/* window with keyboard focus, or NULL *\/$/;"	v	ln:138
+x_loadcolor	xmisc.c	/^unsigned long x_loadcolor(name, def, rgb)$/;"	f	ln:163
+x_loadedcolor_s	xmisc.h	/^typedef struct x_loadedcolor_s$/;"	s	ln:14
+x_loadedcontrol	guix11.c	/^X_LOADEDFONT	*x_loadedcontrol;	\/* toolbar font *\/$/;"	v	ln:137
+x_loadedfont_s	xmisc.h	/^typedef struct x_loadedfont_s$/;"	s	ln:3
+x_loadfont	xmisc.c	/^X_LOADEDFONT *x_loadfont(name)$/;"	f	ln:35
+x_mono	guix11.c	/^BOOLEAN		x_mono;			\/* is this a monochrome display? *\/$/;"	v	ln:125
+x_now	guix11.c	/^Time		x_now;			\/* timestamp of current event *\/$/;"	v	ln:126
+x_optvals	guix11.c	/^struct x_optvals_s x_optvals;$/;"	t	ln:274
+x_optvals_s	guix11.h	/^extern struct x_optvals_s$/;"	u	ln:116
+x_ownselection	xclip.c	/^BOOLEAN		x_ownselection;	\/* does elvis own the X11 selection? *\/$/;"	v	ln:11
+x_reconfig	guix11.c	/^void x_reconfig(xw, columns, rows)$/;"	f	ln:499
+x_repeating	xevent.c	/^BOOLEAN		x_repeating;$/;"	v	ln:12
+x_resource_manager	guix11.c	/^Atom		x_resource_manager;	\/* value for MANAGER_RESOURCES atom *\/$/;"	v	ln:131
+x_sb_create	xscroll.c	/^void x_sb_create(xw, x, y)$/;"	f	ln:49
+x_sb_destroy	xscroll.c	/^void x_sb_destroy(xw)$/;"	f	ln:183
+x_sb_event	xscroll.c	/^void x_sb_event(xw, event)$/;"	f	ln:248
+x_sb_predict	xscroll.c	/^void x_sb_predict(xw, w, h)$/;"	f	ln:24
+x_sb_recolor	xscroll.c	/^void x_sb_recolor(xw)$/;"	f	ln:328
+x_sb_setstate	xscroll.c	/^void x_sb_setstate(xw, newstate)$/;"	f	ln:98
+x_sb_thumb	xscroll.c	/^void x_sb_thumb(xw, top, bottom, total)$/;"	f	ln:196
+x_screen	guix11.c	/^int		x_screen;		\/* screen number *\/$/;"	v	ln:119
+x_scrollbarcolors	guix11.c	/^int x_scrollbarcolors;$/;"	v	ln:285
+x_scrollcolors	guix11.c	/^int x_scrollcolors;$/;"	v	ln:284
+x_st_create	xstatus.c	/^void x_st_create(xw, x, y)$/;"	f	ln:102
+x_st_destroy	xstatus.c	/^void x_st_destroy(xw)$/;"	f	ln:140
+x_st_event	xstatus.c	/^void x_st_event(xw, event)$/;"	f	ln:288
+x_st_info	xstatus.c	/^void x_st_info(xw, info)$/;"	f	ln:280
+x_st_predict	xstatus.c	/^void x_st_predict(xw, w, h)$/;"	f	ln:78
+x_st_recolor	xstatus.c	/^void x_st_recolor(xw)$/;"	f	ln:307
+x_st_status	xstatus.c	/^void x_st_status(xw, info, line, column, learn, mode)$/;"	f	ln:151
+x_statusbarcolors	guix11.c	/^int x_statusbarcolors;$/;"	v	ln:287
+x_statuscolors	guix11.c	/^int x_statuscolors;$/;"	v	ln:286
+x_ta_clrtoeol	xtext.c	/^void x_ta_clrtoeol(xw)$/;"	f	ln:638
+x_ta_create	xtext.c	/^void x_ta_create(xw, x, y)$/;"	f	ln:39
+x_ta_destroy	xtext.c	/^void x_ta_destroy(xw)$/;"	f	ln:81
+x_ta_draw	xtext.c	/^void x_ta_draw(xw, fg, bg, bits, text, len)$/;"	f	ln:271
+x_ta_drawcursor	xtext.c	/^void x_ta_drawcursor(xw)$/;"	f	ln:117
+x_ta_erasecursor	xtext.c	/^void x_ta_erasecursor(xw)$/;"	f	ln:96
+x_ta_event	xtext.c	/^void x_ta_event(xw, event)$/;"	f	ln:674
+x_ta_moveto	xtext.c	/^void x_ta_moveto(xw, column, row)$/;"	f	ln:250
+x_ta_predict	xtext.c	/^void x_ta_predict(xw, columns, rows)$/;"	f	ln:10
+x_ta_scroll	xtext.c	/^void x_ta_scroll(xw, qty, notlast)$/;"	f	ln:586
+x_ta_setbg	xtext.c	/^void x_ta_setbg(xw, bg)$/;"	f	ln:856
+x_ta_shift	xtext.c	/^void x_ta_shift(xw, qty, rows)$/;"	f	ln:543
+x_targets	guix11.c	/^Atom		x_targets;		\/* value for TARGETS atom *\/$/;"	v	ln:132
+x_tb_config	xtool.c	/^BOOLEAN x_tb_config(gap, label, op, value)$/;"	f	ln:638
+x_tb_create	xtool.c	/^void x_tb_create(xw, x, y)$/;"	f	ln:369
+x_tb_destroy	xtool.c	/^void x_tb_destroy(xw)$/;"	f	ln:407
+x_tb_draw	xtool.c	/^void x_tb_draw(xw, fromscratch)$/;"	f	ln:417
+x_tb_dump	xtool.c	/^CHAR *x_tb_dump(label)$/;"	f	ln:228
+x_tb_event	xtool.c	/^void x_tb_event(xw, event)$/;"	f	ln:530
+x_tb_predict	xtool.c	/^void x_tb_predict(xw, w, h)$/;"	f	ln:260
+x_tb_recolor	xtool.c	/^void x_tb_recolor(xw)$/;"	f	ln:707
+x_toolbarcolors	guix11.c	/^int x_toolbarcolors;$/;"	v	ln:283
+x_toolcolors	guix11.c	/^int x_toolcolors;$/;"	v	ln:282
+x_unloadcolor	xmisc.c	/^void x_unloadcolor(pixel)$/;"	f	ln:248
+x_unloadfont	xmisc.c	/^void x_unloadfont(font)$/;"	f	ln:116
+x_visual	guix11.c	/^Visual		*x_visual;		\/* visual *\/$/;"	v	ln:120
+x_white	guix11.c	/^unsigned long	x_white, x_black;	\/* default color values *\/$/;"	v	ln:124
+x_winlist	guix11.c	/^X11WIN		*x_winlist;		\/* list of windows *\/$/;"	v	ln:121
+x_wm_delete_window	guix11.c	/^Atom		x_wm_delete_window;	\/* value for WM_DELETE_WINDOW atom *\/$/;"	v	ln:129
+x_wm_protocols	guix11.c	/^Atom		x_wm_protocols;		\/* value for WM_PROTOCOLS atom *\/$/;"	v	ln:128
+x_xftpixel	xmisc.c	/^XftColor *x_xftpixel(long pixel)$/;"	f	ln:18
+xerror_handler	guix11.c	/^static jmp_buf	xerror_handler;		\/* to recover from protocol errors *\/$/;"	v	ln:145	file:
+xftcolor	xmisc.h	23;"	ln:23	struct:X_LOADEDCOLOR
+xftdraw	xtext.h	19;"	ln:19	struct:X_TEXTAREA
+xftfont	xmisc.h	12;"	ln:12	struct:X_LOADEDFONT
+xoptisfont	guix11.c	/^static int xoptisfont(desc, val, newval)$/;"	f	ln:418	file:
+xoptisnumber	guix11.c	/^static int xoptisnumber(desc, val, newval)$/;"	f	ln:476	file:
+xscrollbarbg	guix11.c	/^static long xscrollbg, xscrollbarbg;$/;"	v	ln:293	file:
+xscrollbg	guix11.c	/^static long xscrollbg, xscrollbarbg;$/;"	v	ln:293	file:
+xstatusbarbg	guix11.c	/^static long xstatusfg, xstatusbg, xstatusbarfg, xstatusbarbg;$/;"	v	ln:292	file:
+xstatusbarfg	guix11.c	/^static long xstatusfg, xstatusbg, xstatusbarfg, xstatusbarbg;$/;"	v	ln:292	file:
+xstatusbg	guix11.c	/^static long xstatusfg, xstatusbg, xstatusbarfg, xstatusbarbg;$/;"	v	ln:292	file:
+xstatusfg	guix11.c	/^static long xstatusfg, xstatusbg, xstatusbarfg, xstatusbarbg;$/;"	v	ln:292	file:
+xtoolbarbg	guix11.c	/^static long xtoolfg, xtoolbg, xtoolbarfg, xtoolbarbg;$/;"	v	ln:291	file:
+xtoolbarfg	guix11.c	/^static long xtoolfg, xtoolbg, xtoolbarfg, xtoolbarbg;$/;"	v	ln:291	file:
+xtoolbg	guix11.c	/^static long xtoolfg, xtoolbg, xtoolbarfg, xtoolbarbg;$/;"	v	ln:291	file:
+xtoolfg	guix11.c	/^static long xtoolfg, xtoolbg, xtoolbarfg, xtoolbarbg;$/;"	v	ln:291	file:
+xw	xdialog.h	62;"	ln:62	struct:dialog_t
+y	xdialog.h	33;"	ln:33	struct:X_BUTTON
+y	xscroll.h	17;"	ln:17	struct:X_SCROLLBAR
+y	xstatus.h	21;"	ln:21	struct:X_STATUSBAR
+y	xtext.h	19;"	ln:19	struct:X_TEXTAREA
+y	xtool.h	16;"	ln:16	struct:X_TOOLBAR
+y0	xdialog.h	62;"	ln:62	struct:dialog_t

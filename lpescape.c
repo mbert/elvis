@@ -1,7 +1,6 @@
 /* lpescape.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_lpescape[] = "$Id: lpescape.c,v 2.16 1999/10/05 19:10:37 steve Exp $";
 
 
 /* This file contains a driver for printer types which use escape sequences
@@ -10,29 +9,46 @@ char id_lpescape[] = "$Id: lpescape.c,v 2.16 1999/10/05 19:10:37 steve Exp $";
 
 
 #include "elvis.h"
+#ifdef FEATURE_RCSID
+char id_lpescape[] = "$Id: lpescape.c,v 2.29 2003/10/17 17:41:23 steve Exp $";
+#endif
 #ifdef FEATURE_LPR
 
 /* These values are used to index into the following table of escape codes */
-typedef enum {BOLD, NOBOLD, UNDLN, NOUNDLN, ITALIC, NOITALIC, BEFORE, AFTER, GCMAP} CODE;
+typedef enum {BOLD, NOBOLD, UNDLN, NOUNDLN, ITALIC, NOITALIC, FIXED, NOFIXED, BOXED, BEFORE, AFTER, GCMAP} CODE;
 
 #if USE_PROTOTYPES
-static void endfont(void);
 static void before(int minorno, void (*draw)(_CHAR_));
 static void fontch(_char_ font, _CHAR_ ch);
 static void page(int linesleft);
 static void after(int linesleft);
+static void putesc(CODE code);
 #endif
 
+
+/* This is a special "hp2" escape sequence.  It saves the cursor position,
+ * draws a half-tone rectangle the size of a single character, and then
+ * restores the cursor position.  This is used instead of the SHADE_CHAR
+ * for "hp2", because HP likes to replace the normal '\260' with a chunky
+ * character which is hard to read through.  Note that the initial Esc is
+ * omitted here, since putesc() will add one for us.
+ *	       Save RowAdj    Width    Height    Shade    Draw    Restore */
+#define HP2BOX "&f0S\033&a-90V\033*c72H\033*c120V\033*c17G\033*c2P\033&f1S"
+
+
+
 /* This table lists the escape codes used by each printer type */
-static char *codes[][9] =
-{	/* BOLD	NOBOLD	UNDLN	NOUNDLN	ITALIC	NOITALIC    BEFORE    	AFTER	    GCMAP */
-/*epson*/{"E",	"F",	"-1",	"-0",	"4",	"5",	    NULL,	NULL,	    "+++++++++-|*"},
-/*pana*/ {"E",	"F",	"-1",	"-0",	"4",	"5",	    "\033t1",	"\033t0",   "\300\301\331\303\305\264\332\302\277\304\263\371"},
-/*ibm*/	 {"E",	"F",	"-1",	"-0",	"4",	"5",	    NULL,	NULL,	    "\300\301\331\303\305\264\332\302\277\304\263\371"},
-/*hp*/	 {"(s3B","(s0B","&d1D",	"&d@",	"(s1S",	"(s0S",	    "\033(10U",	NULL,	    "\300\301\331\303\305\264\332\302\277\304\263\371"},
-/*dumb*/ {NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	    NULL,	NULL,	    "+++++++++-|*"},
-/*html*/ {"<b>","</b>",	"<u>",	"</u>",	"<i>",	"</i>",	    "<html><body><pre>",	"</pre></body></html>\n",    "+++++++++-|*"}
+static char *codes[][12] =
+{	/* BOLD	NOBOLD	UNDLN	NOUNDLN	ITALIC	NOITALIC FIXED	NOFIXED	BOXED		BEFORE 	AFTER	GCMAP */
+/*epson*/{"E",	"F",	"-1",	"-0",	"4",	"5",    "p0",	"p0",	"\260\b",	NULL,	NULL,	"+++++++++-|*"},
+/*pana*/ {"E",	"F",	"-1",	"-0",	"4",	"5",    "p0",	"p0",	"\260\b",	"t1",	"t0",	"\300\301\331\303\305\264\332\302\277\304\263\371"},
+/*ibm*/	 {"E",	"F",	"-1",	"-0",	"4",	"5",    "P0",	"P1",	"\260\b",	NULL,	NULL,	"\300\301\331\303\305\264\332\302\277\304\263\371"},
+/*hp*/	 {"(s3B","(s0B","&d1D",	"&d@",	"(s1S",	"(s0S", "(s0P",	"(s1P",	HP2BOX,		"(10U",	NULL,	"\300\301\331\303\305\264\332\302\277\304\263\371"},
+/*dumb*/ {NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	"",		NULL,	NULL,	"+++++++++-|*"},
+/*ansi*/ {"[1m","[22m",	"[4m",	"[24m",	NULL,	NULL,	NULL,	NULL,	"",		NULL,	NULL,	"+++++++++-|*"},
+/*html*/ {"<b>","</b>",	"<u>",	"</u>",	"<i>",	"</i>",	NULL,	NULL,	"",		"<html><body><pre>", "</pre></body></html>\n", "+++++++++-|*"}
 };
+
 
 /* This table is used for converting Latin-1 characters to PC-8 characters.
  * This is necessary because the printer is placed in PC-8 mode so that it can
@@ -64,31 +80,31 @@ static int ptype;
 static void (*prtchar) P_((_CHAR_ ch));
 
 /* This stores the font currently set for output */
-static char curfont = 'n';
+static int curfont;
 
-
-/* This function switches off a non-normal font */
-static void endfont()
+/* Output an escape sequence */
+static void putesc(code)
+	CODE	code;	/* which string to output */
 {
 	char	*scan;
 
-	switch (curfont)
+	/* if this printer has no such code, then do nothing */
+	scan = codes[ptype][code];
+	if (!scan)
+		return;
+
+	/* The "Esc" is implied, except for "html" where there is no "Esc".
+	 * Also, some special non-ASCII sequences, or control sequences, don't
+	 * need an "Esc".
+	 */
+	if (*scan != '<' && *scan >= ' ' && *scan <= '~')
+		(*prtchar)('\033');
+
+	/* Output the string */
+	while (*scan)
 	{
-	  case 'e':
-	  case 'b':	scan = codes[ptype][NOBOLD];	break;
-	  case 'u':	scan = codes[ptype][NOUNDLN];	break;
-	  case 'i':	scan = codes[ptype][NOITALIC];	break;
-	  default:	scan = NULL;
-	}
-	if (scan)
-	{
-		if (*scan != '<')
-			(*prtchar)('\033');
-		while (*scan)
-		{
-			(*prtchar)((_CHAR_)*scan);
-			scan++;
-		}
+		(*prtchar)((_CHAR_)*scan);
+		scan++;
 	}
 }
 
@@ -99,20 +115,15 @@ static void before(minorno, draw)
 	int	minorno;		/* which control codes to use */
 	void	(*draw) P_((_CHAR_));	/* function for printing a single character */
 {
-	char	*scan;
-
 	assert(minorno < QTY(codes));
 
 	/* set the ptype and out function */
 	ptype = minorno;
 	prtchar = draw;
-	curfont = '\n';
+	curfont = 1;
 
 	/* if there is a BEFORE string, output it now */
-	for (scan = codes[ptype][BEFORE]; scan && *scan; scan++)
-	{
-		(*prtchar)((_CHAR_)*scan);
-	}
+	putesc(BEFORE);
 
 	/* If the file appears to use Latin-1, and the lpconvert option is set,
 	 * and the printer type is a real printer (not "html") then set the
@@ -132,47 +143,143 @@ static void before(minorno, draw)
 	}
 }
 
+
 /* This function outputs font-change strings, if necessary, and then outputs
  * a character.
  */
 static void fontch(font, ch)
 	_char_	font;	/* font of the next character from text image */
-	_CHAR_	ch;	/* the next character */
+	_CHAR_	ch;	/* the next character to draw */
 {
 	char	*scan;
+	int	setting, resetting, tmp;
+	char	color[24];
+	int	newfg, oldfg;
 
-	/* is the font changing? */
+	if (font == 0)
+		font = 1;
+
+	/* initialize newfg just to avoid a bogus compiler warning */
+	newfg = 0;
+
 	if (font != curfont)
 	{
-		/* switch off a non-normal font, if we're in one */
-		endfont();
-
-		/* switch on a non-normal font, if we should be in one */
-		switch (font)
+		/* Determine which attributes must be set or reset */
+		resetting = colorinfo[curfont].da.bits & ~(COLOR_FG|COLOR_BG);
+		setting = colorinfo[font].da.bits & ~(COLOR_FG|COLOR_BG);
+		if (*codes[ptype] && **codes[ptype] == '[') /* ansi */
 		{
-		  case 'e':
-		  case 'b':	scan = codes[ptype][BOLD];	break;
-		  case 'u':	scan = codes[ptype][UNDLN];	break;
-		  case 'i':	scan = codes[ptype][ITALIC];	break;
-		  default:	scan = NULL;
-		}
-		if (scan)
-		{
-			if (*scan != '<')
-				(*prtchar)('\033');
-			while (*scan)
+			/* Ansi can set both the foreground & background, but
+			 * for now we'll just do foreground.  Convert RGB
+			 * colors to ansi.  This conversion may affect the
+			 * "bold" flag.
+			 *
+			 * Note that we use the "video" colors instead of the
+			 * "lp" colors.  The "lp" colors were chosen to contrast
+			 * with white, while the "video" colors were chosen to
+			 * contrast with elvis' best guess of the terminal
+			 * background color.
+			 */
+			newfg = colorrgb2ansi(ElvTrue, colorinfo[font].da.fg_rgb);
+			if (newfg > 10)
 			{
-				(*prtchar)((_CHAR_)*scan);
-				scan++;
+				if (setting & COLOR_BOLD)
+					newfg = 7;
+				else
+					setting |= COLOR_BOLD, newfg -= 10;
 			}
+			oldfg = colorrgb2ansi(ElvTrue, colorinfo[curfont].da.fg_rgb);
+			if (oldfg > 10)
+			{
+				if (resetting & COLOR_BOLD)
+					oldfg = 7;
+				else
+					resetting |= COLOR_BOLD, oldfg -= 10;
+			}
+
+			/* if color is different, then we must set it */
+			if (newfg != oldfg)
+				setting |= COLOR_FG;
+		}
+		else if (*codes[ptype] && **codes[ptype] == '<') /* html */
+		{
+			/* HTML is tricky because attributes might not mix,
+			 * and because start and end tags must nest correctly.
+			 * Consequently, when changing any bold/italic/underline
+			 * attribute, we must change all of them.  The
+			 * "resetting" and "setting" variables already reflect
+			 * this.  HOWEVER, if there is no change among the
+			 * bold/italic/underline bits and the color doesn't
+			 * change, then we don't need to make any change.
+			 */
+			if (o_lpcolor && colorinfo[curfont].fg != colorinfo[font].fg)
+			{
+				if (colorinfo[curfont].da.fg_rgb[0] != 0
+				 || colorinfo[curfont].da.fg_rgb[1] != 0
+				 || colorinfo[curfont].da.fg_rgb[2] != 0)
+					resetting |= COLOR_FG;
+				if (colorinfo[font].da.fg_rgb[0] != 0
+				 || colorinfo[font].da.fg_rgb[1] != 0
+				 || colorinfo[font].da.fg_rgb[2] != 0)
+					setting |= COLOR_FG;
+			}
+			else if (((resetting^setting) & (COLOR_BOLD|COLOR_ITALIC|COLOR_UNDERLINED)) == 0)
+				resetting = setting = 0;
+		}
+		else
+		{
+			/* Don't set/reset any attributes which are unchanged */
+			tmp = resetting;
+			resetting &= ~setting;
+			setting &= ~tmp;
 		}
 
-		/* remember what font we just switched to. */
+		/* Reset some modes */
+		if (resetting & COLOR_BOLD)
+			putesc(NOBOLD);
+		if (resetting & COLOR_ITALIC)
+			putesc(NOITALIC);
+		if (resetting & COLOR_UNDERLINED)
+			putesc(NOUNDLN);
+		if (resetting & COLOR_PROP)
+			putesc(FIXED);
+		if (resetting & COLOR_FG)
+		{
+			if (*codes[ptype][0] == '<') /* html */
+				for (scan = "</font>"; *scan; scan++)
+					(*prtchar)((_CHAR_)*scan);
+		}
+
+		/* Set some modes */
+		if (setting & COLOR_FG)
+		{
+			if (*codes[ptype][0] == '<') /* html */
+				sprintf(color, "<font color=\"#%02x%02x%02x\">", colorinfo[font].da.fg_rgb[0],
+					colorinfo[font].da.fg_rgb[1], colorinfo[font].da.fg_rgb[2]);
+			else /* ansi */
+				sprintf(color, "\033[3%dm", newfg);
+			for (scan = color; *scan; scan++)
+				(*prtchar)((_CHAR_)*scan);
+		}
+		if (setting & COLOR_PROP)
+			putesc(NOFIXED);
+		if (setting & COLOR_UNDERLINED)
+			putesc(UNDLN);
+		if (setting & COLOR_ITALIC)
+			putesc(ITALIC);
+		if (setting & COLOR_BOLD)
+			putesc(BOLD);
+
+		/* Okay!  We have now switched fonts! */
 		curfont = font;
 	}
 
+	/* If BOXED then print a grayscale rectangle the size of a character. */
+	if (colorinfo[font].da.bits & COLOR_BOXED)
+		putesc(BOXED);
+
 	/* if in graphic mode, convert graphic characters */
-	if (font == 'g' && codes[ptype][GCMAP])
+	if ((colorinfo[font].da.bits & COLOR_GRAPHIC) && codes[ptype][GCMAP])
 	{
 		switch (ch)
 		{
@@ -201,7 +308,7 @@ static void fontch(font, ch)
 		if (ch == '<')
 			scan = "&lt;";
 		else if (ch == '>')
-			scan = "&gt";
+			scan = "&gt;";
 		else if (ch == '&')
 			scan = "&amp;";
 		else
@@ -220,7 +327,7 @@ static void fontch(font, ch)
 static void page(linesleft)
 	int	linesleft;	/* number of lines remaining on page */
 {
-	/* output a formfeed character */
+	/* output a formfeed character, except for "html" */
 	if (*codes[ptype] && **codes[ptype] != '<')
 		(*prtchar)('\f');
 }
@@ -232,13 +339,8 @@ static void page(linesleft)
 static void after(linesleft)
 	int	linesleft;	/* number of lines remaining on final page */
 {
-	char	*scan;
-
 	/* if there is an AFTER string, output it now */
-	for (scan = codes[ptype][AFTER]; scan && *scan; scan++)
-	{
-		(*prtchar)((_CHAR_)*scan);
-	}
+	putesc(AFTER);
 
 	/* and maybe output a formfeed, too */
 	if (o_lpformfeed && *codes[ptype] && **codes[ptype] != '<')
@@ -248,11 +350,12 @@ static void after(linesleft)
 }
 
 /* These describe the printer types supported by these functions */
-LPTYPE lpepson ={"epson", 0, True, before, fontch, page, after};
-LPTYPE lppana =	{"pana", 1, True, before, fontch, page, after};
-LPTYPE lpibm =	{"ibm", 2, True, before, fontch, page, after};
-LPTYPE lphp =	{"hp", 3, True, before, fontch, page, after};
-LPTYPE lpdumb =	{"dumb", 4, True, before, fontch, page, after};
-LPTYPE lphtml =	{"html", 5, True, before, fontch, page, after};
+LPTYPE lpepson ={"epson", 0, ElvTrue, before, fontch, page, after};
+LPTYPE lppana =	{"pana", 1, ElvTrue, before, fontch, page, after};
+LPTYPE lpibm =	{"ibm", 2, ElvTrue, before, fontch, page, after};
+LPTYPE lphp =	{"hp", 3, ElvTrue, before, fontch, page, after};
+LPTYPE lpdumb =	{"dumb", 4, ElvTrue, before, fontch, page, after};
+LPTYPE lpansi = {"ansi", 5, ElvTrue, before, fontch, page, after};
+LPTYPE lphtml =	{"html", 6, ElvTrue, before, fontch, page, after};
 
 #endif /* FEATURE_LPR */

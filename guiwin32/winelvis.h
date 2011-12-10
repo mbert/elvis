@@ -14,42 +14,16 @@ struct vkey {
    char        *rawin;
 };
 
-struct gwcolors {
-    COLORREF        bgcolor;
-    COLORREF        fgcolor;
-    COLORREF        fbgcolor;
-    COLORREF        ffgcolor;
-    COLORREF        bbgcolor;
-    COLORREF        bfgcolor;
-    COLORREF        ebgcolor;
-    COLORREF        efgcolor;
-    COLORREF        ibgcolor;
-    COLORREF        ifgcolor;
-    COLORREF        ubgcolor;
-    COLORREF        ufgcolor;
-};
-
 struct gwopts {
     OPTVAL          scrollbar;
     OPTVAL          toolbar;
     OPTVAL          statusbar;
     OPTVAL          menubar;
     OPTVAL          font;
-    OPTVAL          normalstyle;
-    OPTVAL          fixedstyle;
-    OPTVAL          boldstyle;
-    OPTVAL          emphasizedstyle;
-    OPTVAL          italicstyle;
-    OPTVAL          underlinedstyle;
-};
-
-struct gwfonts {
-    HFONT           nfont;
-    HFONT           ffont;
-    HFONT           bfont;
-    HFONT           efont;
-    HFONT           ifont;
-    HFONT           ufont;
+    OPTVAL	    propfont;
+    OPTVAL	    titleformat;
+    OPTVAL	    scrollbgimage;
+    OPTVAL	    iconimage;
 };
 
 typedef struct GUI_WINDOW {
@@ -59,8 +33,8 @@ typedef struct GUI_WINDOW {
     HWND                toolbarHWnd;
     HWND                statusbarHWnd;
     HMENU               menuHndl;
-    HDC                 dc;
-    HBRUSH              hBrush;
+    COLORREF		bg;
+    long                scrolled;
     int                 active;
     int                 currow;
     int                 curcol;
@@ -75,25 +49,29 @@ typedef struct GUI_WINDOW {
     long                scrollsize;
     ELVCURSOR           cursor_type;
     int                 caret;
-    struct gwfonts      fonts;
-    struct gwcolors     colors;
+    HFONT               fonts[8];
     struct gwopts       options;
 } GUI_WINDOW;
+
+typedef struct
+{
+	char				*name;
+	unsigned char		rgb[3];
+} GUI_COLORTBL;
 
 #define o_scrollbar(p)       (p)->options.scrollbar.value.boolean
 #define o_toolbar(p)         (p)->options.toolbar.value.boolean
 #define o_statusbar(p)       (p)->options.statusbar.value.boolean
 #define o_menubar(p)         (p)->options.menubar.value.boolean
 #define o_font(p)            (p)->options.font.value.string
-#define o_normalstyle(p)     (p)->options.normalstyle.value.string
-#define o_fixedstyle(p)      (p)->options.fixedstyle.value.string
-#define o_boldstyle(p)       (p)->options.boldstyle.value.string
-#define o_italicstyle(p)     (p)->options.italicstyle.value.string
-#define o_emphasizedstyle(p) (p)->options.emphasizedstyle.value.string
-#define o_underlinedstyle(p) (p)->options.underlinedstyle.value.string
+#define o_propfont(p)        (p)->options.propfont.value.string
+#define o_titleformat(p)     (p)->options.titleformat.value.string
+#define o_scrollbgimage(p)   (p)->options.scrollbgimage.value.boolean
 
-#define NUM_OPTIONS     11
-#define DEFAULT_FONT    "Fixedsys"
+#define NUM_OPTIONS     8
+#define DEFAULT_FONT    "Courier new*10"
+#define DEFAULT_PROPFONT "Times*10"
+#define DEFAULT_TITLEFORMAT "$1"
 
 extern GUI_WINDOW       gw_def_win;
 extern HINSTANCE        hInst;
@@ -102,6 +80,8 @@ extern int              gw_printing_ok;
 extern HCURSOR          hLeftArrow;
 extern HCURSOR          hRightArrow;
 extern HCURSOR          selectedCursor;
+extern GUI_COLORTBL	    colortbl[];
+extern HICON            gwcustomicon;
 
 /* ---[ function prototypes ]------------------------------------------ */
 
@@ -117,7 +97,6 @@ extern BOOL CALLBACK DlgTags (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 extern BOOL CALLBACK DlgOptGui (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 extern BOOL CALLBACK DlgOptBuffer (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 extern BOOL CALLBACK DlgOptGlobal (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
-extern BOOL CALLBACK DlgOptSyntax (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 extern BOOL CALLBACK DlgOptWindow (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 extern BOOL CALLBACK DlgOptUser (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
@@ -128,6 +107,7 @@ extern int optstoretb (OPTDESC *opt, OPTVAL *val, Char *newval);
 extern int optstorestb (OPTDESC *opt, OPTVAL *val, Char *newval);
 extern int optstoremnu (OPTDESC *opt, OPTVAL *val, Char *newval);
 extern int optisfont (OPTDESC *opt, OPTVAL *val, Char *newval);
+extern int optisicon (OPTDESC *opt, OPTVAL *val, Char *newval);
 extern int optstoreattr (OPTDESC *opt, OPTVAL *val, Char *newval);
 
 extern void gw_disable_printing (GUI_WINDOW *gwp);
@@ -182,6 +162,14 @@ extern void gw_set_fonts (GUI_WINDOW *gwp);
 extern void gw_set_cursor (GUI_WINDOW *gwp, BOOLEAN chgshape);
 extern void gw_del_fonts (GUI_WINDOW *gwp);
 extern void gw_redraw_win (GUI_WINDOW *gwp);
+
+# ifdef FEATURE_IMAGE
+extern HBITMAP normalimage, idleimage;
+
+extern HBITMAP gw_load_xpm(char *filename, long tint, long *average, HBITMAP *mask);
+extern void gw_unload_xpm(HBITMAP bitmap);
+extern void gw_erase_rect(HDC hdc, RECT *rect, HBITMAP bitmap, long scrolled);
+#endif
 
 #endif
 

@@ -5,10 +5,9 @@
 */
 
 #define CHAR    Char
-#define BOOLEAN Boolean
 #include "elvis.h" 
 #undef CHAR
-#undef BOOLEAN 
+#undef ELVBOOL 
 
 #if defined (GUI_WIN32)
 
@@ -92,7 +91,7 @@ void gw_get_win_size (GUI_WINDOW *gwp)
     /* get current font size */
     dc = GetDC (gwp->clientHWnd);
     SetMapMode (dc, MM_TEXT);
-    SelectObject (dc, gwp->fonts.nfont);
+    SelectObject (dc, gwp->fonts[0]);
     GetTextMetrics (dc, &tm);
     ReleaseDC (gwp->clientHWnd, dc);
     gwp->xcsize = tm.tmAveCharWidth;
@@ -195,29 +194,20 @@ void gw_set_fonts (GUI_WINDOW *gwp)
 
 {
     LOGFONT         lf;
+    int             i;
 
     /* reset the structure */
     memset (&lf, 0, sizeof (LOGFONT));
 
     /* create the fonts */
     opt_parse_font (o_font (gwp), &lf);
-    opt_parse_attr (o_normalstyle (gwp), &lf);
-    gwp->fonts.nfont = CreateFontIndirect (&lf);
-
-    opt_parse_attr (o_fixedstyle (gwp), &lf);
-    gwp->fonts.ffont = CreateFontIndirect (&lf);
-
-    opt_parse_attr (o_boldstyle (gwp), &lf);
-    gwp->fonts.bfont = CreateFontIndirect (&lf);
-
-    opt_parse_attr (o_emphasizedstyle (gwp), &lf);
-    gwp->fonts.efont = CreateFontIndirect (&lf);
-
-    opt_parse_attr (o_italicstyle (gwp), &lf);
-    gwp->fonts.ifont = CreateFontIndirect (&lf);
-
-    opt_parse_attr (o_underlinedstyle (gwp), &lf);
-    gwp->fonts.ufont = CreateFontIndirect (&lf);
+    for (i = 0; i < QTY(gwp->fonts); i++)
+    {
+	lf.lfWeight = (i & 1) ? FW_BOLD : FW_NORMAL;
+	lf.lfItalic = (i & 2) ? TRUE : FALSE;
+	lf.lfUnderline = (i & 4) ? TRUE : FALSE;
+	gwp->fonts[i] = CreateFontIndirect (&lf);
+    }
 }
 
 /* --------------------------------------------------------------------
@@ -228,12 +218,10 @@ void gw_set_fonts (GUI_WINDOW *gwp)
 void gw_del_fonts (GUI_WINDOW *gwp)
 
 {
-    DeleteObject (gwp->fonts.nfont);
-    DeleteObject (gwp->fonts.ffont);
-    DeleteObject (gwp->fonts.bfont);
-    DeleteObject (gwp->fonts.efont);
-    DeleteObject (gwp->fonts.ifont);
-    DeleteObject (gwp->fonts.ufont);
+    int i;
+
+    for (i = 0; i < QTY(gwp->fonts); i++)
+	DeleteObject (gwp->fonts[i]);
 }
 
 /* --------------------------------------------------------------------
@@ -292,25 +280,18 @@ void gw_redraw_win (GUI_WINDOW *gwp)
     ELVCURSOR       cursor_type;
 
     if (gwp->active && !IsIconic (gwp->frameHWnd)) {
-	cursor_type = eventdraw ((GUIWIN *)gwp);
-	if (gwp->hBrush != NULL) {
-	    DeleteObject (gwp->hBrush);
-	    gwp->hBrush = NULL;
-	}
-	if (gwp->dc != NULL) {
-	    ReleaseDC (gwp->clientHWnd, gwp->dc);
-	    gwp->dc = NULL;
-	}
-	if (gwp->clientHWnd == GetFocus () && cursor_type != gwp->cursor_type) {
-	    if (gwp->cursor_type != CURSOR_NONE)
-		HideCaret (gwp->clientHWnd);
-	    gwp->cursor_type = cursor_type;
-	    DestroyCaret ();
-	    gw_set_cursor (gwp, True);
-	    ShowCaret (gwp->clientHWnd);
-	}
+		cursor_type = eventdraw ((GUIWIN *)gwp);
+		UpdateWindow(gwp->clientHWnd);
+		if (gwp->clientHWnd == GetFocus () && cursor_type != gwp->cursor_type) {
+			if (gwp->cursor_type != CURSOR_NONE)
+				HideCaret (gwp->clientHWnd);
+			gwp->cursor_type = cursor_type;
+			DestroyCaret ();
+			gw_set_cursor (gwp, ElvTrue);
+			ShowCaret (gwp->clientHWnd);
+		}
     }
 }
 
 #endif
-/* ex:se ts=4 sw=4: */
+/* ex:se sw=4 smarttab: */

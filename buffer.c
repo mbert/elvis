@@ -1,20 +1,26 @@
 /* buffer.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_buffer[] = "$Id: buffer.c,v 2.95 1999/10/08 18:03:03 steve Exp $";
 
 #include "elvis.h"
+#ifdef FEATURE_RCSID
+char id_buffer[] = "$Id: buffer.c,v 2.150 2003/10/17 17:41:23 steve Exp $";
+#endif
 
 #define swaplong(x,y)	{long tmp; tmp = (x); (x) = (y); (y) = tmp;}
 
 #if USE_PROTOTYPES
-static void proc(_BLKNO_ bufinfo, long nchars, long nlines, long changes, long prevloc, CHAR *name);
 static void freeundo(BUFFER buffer);
 static struct undo_s *allocundo(BUFFER buf);
-static void bufdo(BUFFER buf, BOOLEAN wipe);
+static void bufdo(BUFFER buf, ELVBOOL wipe);
+static void didmodify(BUFFER buf);
+# ifdef FEATURE_MISC
+  static void proc(_BLKNO_ bufinfo, long nchars, long nlines, long changes,
+  			long prevloc, CHAR *name);
+# endif
 # ifdef DEBUG_ALLOC
-static void checkundo(char *where);
-static void removeundo(struct undo_s *undo);
+  static void checkundo(char *where);
+  static void removeundo(struct undo_s *undo);
 # endif
 #endif
 
@@ -43,6 +49,13 @@ MSGIMP bufmsgtype = MSG_INFO;
  */
 BUFFER bufdefopts;
 
+#ifdef FEATURE_AUTOCMD
+/* This option is set while reading text into the buffer, so that it won't
+ * trigger an Edit autocmd.
+ */
+static ELVBOOL bufnoedit;
+#endif
+
 /* This array describes buffer options */
 static OPTDESC bdesc[] =
 {
@@ -59,23 +72,33 @@ static OPTDESC bdesc[] =
 	{"autoindent", "ai",	NULL,		NULL,		},
 	{"inputtab", "it",	opt1string,	optisoneof,	"tab spaces ex filename identifier"},
 	{"autotab", "at",	NULL,		NULL,		},
-	{"tabstop", "ts",	optnstring,	optisnumber,	"1:100"},
+	{"tabstop", "ts",	opttstring,	optistab,	"8"},
 	{"ccprg", "cp",		optsstring,	optisstring	},
 	{"equalprg", "ep",	optsstring,	optisstring	},
 	{"keywordprg", "kp",	optsstring,	optisstring	},
 	{"makeprg", "mp",	optsstring,	optisstring	},
 	{"paragraphs", "para",	optsstring,	optisstring	},
 	{"sections", "sect",	optsstring,	optisstring	},
-	{"shiftwidth", "sw",	optnstring,	optisnumber	},
+	{"shiftwidth", "sw",	opttstring,	optistab,	"8"},
 	{"undolevels", "ul",	optnstring,	optisnumber	},
 	{"textwidth", "tw",	optnstring,	optisnumber	},
 	{"internal", "internal",NULL,		NULL		},
 	{"bufdisplay", "bd",    optsstring,	optisstring	},
+	{"initialsyntax","isyn",NULL,		NULL		},
 	{"errlines", "errlines",optnstring,	optisnumber	},
 	{"readeol", "reol",	opt1string,	optisoneof,	"unix dos mac text binary"},
 	{"locked", "lock",	NULL,		NULL		},
 	{"partiallastline","pll",NULL,		NULL		},
-	{"putstyle", "ps",	opt1string,	optisoneof,	"character line rectangle"}
+	{"putstyle", "ps",	opt1string,	optisoneof,	"character line rectangle"},
+	{"timestamp", "time",	optsstring,	optisstring	},
+	{"guidewidth", "gw",	opttstring,	optistab	},
+	{"hlobject", "hlo",	optsstring,	optisstring	},
+	{"spell", "sp",		NULL,		NULL		},
+	{"lisp", "lisp",	NULL,		NULL		},
+	{"mapmode", "mm",	optsstring,	optisstring	},
+	{"smartargs", "sa",	NULL,		NULL		},
+	{"userprotocol", "up",	NULL,		NULL		},
+	{"bb", "bb",		optsstring,	optisstring	}
 };
 
 #ifdef DEBUG_ALLOC
@@ -139,6 +162,8 @@ static void removeundo(undo)
 # define checkundo(s)
 #endif
 
+#ifdef FEATURE_MISC
+
 /* This function is called during session file initialization.  It creates
  * a BUFFER struct for the buffer, and collects the undo versions.
  */
@@ -153,7 +178,7 @@ static void proc(bufinfo, nchars, nlines, changes, prevloc, name)
 	BUFFER		buf;
 	BLKNO		tmp;
 	struct undo_s	*undo, *scan, *lag;
-	BOOLEAN		internal;
+	ELVBOOL		internal;
 
 	/* try to find a buffer by this name */
 	for (buf = elvis_buffers; buf && CHARcmp(o_bufname(buf), name); buf = buf->next)
@@ -165,7 +190,7 @@ static void proc(bufinfo, nchars, nlines, changes, prevloc, name)
 	 */
 	if (!buf)
 	{
-		internal = (BOOLEAN)(!CHARncmp(name, toCHAR("Elvis "), 6) &&
+		internal = (ELVBOOL)(!CHARncmp(name, toCHAR("Elvis "), 6) &&
 				CHARncmp(name, toCHAR("Elvis untitled"), 14));
 		buf = bufalloc(name, bufinfo, internal);
 		buf->bufinfo = bufinfo;
@@ -179,25 +204,25 @@ static void proc(bufinfo, nchars, nlines, changes, prevloc, name)
 			CHARncmp(name, toCHAR("Elvis untitled"), 14))
 		{
 			/* probably an internal buffer */
-			optpreset(o_internal(buf), True, OPT_HIDE);
-			optpreset(o_modified(buf), False, OPT_HIDE);
-			optpreset(o_filename(buf), NULL, OPT_HIDE);
+			optpreset(o_internal(buf), ElvTrue, OPT_HIDE|OPT_NODFLT);
+			optpreset(o_modified(buf), ElvFalse, OPT_HIDE|OPT_NODFLT);
+			optpreset(o_filename(buf), NULL, OPT_HIDE|OPT_LOCK);
 		}
 		else
 		{
 			/* the filename is probably the same as the buffer name */
 			optpreset(o_filename(buf), CHARdup(name), OPT_FREE|OPT_HIDE);
-			optpreset(o_internal(buf), False, OPT_HIDE);
+			optpreset(o_internal(buf), ElvFalse, OPT_HIDE);
 
 			/* Mark it as readonly so the user will have to think
 			 * before clobbering an existing file.
 			 */
-			o_readonly(buf) = True;
+			optpreset(o_readonly(buf), ElvTrue, OPT_HIDE|OPT_NODFLT);
 
 			/* Mark it as modified, so the user has to think
 			 * before exitting and losing this session file.
 			 */
-			optpreset(o_modified(buf), True, OPT_HIDE);
+			optpreset(o_modified(buf), ElvTrue, OPT_HIDE|OPT_NODFLT);
 		}
 		return;
 	}
@@ -253,6 +278,7 @@ static void proc(bufinfo, nchars, nlines, changes, prevloc, name)
 	undo->undoredo = 'u';
 #endif
 }
+#endif /* FEATURE_MISC */
 
 /* Restart a session */
 void bufinit()
@@ -260,10 +286,14 @@ void bufinit()
 	assert(BUFOPTQTY == QTY(bdesc));
 
 	/* find any buffers left over from a previous edit */
+#ifndef FEATURE_MISC
+	lowinit(NULL);
+#else
 	lowinit(proc);
+#endif
 
 	/* create the default options buffer, if it doesn't exist already */
-	bufdefopts = bufalloc(toCHAR(DEFAULT_BUF), 0, True);
+	bufdefopts = bufalloc(toCHAR(DEFAULT_BUF), 0, ElvTrue);
 	bufoptions(bufdefopts);
 }
 
@@ -276,22 +306,24 @@ void bufinit()
 BUFFER bufalloc(name, bufinfo, internal)
 	CHAR	*name;	/* name of the buffer */
 	_BLKNO_	bufinfo;/* block number describing the buffer (0 to create) */
-	BOOLEAN internal;/* is this supposed to be an internal buffer? */
+	ELVBOOL internal;/* is this supposed to be an internal buffer? */
 {
 	BUFFER	buffer;
 	BUFFER	scan, lag;	/* used for inserting new buffer */
 	char	unique[255];	/* name of untitled buffer */
-	int	i = 1;		/* for generating a name for untitled buffer */
  static long	bufid = 1;	/* for generating bufid values */
+ static long	intbufid = -1;	/* used for generating internal names */
 
 	/* if no name was specified, generate a unique untitled name */
 	if (!name)
 	{
-		do
-		{
-			sprintf(unique, UNTITLED_BUF, i++);
-		} while (buffind(toCHAR(unique)));
+		sprintf(unique, UNTITLED_BUF, (int)(internal ? intbufid : bufid));
 		name = toCHAR(unique);
+		if (internal)
+			intbufid--;
+		/* Note that bufid will be incremented below, when initializing
+		 * the o_bufid(buf) option.
+		 */
 	}
 
 	/* see if there's already a buffer with that name */
@@ -315,23 +347,45 @@ BUFFER bufalloc(name, bufinfo, internal)
 	}
 
 	/* initialize the buffer options */
-	optpreset(o_readonly(buffer), o_defaultreadonly, OPT_HIDE);
+	optpreset(o_readonly(buffer), o_defaultreadonly, OPT_HIDE|OPT_NODFLT);
 	if (bufdefopts)
 	{
 		/* copy all options except the following: filename bufname bufid
 		 * buflines bufchars modified edited newfile internal autotab
-		 * partiallastline putstyle.
+		 * partiallastline putstyle timestamp readeol.
 		 */
 		optpreset(buffer->retain, bufdefopts->retain, OPT_HIDE);
 		buffer->autoindent = bufdefopts->autoindent;
 		buffer->inputtab = bufdefopts->inputtab;
-		buffer->tabstop = bufdefopts->tabstop;
-		buffer->shiftwidth = bufdefopts->shiftwidth;
+		optpreset(o_tabstop(buffer),
+			(short *)safealloc(2 + o_tabstop(bufdefopts)[0],
+			sizeof(short)), OPT_FREE|OPT_REDRAW);
+		    memcpy(o_tabstop(buffer), o_tabstop(bufdefopts), 
+			    (2 + o_tabstop(bufdefopts)[0]) * sizeof(short));
+		optpreset(o_shiftwidth(buffer),
+			(short *)safealloc(2 + o_shiftwidth(bufdefopts)[0],
+			sizeof(short)), OPT_FREE);
+		    memcpy(o_shiftwidth(buffer), o_shiftwidth(bufdefopts),
+			    (2 + o_shiftwidth(bufdefopts)[0]) * sizeof(short));
 		buffer->undolevels = bufdefopts->undolevels;
+		buffer->initialsyntax = bufdefopts->initialsyntax;
 		buffer->textwidth = bufdefopts->textwidth;
 		buffer->autotab = bufdefopts->autotab;
-		buffer->readeol = bufdefopts->readeol;
 		buffer->locked = bufdefopts->locked;
+		buffer->guidewidth = bufdefopts->guidewidth;
+		if (o_guidewidth(buffer))
+		{
+			optpreset(o_guidewidth(buffer),
+				(short *)safealloc(2 + o_guidewidth(bufdefopts)[0],
+				sizeof(short)), OPT_FREE|OPT_HIDE);
+			    memcpy(o_guidewidth(buffer),
+				o_guidewidth(bufdefopts),
+				(2 + o_guidewidth(bufdefopts)[0]) * sizeof(short));
+		}
+		buffer->spell = bufdefopts->spell;
+		buffer->lisp = bufdefopts->lisp;
+		buffer->smartargs = bufdefopts->smartargs;
+		buffer->userprotocol = bufdefopts->userprotocol;
 
 		/* Strings are tricky, because we may need to allocate a
 		 * duplicate of the value.
@@ -359,12 +413,22 @@ BUFFER bufalloc(name, bufinfo, internal)
 		buffer->bufdisplay = bufdefopts->bufdisplay;
 		if (buffer->bufdisplay.flags & OPT_FREE)
 			o_bufdisplay(buffer) = CHARdup(o_bufdisplay(bufdefopts));
+		buffer->hlobject = bufdefopts->hlobject;
+		if (buffer->hlobject.flags & OPT_FREE)
+			o_hlobject(buffer) = CHARdup(o_hlobject(bufdefopts));
+
+		buffer->mapmode = bufdefopts->mapmode;
+		if (buffer->mapmode.flags & OPT_FREE)
+			o_mapmode(buffer) = CHARdup(o_mapmode(bufdefopts));
 	}
 	else /* no default options -- set them explicitly */
 	{
 		o_inputtab(buffer) = 't';
-		o_autotab(buffer) = True;
-		o_tabstop(buffer) = 8;
+		o_autotab(buffer) = ElvTrue;
+		o_tabstop(buffer) = safealloc(2, sizeof(short));
+			o_tabstop(buffer)[0] = 0;
+			o_tabstop(buffer)[1] = 8;
+			optflags(o_tabstop(buffer)) = OPT_FREE|OPT_REDRAW;
 #ifndef OSCCPRG
 # define OSCCPRG "cc ($1?$1:$2)"
 #endif
@@ -377,12 +441,21 @@ BUFFER bufalloc(name, bufinfo, internal)
 		optpreset(o_make(buffer), toCHAR(OSMAKEPRG), OPT_UNSAFE);
 		o_paragraphs(buffer) = toCHAR("PPppIPLPQPP");
 		o_sections(buffer) = toCHAR("NHSHSSSEse");
-		o_shiftwidth(buffer) = 8;
+		o_shiftwidth(buffer) = safealloc(2, sizeof(short));
+			o_shiftwidth(buffer)[0] = 0;
+			o_shiftwidth(buffer)[1] = 8;
+			optflags(o_shiftwidth(buffer)) = OPT_FREE;
 		o_undolevels(buffer) = 0;
-		o_bufdisplay(buffer) = toCHAR("normal");
+		optpreset(o_bufdisplay(buffer), toCHAR("normal"), OPT_NODFLT);
+		optpreset(o_initialsyntax(buffer), ElvFalse, OPT_HIDE|OPT_NODFLT);
 		optflags(o_textwidth(buffer)) = OPT_REDRAW;
-		o_readeol(buffer) = 't'; /* text */
-		o_locked(buffer) = False;
+		optpreset(o_locked(buffer), ElvFalse, OPT_HIDE|OPT_NODFLT);
+		optflags(o_guidewidth(buffer)) = OPT_HIDE|OPT_SCRATCH;
+		optflags(o_hlobject(buffer)) = OPT_HIDE|OPT_REDRAW;
+		optpreset(o_spell(buffer), ElvFalse, OPT_HIDE);
+		optpreset(o_smartargs(buffer), ElvFalse, OPT_HIDE);
+		optpreset(o_userprotocol(buffer), ElvFalse, OPT_HIDE|OPT_NODFLT);
+		optflags(o_mapmode(buffer)) = OPT_HIDE|OPT_REDRAW;
 	}
 
 	/* set the name of this buffer, and limit access to some options */
@@ -392,16 +465,19 @@ BUFFER bufalloc(name, bufinfo, internal)
 	optflags(o_bufchars(buffer)) = OPT_HIDE|OPT_LOCK;
 	optflags(o_bufid(buffer)) = OPT_HIDE|OPT_LOCK;
 	optflags(o_filename(buffer)) |= OPT_HIDE;
-	optflags(o_edited(buffer)) |= OPT_HIDE;
-	optflags(o_errlines(buffer)) |= OPT_HIDE;
-	optflags(o_modified(buffer)) |= OPT_HIDE;
-	optflags(o_newfile(buffer)) |= OPT_HIDE;
+	optflags(o_edited(buffer)) |= OPT_HIDE|OPT_NODFLT;
+	optflags(o_errlines(buffer)) |= OPT_HIDE|OPT_NODFLT;
+	optflags(o_modified(buffer)) |= OPT_HIDE|OPT_NODFLT;
+	optflags(o_newfile(buffer)) |= OPT_HIDE|OPT_NODFLT;
 	if (!internal)
 	{
 		o_bufid(buffer) = bufid++;
 	}
-	optpreset(o_partiallastline(buffer), False, OPT_HIDE);
+	optpreset(o_partiallastline(buffer), ElvFalse, OPT_HIDE|OPT_NODFLT);
 	optpreset(o_putstyle(buffer), 'c', OPT_HIDE|OPT_LOCK);
+	optpreset(o_timestamp(buffer), NULL, OPT_HIDE|OPT_NODFLT);
+	optpreset(o_readeol(buffer), o_binary ? 'b' : 't', OPT_HIDE|OPT_NODFLT);
+	optpreset(o_bb(buffer), NULL, OPT_HIDE|OPT_NODFLT);
 
 	/* initialize the "willevent" field to a safe value */
 	buffer->willevent = -1;
@@ -421,6 +497,18 @@ BUFFER bufalloc(name, bufinfo, internal)
 	{
 		elvis_buffers = buffer;
 	}
+
+#ifdef FEATURE_AUTOCMD
+	if (!o_internal(buffer))
+	{
+		BUFFER oldbuf = bufdefault;
+		bufoptions(buffer);
+		auperform(windefault, ElvFalse, NULL, AU_BUFCREATE, NULL);
+		bufoptions(oldbuf);
+	}
+#endif /* FEATURE_AUTOCMD */
+
+
 
 	/* return the new buffer */
 	return buffer;
@@ -447,7 +535,7 @@ BUFFER buffind(name)
 	 */
 	if (!buffer && name[0] == '"' && name[1] && !name[2])
 	{
-		buffer = cutbuffer(name[1], False);
+		buffer = cutbuffer(name[1], ElvFalse);
 	}
 
 	/* If no exact match, and name is the initials of a buffer, then
@@ -482,10 +570,24 @@ BUFFER buffind(name)
 	/* If no exact match, and the name looks like a number, then try
 	 * searching by bufid.
 	 */
-	if (!buffer && (calcnumber(name) || (*name == '#' && calcnumber(++name))))
+	if (!buffer && *name == '#' && calcnumber(++name))
 	{
 		for (bufid = atol(tochar8(name)), buffer = elvis_buffers;
 		     buffer && o_bufid(buffer) != bufid;
+		     buffer = buffer->next)
+		{
+		}
+	}
+
+	/* If no exact match by buffer name, then try converting the name to
+	 * an absolute name.  This should allow users to say (Makefile) when
+	 * they really mean (/home/steve/elvis-2.2/Makefile).
+	 */
+	if (!buffer)
+	{
+		name = toCHAR(ioabsolute(tochar8(name)));
+		for (buffer = elvis_buffers;
+		     buffer && CHARcmp(name, o_bufname(buffer));
 		     buffer = buffer->next)
 		{
 		}
@@ -519,7 +621,7 @@ CHAR *buffilenumber(refp)
 		/* the scanning context is in a buffer */
 
 		/* get the buffer number */
-		for (id = 0; scannext(refp) && isdigit(**refp); )
+		for (id = 0; scannext(refp) && elvdigit(**refp); )
 		{
 			id = id * 10 + **refp - '0';
 		}
@@ -537,7 +639,7 @@ CHAR *buffilenumber(refp)
 		/* The scanning context is in a string. */
 
 		/* get the buffer number */
-		for (id = 0; isdigit(*++*refp); )
+		for (id = 0; elvdigit(*++*refp); )
 		{
 			id = id * 10 + **refp - '0';
 		}
@@ -552,13 +654,13 @@ CHAR *buffilenumber(refp)
 	for (buf = elvis_buffers; buf && o_bufid(buf) != id; buf = buf->next)
 	{
 	}
-	return o_filename(buf);
+	return buf ? o_filename(buf) : NULL;
 }
 
 
 
 /* Read a text file or filter output into a specific place in the buffer */
-BOOLEAN bufread(mark, rfile)
+ELVBOOL bufread(mark, rfile)
 	MARK	mark;	/* where to insert the new next */
 	char	*rfile;	/* file to read, or !cmd for filter */
 {
@@ -567,18 +669,47 @@ BOOLEAN bufread(mark, rfile)
 	long	origlines;	/* original number of lines in file */
 	CHAR	chunk[4096];	/* I/O buffer */
 	int	nread;		/* number of bytes in chunk[] */
-	BOOLEAN	newbuf;		/* is this a new buffer? */
+	ELVBOOL	newbuf;		/* is this a new buffer? */
+#ifdef FEATURE_AUTOCMD
+	ELVBOOL	filter;
+	ELVBOOL doevents;
+	BUFFER	oldbuf = bufdefault;
+	MARKBUF	from;
+#endif
+
+#ifdef FEATURE_PROTO
+	switch (urlalias(mark, NULL, rfile))
+	{
+	  case RESULT_COMPLETE:	return ElvTrue;
+	  case RESULT_ERROR:	return ElvFalse;
+	  case RESULT_MORE:	; /* fall through to normal code */
+	}
+#endif /* FEATURE PROTO */
 
 	/* initialize some vars */
 	buf = markbuffer(mark);
-	newbuf = (BOOLEAN)(o_bufchars(buf) == 0 && rfile[0] != '!' && (o_verbose || !o_internal(buf)));
+	newbuf = (ELVBOOL)(o_bufchars(buf) == 0 && rfile[0] != '!' && (o_verbose || !o_internal(buf)));
 	origlines = o_buflines(buf);
+#ifdef FEATURE_AUTOCMD
+	filter = (ELVBOOL)(*rfile == '!');
+	doevents = (ELVBOOL)(o_newfile(buf) || !o_filename(buf) || o_bufchars(buf) > 0);
+	from = *mark;
+
+	if (doevents)
+	{
+		bufoptions(markbuffer(mark));
+		if (auperform(windefault, ElvFalse, NULL,
+			filter ? AU_FILTERREADPRE : AU_FILEREADPRE,
+			toCHAR(rfile)))
+			return ElvFalse;
+	}
+#endif
 
 	/* open the file/filter */
-	if (!ioopen(rfile, 'r', False, False, o_readeol(markbuffer(mark))))
+	if (!ioopen(rfile, 'r', ElvFalse, ElvFalse, o_readeol(markbuffer(mark))))
 	{
 		/* failed -- error message already given */
-		return False;
+		return ElvFalse;
 	}
 
 	/* read the text */
@@ -586,23 +717,43 @@ BOOLEAN bufread(mark, rfile)
 		msg(MSG_STATUS, "[s]reading $1", rfile);
 	while ((nread = ioread(chunk, QTY(chunk))) > 0)
 	{
-		if (guipoll(False))
+		if (guipoll(ElvFalse))
 		{
 			ioclose();
-			return False;
+			return ElvFalse;
 		}
 		offset = markoffset(mark);
 		bufreplace(mark, mark, chunk, nread);
 		marksetoffset(mark, offset + nread);
 	}
 	ioclose();
+
+#ifdef FEATURE_AUTOCMD
+	if (doevents && o_buflines(buf) > origlines)
+	{
+		autop = markdup(&from);
+		aubottom = markdup(mark);
+		markaddoffset(aubottom, -1L);
+		bufoptions(markbuffer(mark));
+		(void)auperform(windefault, ElvFalse, NULL,
+			filter ? AU_FILTERREADPOST : AU_FILEREADPOST,
+			toCHAR(rfile));
+		markfree(aubottom);
+		markfree(autop);
+		autop = aubottom = NULL;
+		bufoptions(oldbuf);
+	}
+#endif
+
 	if (newbuf)
 		msg(bufmsgtype, "[sdd]read $1, $2 lines, $3 chars", rfile,
 					o_buflines(buf), o_bufchars(buf));
-	else if (!o_internal(buf))
+	else if (!o_internal(buf)
+	      && o_report != 0
+	      && o_buflines(buf) - origlines >= o_report)
 		msg(bufmsgtype, "[d]read $1 lines", o_buflines(buf) - origlines);
 
-	return True;
+	return ElvTrue;
 }
 
 /* Create a buffer for a given file, and then load the file.  Return a pointer
@@ -611,24 +762,45 @@ BOOLEAN bufread(mark, rfile)
  *
  * If the buffer already exists and contains text, then the "reload" option
  * can be used to force it to discard that text and reload the buffer; when
- * "reload" is False, it would leave the buffer unchanged instead.
+ * "reload" is ElvFalse, it would leave the buffer unchanged instead.
  */
 BUFFER bufload(bufname, filename, reload)
 	CHAR	*bufname;	/* name of buffer, or NULL to derive from filename */
 	char	*filename;	/* name of file to load into a buffer */
-	BOOLEAN	reload;		/* load from file even if previously loaded? */
+	ELVBOOL	reload;		/* load from file even if previously loaded? */
 {
 	BUFFER	buf;
 	MARKBUF	top;
 	MARKBUF	end;
-	BUFFER	initbuf;	/* buffer containing the initialization script */
-	EXCTLSTATE oldctlstate;
+	MARK	mark;
 	int	i;
+	ELVBOOL	internal;
+#ifdef FEATURE_CALC
+	BUFFER	initbuf;	/* buffer containing the initialization script*/
+	RESULT	result;
+	EXCTLSTATE oldctlstate;
+# ifdef FEATURE_MISC
 	void	*locals;
+# endif
+#endif
 
 
-	/* Create a buffer, whose name defaults to the same as this file */
-	buf = bufalloc(bufname ? bufname : toCHAR(filename), 0, (BOOLEAN)(bufname != NULL));
+#ifdef FEATURE_AUTOCMD
+	/* Loading a file shouldn't generate Edit autocmd events */
+	bufnoedit = ElvTrue;
+#endif
+
+	/* Create a buffer.  The buffer's default name is derived from the
+	 * given file name.  Note that we make a local copy of that name
+	 * because ioabsolute() returns a static buffer which bufalloc()
+	 * [really buffind()] clobbers the buffer before it uses the name.
+	 */
+	internal = (ELVBOOL)(bufname != NULL);
+	if (!bufname)
+		bufname = CHARdup(toCHAR(ioabsolute(filename)));
+	buf = bufalloc(bufname, 0, internal);
+	if (!internal)
+		safefree(bufname);
 
 	/* Does the buffer already contain text? */
 	if (o_bufchars(buf) > 0)
@@ -637,33 +809,44 @@ BUFFER bufload(bufname, filename, reload)
 		 * buffer as-is.
 		 */
 		if (!reload)
+		{
+#ifdef FEATURE_AUTOMD
+			bufnoedit = ElvFalse;
+#endif
 			return buf;
+		}
 
 		/* Save the text as an "undo" version, and then delete it */
 		if (windefault && markbuffer(windefault->cursor) == buf)
-			bufwilldo(windefault->cursor, True);
+			bufwilldo(windefault->cursor, ElvTrue);
 		else
-			bufwilldo(marktmp(top, buf, 0), True);
+			bufwilldo(marktmp(top, buf, 0), ElvTrue);
 		bufreplace(marktmp(top, buf, 0), marktmp(end, buf, o_bufchars(buf)), (CHAR *)0, 0);
 	}
 
+#ifdef FEATURE_REGION
+	/* Initially the buffer should contain no regions */
+	regiondel(marktmp(top, buf, 0), &top, '\0');
+#endif
+
 	/* Set the buffer's options */
 	optpreset(o_filename(buf), CHARkdup(filename), OPT_HIDE|OPT_LOCK|OPT_FREE);
-	optpreset(o_edited(buf), True, OPT_HIDE);
-	o_readonly(buf) = o_defaultreadonly;
-	optpreset(o_newfile(buf), False, OPT_HIDE);
-	switch (dirperm(filename))
+	optpreset(o_edited(buf), ElvTrue, OPT_HIDE|OPT_NODFLT);
+	optpreset(o_readonly(buf), o_defaultreadonly, OPT_HIDE|OPT_NODFLT);
+	optpreset(o_newfile(buf), ElvFalse, OPT_HIDE|OPT_NODFLT);
+	switch (urlperm(filename))
 	{
 	  case DIR_INVALID:
 	  case DIR_BADPATH:
 	  case DIR_NOTFILE:
+	  case DIR_DIRECTORY:
 	  case DIR_UNREADABLE:
 	  case DIR_READONLY:
-		o_readonly(buf) = True;
+		o_readonly(buf) = ElvTrue;
 		break;
 
 	  case DIR_NEW:
-		o_newfile(buf) = True;
+		o_newfile(buf) = ElvTrue;
 		break;
 
 	  case DIR_READWRITE:
@@ -676,6 +859,7 @@ BUFFER bufload(bufname, filename, reload)
 	 */
 	if (!o_internal(buf))
 	{
+#ifdef FEATURE_CALC /* since it isn't real useful without :if */
 		initbuf = buffind(toCHAR(BEFOREREAD_BUF));
 		if (initbuf)
 		{
@@ -683,27 +867,53 @@ BUFFER bufload(bufname, filename, reload)
 			bufoptions(buf);
 
 			/* execute the script */
+# ifdef FEATURE_MISC
 			locals = optlocal(NULL);
+# endif
 			exctlsave(oldctlstate);
-			if (experform(windefault, marktmp(top, initbuf, 0),
-				marktmp(end, initbuf, o_bufchars(initbuf))) != RESULT_COMPLETE)
+# ifdef FEATURE_AUTOCMD
+			(void)auperform(windefault, ElvFalse, NULL, AU_SCRIPTENTER,
+				o_filename(initbuf));
+# endif
+			result = experform(windefault, marktmp(top, initbuf, 0),
+				marktmp(end, initbuf, o_bufchars(initbuf)));
+# ifdef FEATURE_AUTOCMD
+			(void)auperform(windefault, ElvFalse, NULL, AU_SCRIPTLEAVE,
+				o_filename(initbuf));
+# endif
+			exctlrestore(oldctlstate);
+# ifdef FEATURE_MISC
+			(void)optlocal(locals);
+# endif
+			if (result != RESULT_COMPLETE)
 			{
-				exctlrestore(oldctlstate);
+# ifdef FEATURE_AUTOCMD
+				bufnoedit = ElvFalse;
+# endif
 				return buf;
 			}
-			exctlrestore(oldctlstate);
-			(void)optlocal(locals);
 		}
+#endif /* FEATURE_CALC */
+
+#ifdef FEATURE_AUTOCMD
+		/* perform the pre-read script */
+		(void)auperform(windefault, ElvFalse, NULL,
+			o_newfile(buf) ? AU_BUFNEWFILE : AU_BUFREADPRE, NULL);
+#endif
 	}
 
 	/* read the file's contents into the buffer */
 	if (o_newfile(buf))
 	{
-		msg(bufmsgtype, "[sdd]$1 [NEW FILE]", filename);
+		msg(bufmsgtype, "[sdd]$1 [NEW FILE]",
+			filename, o_buflines(buf), o_bufchars(buf));
 	}
 	else if (!bufread(marktmp(top, buf, 0), filename))
 	{
-		o_edited(buf) = False;
+		o_edited(buf) = ElvFalse;
+#ifdef FEATURE_AUTOCMD
+		bufnoedit = ElvFalse;
+#endif
 		return buf;
 	}
 
@@ -711,19 +921,19 @@ BUFFER bufload(bufname, filename, reload)
 	(void)marktmp(end, buf, o_bufchars(buf) - 1);
 	if (o_bufchars(buf) > 0L && scanchar(&end) != '\n')
 	{
-		o_partiallastline(buf) = True;
+		o_partiallastline(buf) = ElvTrue;
 		marksetoffset(&end, markoffset(&end) + 1);
 		bufreplace(&end, &end, toCHAR("\n"), 1L);
 	}
 	else
-		o_partiallastline(buf) = False;
+		o_partiallastline(buf) = ElvFalse;
 
 	/* set other options to describe the file */
-	o_modified(buf) = False;
+	o_modified(buf) = ElvFalse;
 	optpreset(o_errlines(buf), o_buflines(buf), OPT_HIDE);
 #ifdef PROTOCOL_FTP
 	if (!strncmp(filename, "ftp:", 4))
-		o_readonly(buf) = (BOOLEAN)(ftpperms == DIR_READONLY);
+		o_readonly(buf) = (ELVBOOL)(ftpperms == DIR_READONLY);
 #endif
 
 	/* Restore the marks to their previous offsets.  Otherwise any marks
@@ -731,32 +941,66 @@ BUFFER bufload(bufname, filename, reload)
 	 * Restoring them isn't perfect, but it beats setting them all to EOF!
 	 * (Note: New buffers won't have an "undo" version.)
 	 */
-	if (buf->undo)
+	if (buf->undo && buf->undo->marklist)
 	{
-		for (i = 0; i < QTY(buf->undo->offset); i++)
+		for (i = 0; buf->undo->marklist[i].mark; i++)
 		{
-			/* ignore unset marks, or marks into other buffers*/
-			if (buf->undo->offset[i] < 0)
-				continue;
-			assert(markbuffer(namedmark[i]) == buf);
-
-			/* marks past the new end should be freed */
-			if (buf->undo->offset[i] >= o_bufchars(buf))
+			/* is the mark still in this buffer? */
+			for (mark = buf->marks;
+			     mark && mark != buf->undo->marklist[i].mark;
+			     mark = mark->next)
 			{
-				markfree(namedmark[i]);
-				continue;
 			}
+			if (!mark)
+				/* not in this buffer anymore, so free it */
+				continue;
 
-			/* other marks should have their offsets restored
-			 * to what they were before the buffer was loaded
+			/* Restore its offset */
+			marksetoffset(mark, buf->undo->marklist[i].offset);
+
+			/* Some marks, newer than those in the marklist, may
+			 * have offsets past the end of the buffer.  Set their
+			 * offset to the end of the buffer.
 			 */
-			marksetoffset(namedmark[i], buf->undo->offset[i]);
+			for (mark = buf->marks; mark; mark = mark->next)
+			{
+				if (markoffset(mark) > o_bufchars(buf))
+					marksetoffset(mark, o_bufchars(buf));
+			}
 		}
 	}
 
 	/* execute the file initialization script, if it exists */
 	if (!o_internal(buf))
 	{
+#ifndef FEATURE_CALC
+		/* Whoa!  Since :if doesn't exist, the normal script won't
+		 * work.  Just take a guess at the display mode.
+		 */
+		if (o_filename(buf))
+		{
+			char	*ext = strrchr(tochar8(o_filename(buf)), '.');
+			bufoptions(buf);
+			if (!ext)
+				/* do nothing */;
+# ifdef DISPLAY_HTML
+			else if (!strncmp(ext, ".htm", 4)
+			      || !strncmp(ext, ".HTM", 4)
+			      || scanchar(marktmp(top, buf, 0)) == '<')
+				optputstr(toCHAR("bd"), toCHAR("html"), ElvFalse);
+# endif
+# ifdef DISPLAY_MAN
+			else if (!strcmp(ext, ".man")
+			      || (elvdigit(ext[1]) && !ext[2])
+			      || scanchar(marktmp(top, buf, 0)) == '.')
+				optputstr(toCHAR("bd"), toCHAR("man"), ElvFalse);
+# endif
+# ifdef DISPLAY_SYNTAX
+			else if (descr_known(tochar8(o_filename(buf)), SYNTAX_FILE))
+				optputstr(toCHAR("bd"), toCHAR("syntax"), ElvFalse);
+# endif
+		}
+#else
 		initbuf = buffind(toCHAR(AFTERREAD_BUF));
 		if (initbuf)
 		{
@@ -764,13 +1008,33 @@ BUFFER bufload(bufname, filename, reload)
 			bufoptions(buf);
 
 			/* Execute the script's contents. */
+# ifdef FEATURE_MISC
 			locals = optlocal(NULL);
+# endif
 			exctlsave(oldctlstate);
+# ifdef FEATURE_AUTOCMD
+			(void)auperform(windefault, ElvFalse, NULL, AU_SCRIPTENTER,
+				o_filename(initbuf));
+# endif
 			(void)experform(windefault, marktmp(top, initbuf, 0),
 				marktmp(end, initbuf, o_bufchars(initbuf)));
+# ifdef FEATURE_AUTOCMD
+			(void)auperform(windefault, ElvFalse, NULL, AU_SCRIPTLEAVE,
+				o_filename(initbuf));
+# endif
 			exctlrestore(oldctlstate);
+# ifdef FEATURE_MISC
 			(void)optlocal(locals);
+# endif
 		}
+#endif
+
+#ifdef FEATURE_AUTOCMD
+		/* perform the post-read script */
+		if (!o_newfile(buf))
+			(void)auperform(windefault, ElvFalse, NULL,
+				AU_BUFREADPOST, NULL);
+#endif
 	}
 
 #ifdef FEATURE_SHOWTAG
@@ -780,6 +1044,11 @@ BUFFER bufload(bufname, filename, reload)
 
 	/* set the initial cursor offset to 0 */
 	buf->docursor = 0L;
+
+#ifdef FEATURE_AUTOCMD
+	/* done loading.  Any later changes may generate Edit events */
+	bufnoedit = ElvFalse;
+#endif
 
 	return buf;
 }
@@ -807,7 +1076,7 @@ BUFFER bufpath(path, filename, bufname)
 	}
 
 	/* try to find the file */
-	pathname = iopath(tochar8(path), filename, False);
+	pathname = iopath(tochar8(path), filename, ElvFalse);
 	if (!pathname)
 	{
 		return (BUFFER)0;
@@ -821,7 +1090,7 @@ BUFFER bufpath(path, filename, bufname)
 	strcpy(pathdup, pathname);
 
 	/* load the file */
-	buf = bufload(bufname, pathdup, True);
+	buf = bufload(bufname, pathdup, ElvTrue);
 	return buf;
 }
 
@@ -871,6 +1140,7 @@ static void freeundo(buffer)
 #ifdef DEBUG_ALLOC
 		removeundo(undo);
 #endif
+		safefree(undo->marklist);
 		safefree(undo);
 	}
 	checkundo("after freeundo");
@@ -894,6 +1164,17 @@ void buffree(buffer)
 		return;
 	}
 
+#ifdef FEATURE_AUTOCMD
+	if (!o_internal(buffer))
+	{
+		BUFFER oldbuf = bufdefault;
+		bufoptions(buffer);
+		auperform(windefault, ElvFalse, NULL, AU_BUFUNLOAD, o_filename(buffer));
+		auperform(windefault, ElvFalse, NULL, AU_BUFDELETE, o_filename(buffer));
+		bufoptions(oldbuf);
+	}
+#endif /* FEATURE_AUTOCMD */
+
 	/* transfer any marks to the dummy "bufdefopts" buffer */
 	while (buffer->marks)
 	{
@@ -915,6 +1196,7 @@ void buffree(buffer)
 #ifdef DEBUG_ALLOC
 		removeundo(undo);
 #endif
+		safefree(undo->marklist);
 		safefree(undo);
 	}
 	while (buffer->redo)
@@ -925,6 +1207,7 @@ void buffree(buffer)
 #ifdef DEBUG_ALLOC
 		removeundo(undo);
 #endif
+		safefree(undo->marklist);
 		safefree(undo);
 	}
 	if (buffer->undolnptr)
@@ -933,6 +1216,7 @@ void buffree(buffer)
 #ifdef DEBUG_ALLOC
 		removeundo(buffer->undolnptr);
 #endif
+		safefree(buffer->undolnptr->marklist);
 		safefree(buffer->undolnptr);
 		buffer->undolnptr = NULL;
 	}
@@ -957,11 +1241,13 @@ void buffree(buffer)
 	/* free the values of any string options which have been set */
 	optfree(QTY(bdesc), &buffer->filename);
 
+#if 0 /* this is pointless, since we already transfered marks to bufdefopts */
 	/* free any marks in this buffer */
 	while (buffer->marks)
 	{
 		markfree(buffer->marks);
 	}
+#endif
 
 	/* free the low-level block */
 	lowfree(buffer->bufinfo);
@@ -973,41 +1259,42 @@ void buffree(buffer)
 
 
 /* Free a buffer, if possible without losing anything important.  Return
- * True if freed, False if retained.  If "force" is True, it tries harder.
+ * ElvTrue if freed, ElvFalse if retained.  If "force" is ElvTrue, it tries
+ * harder.
  */
-BOOLEAN bufunload(buf, force, save)
+ELVBOOL bufunload(buf, force, save)
 	BUFFER	buf;	/* buffer to be unloaded */
-	BOOLEAN	force;	/* if True, try harder */
-	BOOLEAN	save;	/* if True, maybe save even if noautowrite */
+	ELVBOOL	force;	/* if ElvTrue, try harder */
+	ELVBOOL	save;	/* if ElvTrue, maybe save even if noautowrite */
 {
 	MARKBUF	top, bottom;
 
 	/* if "internal" then retain it for now */
 	if (o_internal(buf))
 	{
-		return False;
+		return ElvFalse;
 	}
 
 	/* if being used by some window, then retain it */
 	if (wincount(buf) > 0)
 	{
-		return False;
+		return ElvFalse;
 	}
 
-	/* If supposed to retain, then keep it unless "force" is True.
+	/* If supposed to retain, then keep it unless "force" is ElvTrue.
 	 * If this is a temporary session, then no buffers will be retained,
 	 * so we should fail in that situation too.
 	 */
 	if (o_retain(buf) && !force && !o_tempsession)
 	{
-		return False;
+		return ElvFalse;
 	}
 
 	/* if not modified, then discard it */
 	if (!o_modified(buf))
 	{
 		buffree(buf);
-		return True;
+		return ElvTrue;
 	}
 
 	/* if readonly, or no known filename then free it if "force" or
@@ -1027,23 +1314,23 @@ BOOLEAN bufunload(buf, force, save)
 	 && bufwrite(marktmp(top, buf, 0), marktmp(bottom, buf, o_bufchars(buf)), tochar8(o_filename(buf)), force))
 	{
 		buffree(buf);
-		return True;
+		return ElvTrue;
 	}
-	return False;
+	return ElvFalse;
 }
 
 
-/* Return True if "buf" can be deleted without loosing data, or False if it
- * can't -- in which case it also emits a message describing why.  NOTE THAT
+/* Return ElvTrue if "buf" can be deleted without loosing data, or ElvFalse if
+ * it can't -- in which case it also emits a message describing why.  NOTE THAT
  * YOU ALSO NEED TO MAKE SURE THE BUFFER ISN'T BEING EDITED IN A WINDOW.
  *
  * This function has side-effects.  If the buffer has been modified, it may
  * try to write the buffer out to a file.
  */
-BOOLEAN bufsave(buf, force, mustwr)
+ELVBOOL bufsave(buf, force, mustwr)
 	BUFFER	buf;	/* the buffer to write */
-	BOOLEAN	force;	/* passed to bufwrite() if writing is necessary */
-	BOOLEAN	mustwr;	/* write to file even if buffer isn't modified */
+	ELVBOOL	force;	/* passed to bufwrite() if writing is necessary */
+	ELVBOOL	mustwr;	/* write to file even if buffer isn't modified */
 {
 	MARKBUF	top, bottom;
 
@@ -1051,15 +1338,15 @@ BOOLEAN bufsave(buf, force, mustwr)
 	if (o_internal(buf))
 	{
 		msg(MSG_ERROR, "[s]$1 is used internally by elvis", o_bufname(buf));
-		return False;
+		return ElvFalse;
 	}
 
 	/* If writing wasn't explicitly demanded, and isn't needed, then
-	 * return True without doing anything else.
+	 * return ElvTrue without doing anything else.
 	 */
 	if (!mustwr && !o_modified(buf))
 	{
-		return True;
+		return ElvTrue;
 	}
 
 	/* We know that we need to write this buffer.  If it has no filename
@@ -1067,8 +1354,8 @@ BOOLEAN bufsave(buf, force, mustwr)
 	 */
 	if (!o_filename(buf))
 	{
-		msg(MSG_ERROR, "no file name");
-		return False;
+		msg(MSG_ERROR, "[S]no file name for $1", o_bufname(buf));
+		return ElvFalse;
 	}
 
 	/* try to write the buffer out to its file */
@@ -1079,27 +1366,38 @@ BOOLEAN bufsave(buf, force, mustwr)
 
 
 
-/* Write a buffer, or part of a buffer, out to a file.  Return True if
- * successful, or False if error.
+/* Write a buffer, or part of a buffer, out to a file.  Return ElvTrue if
+ * successful, or ElvFalse if error.
  */
-BOOLEAN bufwrite(from, to, wfile, force)
+ELVBOOL bufwrite(from, to, wfile, force)
 	MARK	from;	/* start of text to write */
 	MARK	to;	/* end of text to write */
 	char	*wfile;	/* output file, ">>file" to append, "!cmd" to filter */
-	BOOLEAN	force;	/* write even if file already exists */
+	ELVBOOL	force;	/* write even if file already exists */
 {
 	BUFFER	buf = markbuffer(from);
-	BUFFER	initbuf;	/* one of the file initialization buffers */
-	MARKBUF	top;		/* the endpoints of initbuf */
 	MARKBUF	next;		/* used for determining append location */
 	CHAR	*cp;		/* used for scanning through file */
-	BOOLEAN	append;		/* If True, we're appending */
-	BOOLEAN	filter;		/* If True, we're writing to a filter */
-	BOOLEAN	wholebuf;	/* if True, we're writing the whole buffer */
-	BOOLEAN	samefile;	/* If True, we're writing the buffer to its original file */
-	EXCTLSTATE oldctlstate;
+	ELVBOOL	append;		/* If ElvTrue, we're appending */
+	ELVBOOL	filter;		/* If ElvTrue, we're writing to a filter */
+	ELVBOOL	wholebuf;	/* if ElvTrue, we're writing the whole buffer */
+	ELVBOOL	samefile;	/* If ElvTrue, we're writing the buffer to its original file */
 	int	bytes;
+	long	lines;
+#if defined(FEATURE_CALC) || defined(FEATURE_AUTOCMD)
+	RESULT	result;
+#endif
+#ifdef FEATURE_CALC
+	BUFFER	initbuf;	/* one of the file initialization buffers */
+	MARKBUF	top;		/* the endpoints of initbuf */
+	EXCTLSTATE oldctlstate;
+# ifdef FEATURE_MISC
 	void	*locals;
+# endif
+
+	static OPTDESC	bangdesc[1] = { {"bang", "bang", NULL, NULL} };
+	OPTVAL	bangval[1];
+#endif
 
 	assert(from && to && wfile);
 	assert(markbuffer(from) == markbuffer(to));
@@ -1107,16 +1405,25 @@ BOOLEAN bufwrite(from, to, wfile, force)
 	assert(markoffset(from) <= markoffset(to));
 	assert(markoffset(to) <= o_bufchars(buf));
 
+#ifdef FEATURE_PROTO
+	switch (urlalias(from, to, wfile))
+	{
+	  case RESULT_COMPLETE:	return ElvTrue;
+	  case RESULT_ERROR:	return ElvFalse;
+	  case RESULT_MORE:	; /* fall through to normal code */
+	}
+#endif /* FEATURE_PROTO */
+
 	/* Determine some characteristics of this write */
-	append = (BOOLEAN)(wfile[0] == '>' && wfile[1] == '>');
-	filter = (BOOLEAN)(wfile[0] == '!');
-	wholebuf = (BOOLEAN)(markoffset(from) == 0 && markoffset(to) == o_bufchars(buf));
-	samefile = (BOOLEAN)(o_filename(buf) && !strcmp(wfile, tochar8(o_filename(buf))));
+	append = (ELVBOOL)(wfile[0] == '>' && wfile[1] == '>');
+	filter = (ELVBOOL)(wfile[0] == '!');
+	wholebuf = (ELVBOOL)(markoffset(from) == 0 && markoffset(to) == o_bufchars(buf));
+	samefile = (ELVBOOL)(o_filename(buf) && !strcmp(wfile, tochar8(o_filename(buf))));
 
 	/* if we're appending, skip the initial ">>" */
 	if (append)
 	{
-		for (wfile += 2; isspace(*wfile); wfile++)
+		for (wfile += 2; elvspace(*wfile); wfile++)
 		{
 		}
 	}
@@ -1127,7 +1434,7 @@ BOOLEAN bufwrite(from, to, wfile, force)
 	if (!filter && wholebuf && samefile && o_readonly(buf) && !force)
 	{
 		msg(MSG_ERROR, "[s]$1 readonly" , wfile);
-		return False;
+		return ElvFalse;
 	}
 
 	/* If this is supposed to be a new file, or we're writing to
@@ -1142,7 +1449,7 @@ BOOLEAN bufwrite(from, to, wfile, force)
 	  && urlperm(wfile) != DIR_NEW)
 	{
 		msg(MSG_ERROR, "[s]$1 exists", wfile);
-		return False;
+		return ElvFalse;
 	}
 
 	/* If we're writing the whole file back over itself, then execute the
@@ -1151,25 +1458,61 @@ BOOLEAN bufwrite(from, to, wfile, force)
 	 */
 	if (wholebuf && samefile && !filter && !append)
 	{
+#ifdef FEATURE_CALC /* since it isn't real useful without :if */
 		initbuf = buffind(toCHAR(BEFOREWRITE_BUF));
 		if (initbuf)
 		{
 			/* make the buffer be the default buffer */
 			bufoptions(buf);
+			bangval[0].value.boolean = force;
+			optinsert("bang", QTY(bangdesc), bangdesc, bangval);
 
 			/* execute the script */
+# ifdef FEATURE_MISC
 			locals = optlocal(NULL);
+# endif
 			exctlsave(oldctlstate);
-			if (experform(windefault, marktmp(top, initbuf, 0),
-				marktmp(next, initbuf, o_bufchars(initbuf))) != RESULT_COMPLETE
-			    && !force)
-			{
-				exctlrestore(oldctlstate);
-				return False;
-			}
+# ifdef FEATURE_AUTOCMD
+			(void)auperform(windefault, ElvFalse, NULL, AU_SCRIPTENTER,
+				o_filename(initbuf));
+# endif
+			result = experform(windefault, marktmp(top, initbuf, 0),
+				marktmp(next, initbuf, o_bufchars(initbuf)));
+# ifdef FEATURE_AUTOCMD
+			(void)auperform(windefault, ElvFalse, NULL, AU_SCRIPTLEAVE,
+				o_filename(initbuf));
+# endif
 			exctlrestore(oldctlstate);
+# ifdef FEATURE_MISC
 			(void)optlocal(locals);
+# endif
+			optdelete(bangval);
+			if (result != RESULT_COMPLETE && !force)
+				return ElvFalse;
 		}
+#endif /* FEATURE_CALC */
+
+#ifdef FEATURE_AUTOCMD
+		if (auperform(windefault, force, NULL, AU_BUFWRITEPRE,
+				NULL) != RESULT_COMPLETE)
+			return ElvFalse;
+	}
+	else
+	{
+		autop = markdup(from);
+		aubottom = markdup(to);
+		markaddoffset(aubottom, -1L); /* end of last line */
+		result = auperform(windefault, force, NULL,
+				filter ? AU_FILTERWRITEPRE
+				       : append ? AU_FILEAPPENDPRE
+						: AU_FILEWRITEPRE,
+				toCHAR(wfile));
+		markfree(aubottom);
+		markfree(autop);
+		autop = aubottom = NULL;
+		if (result != RESULT_COMPLETE)
+			return ElvFalse;
+#endif
 	}
 
 	/* If "partiallastline" is set (indicating that the original file
@@ -1186,13 +1529,13 @@ BOOLEAN bufwrite(from, to, wfile, force)
 		 || (o_writeeol != 'b' && o_readeol(markbuffer(from)) != 'b')
 		 || o_bufchars(markbuffer(from)) == 0
 		 || scanchar(&next) != '\n')
-			o_partiallastline(markbuffer(from)) = False;
+			o_partiallastline(markbuffer(from)) = ElvFalse;
 		else
 			marksetoffset(to, markoffset(&next));
 	}
 
 	/* Try to write the file */
-	if (ioopen(wfile, append ? 'a' : 'w', False, True,
+	if (ioopen(wfile, append ? 'a' : 'w', ElvFalse, ElvTrue,
 		o_writeeol == 's' || o_readeol(markbuffer(from)) == 'b'
 			? o_readeol(markbuffer(from))
 			: o_writeeol))
@@ -1210,11 +1553,11 @@ BOOLEAN bufwrite(from, to, wfile, force)
 			do
 			{
 				/* check for ^C */
-				if (guipoll(False))
+				if (guipoll(ElvFalse))
 				{
 					ioclose();
 					scanfree(&cp);
-					return False;
+					return ElvFalse;
 				}
 
 				bytes = scanright(&cp);
@@ -1227,7 +1570,7 @@ BOOLEAN bufwrite(from, to, wfile, force)
 					msg(MSG_ERROR, (wfile[0] == '!') ? "broken pipe" : "disk full");
 					ioclose();
 					scanfree(&cp);
-					return False;
+					return ElvFalse;
 				}
 				markaddoffset(&next, bytes);
 				scanseek(&cp, &next);
@@ -1238,67 +1581,97 @@ BOOLEAN bufwrite(from, to, wfile, force)
 
 		if (!filter)
 		{
+			lines = markline(to) - markline(from);
 			if (append)
 				msg(bufmsgtype, "[ds]appended $1 lines to $2",
-					markline(to) - markline(from), wfile);
-			else
+					lines, wfile);
+			else if (o_report != 0 && lines >= o_report)
 				msg(bufmsgtype, "[sdd]wrote $1, $2 lines, $3 chars",
-					wfile, markline(to) - markline(from),
+					wfile, lines,
 					markoffset(to) - markoffset(from));
 		}
 	}
 	else
 	{
 		/* We had an error, and already wrote the error message */
-		return False;
+		return ElvFalse;
 	}
 
 	/* Execute the "after write" script. */
 	if (wholebuf && samefile && !filter && !append)
 	{
+#ifdef FEATURE_CALC /* since it isn't real useful without :if */
 		initbuf = buffind(toCHAR(AFTERWRITE_BUF));
 		if (initbuf)
 		{
 			/* make the buffer be the default buffer */
 			bufoptions(buf);
+			bangval[0].value.boolean = force;
+			optinsert("bang", QTY(bangdesc), bangdesc, bangval);
 
 			/* execute the script */
+# ifdef FEATURE_MISC
 			locals = optlocal(NULL);
+# endif
 			exctlsave(oldctlstate);
+# ifdef FEATURE_AUTOCMD
+			(void)auperform(windefault, ElvFalse, NULL, AU_SCRIPTENTER,
+				o_filename(initbuf));
+# endif
 			(void)experform(windefault, marktmp(top, initbuf, 0),
 				marktmp(next, initbuf, o_bufchars(initbuf)));
+# ifdef FEATURE_AUTOCMD
+			(void)auperform(windefault, ElvFalse, NULL, AU_SCRIPTLEAVE,
+				o_filename(initbuf));
+# endif
 			exctlrestore(oldctlstate);
+# ifdef FEATURE_MISC
 			(void)optlocal(locals);
+# endif
+			optdelete(bangval);
 		}
+#endif /* FEATURE_CALC */
+
+#ifdef FEATURE_AUTOCMD
+		(void)auperform(windefault, force, NULL, AU_BUFWRITEPOST, NULL);
+	}
+	else
+	{
+		(void)auperform(windefault, force, NULL,
+			filter ? AU_FILTERWRITEPOST
+			       : append ? AU_FILEAPPENDPOST
+			                : AU_FILEWRITEPOST,
+			toCHAR(wfile));
+#endif
 	}
 
 	/* Writing the whole file has some side-effects on options */
 	if (wholebuf && !append && !filter)
 	{
 		/* if it had no filename before, it has one now */
-		if (!o_filename(buf) && wholebuf)
+		if (!o_filename(buf) && !o_internal(buf) && wholebuf)
 		{
 			o_filename(buf) = CHARdup(toCHAR(wfile));
 			optflags(o_filename(buf)) |= OPT_FREE;
-			buftitle(buf, toCHAR(wfile));
+			buftitle(buf, toCHAR(ioabsolute(wfile)));
 		}
 
 		/* buffer is no longer modified */
-		o_modified(buf) = False;
-		o_newfile(buf) = False;
+		o_modified(buf) = ElvFalse;
+		o_newfile(buf) = ElvFalse;
 		
 		/* if the original file was overwritten, then reset the
 		 * readonly flag because apparently the file isn't readonly.
 		 */
-		if (!CHARcmp(o_filename(buf), toCHAR(wfile)))
+		if (o_filename(buf) && !CHARcmp(o_filename(buf), toCHAR(wfile)))
 		{
-			o_readonly(buf) = False;
-			o_edited(buf) = True;
+			o_readonly(buf) = ElvFalse;
+			o_edited(buf) = ElvTrue;
 		}
 	}
 
 	/* success! */
-	return True;
+	return ElvTrue;
 }
 
 
@@ -1317,6 +1690,9 @@ void bufoptions(buf)
 	/* if there is a previous buffer, then delete its options */
 	if (bufdefault)
 	{
+#ifdef FEATURE_AUTOCMD
+		(void)auperform(windefault, ElvFalse, NULL, AU_BUFLEAVE, NULL);
+#endif
 		optdelete(&bufdefault->filename);
 	}
 
@@ -1327,6 +1703,9 @@ void bufoptions(buf)
 	if (buf)
 	{
 		optinsert("buf", QTY(bdesc), bdesc, &buf->filename);
+#ifdef FEATURE_AUTOCMD
+		(void)auperform(windefault, ElvFalse, NULL, AU_BUFENTER, NULL);
+#endif
 	}
 }
 
@@ -1340,13 +1719,31 @@ void buftitle(buffer, title)
 	CHAR	*title;	/* the new name of the buffer */
 {
 	WINDOW	win;
+#ifdef FEATURE_AUTOCMD
+	BUFFER	oldbuf = bufdefault;
+#endif
+
+	/* Make a local copy of the title */
+	title = CHARkdup(title);
+
+	/* if another buffer already has this name, then fail silently */
+	if (buffind(title))
+	{
+		safefree(title);
+		return;
+	}
+
+#ifdef FEATURE_AUTOCMD
+	bufoptions(buffer);
+	(void)auperform(windefault, ElvFalse, NULL, AU_BUFFILEPRE, title);
+#endif
 
 	/* change the name on disk */
 	lowtitle(buffer->bufinfo, title);
 
 	/* change the name in RAM */
 	safefree(o_bufname(buffer));
-	o_bufname(buffer) = CHARkdup(title);
+	o_bufname(buffer) = title;
 
 	/* change the window titles, if the gui supports that */
 	if (gui->retitle)
@@ -1355,9 +1752,16 @@ void buftitle(buffer, title)
 		     win;
 		     win = winofbuf(win, buffer))
 		{
-			(*gui->retitle)(win->gw, tochar8(o_bufname(buffer)));
+			(*gui->retitle)(win->gw, tochar8(o_filename(buffer)
+						 ? o_filename(buffer)
+						 : o_bufname(buffer)));
 		}
 	}
+
+#ifdef FEATURE_AUTOCMD
+	(void)auperform(windefault, ElvFalse, NULL, AU_BUFFILEPOST, title);
+	bufoptions(oldbuf);
+#endif
 }
 
 
@@ -1366,11 +1770,11 @@ void buftitle(buffer, title)
  */
 void bufwilldo(cursor, will)
 	MARK	cursor;	/* where to put cursor if we return to this "undo" version */
-	BOOLEAN	will;	/* True to set flag, False to merely remember cursor */
+	ELVBOOL	will;	/* ElvTrue to set flag, ElvFalse to merely remember cursor */
 {
 	if (will && markbuffer(cursor)->willevent != eventcounter)
 	{
-		markbuffer(cursor)->willdo = True;
+		markbuffer(cursor)->willdo = ElvTrue;
 		markbuffer(cursor)->willevent = eventcounter;
 	}
 	markbuffer(cursor)->docursor = markoffset(cursor);
@@ -1386,6 +1790,7 @@ static struct undo_s *allocundo(buf)
 {
 	struct undo_s *undo;
 	int	i;
+	MARK	mark;
 
 	/* allocate a structure */
 	undo = (struct undo_s *)safealloc(1, sizeof *undo);
@@ -1405,19 +1810,23 @@ static struct undo_s *allocundo(buf)
 	undo->changepos = buf->changepos = buf->docursor;
 	undo->buflines = o_buflines(buf);
 	undo->bufchars = o_bufchars(buf);
-	for (i = 0; i < QTY(namedmark); i++)
-	{
-		if (namedmark[i] && markbuffer(namedmark[i]) == buf)
-		{
-			undo->offset[i] = markoffset(namedmark[i]);
-		}
-		else
-		{
-			undo->offset[i] = -1;
-		}
-	}
 	undo->bufinfo = lowdup(buf->bufinfo);
 	undo->next = NULL;
+
+	/* the undo->marklist field is tricky.  First step is to count the marks
+	 * in this buffer.  Then allocate an array that large plus 1 for an
+	 * end marker.  Then fill it in.
+	 */
+	for (mark = buf->marks, i = 0; mark; mark = mark->next, i++)
+	{
+	}
+	undo->marklist = (struct umark_s *)safealloc(i + 1, sizeof(struct umark_s));
+	for (mark = buf->marks, i = 0; mark; mark = mark->next, i++)
+	{
+		undo->marklist[i].mark = mark;
+		undo->marklist[i].offset = markoffset(mark);
+	}
+	undo->marklist[i].mark = NULL;
 
 	/* return it */
 	return undo;
@@ -1427,7 +1836,7 @@ static struct undo_s *allocundo(buf)
 /* Save an "undo" version of a buffer */
 static void bufdo(buf, wipe)
 	BUFFER	buf;	/* buffer to make an "undo" version for */
-	BOOLEAN	wipe;	/* if True, then delete all "redo" versions */
+	ELVBOOL	wipe;	/* if ElvTrue, then delete all "redo" versions */
 {
 	struct undo_s	*undo;
 	long		linenum;
@@ -1461,6 +1870,7 @@ static void bufdo(buf, wipe)
 #ifdef DEBUG_ALLOC
 			removeundo(buf->undolnptr);
 #endif
+			safefree(buf->undolnptr->marklist);
 			safefree(buf->undolnptr);
 		}
 
@@ -1485,6 +1895,7 @@ static void bufdo(buf, wipe)
 #ifdef DEBUG_ALLOC
 			removeundo(undo);
 #endif
+			safefree(undo->marklist);
 			safefree(undo);
 		}
 
@@ -1497,6 +1908,23 @@ static void bufdo(buf, wipe)
 	/* make sure this is written to disk */
 	if (!o_internal(buf) && eventcounter > 2)
 		sessync();
+}
+
+/* Set the "modified" option for a buffer, unless it is internal */
+static void didmodify(buf)
+	BUFFER	buf;	/* a buffer to mark as "modified", unless internal */
+{
+	/* if internal or already modified, do nothing */
+	if (o_internal(buf) || o_modified(buf))
+		return;
+
+	/* set the modified flag */
+	o_modified(buf) = ElvTrue;
+
+#ifdef FEATURE_AUTOCMD
+	/* do OptSet and OptChanged events on the "modified" option */
+	optautocmd("modified", NULL, &buf->modified);
+#endif
 }
 
 /* Recall a previous "undo" version of a given buffer.  The "back" argument
@@ -1513,6 +1941,7 @@ long bufundo(cursor, back)
 	long		i;
 	BUFFER		buffer;
 	MARKBUF		from, to;
+	MARK		mark;
 	long		delta;
 	long		origulev;
 
@@ -1566,8 +1995,8 @@ long bufundo(cursor, back)
 	o_undolevels(buffer)++;
 	if (o_undolevels(buffer) < 2)
 		o_undolevels(buffer) = 2;
-	bufwilldo(marktmp(from, buffer, undo->changepos), True);
-	bufdo(buffer, False);
+	bufwilldo(marktmp(from, buffer, undo->changepos), ElvTrue);
+	bufdo(buffer, ElvFalse);
 	if (back > 0)
 	{
 		/* undoing: move from "undo" to "redo" */
@@ -1621,14 +2050,18 @@ long bufundo(cursor, back)
 	o_buflines(buffer) = undo->buflines;
 	o_bufchars(buffer) = undo->bufchars;
 	buffer->changes++;
-	o_modified(buffer) = (BOOLEAN)!o_internal(buffer);
+	didmodify(buffer);
 	/*!!! But since internal buffers never store any undo versions, if
-	 * we get here we know that o_internal(buffer) is False.
+	 * we get here we know that o_internal(buffer) is ElvFalse.
 	 */
 
+#ifdef FEATURE_REGION
+	/* mark regions to be kept after the Undo */
+	regionundo(buffer, undo->marklist);
+#endif
+
 	/* Adjust the values of any marks.  Most marks can be fixed just by
-	 * calling markadjust(), but the named marks' old values are stored in
-	 * the undo buffer and we can recall them exactly.
+	 * calling markadjust().
 	 */
 	if (delta < 0)
 	{
@@ -1640,24 +2073,34 @@ long bufundo(cursor, back)
 	{
 		markadjust(marktmp(from, buffer, undo->changepos), &from,delta);
 	}
-	for (i = 0; i < QTY(namedmark); i++)
+
+	/* For any marks which happened to point to this buffer when the undo
+	 * state was saved, we can restore them exactly.
+	 */
+	for (i = 0; undo->marklist[i].mark; i++)
 	{
-		if (undo->offset[i] >= 0
-		 && (!namedmark[i] || markbuffer(namedmark[i]) == buffer))
+		for (mark = buffer->marks;
+		     mark && undo->marklist[i].mark != mark;
+		     mark = mark->next)
 		{
-			if (namedmark[i])
-				markfree(namedmark[i]);
-			namedmark[i] = markalloc(buffer, undo->offset[i]);
 		}
+		if (mark)
+			marksetoffset(mark, undo->marklist[i].offset);
 	}
 #ifdef DISPLAY_ANYMARKUP
 	dmmuadjust(marktmp(from, buffer, 0), marktmp(to, buffer, o_bufchars(buffer)), 0);
+#endif
+#ifdef FEATURE_REGION
+# ifdef DEBUG_REGION
+	regionundo(buffer, NULL);
+# endif
 #endif
 
 	/* We can free the undo_s structure now. */
 #ifdef DEBUG_ALLOC
 	removeundo(undo);
 #endif
+	safefree(undo->marklist);
 	safefree(undo);
 
 	/* Okay to free the oldest "undo" version now */
@@ -1691,7 +2134,9 @@ void bufreplace(from, to, newp, newlen)
 {
 	long	chglines;
 	long	chgchars;
-
+#ifdef FEATURE_AUTOCMD
+	ELVBOOL	doing = markbuffer(from)->willdo;
+#endif
 
 	assert(markbuffer(from) == markbuffer(to) && newlen >= 0);
 
@@ -1700,9 +2145,29 @@ void bufreplace(from, to, newp, newlen)
 	 */
 	if (markbuffer(from)->willdo)
 	{
-		bufdo(markbuffer(from), True);
-		markbuffer(from)->willdo = False;
+		bufdo(markbuffer(from), ElvTrue);
+		markbuffer(from)->willdo = ElvFalse;
 	}
+
+#ifdef FEATURE_FOLD
+	/* destroy any FOLDs whose endpoint is going to go away */
+	if (markoffset(from) != markoffset(to))
+		foldedit(from, to, NULL);
+#endif
+
+#ifdef FEATURE_AUTOCMD
+	/* After the change, we'll want to perform an Edit autocmd on the
+	 * altered text.  Save duplicates of the marks.  We use duplicates
+	 * so they'll be adjusted automatically in response to the changes.
+	 */
+	if (!o_internal(markbuffer(from))
+	 && !bufnoedit
+	 && (doing || markbuffer(from)->eachedit))
+	{
+		autop = markdup(from);
+		aubottom = markdup(to);
+	}
+#endif
 
 	/* make the change to the buffer contents */
 	if (markoffset(from) == markoffset(to))
@@ -1731,7 +2196,6 @@ void bufreplace(from, to, newp, newlen)
 	chgchars = newlen - (markoffset(to) - markoffset(from));
 	o_buflines(markbuffer(from)) += chglines;
 	o_bufchars(markbuffer(from)) += chgchars;
-	o_modified(markbuffer(from)) = (BOOLEAN)!o_internal(markbuffer(from));
 	markbuffer(from)->changes++;
 
 	/* adjust the marks */
@@ -1739,6 +2203,25 @@ void bufreplace(from, to, newp, newlen)
 	dmmuadjust(from, to, chgchars);
 #endif
 	markadjust(from, to, chgchars);
+
+#ifdef FEATURE_AUTOCMD
+	/* allow an autocmd to update regions */
+	if (!o_internal(markbuffer(from))
+	 && !bufnoedit
+	 && (doing || markbuffer(from)->eachedit))
+	{
+		auperform(windefault, ElvFalse, NULL, AU_EDIT, NULL);
+		markfree(autop);
+		autop = NULL;
+		markfree(aubottom);
+		aubottom = NULL;
+	}
+#endif
+
+	/* mark it as modified.  Note that we do this after autocmds, so the
+	 * autocmd can detect whether this is the *FIRST* change to the buffer.
+	 */
+	didmodify(markbuffer(from));
 }
 
 /* Copy part of one buffer into another.  "dst" is the destination (where
@@ -1756,7 +2239,10 @@ void bufpaste(dst, from, to)
 {
 	long	chglines;
 	long	chgchars;
-
+#ifdef FEATURE_AUTOCMD
+	long	dstoffset = markoffset(dst);
+	ELVBOOL	doing = markbuffer(dst)->willdo;
+#endif
 
 	assert(markbuffer(from) == markbuffer(to));
 
@@ -1765,8 +2251,8 @@ void bufpaste(dst, from, to)
 	 */
 	if (markbuffer(dst)->willdo)
 	{
-		bufdo(markbuffer(dst), True);
-		markbuffer(dst)->willdo = False;
+		bufdo(markbuffer(dst), ElvTrue);
+		markbuffer(dst)->willdo = ElvFalse;
 	}
 
 	/* make the change to the buffer's contents */
@@ -1777,11 +2263,35 @@ void bufpaste(dst, from, to)
 	chgchars = markoffset(to) - markoffset(from);
 	o_buflines(markbuffer(dst)) += chglines;
 	o_bufchars(markbuffer(dst)) += chgchars;
-	o_modified(markbuffer(dst)) = (BOOLEAN)!o_internal(markbuffer(dst));
 	markbuffer(dst)->changes++;
 
 	/* adjust marks */
 	markadjust(dst, dst, chgchars);
+
+#ifdef FEATURE_FOLD
+	/* duplicate any folds in the copied region */
+	foldedit(from, to, dst);
+#endif
+
+#ifdef FEATURE_AUTOCMD
+	/* do an Edit event on the destination */
+	if (!o_internal(markbuffer(dst))
+	 && !bufnoedit
+	 && (doing || markbuffer(dst)->eachedit))
+	{
+		autop = markalloc(markbuffer(dst), dstoffset);
+		aubottom = markalloc(markbuffer(dst), dstoffset + chgchars - 1);
+		auperform(windefault, ElvFalse, NULL, AU_EDIT, NULL);
+		markfree(autop);
+		markfree(aubottom);
+		autop = aubottom = NULL;
+	}
+#endif
+
+	/* mark it as modified.  Note that we do this after the autocmds so an
+	 * autocmd line can detect whether this is the *FIRST* change.
+	 */
+	didmodify(markbuffer(dst));
 }
 
 

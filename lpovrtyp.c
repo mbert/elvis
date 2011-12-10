@@ -1,7 +1,6 @@
 /* lpovrtyp.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_lpovrtyp[] = "$Id: lpovrtyp.c,v 2.12 1997/10/05 19:06:12 steve Exp $";
 
 
 /* This file contains a driver for printer types which use overtyping to
@@ -13,6 +12,9 @@ char id_lpovrtyp[] = "$Id: lpovrtyp.c,v 2.12 1997/10/05 19:06:12 steve Exp $";
  */
 
 #include "elvis.h"
+#ifdef FEATURE_RCSID
+char id_lpovrtyp[] = "$Id: lpovrtyp.c,v 2.18 2003/10/17 17:41:23 steve Exp $";
+#endif
 #ifdef FEATURE_LPR
 
 #if USE_PROTOTYPES
@@ -118,6 +120,11 @@ static void fontch(font, ch)
 	_char_	font;	/* font of the next character from text image */
 	_CHAR_	ch;	/* the next character */
 {
+	int	bits;
+
+	if (font == 0)
+		font = 1;
+
 	switch (ch)
 	{
 	  case '\n':
@@ -142,22 +149,10 @@ static void fontch(font, ch)
 
 	  default:
 		assert(column < o_lpcolumns);
-		switch (font)
+		bits = colorinfo[font].da.bits;
+	
+		if (bits & COLOR_GRAPHIC)
 		{
-		  case 'i':
-		  case 'u':
-			part1[column] = '_';
-			part2[column] = ch;
-			length2 = ++column;
-			break;
-
-		  case 'b':
-		  case 'e':
-			part1[column] = part2[column] = ch;
-			length2 = ++column;
-			break;
-
-		  case 'g':
 			if (ch >= '1' && ch <= '9')
 			{
 				ch = '+';
@@ -165,9 +160,20 @@ static void fontch(font, ch)
 			part1[column] = ch;
 			part2[column] = ' ';
 			++column;
-			break;
-
-		  default:
+		}
+		else if (bits & (COLOR_ITALIC | COLOR_UNDERLINED))
+		{
+			part1[column] = '_';
+			part2[column] = ch;
+			length2 = ++column;
+		}
+		else if (bits & COLOR_BOLD)
+		{
+			part1[column] = part2[column] = ch;
+			length2 = ++column;
+		}
+		else
+		{
 			part1[column] = ch;
 			part2[column] = ' ';
 			++column;
@@ -202,7 +208,7 @@ static void after(linesleft)
 }
 
 /* These describe the printer types supported by these functions */
-LPTYPE lpcr =	{"cr", 0, True, before, fontch, page, after};
-LPTYPE lpbs =	{"bs", 1, True, before, fontch, page, after};
+LPTYPE lpcr =	{"cr", 0, ElvTrue, before, fontch, page, after};
+LPTYPE lpbs =	{"bs", 1, ElvTrue, before, fontch, page, after};
 
 #endif /* FEATURE_LPR */

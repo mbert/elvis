@@ -3,6 +3,14 @@
 # This is a little "wrapper" shell script, which runs ./elvis with elvispath
 # set to "lib".  This is handy for testing before it is installed.
 
-ELVISPATH=lib
+ELVISPATH=data:doc:~/.elvis
 export ELVISPATH
-exec ./elvis "$@"
+case "$1" in
+  ddd|-ddd|--ddd)
+	shift;
+	exec ddd ./elvis "$@"
+	;;
+  *)
+	exec ./elvis "$@"
+	;;
+esac

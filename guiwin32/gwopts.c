@@ -5,10 +5,9 @@
 */
 
 #define CHAR    Char
-#define BOOLEAN Boolean
 #include "elvis.h" 
 #undef CHAR
-#undef BOOLEAN
+#undef ELVBOOL
 
 #if defined (GUI_WIN32)
 
@@ -21,8 +20,7 @@
 ** opt_parse_font  --  parse a font option.
 */
 
-void opt_parse_font (unsigned char *option, LOGFONT *plf)
-
+void opt_parse_font(unsigned char *option, LOGFONT *plf)
 {
     register int    i = 0;
     int             font_size = 0;
@@ -57,47 +55,13 @@ void opt_parse_font (unsigned char *option, LOGFONT *plf)
 
 /* --------------------------------------------------------------------
 **
-** opt_parse_attr  --  parse a font attribute.
-*/
-
-void opt_parse_attr (unsigned char *option, LOGFONT *plf)
-
-{
-    /* init to default values */
-    plf->lfWeight= FW_NORMAL;
-    plf->lfItalic = FALSE;
-    plf->lfUnderline = FALSE;
-
-    /* scan options */
-    while (*option != '\0') {
-        switch (*option) {
-            case 'b':
-            case 'B':
-                plf->lfWeight = FW_BOLD;
-                break;
-            case 'i':
-            case 'I':
-                plf->lfItalic = TRUE;
-                break;
-            case 'u':
-            case 'U':
-                plf->lfUnderline = TRUE;
-                break;
-        }
-        option++;
-    }
-}
-
-/* --------------------------------------------------------------------
-**
 ** optstoresb  --  store a scrollbar option.
 */
 
 int optstoresb (OPTDESC *opt, OPTVAL *val, Char *newval)
-
 {
     GUI_WINDOW      *gwp;
-    Boolean         value = calctrue(newval) ? True : False;
+    ELVBOOL         value = calctrue(newval) ? ElvTrue : ElvFalse;
 
     if (val->value.boolean == value)
         return 0;
@@ -118,10 +82,9 @@ int optstoresb (OPTDESC *opt, OPTVAL *val, Char *newval)
 */
 
 int optstoretb (OPTDESC *opt, OPTVAL *val, Char *newval)
-
 {
     GUI_WINDOW      *gwp;
-    Boolean         value = calctrue(newval) ? True : False;
+    ELVBOOL         value = calctrue(newval) ? ElvTrue : ElvFalse;
 
     if (val->value.boolean == value)
         return 0;
@@ -145,10 +108,9 @@ int optstoretb (OPTDESC *opt, OPTVAL *val, Char *newval)
 */
 
 int optstorestb (OPTDESC *opt, OPTVAL *val, Char *newval)
-
 {
     GUI_WINDOW      *gwp;
-    Boolean         value = calctrue(newval) ? True : False;
+    ELVBOOL         value = calctrue(newval) ? ElvTrue : ElvFalse;
 
     if (val->value.boolean == value)
         return 0;
@@ -172,10 +134,9 @@ int optstorestb (OPTDESC *opt, OPTVAL *val, Char *newval)
 */
 
 int optstoremnu (OPTDESC *opt, OPTVAL *val, Char *newval)
-
 {
     GUI_WINDOW      *gwp;
-    Boolean         value = calctrue(newval) ? True : False;
+    ELVBOOL         value = calctrue(newval) ? ElvTrue : ElvFalse;
 
     if (val->value.boolean == value)
         return 0;
@@ -201,7 +162,6 @@ int optstoremnu (OPTDESC *opt, OPTVAL *val, Char *newval)
 */
 
 int optisfont (OPTDESC *opt, OPTVAL *val, Char *newval)
-
 {
     GUI_WINDOW  *gwp;
     LOGFONT     lf;
@@ -228,7 +188,7 @@ int optisfont (OPTDESC *opt, OPTVAL *val, Char *newval)
 		gw_del_fonts (gwp);
 		gw_set_fonts (gwp);
 		gw_get_win_size (gwp);
-		gw_set_cursor (gwp, True);
+		gw_set_cursor (gwp, ElvTrue);
 		ShowCaret (gwp->clientHWnd);
 		eventresize ((GUIWIN *)gwp, gwp->numrows, gwp->numcols);
 		InvalidateRect (gwp->clientHWnd, NULL, TRUE);
@@ -243,7 +203,6 @@ int optisfont (OPTDESC *opt, OPTVAL *val, Char *newval)
 */
 
 int optstoreattr (OPTDESC *opt, OPTVAL *val, Char *newval)
-
 {
     GUI_WINDOW  *gwp;
     Char        *p;
@@ -267,7 +226,6 @@ int optstoreattr (OPTDESC *opt, OPTVAL *val, Char *newval)
 */
 
 int optiswinsize (OPTDESC *opt, OPTVAL *val, Char *newval)
-
 {
     GUI_WINDOW      *gwp;
     long            value = atoi ((char *)newval);
@@ -293,6 +251,90 @@ int optiswinsize (OPTDESC *opt, OPTVAL *val, Char *newval)
 		}
 	}
 
+	return 1;
+}
+
+/* Change the icon image */
+int optisicon (OPTDESC *opt, OPTVAL *val, Char *newval)
+{
+#ifdef FEATURE_IMAGE
+    GUI_WINDOW	*gwp;
+    HBITMAP		hbmColor, hbmMask;
+    HICON		hicon;
+    ICONINFO	iconinfo;
+    char		*fullname;
+    char		xpmname[400];
+#endif
+
+	/* if same value, then do nothing */
+	if (val->value.string ? !CHARcmp(newval, val->value.string)
+						  : *newval == '\0')
+		return 0;
+
+#ifdef FEATURE_IMAGE
+	if (*newval)
+	{
+		/* locate the file, if not in current directory */
+		fullname = tochar8(newval);
+		if (dirperm(fullname) < DIR_READONLY)
+		{
+			strcpy(xpmname, "icons/");
+			strcat(xpmname, tochar8(newval));
+			fullname = iopath(tochar8(o_elvispath), xpmname, ElvFalse);
+			if (!fullname)
+			{
+				strcat(xpmname, ".xpm");
+				fullname = iopath(tochar8(o_elvispath), xpmname, ElvFalse);
+			}
+		}
+		if (!fullname)
+		{
+			msg(MSG_ERROR, "[s]can't find icon $1", newval);
+			return -1;
+		}
+
+		/* load the new pixmap, and convert it to an icon */
+		hbmColor = gw_load_xpm(fullname, -1L, NULL, &hbmMask);
+		if (!hbmColor)
+		{
+			msg(MSG_ERROR, "[s]can't load image from $1", fullname);
+			return -1;
+		}
+		memset(&iconinfo, 0, sizeof iconinfo);
+		iconinfo.fIcon = TRUE;
+		iconinfo.hbmColor = hbmColor;
+		iconinfo.hbmMask = hbmMask;
+		hicon = CreateIconIndirect(&iconinfo);
+		gw_unload_xpm(hbmColor);
+		gw_unload_xpm(hbmMask);
+	}
+	else /* setting to "" */
+	{
+		/* use the default icon */
+		hicon = LoadIcon (hInst, MAKEINTRESOURCE (IDI_ELVIS));
+	}
+
+	/* store it as an icon */
+	if ((gwp = gw_find_client (GetFocus ())) != NULL)
+		SetClassLong(gwp->frameHWnd, GCL_HICON, (long)hicon);
+
+	/* free the old icon, and remember the new one */
+	if (gwcustomicon)
+		DestroyIcon(gwcustomicon);
+	if (*newval)
+		gwcustomicon = hicon;
+	else
+		gwcustomicon = NULL;
+#endif
+
+	/* free the old name, if any */
+	if (val->value.string)
+		safefree(val->value.string);
+
+	/* store the new name */
+	val->value.string = *newval ? CHARdup(newval) : NULL;
+
+	/* the icon was successfully changed */
 	return 1;
 }
 

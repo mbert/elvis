@@ -62,7 +62,7 @@ static int v_rows(void);
 static void video P_((int, int *, int *));
 END_EXTERNC
 
-static BOOLEAN vmono;	/* is this a monochrome screen? */
+static ELVBOOL vmono;	/* is this a monochrome screen? */
 static int vmode = 0x07;/* attribute byte */
 static int vcols;	/* columns per row */
 static int vrows;	/* rows on screen */
@@ -205,7 +205,7 @@ int v_cols()
 
 	regs.h.ah = 0x0f;
 	int86(0x10, &regs, &regs);
-	vmono = (BOOLEAN)(regs.h.al == 7);
+	vmono = (ELVBOOL)(regs.h.al == 7);
 	return (vcols = regs.h.ah);	/* yes, ASSIGNMENT! */
 }
 

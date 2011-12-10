@@ -22,17 +22,23 @@
 
 
 /* These are used to format directory listings, in HTML */
-#define HTML_HEAD	"<html><body>\n<h1>Directory listing of \"(htmlsafe($1))\"</h1>\n<table>\n"
-#define HTML_ITEM	"<tr><td><a href=\"$1\">(htmlsafe($2))</a></td><td>(htmlsafe($3))</td></tr>\n"
-#define HTML_TAIL	"</table></body></html>\n"
+#ifdef FEATURE_CALC
+# define HTML_HEAD	"<html><body>\n<h1>Directory listing of \"(htmlsafe($1))\"</h1>\n<table>\n"
+# define HTML_ITEM	"<tr><td><a href=\"$1\">(htmlsafe($2))</a></td><td>(htmlsafe($3))</td></tr>\n"
+# define HTML_TAIL	"</table></body></html>\n"
+#else
+# define HTML_HEAD	"<html><body>\n<h1>Directory listing of \"$1\"</h1>\n<table>\n"
+# define HTML_ITEM	"<tr><td><a href=\"$1\">$2</a></td><td>$3</td></tr>\n"
+# define HTML_TAIL	"</table></body></html>\n"
+#endif
 
 
 #if USE_PROTOTYPES
-static void	getaccountinfo(char *site_port, BOOLEAN anonymous, char *wantuser);
-static char	*ftpcommand(char *cmd, char *arg, BOOLEAN simple);
-static BOOLEAN	passive P_((void));
-static DIRPERM	resourcetype(char *resource, BOOLEAN reading);
-static BOOLEAN	ftpdir(char *site_port, BOOLEAN anonymous, char *resource);
+static void	getaccountinfo(char *site_port, ELVBOOL anonymous, char *wantuser);
+static char	*ftpcommand(char *cmd, char *arg, ELVBOOL simple);
+static ELVBOOL	passive P_((void));
+static DIRPERM	resourcetype(char *resource, ELVBOOL reading);
+static ELVBOOL	ftpdir(char *site_port, ELVBOOL anonymous, char *resource);
 #endif
 
 static sockbuf_t	*command_sb;	/* command socket */
@@ -45,7 +51,7 @@ static char		*homedir;	/* home directory */
 /* These point to dynamically-allocated strings which store the user's account
  * information for the current FTP site.
  */
-static BOOLEAN	was_anon;
+static ELVBOOL	was_anon;
 static char	*site;
 static char	*user;
 static char	*password;
@@ -54,13 +60,13 @@ static char	*account;
 /* Scan through the ~/.netrc file for the user's account information */
 static void getaccountinfo(site_port, anonymous, wantuser)
 	char	*site_port;	/* site name, possibly with a port number */
-	BOOLEAN	anonymous;	/* ignore machine-specific account info? */
+	ELVBOOL	anonymous;	/* ignore machine-specific account info? */
 	char	*wantuser;	/* specific login to look for, or NULL */
 {
 	char	*filename;	/* name of the ~/.netrc file */
 	int	c;		/* character from file */
 	CHAR	*word;		/* current word from file */
-	BOOLEAN foundmachine;	/* have we found the desired machine's entry? */
+	ELVBOOL foundmachine;	/* have we found the desired machine's entry? */
 	CHAR	expect;		/* type of word to expect next */
 	char	*localsite;	/* name of site where elvis is running */
 	FILE	*fp;
@@ -91,13 +97,21 @@ static void getaccountinfo(site_port, anonymous, wantuser)
 	if (password) safefree(password);
 	if (account) safefree(account);
 	user = password = account = NULL;
-	foundmachine = False;
+	foundmachine = ElvFalse;
+
+	/* For anonymous logins, ignore the ~/.netrc file */
+	if (anonymous)
+		goto NoFile;
 
 	/* Locate the ~/.netrc file.  Look in the home directory first */
-	filename = tochar8(calculate(toCHAR("home/\".netrc\""), NULL, False));
+#ifdef FEATURE_CALC
+	filename = tochar8(calculate(toCHAR("home/\".netrc\""), NULL, CALC_ALL));
+#else
+	filename = "~/.netrc";
+#endif
 	assert(filename);
 	if (dirperm(filename) < DIR_READONLY)
-		filename = iopath(tochar8(o_elvispath), FTP_FILE, False);
+		filename = iopath(tochar8(o_elvispath), FTP_FILE, ElvFalse);
 	if (!filename)
 		goto NoFile;
 
@@ -118,7 +132,7 @@ static void getaccountinfo(site_port, anonymous, wantuser)
 	expect = '\0';
 	while ((c = getc(fp)) != EOF && !(foundmachine && expect == 'm'))
 	{
-		if (!isspace(c))
+		if (!elvspace(c))
 		{
 			buildCHAR(&word, (_CHAR_)c);
 			continue;
@@ -138,7 +152,7 @@ static void getaccountinfo(site_port, anonymous, wantuser)
 		{
 			if (foundmachine)
 				expect = 'm'; /* so we exit the loop */
-			foundmachine = True;
+			foundmachine = ElvTrue;
 			expect = '\0';
 		}
 		else if (!strcmp(tochar8(word), "macdef"))
@@ -147,19 +161,14 @@ static void getaccountinfo(site_port, anonymous, wantuser)
 		}
 		else if (expect == 'm')
 		{
-			if (anonymous)
-			{
-				if (o_verbose >= 7)
-					msg(MSG_INFO, "[S]ftp ignoring 'machine $1' because we want the default entry", word);
-			}
-			else if (strcmp(tochar8(word), site))
+			if (strcmp(tochar8(word), site))
 			{
 				if (o_verbose >= 7)
 					msg(MSG_INFO, "[Ss]ftp ignoring 'machine $1' because we want $2", word, site);
 			}
 			else
 			{
-				foundmachine = True;
+				foundmachine = ElvTrue;
 				expect = '\0';
 			}
 		}
@@ -169,7 +178,7 @@ static void getaccountinfo(site_port, anonymous, wantuser)
 			if (wantuser && CHARcmp(toCHAR(wantuser), word))
 			{
 				/* not the one we want */
-				foundmachine = False;
+				foundmachine = ElvFalse;
 				if (password) safefree(password);
 				if (account) safefree(account);
 				password = account = NULL;
@@ -236,7 +245,7 @@ NoFile:
 static char *ftpcommand(cmd, arg, simple)
 	char	*cmd;	/* the command name, such as "RETR" (may be NULL) */
 	char	*arg;	/* an argument for the command (may be NULL) */
-	BOOLEAN	simple;	/* detect error responses here? */
+	ELVBOOL	simple;	/* detect error responses here? */
 {
 	char	*response;
 
@@ -251,7 +260,7 @@ static char *ftpcommand(cmd, arg, simple)
 
 	/* Read each line of the response.  Keep only the last one. */
 	while ((response = netgetline(command_sb)) != NULL
-	    && (!isdigit(response[0]) || response[3] == '-' || !strncmp(response, "220", 3)))
+	    && (!elvdigit(response[0]) || response[3] == '-' || !strncmp(response, "220", 3)))
 	{
 		if (o_verbose >= 3)
 			msg(MSG_INFO, "[s]ftp: $1", response);
@@ -272,10 +281,10 @@ static char *ftpcommand(cmd, arg, simple)
 
 /* This function should be called before any command which transfers data.
  * It sends a "PASV" command to learn which port will be used for the transfer,
- * and then opens data_sb as a socket to that port.  Returns True if successful,
- * or False if error (after giving an error message).
+ * and then opens data_sb as a socket to that port.  Returns ElvTrue if successful,
+ * or ElvFalse if error (after giving an error message).
  */
-static BOOLEAN passive P_((void))
+static ELVBOOL passive()
 {
 	char		psite[20];
 	unsigned int	pport;
@@ -283,9 +292,9 @@ static BOOLEAN passive P_((void))
 	int		i, j;
 
 	/* send the PASV command */
-	response = ftpcommand("PASV", NULL, True);
+	response = ftpcommand("PASV", NULL, ElvTrue);
 	if (!response)
-		return False;
+		return ElvFalse;
 
 	/* parse the response, looking for an address and port number */
 	while (*response && *response != '(')
@@ -296,7 +305,7 @@ static BOOLEAN passive P_((void))
 	for (i = j = 0; j < 4; i++, response++)
 	{
 		if (!*response)
-			return False;
+			return ElvFalse;
 		if (*response == ',')
 		{
 			psite[i] = '.';
@@ -308,12 +317,12 @@ static BOOLEAN passive P_((void))
 	psite[i - 1] = '\0';
 
 	/* Convert the port from a pair of ascii-encoded bytes
-	 * into one unsingned int
+	 * into one unsigned int
 	 */
 	pport = atoi(response) << 8;
 	while (*response != ',')
 		if (!*response++)
-			return False;
+			return ElvFalse;
 	response++;
 	pport |= atoi(response);
 
@@ -322,9 +331,9 @@ static BOOLEAN passive P_((void))
 		msg(MSG_INFO, "[sd]ftp: passive channel = $1:$2", psite, pport);
 	data_sb = netconnect(psite, pport);
 	if (!data_sb)
-		return False;
+		return ElvFalse;
 
-	return True;
+	return ElvTrue;
 }
 
 
@@ -336,6 +345,7 @@ DIRPERM ftpperms;
  *	DIR_READWRITE	- the resource exists, and is a writable file.
  *	DIR_READONLY	- the resource exists, and is a non-writable file.
  *	DIR_NEW		- the resource doesn't exist.
+ *	DIR_DIRECTORY	- the resource is a directory.
  *	DIR_NOTFILE	- the resource exists, and is a directory.
  *	DIR_BADPATH	- error in communications.
  * If the "reading" argument is true, and the type is DIR_READWRITE, then it
@@ -345,7 +355,7 @@ DIRPERM ftpperms;
  */
 static DIRPERM resourcetype(resource, reading)
 	char	*resource;	/* the file to check */
-	BOOLEAN	reading;
+	ELVBOOL	reading;
 {
 	char	*response;
 	int	lines;
@@ -354,18 +364,18 @@ static DIRPERM resourcetype(resource, reading)
 	/* Try to "cd" into it as though it is a directory.  If that succeeds
 	 * then we know it really is a directory.
 	 */
-	response = ftpcommand("CWD", resource, False);
+	response = ftpcommand("CWD", resource, ElvFalse);
 	if (!response)
 		return DIR_BADPATH;
 	if (*response == '2')
 	{
-		(void)ftpcommand("CWD", homedir, False);
-		return DIR_NOTFILE;
+		(void)ftpcommand("CWD", homedir, ElvFalse);
+		return DIR_DIRECTORY;
 	}
-	(void)ftpcommand("CWD", homedir, False);
+	(void)ftpcommand("CWD", homedir, ElvFalse);
 
 	/* Try to get the file's size. */
-	response = ftpcommand("SIZE", resource, False);
+	response = ftpcommand("SIZE", resource, ElvFalse);
 	if (!response)
 		return DIR_BADPATH;
 
@@ -397,7 +407,7 @@ static DIRPERM resourcetype(resource, reading)
 	/* Apparently SIZE isn't supported by this server.  Try LIST */
 	if (!passive())
 		return DIR_BADPATH;
-	response = ftpcommand("LIST", resource, False);
+	response = ftpcommand("LIST", resource, ElvFalse);
 	if (!response)
 	{
 		netdisconnect(data_sb);
@@ -413,7 +423,7 @@ static DIRPERM resourcetype(resource, reading)
 	for (size = -1L, lines = 0; (response = netgetline(data_sb)) != NULL; )
 	{
 		/* ignore lines which start with a digit or "total" */
-		if (!*response || isdigit(*response) || !strncmp(response, "total", 5))
+		if (!*response || elvdigit(*response) || !strncmp(response, "total", 5))
 			continue;
 		lines++;
 	}
@@ -432,14 +442,14 @@ ExistingFile:
 	 */
 	if (!passive())
 		return DIR_BADPATH;
-	response = ftpcommand("APPE", resource, False);
+	response = ftpcommand("APPE", resource, ElvFalse);
 	if (!response || atoi(response) >= 400)
 	{
 		netdisconnect(data_sb);
 		return DIR_READONLY;
 	}
 	netdisconnect(data_sb);
-	(void)ftpcommand(NULL, NULL, False);
+	(void)ftpcommand(NULL, NULL, ElvFalse);
 
 	return DIR_READWRITE;
 }
@@ -447,11 +457,11 @@ ExistingFile:
 
 /* Read a directory, and construct a single big string to store an HTML version
  * of it.  If successful, set "htmltext" to point to the string, and return
- * True; otherwise, give an error message and return False.
+ * ElvTrue; otherwise, give an error message and return ElvFalse.
  */
-static BOOLEAN ftpdir(site_port, anonymous, resource)
+static ELVBOOL ftpdir(site_port, anonymous, resource)
 	char	*site_port;	/* name of site, with optional port number */
-	BOOLEAN	anonymous;	/* include "~/" in the URL name */
+	ELVBOOL	anonymous;	/* don't include "~/" in the URL name */
 	char	*resource;	/* name of the directory being read */
 {
 	char	*line;
@@ -466,11 +476,11 @@ static BOOLEAN ftpdir(site_port, anonymous, resource)
 	/* Calculate the basic header text */
 	args[0] = toCHAR(resource);
 	args[1] = NULL;
-	cp = calculate(toCHAR(HTML_HEAD), args, True);
+	cp = calculate(toCHAR(HTML_HEAD), args, CALC_MSG);
 	if (!cp)
 	{
 		/* error message generated from calculate() */
-		return False;
+		return ElvFalse;
 	}
 	htmltext = CHARdup(cp);
 
@@ -497,7 +507,7 @@ static BOOLEAN ftpdir(site_port, anonymous, resource)
 		args[1] = toCHAR("..");
 		args[2] = toCHAR("Parent directory");
 		args[3] = NULL;
-		cp = calculate(toCHAR(HTML_ITEM), args, True);
+		cp = calculate(toCHAR(HTML_ITEM), args, CALC_MSG);
 		if (cp)
 		{
 			new = (CHAR *)safealloc(CHARlen(htmltext) + CHARlen(cp) + 1, sizeof(CHAR));
@@ -509,9 +519,9 @@ static BOOLEAN ftpdir(site_port, anonymous, resource)
 	}
 
 	/* Request the directory listing */
-	if (!passive() || !ftpcommand("LIST", resource, True))
+	if (!passive() || !ftpcommand("LIST", resource, ElvTrue))
 	{
-		return False;
+		return ElvFalse;
 	}
 
 	/* For each directory entry... */
@@ -551,7 +561,7 @@ static BOOLEAN ftpdir(site_port, anonymous, resource)
 		args[3] = NULL;
 
 		/* Add the item to the string */
-		cp = calculate(toCHAR(HTML_ITEM), args, True);
+		cp = calculate(toCHAR(HTML_ITEM), args, CALC_MSG);
 		if (!cp)
 			cp = toCHAR(line + strlen(line) + 1);
 		new = (CHAR *)safealloc(CHARlen(htmltext) + CHARlen(cp) + 1, sizeof(CHAR));
@@ -569,20 +579,20 @@ static BOOLEAN ftpdir(site_port, anonymous, resource)
 	safefree(htmltext);
 	htmltext = new;
 
-	return True;
+	return ElvTrue;
 }
 
 /* Open a connection to an FTP site, to read a file or directory, or write
  * or append to a file.  In addition, you can call it with rwap='p' to check
  * the file's permissions but not do anything else.
  */
-BOOLEAN ftpopen(site_port, resource, force, rwap)
+ELVBOOL ftpopen(site_port, resource, force, rwap)
 	char	*site_port;	/* site name & port number of the FTP server */
 	char	*resource;	/* name of the file or directory */
-	BOOLEAN	force;		/* allow existing files to be overwritten */
+	ELVBOOL	force;		/* allow existing files to be overwritten */
 	_char_	rwap;		/* 'r'-read, 'w'-write, 'a'-append */
 {
-	BOOLEAN anonymous = True;
+	ELVBOOL anonymous = ElvTrue;
 	char	*response, *build;
 	char	*wantuser;
 	int	i;
@@ -600,7 +610,7 @@ BOOLEAN ftpopen(site_port, resource, force, rwap)
 	wantuser = NULL;
 	if (resource[0] == '~')
 	{
-		anonymous = False;
+		anonymous = ElvFalse;
 		resource++;
 		if (*resource == '/')
 			resource++;
@@ -631,23 +641,23 @@ BOOLEAN ftpopen(site_port, resource, force, rwap)
 	if (!command_sb)
 	{
 		/* error message already given */
-		return False;
+		return ElvFalse;
 	}
 
 	/* Login, and always use binary transfers */
-	response = ftpcommand("USER", user, True);
+	response = ftpcommand("USER", user, ElvTrue);
 	if (response && atoi(response) == FTP_PASSWORD_REQUIRED)
-		response = ftpcommand("PASS", password, True);
+		response = ftpcommand("PASS", password, ElvTrue);
 	if (response && atoi(response) == FTP_ACCOUNT_REQUIRED)
-		response = ftpcommand("ACCT", account, True);
+		response = ftpcommand("ACCT", account, ElvTrue);
 	if (response)
-		response = ftpcommand("TYPE", "I", True);
+		response = ftpcommand("TYPE", "I", ElvTrue);
 	if (response)
-		response = ftpcommand("PWD", NULL, True);
+		response = ftpcommand("PWD", NULL, ElvTrue);
 	if (!response)
 	{
 		netdisconnect(command_sb);
-		return False;
+		return ElvFalse;
 	}
 	if (response[4] == '"')
 	{
@@ -667,7 +677,7 @@ BOOLEAN ftpopen(site_port, resource, force, rwap)
 		homedir = safedup("/");
 
 	/* do some type-dependent checks */
-	ftpperms =  resourcetype(resource, (BOOLEAN)(rwap == 'r'));
+	ftpperms =  resourcetype(resource, (ELVBOOL)(rwap == 'r'));
 	switch (ftpperms)
 	{
 	  case DIR_READWRITE:
@@ -679,7 +689,7 @@ BOOLEAN ftpopen(site_port, resource, force, rwap)
 		{
 			msg(MSG_ERROR, "won't overwrite ftp file without '!'");
 			netdisconnect(command_sb);
-			return False;
+			return ElvFalse;
 		}
 		break;
 
@@ -687,49 +697,49 @@ BOOLEAN ftpopen(site_port, resource, force, rwap)
 		/* nothing special needed */
 		break;
 
-	  case DIR_NOTFILE:
+	  case DIR_DIRECTORY:
 	  	/* can't write to a non-file */
-	  	if (rwap != 'r')
+	  	if (rwap != 'r' && rwap != 'p')
 	  	{
 	  		msg(MSG_ERROR, "can only READ ftp directories");
 	  		netdisconnect(command_sb);
-	  		return False;
+	  		return ElvFalse;
 	  	}
 
 		/* read the directory, as one big string of HTML */
 		if (!ftpdir(site_port, anonymous, resource))
 		{
 			netdisconnect(command_sb);
-			return False;
+			return ElvFalse;
 		}
 		htmllen = CHARlen(htmltext);
 		htmlused = 0;
-		return True;
+		return ElvTrue;
 
 	  default: /* probably DIR_BADPATH */
 	  	/* error message already given */
 		netdisconnect(command_sb);
-	  	return False;
+	  	return ElvFalse;
 	}
 
 	/* initiate the data transfer */
 	if (!passive())
 	{
 		netdisconnect(command_sb);
-		return False;
+		return ElvFalse;
 	}
 	switch (rwap)
 	{
 	  case 'r':
-		response = ftpcommand("RETR", resource, True);
+		response = ftpcommand("RETR", resource, ElvTrue);
 		break;
 
 	  case 'w':
-		response = ftpcommand("STOR", resource, True);
+		response = ftpcommand("STOR", resource, ElvTrue);
 		break;
 
 	  case 'a':
-		response = ftpcommand("APPE", resource, True);
+		response = ftpcommand("APPE", resource, ElvTrue);
 		break;
 
 	  case 'p':
@@ -744,11 +754,11 @@ BOOLEAN ftpopen(site_port, resource, force, rwap)
 	{
 		/* error message already given */
 		netdisconnect(command_sb);
-		return False;
+		return ElvFalse;
 	}
 
 	/* the hard part is now over */
-	return True;
+	return ElvTrue;
 }
 
 
@@ -779,7 +789,7 @@ int ftpread(buf, nbytes)
 	}
 
 	/* Else normal read -- get some bytes in data_sb's input buffer */
-	if (netbytes(data_sb) < sizeof(data_sb->buf)
+	if (netbytes(data_sb) < (int)sizeof(data_sb->buf)
 	 && netbytes(data_sb) < nbytes)
 	{
 		if (!netread(data_sb))
@@ -796,7 +806,7 @@ int ftpread(buf, nbytes)
 }
 
 
-void ftpclose P_((void))
+void ftpclose()
 {
 	if (command_sb)
 		netdisconnect(command_sb);

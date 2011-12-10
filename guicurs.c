@@ -1,10 +1,12 @@
 /* guicurs.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_guicurs[] = "$Id: guicurs.c,v 2.19 1999/02/06 22:26:40 steve Exp $";
 
 #define WINDOW elviswin
 #include "elvis.h"
+#ifdef FEATURE_RCSID
+char id_guicurs[] = "$Id: guicurs.c,v 2.25 2003/10/17 17:41:23 steve Exp $";
+#endif
 #undef WINDOW
 #ifdef GUI_CURSES
 
@@ -41,13 +43,13 @@ typedef struct cwin_s
 } CWIN;
 
 #if USE_PROTOTYPES
-static BOOLEAN clr2eol(GUIWIN *gw);
-static BOOLEAN creategw(char *name, char *firstcmd);
-static BOOLEAN focusgw (GUIWIN *gw);
+static ELVBOOL clr2eol(GUIWIN *gw);
+static ELVBOOL creategw(char *name, char *firstcmd);
+static ELVBOOL focusgw (GUIWIN *gw);
 static int init(int argc, char **argv);
 static int test(void);
 static void bell(GUIWIN *gw);
-static void destroygw(GUIWIN *gw, BOOLEAN force);
+static void destroygw(GUIWIN *gw, ELVBOOL force);
 static void draw(GUIWIN *gw, _char_ font, CHAR *text, int len);
 static void flush(void);
 static void loop(void);
@@ -104,6 +106,10 @@ static void loop()
 	int	len;
 	CWIN	*cwin;
 
+	/* peform the -c command or -t tag */
+	if (mainfirstcmd(windefault))
+		return;
+
 	/* loop until we don't have any windows left */
 	while (winlist)
 	{
@@ -150,7 +156,7 @@ static void term()
 /* This function makes a particular window current -- placing on top of all
  * other windows, and sending any keystrokes to it.
  */
-static BOOLEAN focusgw(gw)
+static ELVBOOL focusgw(gw)
 	GUIWIN	*gw;	/* window to receive keystrokes */
 {
 	int	i;
@@ -160,9 +166,9 @@ static BOOLEAN focusgw(gw)
 	if (current)
 	{
 		/* draw the frame around the window */
-		ACS(current->frame, True);
+		ACS(current->frame, ElvTrue);
 		box(current->frame, ACS_VLINE, ACS_HLINE);
-		ACS(current->frame, False);
+		ACS(current->frame, ElvFalse);
 		wstandout(current->frame);
 		mvwprintw(current->frame, 0, 0, "%.*s", current->columns + 2, current->title); /* nishi */
 		wstandend(current->frame);
@@ -186,7 +192,7 @@ static BOOLEAN focusgw(gw)
 	}
 	mvwprintw(cw->frame, 0, 0, "%.*s", cw->columns + 2, cw->title);
 	wstandend(cw->frame);
-	return True;
+	return ElvTrue;
 }
 
 
@@ -196,7 +202,7 @@ static BOOLEAN focusgw(gw)
  * support multiple windows.  The msg() function should be called to
  * describe the reason for the failure.
  */
-static BOOLEAN creategw(name, firstcmd)
+static ELVBOOL creategw(name, firstcmd)
 	char	*name;		/* name of window to create */
 	char	*firstcmd;	/* first command to execute in window */
 {
@@ -215,7 +221,7 @@ static BOOLEAN creategw(name, firstcmd)
 	newp->frame = newwin(newp->rows + 2, newp->columns + 2, newp->ypos, newp->xpos);
 	newp->window = subwin(newp->frame, newp->rows, newp->columns, newp->ypos + 1, newp->xpos + 1);
 	newp->title = safedup(name);
-	leaveok(newp->frame, True);
+	leaveok(newp->frame, ElvTrue);
 
 	/* make it the current window */
 	focusgw((GUIWIN *)newp);
@@ -230,14 +236,14 @@ static BOOLEAN creategw(name, firstcmd)
 		exstring(windefault, toCHAR(firstcmd), "+cmd");
 	}
 
-	return True;
+	return ElvTrue;
 }
 
 
 /* Simulate a "destroy" event for the window. */
 static void destroygw(gw, force)
 	GUIWIN	*gw;	/* window to destroy */
-	BOOLEAN	force;	/* if True, try harder to destroy the window */
+	ELVBOOL	force;	/* if ElvTrue, try harder to destroy the window */
 {
 	CWIN	*cw, *prev;
 
@@ -346,7 +352,7 @@ static void draw(gw, font, text, len)
 {
 	CWIN	*cw = (CWIN *)gw;
 
-	if (font == 'p' || isupper(font))
+	if (font == 'p' || elvupper(font))
 	{
 		wstandout(cw->window);
 		wprintw(cw->window, "%.*s", len, text);
@@ -369,13 +375,13 @@ static void draw(gw, font, text, len)
 }
 
 
-static BOOLEAN clr2eol(gw)
+static ELVBOOL clr2eol(gw)
 	GUIWIN	*gw;	/* window whose row is to be cleared */
 {
 	CWIN	*cw = (CWIN *)gw;
 
 	wclrtoeol(cw->window);
-	return True;
+	return ElvTrue;
 }
 
 static void bell(gw)
@@ -388,11 +394,11 @@ GUI guicurses =
 {
 	"curses",	/* name */
 	"Curses-based text interface",
-	False,	/* exonly */
-	False,	/* newblank */
-	False,	/* minimizeclr */
-	True,	/* scrolllast */
-	False,	/* shiftrows */
+	ElvFalse,	/* exonly */
+	ElvFalse,	/* newblank */
+	ElvFalse,	/* minimizeclr */
+	ElvTrue,	/* scrolllast */
+	ElvFalse,	/* shiftrows */
 	0,	/* movecost */
 	0,	/* nopts */
 	NULL,	/* optdescs */

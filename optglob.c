@@ -1,11 +1,19 @@
 /* optglob.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_optglob[] = "$Id: optglob.c,v 2.67 1999/10/05 19:13:34 steve Exp $";
 
 /* This file contains gobal options for the portable parts of elvis. */
 
 #include "elvis.h"
+#ifdef FEATURE_RCSID
+char id_optglob[] = "$Id: optglob.c,v 2.110 2003/10/21 00:18:16 steve Exp $";
+#endif
+
+#ifdef FEATURE_LISTCHARS
+static int optislistchars P_((struct optdesc_s *opt, OPTVAL *val, CHAR *newval));
+#else
+# define optislistchars optispacked
+#endif
 
 /* descriptions of the global options */
 static OPTDESC ogdesc[] =
@@ -30,6 +38,9 @@ static OPTDESC ogdesc[] =
 	{"modelines","mls",	optnstring,	optisnumber,	"1:100"},
 	{"ignorecase", "ic",	NULL,		NULL		},
 	{"magic", "ma",		NULL,		NULL		},
+	{"magicchar", "mac",	optsstring,	optisstring	},
+	{"magicname", "man",	NULL,		NULL,		},
+	{"magicperl", "map",	NULL,		NULL,		},
 	{"novice", "novice",	NULL,		NULL		},
 	{"prompt", "prompt",	NULL,		NULL		},
 	{"remap", "remap",	NULL,		NULL		},
@@ -37,6 +48,8 @@ static OPTDESC ogdesc[] =
 	{"shell", "sh",		optsstring,	optisstring	},
 	{"sync", "sync",	NULL,		NULL		},
 	{"taglength", "tl",	optnstring,	optisnumber	},
+	{"tagkind", "tk",	NULL,		NULL		},
+	{"taglibrary", "tlib",	NULL,		NULL		},
 	{"tags", "tagpath",	optsstring,	optisstring	},
 	{"tagstack", "tsk",	NULL,		NULL		},
 	{"tagprg", "tp",	optsstring,	optisstring	},
@@ -48,11 +61,11 @@ static OPTDESC ogdesc[] =
 	{"wrapscan", "ws",	NULL,		NULL		},
 	{"writeany", "wa",	NULL,		NULL		},
 	{"defaultreadonly","dro",NULL,		NULL		},
-	{"initialstate", "is",	opt1string,	optisoneof,	"input replace vi ex"},
+	{"initialstate","init",	opt1string,	optisoneof,	"input replace vi ex"},
 	{"exitcode", "exit",	optnstring,	optisnumber,	"0:255"},
 	{"keytime", "kt",	optnstring,	optisnumber,	"0:20"},
 	{"usertime", "ut",	optnstring,	optisnumber,	"0:20"},
-	{"safer", "trapunsafe",	NULL,		NULL		},
+	{"security", "sec",	opt1string,	optisoneof,	"normal safer restricted"},
 	{"tempsession", "temp",	NULL,		NULL		},
 	{"newsession", "temp",	NULL,		NULL		},
 	{"exrefresh", "er",	NULL,		NULL		},
@@ -88,9 +101,9 @@ static OPTDESC ogdesc[] =
 	{"maplog", "mlog",	opt1string,	optisoneof,	"off reset append"},
 	{"gdefault", "gd",	NULL,		NULL		},
 	{"matchchar", "mc",	optsstring,	optisstring	},
-	{"showname", "snm",	NULL,		NULL		},
+	{"show", "show",	optsstring,	optisstring	},
 	{"writeeol", "weol",	opt1string,	optisoneof,	"unix dos mac text binary same"},
-	{"showtag", "st",	NULL,		NULL		},
+	{"binary", "bin",	NULL,		NULL		},
 	{"saveregexp", "sre",	NULL,		NULL		},
 	{"true", "True",	optsstring,	optisstring	},
 	{"false", "False",	optsstring,	optisstring	},
@@ -98,9 +111,25 @@ static OPTDESC ogdesc[] =
 	{"completebinary", "cob", NULL,		NULL		},
 	{"optionwidth", "ow",	optnstring,	optisnumber,	},
 	{"smarttab", "sta",	NULL,		NULL		},
+	{"smartcase", "scs",	NULL,		NULL		},
+	{"hlsearch", "hls",	NULL,		NULL		},
+	{"background", "bg",	opt1string,	colorisbg,	"light dark"},
+	{"incsearch", "is",	NULL,		NULL		},
+	{"spelldict", "spd",	optsstring,	optisstring	},
+	{"spellautoload","sal",	NULL,		NULL		},
+	{"spellsuffix", "sps",	optsstring,	optisstring	},
+	{"locale", "locale",	optsstring,	optisstring	},
+	{"mkexrcfile", "rc",	optsstring,	optisstring	},
+	{"prefersyntax","psyn",	opt1string,	optisoneof,	"never local writable always" },
+	{"eventignore", "ei",	optsstring,	optisstring	},
+	{"eventerrors", "ee",	NULL,		NULL,		},
+	{"tweaksection", "twks",NULL,		NULL,		},
+	{"timeout", "to",       NULL,		NULL		},
+	{"listchars", "lcs",	optsstring,	optislistchars,	"eol:,tab:,trail:,ff:,cr:,esc:,bs:,del:,nul:,precedes:,extends:,markup" },
+	{"cleantext", "ct",	optsstring,	optispacked,	"bs,input,short,long,ex" },
+	{"filenamerules", "fnr",optsstring,	optispacked,	"tilde,dollar,paren,wildcard,special,space" },
 	/* added these for the sake of backward compatibility : */
 	{"more", "mo",		NULL,		NULL		},
-	{"timeout", "to",       NULL,		NULL		},
 	{"hardtabs", "ht",	optnstring,	optisnumber,	"1:1000"},
 	{"redraw", "red",	NULL,		NULL		}
 };
@@ -122,10 +151,11 @@ static OPTDESC lpdesc[] =
 	{"lplines", "lprows",	optnstring,	optisnumber,	"0:100"},
 	{"lpconvert", "lpcvt",	NULL,		NULL		},
 	{"lpformfeed", "lpff",	NULL,		NULL		},
-	{"lppaper", "lpp",	optsstring,	optisstring	},
+	{"lpoptions", "lpopt",	optsstring,	optispacked,	"paper:,frame:,bar:,punch:,clip:"},
 	{"lpnumber", "lpn",	NULL,		NULL		},
 	{"lpheader", "lph",	NULL,		NULL		},
-	{"lpcolor", "lpcl",	NULL,		NULL		}
+	{"lpcolor", "lpcl",	NULL,		NULL		},
+	{"lpcontrast", "lpct",	optnstring,	optisnumber,	"0:100"}
 };
 
 /* where the values are stored */
@@ -199,12 +229,15 @@ void optglobinit()
 	optflags(o_gui) = OPT_LOCK|OPT_HIDE;
 	optflags(o_session) = OPT_LOCK|OPT_HIDE;
 	optflags(o_recovering) = OPT_HIDE;
-	o_magic = True;
-	o_prompt = True;
-	o_autoprint = True;
-	o_remap = True;
+	o_magic = ElvTrue;
+	optpreset(o_magicchar, toCHAR("^$.[*"), OPT_HIDE);
+	optpreset(o_magicname, ElvFalse, OPT_HIDE);
+	optpreset(o_magicperl, ElvFalse, OPT_HIDE);
+	o_prompt = ElvTrue;
+	o_autoprint = ElvTrue;
+	o_remap = ElvTrue;
 	o_report = 5;
-	optpreset(o_modeline, False, OPT_UNSAFE);
+	optpreset(o_modeline, ElvFalse, OPT_UNSAFE);
 	optpreset(o_modelines, 5, OPT_HIDE);
 #ifdef OSSHELLENV
 	optpreset(o_shell, toCHAR(getenv(OSSHELLENV)), OPT_HIDE | OPT_UNSAFE);
@@ -213,15 +246,17 @@ void optglobinit()
 #endif
 	if (!o_shell)
 		o_shell = toCHAR(OSSHELL);
-	o_tagstack = True;
-	o_warn = True;
+	o_tagstack = ElvTrue;
+	o_tagkind = ElvFalse;
+	o_taglibrary = ElvFalse;
+	o_warn = ElvTrue;
 	o_window = 12;
-	o_wrapscan = True;
-	optpreset(o_initialstate,'v', OPT_HIDE); /* vi */
+	o_wrapscan = ElvTrue;
+	optpreset(o_initialstate,'v', OPT_HIDE | OPT_NODFLT); /* vi */
 	o_keytime = 3;
 	o_usertime = 15;
 	optflags(o_exitcode) = OPT_HIDE;
-	optflags(o_safer) = OPT_HIDE | OPT_UNSAFE;
+	optpreset(o_security, 'n', OPT_HIDE|OPT_UNSAFE|OPT_NODFLT); /* normal */
 	optflags(o_tempsession) = OPT_HIDE;
 	optflags(o_newsession) = OPT_HIDE;
 	optpreset(o_nearscroll, 10, OPT_HIDE);
@@ -230,7 +265,7 @@ void optglobinit()
 	optflags(o_previouscommand) = OPT_HIDE|OPT_LOCK;
 	optflags(o_previoustag) = OPT_HIDE|OPT_LOCK;
 	optflags(o_tagprg) = OPT_HIDE|OPT_UNSAFE;
-	o_optimize = True;
+	o_optimize = ElvTrue;
 	optpreset(o_pollfrequency, 20, OPT_HIDE);
 	optflags(o_sentenceend) = OPT_HIDE;
 	optflags(o_sentencequote) = OPT_HIDE;
@@ -241,37 +276,50 @@ void optglobinit()
 	if (!o_directory)
 		o_directory = toCHAR(OSDIRECTORY);
 #endif
-	o_errorbells = True;
+	o_errorbells = ElvTrue;
 	optpreset(o_nonascii, 'm', OPT_HIDE); /* most */
 	optflags(o_digraph) = OPT_HIDE;
-	optpreset(o_sync, False, OPT_HIDE);
+	optpreset(o_sync, ElvFalse, OPT_HIDE);
 	optflags(o_autoselect) = OPT_HIDE;
 	optflags(o_defaultreadonly) = OPT_HIDE;
 	optflags(o_exrefresh) = OPT_HIDE;
 	optflags(o_verbose) = OPT_HIDE;
 	optflags(o_anyerror) = OPT_HIDE;
 	optflags(o_program) = OPT_HIDE;
-	optpreset(o_mesg, True, OPT_HIDE);
+	optpreset(o_mesg, ElvTrue, OPT_HIDE);
 	optpreset(o_maptrace, 'o', OPT_HIDE); /* off */
 	optpreset(o_maplog, 'o', OPT_HIDE); /* off */
-	o_timeout = True;
+	o_timeout = ElvTrue;
 	optpreset(o_matchchar, toCHAR("[]{}()"), OPT_HIDE);
-	optflags(o_showname) = OPT_HIDE;
+	optpreset(o_show, toCHAR("spell/tag,region"), OPT_HIDE);
 	o_writeeol = 's'; /* same */
-	optpreset(o_saveregexp, True, OPT_HIDE);
+	optpreset(o_binary, ElvFalse, OPT_HIDE);
+	optpreset(o_saveregexp, ElvTrue, OPT_HIDE);
 	optpreset(o_hardtabs, 8, OPT_HIDE);
-	optpreset(o_redraw, False, OPT_HIDE);
+	optpreset(o_redraw, ElvFalse, OPT_HIDE);
 	optpreset(o_true, msgtranslate("True"), OPT_HIDE|OPT_FREE);
 	optpreset(o_false, msgtranslate("False"), OPT_HIDE|OPT_FREE);
 	optpreset(o_animation, 3, OPT_HIDE);
-	optpreset(o_completebinary, False, OPT_HIDE);
+	optpreset(o_completebinary, ElvFalse, OPT_HIDE);
 	optpreset(o_optionwidth, 24, OPT_HIDE);
-
-#ifdef FEATURE_SHOWTAG
-	optpreset(o_showtag, False, OPT_HIDE);
-#else
-	optpreset(o_showtag, False, OPT_HIDE|OPT_LOCK);
+	optpreset(o_smarttab, ElvFalse, OPT_HIDE);
+	optpreset(o_smartcase, ElvFalse, OPT_HIDE);
+	optpreset(o_hlsearch, ElvFalse, OPT_HIDE);
+	o_incsearch = ElvFalse;
+	optpreset(o_spelldict, NULL, OPT_HIDE | OPT_UNSAFE);
+	optpreset(o_spellsuffix, NULL, OPT_HIDE);
+	optpreset(o_locale, NULL, OPT_HIDE);
+	optpreset(o_mkexrcfile, NULL, OPT_HIDE);
+	optpreset(o_prefersyntax, 'n', OPT_HIDE); /* never */
+	optpreset(o_eventignore, NULL, OPT_HIDE);
+	optpreset(o_eventerrors, ElvFalse, OPT_HIDE);
+	optpreset(o_tweaksection, ElvTrue, OPT_HIDE);
+	optpreset(o_listchars, toCHAR("eol:$"), OPT_HIDE);
+#ifdef FEATURE_LISTCHARS
+	(void)dmnlistchars('<', -1L, 0, NULL, NULL);
 #endif
+	optpreset(o_cleantext, toCHAR("long"), OPT_HIDE);
+	optpreset(o_filenamerules, toCHAR("tilde,dollar,paren,wildcard,special,space"), OPT_HIDE);
 
 	/* Set the "home" option from $HOME */
 	envval = getenv("HOME");
@@ -301,6 +349,12 @@ void optglobinit()
 	{
 		o_tags = toCHAR("tags");
 	}
+
+	/* Set the "background" option from $ELVISBG */
+	envval = getenv("ELVISBG");
+	if (!envval || (strcmp(envval, "dark") && strcmp(envval, "light")))
+		envval = "dark";
+	optpreset(o_background, *envval, OPT_HIDE|OPT_NODFLT);
 
 	/* Generate the default elvispath value. */
 	envval = getenv("ELVISPATH");
@@ -341,17 +395,18 @@ void optglobinit()
 # else
 	optpreset(o_lptype, toCHAR("dumb"), OPT_HIDE);
 # endif
-	optpreset(o_lpcrlf, False, OPT_HIDE);
+	optpreset(o_lpcrlf, ElvFalse, OPT_HIDE);
 	optpreset(o_lpout, toCHAR(OSLPOUT), OPT_HIDE | OPT_UNSAFE);
 	optpreset(o_lpcolumns, 80, OPT_HIDE);
-	optpreset(o_lpwrap, True, OPT_HIDE);
+	optpreset(o_lpwrap, ElvTrue, OPT_HIDE);
 	optpreset(o_lplines, 60, OPT_HIDE);
-	optpreset(o_lpconvert, False, OPT_HIDE);
-	optpreset(o_lpformfeed, False, OPT_HIDE);
-	optpreset(o_lppaper, toCHAR("letter"), OPT_HIDE);
-	optpreset(o_lpnumber, False, OPT_HIDE);
-	optpreset(o_lpheader, True, OPT_HIDE);
-	optpreset(o_lpcolor, False, OPT_HIDE);
+	optpreset(o_lpconvert, ElvFalse, OPT_HIDE);
+	optpreset(o_lpformfeed, ElvFalse, OPT_HIDE);
+	optpreset(o_lpoptions, NULL, OPT_HIDE);
+	optpreset(o_lpnumber, ElvFalse, OPT_HIDE);
+	optpreset(o_lpheader, ElvTrue, OPT_HIDE);
+	optpreset(o_lpcolor, ElvFalse, OPT_HIDE);
+	optpreset(o_lpcontrast, 50, OPT_HIDE);
 #endif /* FEATURE_LPR */
 
 	/* inform the options code about these options */
@@ -370,6 +425,27 @@ void optglobinit()
 #endif
 }
 
+#ifdef FEATURE_LISTCHARS
+/* Store a value for the "listchars" option, and then parse it */
+static int optislistchars(opt, val, newval)
+	struct optdesc_s *opt;
+	OPTVAL *val;
+	CHAR *newval;
+{
+	int	result;
+
+	/* try to change it as a packed list */
+	result = optispacked(opt, val, newval);
+	if (result <= 0)
+		return result;
+
+	/* it succeeded and was different -- use dmnlistchars to parse it */
+	(void)dmnlistchars('<', -1L, 0L, NULL, NULL);
+
+	/* return 1 to indicate a successful change */
+	return 1;
+}
+#endif
 
 /* This function sets the "previousfile" and "previousfileline" options. */
 void optprevfile(filename, line)

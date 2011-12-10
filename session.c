@@ -1,9 +1,13 @@
 /* session.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_session[] = "$Id: session.c,v 2.21 1998/09/20 18:33:25 steve Exp $";
 
 #include "elvis.h"
+#ifdef FEATURE_RCSID
+char id_session[] = "$Id: session.c,v 2.30 2003/10/17 17:41:23 steve Exp $";
+#endif
+
+#undef LOG_SESSION
 
 /* This file contains the session functions, which implement a cache and
  * block-locking semantics on the session file.
@@ -12,24 +16,26 @@ char id_session[] = "$Id: session.c,v 2.21 1998/09/20 18:33:25 steve Exp $";
 /*----------------------------------------------------------------------------*/
 /* session block cache                                                        */
 
+#define MAXLOCKS 30
+
 typedef struct blkcache_s
 {
 	struct blkcache_s *next;	/* another block with same hash value */
 	struct blkcache_s *older,*newer;/* the next-older block in the cache */
 	COUNT		  locks;	/* lock counter */
-	BOOLEAN		  dirty;	/* does the block need to be rewritten? */
+	ELVBOOL		  dirty;	/* does the block need to be rewritten? */
 	BLKNO		  blkno;	/* block number of this block */
 	BLKTYPE		  blktype;	/* type of data in this block */
 	BLK		  *buf;		/* contents of the block */
 #ifdef DEBUG_SESSION
-	char		  *lockfile[5];	/* name of source file that locked block */
-	int		  lockline[5];	/* line number in source file */
+	char		  *lockfile[MAXLOCKS];	/* name of source file that locked block */
+	int		  lockline[MAXLOCKS];	/* line number in source file */
 #endif
 } CACHEENTRY;
 
 
 #if USE_PROTOTYPES
-static void delcache(CACHEENTRY *item, BOOLEAN thenfree);
+static void delcache(CACHEENTRY *item, ELVBOOL thenfree);
 static void addcache(CACHEENTRY *item);
 static CACHEENTRY *findblock(_BLKNO_ blkno);
 static void flushblock(CACHEENTRY *bc);
@@ -49,6 +55,9 @@ static CACHEENTRY *oldest;	/* pointer to oldest item in cache */
 static int	ncached;	/* number of items in cache */
 static COUNT	*alloccnt;	/* array of allocation counts per block */
 static int	nblocks;	/* size of alloccnt array */
+#ifdef DEBUG_SESSION
+static BLKTYPE	*alloctype;	/* types of blocks, parallel to alloccnt[] */
+#endif
 
 
 /* This function deletes an item from the block cache.  Optionally, it will
@@ -56,7 +65,7 @@ static int	nblocks;	/* size of alloccnt array */
  */
 static void delcache(item, thenfree)
 	CACHEENTRY	*item;		/* cache item to be removed from cache */
-	BOOLEAN		thenfree;	/* if True, item is freed after removal */
+	ELVBOOL		thenfree;	/* if ElvTrue, item is freed after removal */
 {
 	CACHEENTRY *scan, *lag;
 	int	 i;
@@ -139,7 +148,7 @@ static void addcache(item)
 		}
 		if (scan)
 		{
-			delcache(scan, True);
+			delcache(scan, ElvTrue);
 		}
 		else
 		{
@@ -173,7 +182,7 @@ static void addcache(item)
 
 /* Find a block in the cache.  If the block isn't in the cache, return NULL */
 static CACHEENTRY *findblock(blkno)
-	_BLKNO_	blkno;	/* physical block numbe of block to find */
+	_BLKNO_	blkno;	/* physical block number of block to find */
 {
 	CACHEENTRY *scan;
 	int	 i;
@@ -218,7 +227,7 @@ static CACHEENTRY *findblock(blkno)
 	/* if found, move it to the newest end of the cache list */
 	if (scan)
 	{
-		delcache(scan, False);
+		delcache(scan, ElvFalse);
 		addcache(scan);
 		o_blkhit++;
 		return scan;
@@ -233,7 +242,7 @@ static CACHEENTRY *findblock(blkno)
  * exit without ever returning.
  */
 void sesopen(force)
-	BOOLEAN	force;		/* if True, open even if "in use" flag is set */
+	ELVBOOL	force;		/* if ElvTrue, open even if "in use" flag is set */
 {
 	BLK	*tmp;
 
@@ -251,15 +260,22 @@ void sesopen(force)
 	/* use the block size denoted in the superblock */
 	o_blksize = tmp->super.blksize;
 	o_blkfill = SES_MAXCHARS * 9/10;
-	/* ToDo: limit range of blkfill values to "1:SES_MAXCHARS" */
+	/* toto: limit range of blkfill values to "1:SES_MAXCHARS" */
 
 	/* free the superblock buffer */
 	safefree(tmp);
 
 	/* allocate an initial allocation count table.  It'll grow later. */
 	alloccnt = (COUNT *)safealloc(1, sizeof(COUNT));
+#ifdef DEBUG_SESSION
+	alloctype = (BLKTYPE *)safealloc(1, sizeof(BLKTYPE));
+#endif
 	nblocks = 1;
 	alloccnt[0] = 1; /* so superblock is always allocated */
+#ifdef DEBUG_SESSION
+	alloctype[0] = SES_SUPER;
+#endif
+
 }
 
 /* Flush all dirty blocks in the cache, and then close the session
@@ -294,16 +310,27 @@ BLKNO _seslock(file, line, blkno, forwrite, blktype)
 BLKNO seslock(blkno, forwrite, blktype)
 #endif
 	_BLKNO_	blkno;		/* BLKNO of block to be locked */
-	BOOLEAN	forwrite;	/* if True, lock it for writing */
+	ELVBOOL	forwrite;	/* if ElvTrue, lock it for writing */
 	BLKTYPE	blktype;	/* type of data in the block */
 {
 	CACHEENTRY *bc, *newp;
 
-#ifdef DEBUG_SESSION
+#ifdef LOG_SESSION
 	fprintf(stderr, "%s:%d: seslock(%d, %s, %s)...\n", file, line,
 		blkno, forwrite ? "True" : "False", blktypename[blktype]);
 #endif
 	assert((int)blkno < nblocks && alloccnt[blkno] > 0);
+#ifdef DEBUG_SESSION
+	if (alloctype[blkno] != blktype)
+	{
+		fprintf(stderr, "seslock() called from %s:%d with wrong block type.\n",
+			file, line);
+		fprintf(stderr, "blkno=%d, forwrite=%s, blktype=%s, alloctype[%d]=%s\n",
+			blkno, forwrite?"True":"False", blktypename[blktype],
+			blkno, blktypename[alloctype[blkno]]);
+		fprintf(stderr, "alloccnt[%d]=%d\n", blkno, alloccnt[blkno]);
+	}
+#endif
 
 	/* try to find the block in the cache */
 	bc = findblock(blkno);
@@ -344,7 +371,7 @@ BLKNO seslock(blkno, forwrite, blktype)
 
 		/* copy the old block's contents into the new block */
 		memcpy(newp->buf, bc->buf, (size_t)o_blksize);
-		newp->dirty = True;
+		newp->dirty = ElvTrue;
 		bc = newp;
 	}
 
@@ -362,10 +389,10 @@ BLKNO seslock(blkno, forwrite, blktype)
 	 * I can, and I'll make it a large limit so nobody is likely to
 	 * trip it up with a complex regexp.
 	 */
-	assert(bc->locks <= 30);
+	assert(bc->locks < MAXLOCKS);
 
 	/* return the data */
-#ifdef DEBUG_SESSION
+#ifdef LOG_SESSION
 	fprintf(stderr, "%s:%d: seslock(...) returning %d\n",
 		file, line, blkno);
 #endif
@@ -389,16 +416,17 @@ BLK *sesblk(blkno)
  */
 void sesunlock(blkno, forwrite)
 	_BLKNO_	blkno;		/* BLKNO of block to be unlocked */
-	BOOLEAN	forwrite;	/* if True, set the block's "dirty" flag */
+	ELVBOOL	forwrite;	/* if ElvTrue, set the block's "dirty" flag */
 {
 	CACHEENTRY *bc;
 
 	bc = findblock(blkno);
 	assert(bc != NULL && bc->locks > 0 && bc->blkno == blkno);
 	if (forwrite)
-		bc->dirty = True;
+		bc->dirty = ElvTrue;
 	bc->locks--;
 #ifdef DEBUG_SESSION
+	bc->lockfile[bc->locks] = NULL;
 	if (forwrite)
 	{
 		blkwrite(bc->buf, bc->blkno);
@@ -414,7 +442,7 @@ static void flushblock(bc)
 {
 	blkwrite(bc->buf, bc->blkno);
 	o_blkwrite++;
-	bc->dirty = False;
+	bc->dirty = ElvFalse;
 }
 
 /* If the block is dirty, write it out to the session file. */
@@ -427,7 +455,7 @@ void sesflush(blkno)
 	bc = findblock(blkno);
 	assert(bc != NULL && bc->locks == 0);
 
-	/* if BYTES or BLKLIST, and not dirty, then don't bother */
+	/* if SES_CHARS or SES_BLKLIST, and not dirty, then don't bother */
 	if ((bc->blktype == SES_CHARS || bc->blktype == SES_BLKLIST)
 	    && !bc->dirty)
 	{
@@ -447,7 +475,28 @@ void sessync()
 	/* for each block... */
 	for (bc = oldest; bc; bc = bc->newer)
 	{
+#ifdef DEBUG_SESSION
+		if (bc->locks > 0)
+		{
+			int	i;
+			for (i = 0; i < QTY(bc->lockfile); i++)
+			{
+				if (!bc->lockfile[i])
+					continue;
+				fprintf(stderr, "in sessync(), lock found from %s:%d\n",
+					bc->lockfile[i], bc->lockline[i]);
+				abort();
+				break;
+			}
+			if (i >= QTY(bc->lockfile))
+			{
+				fprintf(stderr, "in sessync(), %d %s reported but doesn't appear in bc->lockfile[]\n", bc->locks, bc->locks != 1 ? "locks" : "lock");
+				abort();
+			}
+		}
+#else
 		assert(bc->locks == 0);
+#endif
 
 		/* if dirty, flush it */
 		if (bc->dirty)
@@ -486,6 +535,9 @@ BLKNO sesalloc(blkwant, blktype)
 	COUNT	*newarray;
 	BLK	*tmp;
 	int	i;
+#ifdef DEBUG_SESSION
+	BLKTYPE	*newtypes;
+#endif
 
 	/* if we're supposed to choose a block, then choose one */
 	if (blkwant == 0)
@@ -498,6 +550,10 @@ BLKNO sesalloc(blkwant, blktype)
 	{
 		blkno = blkwant;
 	}
+#ifdef DEBUG_SESSION
+	assert(blkno >= nblocks || alloctype[blkno] == SES_NEW
+		|| (alloctype[blkno] == SES_CHARS && blktype == SES_CHARS && alloccnt[blkno] > 0));
+#endif
 
 	/* if past the end of the current alloccnt array, then grow */
 	if (blkno >= nblocks)
@@ -506,12 +562,22 @@ BLKNO sesalloc(blkwant, blktype)
 		newsize = blkno + o_blkgrow - (blkno % o_blkgrow);
 		assert(newsize > blkno);
 		newarray = (COUNT *)safekept(newsize, sizeof(COUNT));
+#ifdef DEBUG_SESSION
+		newtypes = (BLKTYPE *)safekept(newsize, sizeof(BLKTYPE));
+#endif
 		for (i = 0; i < nblocks; i++)
 		{
 			newarray[i] = alloccnt[i];
+#ifdef DEBUG_SESSION
+			newtypes[i] = alloctype[i];
+#endif
 		}
 		safefree(alloccnt);
 		alloccnt = newarray;
+#ifdef DEBUG_SESSION
+		safefree(alloctype);
+		alloctype = newtypes;
+#endif
 		nblocks = newsize;
 
 		/* if new block requested, write dummy data into the session file */
@@ -528,8 +594,11 @@ BLKNO sesalloc(blkwant, blktype)
 
 		/* increment the allocation counter for the chosen block */
 		alloccnt[blkno]++;
-
 #ifdef DEBUG_SESSION
+		alloctype[blkno] = blktype;
+#endif
+
+#ifdef LOG_SESSION
 		fprintf(stderr, "%s:%d: sesalloc(%d, %s), new alloccnt[%d] = %d, nblocks=%d\n",
 			file, line, blkwant, blktypename[blktype],
 			blkno, alloccnt[blkno], nblocks);
@@ -539,17 +608,23 @@ BLKNO sesalloc(blkwant, blktype)
 	{
 		/* increment the allocation counter for the chosen block */
 		alloccnt[blkno]++;
+#ifdef DEBUG_SESSION
+		if (alloccnt[blkno] > 10)
+			fprintf(stderr, "sesalloc: allocccnt[%d]=%d, type=%s, called from %s:%d\n",
+				blkno, alloccnt[blkno], blktypename[blktype], file, line);
+		alloctype[blkno] = blktype;
+#endif
 
 		/* if block is supposed to be new, then zero it */
 		if (blkwant == 0)
 		{
-			(void)seslock(blkno, True, blktype);
+			(void)seslock(blkno, ElvTrue, blktype);
 			tmp = sesblk(blkno);
 			memset((char *)tmp, 0, (size_t)o_blksize);
-			sesunlock(blkno, True);
+			sesunlock(blkno, ElvTrue);
 		}
 
-#ifdef DEBUG_SESSION
+#ifdef LOG_SESSION
 		fprintf(stderr, "%s:%d: sesalloc(%d, %s), recycled alloccnt[%d] = %d\n",
 			file, line, blkwant, blktypename[blktype],
 			blkno, alloccnt[blkno]);
@@ -576,8 +651,12 @@ void sesfree(blkno)
 	assert((int)blkno < nblocks && alloccnt[blkno] > 0);
 	alloccnt[blkno]--;
 
-#ifdef DEBUG_SESSION
+#ifdef LOG_SESSION
 	fprintf(stderr, "%s:%d: sesfree(%d), alloccnt[%d]=%d\n",
 		file, line, blkno, blkno, alloccnt[blkno]);
+#endif
+#ifdef DEBUG_SESSION
+	if (alloccnt[blkno] == 0)
+		alloctype[blkno] = SES_NEW;
 #endif
 }

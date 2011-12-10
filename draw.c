@@ -1,29 +1,240 @@
 /* draw.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_draw[] = "$Id: draw.c,v 2.75 1999/10/08 18:04:29 steve Exp $";
 
 #include "elvis.h"
+#ifdef FEATURE_RCSID
+char id_draw[] = "$Id: draw.c,v 2.131 2003/10/17 17:41:23 steve Exp $";
+#endif
 
 #if defined (GUI_WIN32)
 # define SLOPPY_ITALICS
+# define isitalic(f)	(colorinfo[(f)&0x7f].da.bits & COLOR_ITALIC)
 #else
 # undef SLOPPY_ITALICS
 #endif
 
+#if defined(GUI_WIN32) || defined(GUI_X11)
+# define SLOPPY_BOXED
+# define isboxed(f)	((colorinfo[(f)&0x7f].da.bits & COLOR_BOXED) \
+			 || (((f) & 0x80) \
+				&& (colorinfo[COLOR_FONT_SELECTION].da.bits & COLOR_BOXED)))
+#else
+# undef SLOPPY_BOXED
+#endif
+
 #if USE_PROTOTYPES
-static void insimage(CHAR *ch, char *font, int qty, int extent);
-static void delimage(CHAR *ch, char *font, int qty, int extent);
+static void insimage(CHAR *ch, DRAWATTR *attr, int qty, int extent);
+static void delimage(CHAR *ch, char *font, DRAWATTR *attr, int qty, int extent);
 static void fillcell(_CHAR_ ch, _char_ font, long offset);
 static void drawchar(CHAR *p, long qty, _char_ font, long offset);
 static void compareimage(WINDOW win);
+static void drawcurrent(DRAWINFO *di, int base, int same, DRAWATTR *da);
 static void updateimage(WINDOW win);
 static void genlastrow(WINDOW win);
-static BOOLEAN drawquick(WINDOW win);
 static void opentextline(WINDOW win, CHAR *text, int len);
 static void openchar(CHAR *p, long qty, _char_ font, long offset);
 static void openmove(WINDOW win, long oldcol, long newcol, CHAR *image, long len);
+# ifdef FEATURE_MISC
+  static ELVBOOL drawquick(WINDOW win);
+# endif
+# ifdef FEATURE_LISTCHARS
+static void lcsdrawchar(CHAR *p, long qty, _char_ font, long offset);
+# endif
 #endif
+
+#ifdef FEATURE_LISTCHARS
+/* widths of the arrows to indicate side-scrolled text */
+static int	lprecedes, lextends;
+#endif
+
+#ifdef FEATURE_HLOBJECT
+
+/* This stores the fontcodes for "hlobject1" through "hlobject9" */
+static int hlfont[9];
+
+
+static int hlobjects P_((WINDOW win, int font, long offset));
+
+#ifdef FEATURE_MISC
+static ELVBOOL hlprep P_((WINDOW win, BUFFER buf));
+
+/* Decide what needs to be highlighted for "hllayers" and "hlobject".  Return
+ * ElvTrue if same as previous highlighting for this window, or ElvFalse
+ * otherwise.
+ */
+static ELVBOOL hlprep(win, buf)
+	WINDOW	win;
+	BUFFER	buf;
+{
+	VIINFO	vinf;
+	CHAR	*obj, *cp;
+	MARKBUF	from, to;
+	long	prevcount;
+	long	cursoff;
+	int	hllimit;
+	RESULT	result;
+	int	i, j;
+	long	hlfrom, hlto;
+	ELVBOOL	wholeline;
+
+	/* initialize hlfrom and hlto to impossible values */
+	hlfrom = o_bufchars(buf);
+	hlto = -1L;
+
+	/* remember the cursor offset, so we can restore it later */
+	cursoff = markoffset(win->cursor);
+
+	/* for each layer... */
+	wholeline = ElvFalse;
+	memset(&vinf, 0, sizeof vinf);
+	for (hllimit = 0, obj = o_hlobject(buf);
+	     obj && hllimit < o_hllayers(win);
+	     hllimit++)
+	{
+		/* build the vinf textobject command */
+		prevcount = vinf.count;
+		vinf.count = 0L;
+		while (elvspace(*obj))
+			obj++;
+		if (elvdigit(*obj))
+		{
+			for (vinf.count = 0; elvdigit(*obj); obj++)
+				vinf.count = vinf.count * 10 + *obj - '0';
+		}
+		if (obj[0] == 'V' && obj[1] && obj[2])
+		{
+			wholeline = ElvTrue;
+			vinf.command = obj[1];
+			vinf.key2 = obj[2];
+			obj += 3;
+		}
+		else if (obj[0] && obj[1])
+		{
+			wholeline = ElvFalse;
+			vinf.command = obj[0];
+			vinf.key2 = obj[1];
+			obj += 2;
+		}
+		else if (hllimit == 0)
+			break;
+		else
+		{
+			if (obj[0])
+				obj++;
+			vinf.count = prevcount + 1;
+		}
+
+		/* compute the endpoints of the textobject */
+		marksetoffset(win->cursor, cursoff);
+		result = vitextobj(win, &vinf, &from, &to);
+		if (result == RESULT_ERROR)
+		{
+			if (!*obj)
+				break;
+			hllimit--;
+			continue;
+		}
+		else if (result == RESULT_MORE)
+		{
+			to.offset = cursoff;
+		}
+
+		/* if supposed to use whole line, then expand endpoints */
+		if (wholeline)
+		{
+			/* move "from" backward to char after newline */
+			for (scanalloc(&cp, &from); scanprev(&cp) && *cp != '\n'; )
+			{
+			}
+			if (cp)
+				from.offset = markoffset(scanmark(&cp)) + 1;
+			else
+				from.offset = 0L;
+			scanfree(&cp);
+
+			/* move "to" forward to newline */
+			for (scanalloc(&cp, &to); *cp != '\n' && scannext(&cp); )
+			{
+			}
+			if (cp)
+				to.offset = markoffset(scanmark(&cp)) + 1;
+			else
+				to.offset = o_bufchars(buf);
+		}
+
+		/* if innermost range is the same as before, and nothing else
+		 * is forcing us to redraw from scratch, then assume all ranges
+		 * are unchanged.
+		 */
+		if (hllimit == 0
+		 && win->di->logic == DRAW_NORMAL
+		 && o_optimize
+		 && win->hlinfo[hllimit].from == markoffset(&from)
+		 && win->hlinfo[hllimit].to == markoffset(&to))
+		{
+			marksetoffset(win->cursor, cursoff);
+			return ElvTrue;
+		}
+
+		/* store the new range */
+		win->hlinfo[hllimit].from = markoffset(&from);
+		win->hlinfo[hllimit].to = markoffset(&to);
+
+		/* adjust the affected range */
+		if (win->hlinfo[hllimit].from < hlfrom)
+			hlfrom = win->hlinfo[hllimit].from;
+		if (win->hlinfo[hllimit].to > hlto)
+			hlto = win->hlinfo[hllimit].to;
+	}
+	marksetoffset(win->cursor, cursoff);
+
+	/* store the limits */
+	win->hlfrom = hlfrom;
+	win->hlto = hlto;
+
+	/* Assign fonts in reverse order, so "hlobject1" is outermost.  If not
+	 * enough fonts have been set, then recycle the defined ones.  We can
+	 * be sure that the first font has been set because we give it a
+	 * default definition in the drawalloc() function.
+	 */ 
+	for (i = hllimit - 1, j = 0; i >= 0; i--)
+	{
+		win->hlinfo[i].font = hlfont[j++];
+		if (j >= QTY(hlfont) || colorinfo[hlfont[j]].da.bits == 0)
+			j = 0;
+	}
+
+	/* if nothing was highlighted, then clobber the hlinfo */
+	if (hllimit == 0)
+		win->hlinfo[0].from = -1L;
+
+	return ElvFalse;
+}
+#endif /* FEATURE_MISC */
+
+/* compute the highlighted version of a font at a given point */
+static int hlobjects(win, font, offset)
+	WINDOW	win;
+	int	font;
+	long	offset;
+{
+	int	i;
+
+	/* if totally unaffected, then just return the font unchanged */
+	if (offset < win->hlfrom || win->hlto <= offset)
+		return font;
+
+	/* find the innermost layer which includes this offset */
+	for (i = 0; offset < win->hlinfo[i].from || win->hlinfo[i].to <= offset; i++)
+	{
+	}
+
+	/* combine the fonts */
+	return colortmp(font, win->hlinfo[i].font);
+}
+
+#endif /* defined(FEATURE_HLOBJECT) */
 
 /* allocate a drawinfo struct, including the related arrays */
 DRAWINFO *drawalloc(rows, columns, top)
@@ -33,6 +244,9 @@ DRAWINFO *drawalloc(rows, columns, top)
 {
 	DRAWINFO *newp;
 	int	 i;
+#ifdef FEATURE_HLOBJECT
+	CHAR	name[20];
+#endif
 
 	/* allocate the stuff */
 	newp = (DRAWINFO *)safealloc(1, sizeof *newp);
@@ -42,7 +256,7 @@ DRAWINFO *drawalloc(rows, columns, top)
 	newp->newchar = (CHAR *)safealloc(rows * columns, sizeof(CHAR));
 	newp->newfont = (char *)safealloc(rows * columns, sizeof(char));
 	newp->curchar = (CHAR *)safealloc(rows * columns, sizeof(CHAR));
-	newp->curfont = (char *)safealloc(rows * columns, sizeof(char));
+	newp->curattr = (DRAWATTR *)safealloc(rows * columns, sizeof(DRAWATTR));
 	newp->offsets = (long *)safealloc(rows * columns, sizeof(long));
 	newp->topmark = markdup(top);
 	newp->bottommark = markdup(top);
@@ -51,14 +265,33 @@ DRAWINFO *drawalloc(rows, columns, top)
 	for (i = rows * columns; --i >= 0; )
 	{
 		newp->newchar[i] = newp->curchar[i] = ' ';
-		newp->newfont[i] = 'n';
-		newp->curfont[i] = '?';
+		newp->newfont[i] = 0;
+		newp->curattr[i].bits = ~0; /* anything so newfont != curfont */
 	}
 
 	/* initialize the other variables */
 	newp->rows = rows;
 	newp->columns = columns;
 	newp->logic = DRAW_SCRATCH;
+
+	/* while we're initializing things, we might as well locate the
+	 * font codes, if we haven't already done so.
+	 */
+#ifdef FEATURE_HLOBJECT
+	for (i = 0; i < QTY(hlfont); i++)
+	{
+		sprintf(tochar8(name), "hlobject%d", i + 1);
+		hlfont[i] = colorfind(name);
+	}
+	colorset(hlfont[0], toCHAR("boxed"), ElvFalse);
+#endif
+#ifdef FEATURE_HLSEARCH
+	if (!searchfont)
+	{
+		searchfont = colorfind(toCHAR("hlsearch"));
+		colorset(searchfont, toCHAR("bold"), ElvFalse);
+	}
+#endif
 
 	return newp;
 }
@@ -74,7 +307,7 @@ void drawfree(di)
 	safefree(di->newchar);
 	safefree(di->newfont);
 	safefree(di->curchar);
-	safefree(di->curfont);
+	safefree(di->curattr);
 	safefree(di->offsets);
 	markfree(di->topmark);
 	markfree(di->bottommark);
@@ -102,17 +335,37 @@ void drawexpose(win, top, left, bottom, right)
 	int	bottom;	/* bottom edge to be redrawn */
 	int	right;	/* right edge to be redrawn */
 {
+#ifndef FEATURE_MISC
+	win->di->logic = DRAW_SCRATCH;
+#else
 	int	row, column, same, base, nonblank;
 	long	firstline, lastline;
 
 	assert(win != NULL && top >= 0 && left >= 0 && bottom < o_lines(win)
 		&& right < o_columns(win) && top <= bottom && left <= right);
 
-	/* if this GUI has no moveto() function, then do nothing */
+	/* If this GUI has no moveto() function, then do nothing.  We really
+	 * should never get here anyway in that case, since elvis can't be
+	 * running in full-screen mode.
+	 */
 	if (!gui->moveto)
 	{
 		return;
 	}
+
+	/* make sure we use the right colors.  Basically, this is responsible
+	 * for choosing whether to use the "normal" or "idle" colors for any
+	 * unspecified attributes such as background color.
+	 */
+	if (guicolorsync(win))
+	{
+		/* colors changed, so must redraw whole window */
+		top = 0;
+		left = 0;
+		bottom = o_lines(win) - 1;
+		right = o_columns(win) - 1;
+	}
+	colorsetup();
 
 	/* for each row in the rectangle... */
 	for (row = top; row <= bottom; row++)
@@ -120,7 +373,7 @@ void drawexpose(win, top, left, bottom, right)
 		/* find the width of this row, ignoring trailing blanks */
 		for (nonblank = o_columns(win), base = o_columns(win) * row;
 		     nonblank > left
-			&& win->di->curfont[base + nonblank - 1] == 'n'
+			&& drawdeffont(win->di, base + nonblank - 1)
 			&& win->di->curchar[base + nonblank - 1] == ' ';
 		     nonblank--)
 		{
@@ -138,13 +391,16 @@ void drawexpose(win, top, left, bottom, right)
 			for (same = 1;
 			     column + same <= right
 				&& column + same < nonblank
-				&& win->di->curfont[base + same] == win->di->curfont[base];
+				&& drawspan(win->di, base + same, base);
 			     same++)
 			{
 			}
 
 			/* output the segment */
-			guidraw(win, win->di->curfont[base], &win->di->curchar[base], same);
+			(void)guidraw(win,
+				colorexpose(win->di->newfont[base],
+					&win->di->curattr[base]),
+				&win->di->curchar[base], same, 0);
 		}
 
 		/* if necessary, do a clrtoeol */
@@ -190,6 +446,7 @@ void drawexpose(win, top, left, bottom, right)
 		}
 	}
 	guiflush();
+#endif /* FEATURE_MISC */
 }
 
 
@@ -214,13 +471,19 @@ static int	scrollrows;	/* #rows (i.e., area) scrolled by gui->scroll */
 static int	maxcell;	/* number of cells to be drawn */
 static int	seloffset;	/* offset of character, during selection */
 static char	selfont;	/* font of character, during selection */
+#ifdef FEATURE_REGION
+static region_t *thisregion;
+#endif
+#ifdef FEATURE_LISTCHARS
+static int	lcscell;	/* cell where arrow will be drawn */
+#endif
 
 
 
 /* insert some blanks into an image */
-static void insimage(ch, font, qty, extent)
+static void insimage(ch, attr, qty, extent)
 	CHAR	*ch;	/* where character insertion should begin */
-	char	*font;	/* parallel array of font codes for "ch" characters */
+	DRAWATTR *attr;	/* parallel array of attributes for "ch" characters */
 	int	qty;	/* number of blanks to be inserted */
 	int	extent;	/* number of characters after the insertion point */
 {
@@ -230,7 +493,7 @@ static void insimage(ch, font, qty, extent)
 	for (i = extent; --i >= qty; )
 	{
 		ch[i] = ch[i - qty];
-		font[i] = font[i - qty];
+		attr[i] = attr[i - qty];
 	}
 
 	/* initialize the newly inserted cells */
@@ -240,7 +503,7 @@ static void insimage(ch, font, qty, extent)
 		for (i = 0; i < qty; i++)
 		{
 			ch[i] = ' ';
-			font[i] = 'n';
+			attr[i] = colorinfo[0].da;
 		}
 	}
 	else
@@ -248,15 +511,17 @@ static void insimage(ch, font, qty, extent)
 		/* the new cells' contents are undefined */
 		for (i = 0; i < qty; i++)
 		{
-			font[i] = '?';
+			ch[i] = 0;
+			attr[i].bits = ~0;
 		}
 	}
 }
 
 /* delete some characters from an image, and add blanks to the end. */
-static void delimage(ch, font, qty, extent)
+static void delimage(ch, font, attr, qty, extent)
 	CHAR	*ch;	/* where character deletion should begin */
 	char	*font;	/* parallel array of font codes for "ch" characters */
+	DRAWATTR *attr;	/* parallel array of attributes for "ch" characters */
 	int	qty;	/* number of characters to delete */
 	int	extent;	/* number of characters after the deletion point */
 {
@@ -266,7 +531,10 @@ static void delimage(ch, font, qty, extent)
 	for (i = 0; i < extent - qty; i++)
 	{
 		ch[i] = ch[i + qty];
-		font[i] = font[i + qty];
+		if (font)
+			font[i] = font[i + qty];
+		if (attr)
+			attr[i] = attr[i + qty];
 	}
 
 	/* we've dragged some normal characters onto the edge of the extent */
@@ -276,7 +544,10 @@ static void delimage(ch, font, qty, extent)
 		for ( ; i < extent; i++)
 		{
 			ch[i] = ' ';
-			font[i] = 'n';
+			if (font)
+				font[i] = 0;
+			if (attr)
+				attr[i] = colorinfo[0].da;
 		}
 	}
 	else
@@ -284,7 +555,11 @@ static void delimage(ch, font, qty, extent)
 		/* the new cells' contents are undefined */
 		for ( ; i < extent; i++)
 		{
-			font[i] = '?';
+			ch[i] = 0;
+			if (font)
+				font[i] = ~0;
+			if (attr)
+				attr[i].bits = ~0;
 		}
 	}
 }
@@ -309,7 +584,7 @@ static void fillcell(ch, font, offset)
 	if (thiscell == maxcell && (di->cursrow < 0 || di->cursrow > wantcurs))
 	{
 		/* scroll up 1 row */
-		delimage(di->newchar, di->newfont, (int)o_columns(thiswin), (int)(maxcell + o_columns(thiswin)));
+		delimage(di->newchar, di->newfont, NULL, (int)o_columns(thiswin), (int)(maxcell + o_columns(thiswin)));
 		for (i = 0; i < maxcell - o_columns(thiswin); i++)
 		{
 			di->offsets[i] = di->offsets[i + o_columns(thiswin)];
@@ -356,7 +631,11 @@ static void fillcell(ch, font, offset)
 	assert(thiscell < maxcell || di->cursrow >= 0);
 
 	/* if this is the cursor character, then the cursor belongs here */
+#if 0
 	if (offset == markoffset(thiswin->cursor))
+#else
+	if (offset >= markoffset(thiswin->cursor) && di->cursrow < 0) /*!!!*/
+#endif
 	{
 		di->cursrow = thiscell / o_columns(thiswin);
 	}
@@ -399,8 +678,11 @@ static void drawchar(p, qty, font, offset)
 	CHAR		  tmpch;
 	int		  i;
 
-	assert(offset >= -1 && strchr("bungifeBUNGIFE", font) != NULL);
-
+#ifdef FEATURE_REGION
+	/* if in a region, then merge the region's font into font */
+	if (thisregion)
+		font = colortmp(font, thisregion->font);
+#endif
 
 	/* A negative qty value indicates that all characters have the same
 	 * offset.  Otherwise the characters will have consecutive offsets.
@@ -413,6 +695,17 @@ static void drawchar(p, qty, font, offset)
 	else
 	{
 		delta = 1;
+	}
+
+	/* If in visual mode and this chunk contains the cursor, then remember
+	 * the font now, *before* we add any sort of highlighting
+	 */
+	if (!thiswin->state->pop
+	 && offset >= 0
+	 && offset <= markoffset(thiswin->cursor)
+	 && (delta == 0 || markoffset(thiswin->cursor) < offset + delta * qty))
+	{
+		thiswin->di->cursface = font & 0x7f;
 	}
 
 	/* for each character... */
@@ -462,7 +755,7 @@ static void drawchar(p, qty, font, offset)
 		{
 			for (i = 0; i < 8; i++)
 			{
-				fillcell((CHAR)thislnumstr[i], 'n', -1);
+				fillcell((CHAR)thislnumstr[i], COLOR_FONT_LNUM, -1);
 			}
 		}
 
@@ -472,6 +765,10 @@ static void drawchar(p, qty, font, offset)
 		 * totally highlighted or totally unhighlighted.
 		 */
 		hifont = font;
+#ifdef FEATURE_HLOBJECT
+		/* maybe use the highlighted version of this font */
+		hifont = hlobjects(thiswin, hifont, offset);
+#endif
 		if (thiswin->seltop)
 		{
 			if (offset == seloffset && seloffset != -1)
@@ -489,15 +786,19 @@ static void drawchar(p, qty, font, offset)
 					&& i <= thiswin->selright
 					&& (ch != '\n' || thiswin->seltype != 'r'))
 				{
-					hifont = toupper(font);
+					hifont = font | 0x80;
 				}
 			}
 			selfont = hifont;
 			seloffset = offset;
 		}
+#ifdef FEATURE_TEXTOBJ
+		else if (thiswin->match <= offset && offset < thiswin->matchend)
+#else
 		else if (thiswin->match == offset)
+#endif
 		{
-			hifont = toupper(font);
+			hifont = font | 0x80; /* showmatch */
 		}
 
 		/* remember where this line started */
@@ -572,6 +873,23 @@ static void drawchar(p, qty, font, offset)
 	}
 }
 
+#ifdef FEATURE_LISTCHARS
+/* This is a simplified version of drawchar(), intended *ONLY* for drawing the
+ * little arrows for sidescrolling when ":set nowrap lcs=extends:>,precedes:>"
+ */
+static void lcsdrawchar(p, qty, font, offset)
+	CHAR	*p;	/* the characters to be added */
+	long	qty;	/* number of characters to add -- always 1 */
+	_char_	font;	/* font code of characters */
+	long	offset;	/* offset of chars -- ignored */
+{
+	register DRAWINFO *di = thiswin->di;	/* window drawing info */
+	di->newchar[lcscell] = *p;
+	di->newfont[lcscell] = font;
+	lcscell++;
+}
+#endif
+
 /* This function compares old lines to new lines, and determines how much
  * insert/deleting we should do, and approximately where we should do it.
  */
@@ -587,9 +905,11 @@ static void compareimage(win)
 	}	*prev;
 
 	/* if we're supposed to redraw from scratch, then we won't be doing
-	 * any inserting/deleting.
+	 * any inserting/deleting.  Also, the "guidewidth" option interferes
+	 * with shifting, so we disable it if guidewidth is set.
 	 */
-	if (win->di->logic == DRAW_SCRATCH)
+	if (win->di->logic == DRAW_SCRATCH
+	 || o_guidewidth(markbuffer(win->cursor)))
 	{
 		for (i = 0; i < maxrow; i++)
 		{
@@ -598,8 +918,11 @@ static void compareimage(win)
 		}
 
 		/* also, ignore anything in current image */
-		memset(win->di->curchar, 0, maxcell * sizeof(CHAR));
-		memset(win->di->curfont, 0, maxcell * sizeof(char));
+		if (win->di->logic == DRAW_SCRATCH)
+		{
+			memset(win->di->curchar, 0, maxcell * sizeof(CHAR));
+			memset(win->di->curattr, 0, maxcell * sizeof(DRAWATTR));
+		}
 
 		return;
 	}
@@ -608,6 +931,7 @@ static void compareimage(win)
 	prev = (struct prevmatch_s *)safealloc(linesshown, sizeof *prev);
 
 	/* Try to match each new line against current lines */
+
 	/* try to match top lines as being BEFORE a change */
 	i = 0;
 	for (j = 0; j < win->di->nlines && win->di->newline[0].start != win->di->curline[j].start; j++)
@@ -711,9 +1035,10 @@ static void compareimage(win)
 			j += diff;
 		}
 
-		/* logical lines may start on negative rows, due to slop scrolling,
-		 * but physically we can only address lines >= 0.  Any insertions
-		 * or deletions for a negative row should be applied to row 0.
+		/* logical lines may start on negative rows, due to slop
+		 * scrolling, but physically we can only address lines >= 0.
+		 * Any insertions or deletions for a negative row should be
+		 * applied to row 0.
 		 */
 		if (j < 0)
 		{
@@ -735,6 +1060,28 @@ printf("---------------------------------------------------------------------\n"
 	safefree(prev);
 }
 
+/* update a segment of the current image to match the new image */
+static void drawcurrent(di, base, same, da)
+	DRAWINFO *di;	/* image info of window to be updated */
+	int	base;	/* offset of first char to change */
+	int	same;	/* number of chars to change */
+	DRAWATTR *da;	/* attributes of new characters */
+{
+	int	i;
+
+	/* write the cells to the "current" image */
+	for (i = 0; i < same; i++)
+	{
+		di->curchar[base + i] = di->newchar[base + i];
+		di->curattr[base + i] = *da;
+#ifdef SLOPPY_BOXED
+		if (i != 0)
+			di->curattr[base + i].bits &= ~COLOR_LEFTBOX;
+		if (i != same - 1)
+			di->curattr[base + i].bits &= ~COLOR_RIGHTBOX;
+#endif
+	}
+}
 
 /* after we've collected the image and some update hints, copy the new image to
  * both the "current" image and also the GUI.
@@ -747,25 +1094,56 @@ static void updateimage(win)
 	register int	  i, base;
 	register DRAWINFO *di = win->di;
 	register int	  rowXncols;
+	DRAWATTR *da;
+	int	forcebits, j;
+	short	*guides = o_guidewidth(markbuffer(win->cursor));
+	int	logicaltab;
+#ifdef SLOPPY_BOXED
+	int	firstboxed;
+#endif
 
 	/* for each row... */
 	for (row = rowXncols = 0; row < o_lines(win); row++, rowXncols += ncols)
 	{
-		assert(di->newrow[row].insrows == 0 || di->logic != DRAW_SCRATCH);
+		if (di->logic == DRAW_SCRATCH)
+			di->newrow[row].insrows = di->newrow[row].shiftright
+						= di->newrow[row].inschars = 0;
+
+		/* compute the logical tab of the start of this row */
+		if (row == o_lines(win) - 1)
+			logicaltab = 0;
+		else
+		{
+			for (i = 0; di->newline[i].startrow < row && di->newline[i + 1].startrow - 1 < row; i++)
+			{
+			}
+			logicaltab = (row - di->newline[i].startrow) * ncols;
+			if (o_number(win))
+				logicaltab -= 8;
+			if (!o_wrap(win))
+				logicaltab += di->skipped;
+		}
+
+		/* if we've hit a ~ row after the last line from the buffer,
+		 * then disable guides.
+		 */
+		if (guides
+		 && di->offsets[row * ncols] == -1)
+			guides = NULL;
 
 		/* do we want to insert/delete rows? */
 		if (di->newrow[row].insrows != 0)
 		{
 			/* try to perform the insert/delete for the GUI */
 			guimoveto(win, 0, row);
-			if (guiscroll(win, di->newrow[row].insrows, (BOOLEAN)(maxrow < o_lines(win))))
+			if (guiscroll(win, di->newrow[row].insrows, (ELVBOOL)(maxrow < o_lines(win))))
 			{
 				/* perform the insert/delete on the "current" image */
 				if (di->newrow[row].insrows > 0)
 				{
 					/* insert some rows */
 					insimage(&di->curchar[rowXncols],
-						&di->curfont[rowXncols],
+						&di->curattr[rowXncols],
 						di->newrow[row].insrows * ncols,
 						(scrollrows - row) * ncols);
 
@@ -780,7 +1158,8 @@ static void updateimage(win)
 				{
 					/* delete some rows */
 					delimage(&di->curchar[rowXncols],
-						&di->curfont[rowXncols],
+						NULL,
+						&di->curattr[rowXncols],
 						-di->newrow[row].insrows * ncols,
 						(scrollrows - row) * ncols);
 
@@ -825,7 +1204,7 @@ static void updateimage(win)
 					{
 						/* shift right by inserting */
 						insimage(&di->curchar[i * ncols],
-							&di->curfont[i * ncols],
+							&di->curattr[i * ncols],
 							di->newrow[i].shiftright,
 							ncols);
 					}
@@ -833,7 +1212,8 @@ static void updateimage(win)
 					{
 						/* shift left by deleting */
 						delimage(&di->curchar[i * ncols],
-							&di->curfont[i * ncols],
+							NULL,
+							&di->curattr[i * ncols],
 							-di->newrow[i].shiftright,
 							ncols);
 					}
@@ -844,12 +1224,13 @@ static void updateimage(win)
 
 		/* figure out how much of the line we'll be using */
 		base = ncols * row;
-		for (used = ncols;
-		     used > 0
+		used = ncols;
+		while (used > 0
+			&& (!guides || !opt_istab(guides, used+logicaltab-1))
 			&& di->newchar[base + used - 1] == ' '
-			&& di->newfont[base + used - 1] == 'n';
-		     used--)
+			&& di->newfont[base + used - 1] == 0)
 		{
+			used--;
 		}
 
 #ifdef SLOPPY_ITALICS
@@ -857,22 +1238,34 @@ static void updateimage(win)
 		 * we're using one additional character.  This is so the last
 		 * italic character's right edge isn't clipped off.
 		 */
-		if (used < ncols && used >= 1 && di->newfont[base + used - 1] == 'i')
+		if (used < ncols && used >= 1 && isitalic(di->newfont[base + used - 1]))
 		{
 			used++;
 		}
 #endif
 
 		/* look for mismatched segments */
+#ifdef SLOPPY_BOXED
+		firstboxed = (di->cursrow == row);
+#endif
 		for (column = 0; column < used; base += same, column += same)
 		{
 			/* if this cell matches, then skip to next */
-			if (di->newchar[base] == di->curchar[base]
-			 && di->newfont[base] == di->curfont[base])
+			if (drawnochange(di, base)
+#ifdef SLOPPY_BOXED
+			 && (firstboxed
+				? !isboxed(di->newfont[base])
+				: isboxed(di->newfont[base + 1]))
+#endif
+			 && (!guides || !opt_istab(guides, logicaltab)))
 			{
 				same = 1;
+				logicaltab++;
 				continue;
 			}
+#ifdef SLOPPY_BOXED
+			firstboxed = !isboxed(di->newfont[base]);
+#endif
 
 			/* move the GUI cursor to the point of interest */
 			guimoveto(win, column, row);
@@ -880,10 +1273,12 @@ static void updateimage(win)
 			/* perform this row's character insert/delete now,
 			 * unless we just shifted this line to the right, and
 			 * we're still on the inserted blanks at the start
-			 * of the row.
+			 * of the row.  Also, the "guidewidth" option interferes
+			 * with insertion/deletion.
 			 */
 			if (column >= di->newrow[row].shiftright
-			  && di->newrow[row].inschars != 0)
+			  && di->newrow[row].inschars != 0
+			  && !guides)
 			{
 				if (guishift(win, di->newrow[row].inschars, 1))
 				{
@@ -892,7 +1287,7 @@ static void updateimage(win)
 					{
 						/* shift right by inserting */
 						insimage(&di->curchar[rowXncols + column],
-							&di->curfont[rowXncols + column],
+							&di->curattr[rowXncols + column],
 							di->newrow[row].inschars,
 							ncols - column);
 					}
@@ -900,13 +1295,15 @@ static void updateimage(win)
 					{
 						/* shift left by deleting */
 						delimage(&di->curchar[rowXncols + column],
-							&di->curfont[rowXncols + column],
+							NULL,
+							&di->curattr[rowXncols + column],
 							-di->newrow[row].inschars,
 							ncols - column);
 					}
 
-					/* for other rows of the same line, insertions
-					 * will now appear to be shifts.
+					/* for other rows of the same line,
+					 * insertions will now appear to be
+					 * shifts.
 					 */
 					for (i = row + 1; i < maxrow && di->newrow[i].lineoffset == di->newrow[row].lineoffset; i++)
 					{
@@ -928,18 +1325,16 @@ static void updateimage(win)
 			 */
 			for (same = 1, i = 0;
 			     column + same < used
-				&& (di->newchar[base + same] != di->curchar[base + same]
-					|| di->newfont[base + same] != di->curfont[base + same]
+				&& (!drawnochange(di, base + same)
 					|| i < gui->movecost)
 				&& (di->newfont[base] == di->newfont[base + same]
 #ifdef SLOPPY_ITALICS
-					|| (di->newfont[base + same - 1] == 'i' && di->newfont[base + same] == 'n' && di->newchar[base + same] == ' ')
+					|| (isitalic(di->newfont[base + same - 1]) && di->newfont[base + same] == 0 && di->newchar[base + same] == ' ')
 #endif
 										 );
 			     same++)
 			{
-				if (di->newchar[base + same] != di->curchar[base + same]
-					|| di->newfont[base + same] != di->curfont[base + same])
+				if (!drawnochange(di, base + same))
 				{
 					i = 0;
 				}
@@ -950,32 +1345,97 @@ static void updateimage(win)
 			}
 			same -= i;
 
+			/* we may want to force some highlighting attributes,
+			 * but for now we'll assume we don't.
+			 */
+			forcebits = 0;
+
 #ifdef SLOPPY_ITALICS
 			/* if the change is in italics, and the preceding
 			 * characters were also italic, then include those
 			 * preceding characters in the redrawn span; otherwise 
 			 * they would be distorted by the new text.
 			 */
-			while (column > 0
-			    && di->newfont[base] == 'i'
-			    && di->newfont[base - 1] == 'i'
-			    && di->newchar[base - 1] != ' ')
+			i = di->newfont[base];
+			if (isitalic(i) && !guides)
 			{
-				base--;
-				column--;
-				same++;
+				while (column > 0
+				    && di->newfont[base - 1] == i
+				    && di->newchar[base - 1] != ' ')
+				{
+					base--;
+					column--;
+					same++;
+				}
+				guimoveto(win, column, row);
 			}
-			guimoveto(win, column, row);
 #endif
 
-			/* write the cells to the GUI */
-			guidraw(win, di->newfont[base], &di->newchar[base], same);
-
-			/* write the cells to the "current" image */
-			for (i = 0; i < same; i++)
+#ifdef SLOPPY_BOXED
+			/* if the change is boxed add left & right edges if
+			 * necessary the surrounding text is not boxed.
+			 */
+			i = di->newfont[base];
+			if (isboxed(i))
 			{
-				di->curchar[base + i] = di->newchar[base + i];
-				di->curfont[base + i] = di->newfont[base + i];
+				/* if the characters before/after this boxed
+				 * text aren't boxed, or are off the edge of
+				 * the screen, then we'll need left/right edges.
+				 */
+				if (column == 0
+				    || !isboxed(di->newfont[base - 1]))
+					forcebits |= COLOR_LEFTBOX;
+				if (column + same == di->columns
+				    || !isboxed(di->newfont[base + same]))
+					forcebits |= COLOR_RIGHTBOX;
+			}
+#endif /* SLOPPY_BOXED */
+
+			/* Write the cells to the GUI.
+			 *
+			 * NOTE: When this function is called from drawimage(),
+			 * the colorexpose() calls always return the font code
+			 * that's passed into them, because the temporary
+			 * colors are still valid.  However, when called from
+			 * drawopenedit() the colorexpose() calls are necessary
+			 * to work around the fact that the temporary colors
+			 * have been recycled.
+			 */
+			if (guides
+			 && di->newfont[base] != COLOR_FONT_BOTTOM
+			 && row < o_lines(win) - 1
+			 && logicaltab >= 0)
+			{
+				if (logicaltab != 0 && opt_istab(guides, logicaltab))
+					forcebits |= COLOR_LEFTBOX;
+				for (i = same;
+				     i > (j = opt_totab(guides, logicaltab));
+				     i -= j)
+				{
+					da = guidraw(win,
+					   colorexpose(di->newfont[base+same-i],
+						     &di->curattr[base+same-i]),
+					   &di->newchar[base+same-i], j,
+					   forcebits);
+					drawcurrent(di, base + same - i, j, da);
+					forcebits |= COLOR_LEFTBOX;
+					logicaltab += j;
+				}
+				da = guidraw(win,
+					colorexpose(di->newfont[base+same-i],
+						&di->curattr[base+same-i]),
+					&di->newchar[base + same - i], i,
+					forcebits);
+				drawcurrent(di, base + same - i, i, da);
+				logicaltab += i;
+			}
+			else
+			{
+				da = guidraw(win, colorexpose(di->newfont[base],
+							&di->curattr[base]),
+					&di->newchar[base], same, forcebits);
+				drawcurrent(di, base, same, da);
+				logicaltab += same;
 			}
 		}
 
@@ -984,7 +1444,7 @@ static void updateimage(win)
 		for (i = used;
 		     i < ncols
 			&& di->curchar[base + i] == ' '
-			&& di->curfont[base + i] == 'n';
+			&& drawdeffont(di, base + i);
 		     i++)
 		{
 		}
@@ -1008,7 +1468,7 @@ static void updateimage(win)
 			while (i < ncols)
 			{
 				di->curchar[base + i] = ' ';
-				di->curfont[base + i] = 'n';
+				di->curattr[base + i] = colorinfo[0].da;
 				i++;
 			}
 		}
@@ -1026,13 +1486,109 @@ static void genlastrow(win)
 	char	*scan;
 	CHAR	*cp;
 	char	buf[25];
+	CHAR	left[100];
+	CHAR	*build, *arg;
+#ifdef DISPLAY_HTML
+	CHAR	*linkname;
+#endif
+#ifdef FEATURE_REGION
+	region_t *region;
+#endif
+
+	/* generate the last row's "show" data */
+	for (cp = o_show, build = left; (!win->di->newmsg || gui->status) && cp && *cp; cp++)
+	{
+		/* detect special words */
+		arg = NULL;
+#ifdef DISPLAY_HTML
+		linkname = NULL;
+#endif
+		if (!CHARncmp(cp, "file", 4))
+		{
+			cp += 3;
+			arg = o_filename(markbuffer(win->cursor));
+			if (!arg)
+				arg = o_bufname(markbuffer(win->cursor));
+		}
+#ifdef FEATURE_SHOWTAG
+		else if (!CHARncmp(cp, "tag", 3))
+		{
+			arg = telabel(win->state->cursor);
+		}
+#endif
+		else if (!CHARncmp(cp, "cmd", 3))
+		{
+			arg = win->cmdchars;
+		}
+		else if (!CHARncmp(cp, "face", 4))
+		{
+			if (win->di->cursface < colornpermanent)
+				arg = colorinfo[(int)win->di->cursface].name;
+		}
+#ifdef DISPLAY_HTML
+		else if (!CHARncmp(cp, "link", 4))
+		{
+			if (win->md->tagatcursor != NULL
+			 && win->md->tagnext == dmhtml.tagnext)
+				arg = (*win->md->tagatcursor)(win, win->cursor);
+			linkname = arg;
+		}
+#endif
+#ifdef FEATURE_SPELL
+		else if (o_spell(markbuffer(win->cursor))
+		      && !CHARncmp(cp, "spell", 5))
+		{
+			i = win->di->cursrow * win->di->columns + win->di->curscol;
+			arg = spellshow(win->cursor, win->di->newfont[i]);
+		}
+#endif
+#ifdef FEATURE_REGION
+		else if (!CHARncmp(cp, "region", 6))
+		{
+			region = regionfind(win->state->cursor);
+			if (region)
+				arg = region->comment;
+		}
+#endif
+		else if (*cp == '/')
+		{
+			/* If '/' and we've found anything to show, then
+			 * skip the rest
+			 */
+			if (build != left)
+				break;
+			else
+				continue;
+		}
+		else
+			continue;
+
+		/* if this item is empty or too large, skip it */
+		if (!arg || !*arg || build + CHARlen(arg) >= left + QTY(left) - 1)
+			continue;
+
+		/* add a space between items (but not before first item) */
+		if (build != left)
+			*build++ = ' ';
+
+		/* add this item */
+		CHARcpy(build, arg);
+		build += CHARlen(build);
+
+#ifdef DISPLAY_HTML
+		/* if supposed to free it, then do so */
+		if (linkname)
+			safefree(linkname);
+#endif
+	}
+	*build = '\0';
 
 	/* were there any rows inserted or deleted? */
 	for (i = 0; !win->di->newmsg && i < o_lines(win) - 1 && win->di->newrow[i].insrows == 0; i++)
 	{
 	}
 	base = (o_lines(win) - 1) * o_columns(win);
-	if (!win->di->newmsg && i < o_lines(win) - 1)
+	if (!win->di->newmsg && (win->di->tmpmsg || i < o_lines(win) - 1))
 	{
 		/* Some rows were inserted/deleted, and there are no unread
 		 * messages on the last row; Assume the last row should be
@@ -1041,16 +1597,7 @@ static void genlastrow(win)
 		for (i = o_columns(win); --i >= 0; )
 		{
 			win->di->newchar[base + i] = ' ';
-			win->di->newfont[base + i] = 'n';
-		}
-		if (o_showname && o_bufname(markbuffer(win->cursor)))
-		{
-			for (i = 0, cp = o_bufname(markbuffer(win->cursor));
-			     i < o_columns(win) && *cp;
-			     i++, cp++)
-			{
-				win->di->newchar[base + i] = *cp;
-			}
+			win->di->newfont[base + i] = 0;
 		}
 	}
 	else
@@ -1061,9 +1608,12 @@ static void genlastrow(win)
 		for (i = o_columns(win); --i >= 0; )
 		{
 			win->di->newchar[base + i] = win->di->curchar[base + i];
+#if 0 /*  !!! how to convert this? */
 			win->di->newfont[base + i] = win->di->curfont[base + i];
+#else
+			win->di->newfont[base + i] = 0;
+#endif
 		}
-		win->di->newmsg = False;
 	}
 
 	/* if colors changed, then we need to redraw last line from scratch */
@@ -1074,23 +1624,41 @@ static void genlastrow(win)
 		for (i = o_columns(win); --i >= 0; )
 		{
 			win->di->curchar[base + i] = ' ';
-			win->di->curfont[base + i] = 'n';
+			win->di->curattr[base + i].bits = ~0;
 		}
 	}
 
 	/* does the GUI have a status function? */
-	if (!gui->status || !(*gui->status)(win->gw,
-#ifdef FEATURE_SHOWTAG
-		*win->cmdchars ? win->cmdchars : telabel(win->state->cursor),
-#else
-		win->cmdchars,
-#endif
+	if (!gui->status || !(*gui->status)(win->gw, left, 
 		markline(win->state->cursor),
 		(*win->md->mark2col)(win, win->state->cursor, viiscmd(win)) + 1,
 		maplrnchar(o_modified(markbuffer(win->cursor)) ? '*' : ','),
 		win->state->modename))
 	{
 		/* no, but maybe show status on the window's bottom row */
+
+		/* show as much of the left message as possible, unless we're
+		 * in the middle of an incremental search.  During incsearch,
+		 * we don't want to cover the search pattern there.
+		 */
+		if (!win->di->newmsg
+#ifdef FEATURE_INCSEARCH
+			&& CHARcmp(win->state->modename, toCHAR("IncSrch"))
+#endif
+		)
+		{
+			i = base;
+			for (j = 0; j < o_columns(win) - 1 && left[j]; j++, i++)
+			{
+				win->di->newchar[i] = left[j];
+				win->di->newfont[i] = 0;
+			}
+			for (; j < o_columns(win); j++, i++)
+			{
+				win->di->newchar[i] = ' ';
+				win->di->newfont[i] = 0;
+			}
+		}
 
 		/* if "showmode", then show it */
 		if (o_showmode(win))
@@ -1099,7 +1667,7 @@ static void genlastrow(win)
 			for (i = base + o_columns(win) - 10; i < base + o_columns(win) - 3; i++)
 			{
 				win->di->newchar[i] = *scan++;
-				win->di->newfont[i] = 'E';
+				win->di->newfont[i] = COLOR_FONT_SHOWMODE;
 				if (!*scan)
 				{
 					scan = " ";
@@ -1119,7 +1687,7 @@ static void genlastrow(win)
 			for (i = base + o_columns(win) - 10 - strlen(buf); *scan; i++)
 			{
 				win->di->newchar[i] = *scan++;
-				win->di->newfont[i] = 'n';
+				win->di->newfont[i] = COLOR_FONT_RULER;
 			}
 		}
 		else
@@ -1129,85 +1697,30 @@ static void genlastrow(win)
 			win->di->newchar[i] = maplrnchar(o_modified(markbuffer(win->cursor)) ? '*' : ',');
 			if (win->di->newchar[i] == ',')
 				win->di->newchar[i] = ' ';
-			win->di->newfont[i] = 'n';
+			win->di->newfont[i] = COLOR_FONT_RULER;
 		}
 
-		/* if "showcmd" then show it */
-		if (o_showcmd(win))
-		{
-			i = base + o_columns(win) - 22 - QTY(win->cmdchars);
-			for (j = 0; win->cmdchars[j]; j++, i++)
-			{
-				win->di->newchar[i] = win->cmdchars[j];
-				win->di->newfont[i] = 'n';
-			}
-			for ( ; j < QTY(win->cmdchars) - 1; j++, i++)
-			{
-				win->di->newchar[i] = ' ';
-				win->di->newfont[i] = 'n';
-			}
-		}
-
-#ifdef FEATURE_SHOWTAG
-		/* if "showtag" and no messages, then show the tag */
-		if (o_showtag && win->di->newchar[base] == ' ')
-		{
-			for (i = base, cp = telabel(win->state->cursor);
-			     i < base + o_columns(win) - 22 && *cp;
-			     i++, cp++)
-			{
-				win->di->newchar[i] = *cp;
-				win->di->newfont[i] = 'n';
-			}
-		}
-#endif
-	}
-
-	/* if "showstack", then show it */
-	if (o_showstack(win))
-	{
-#if 0
-		for (state = win->state, i = base + o_columns(win) - 30; state; state = state->pop)
-		{
-			win->di->newchar[i] = *state->modename;
-			win->di->newfont[i++] = 'b';
-			if (state->acton == state->pop)
-			{
-				win->di->newchar[i] = '.';
-				win->di->newfont[i++] = 'b';
-			}
-		}
-		win->di->newchar[i] = ' ';
-		win->di->newfont[i++] = 'n';
-		win->di->newchar[i] = ' ';
-		win->di->newfont[i++] = 'n';
-		win->di->newchar[i] = ' ';
-		win->di->newfont[i++] = 'n';
-#else
-		sprintf(buf, "   %ld/%ld/%ld", markoffset(win->state->top), markoffset(win->state->cursor), markoffset(win->state->bottom));
-		scan = buf;
-		for (i = base + o_columns(win) - 20 - strlen(buf); *scan; i++)
-		{
-			win->di->newchar[i] = *scan++;
-			win->di->newfont[i] = 'n';
-		}
-#endif
 	}
 
 	/* the last row is never inserted/deleted/shifted */
 	win->di->newrow[o_lines(win) - 1].insrows = 0;
 	win->di->newrow[o_lines(win) - 1].inschars = 0;
 	win->di->newrow[o_lines(win) - 1].shiftright = 0;
+
+	/* reset flags, in preparation for next update */
+	win->di->newmsg = ElvFalse;
+	win->di->tmpmsg = ElvFalse;
 }
 
 
+#ifdef FEATURE_MISC
 /* This function checks to see if we can skip regenerating a window image.
- * If not, then it returns False without doing anything...
+ * If not, then it returns ElvFalse without doing anything...
  * 
  * But if we can, it updates the bottom row (status line) and moves the cursor
- * to where it should be, and then returns True.
+ * to where it should be, and then returns ElvTrue.
  */
-static BOOLEAN drawquick(win)
+static ELVBOOL drawquick(win)
 	WINDOW	win;	/* window to be updated */
 {
 	DRAWINFO *di = win->di;
@@ -1236,14 +1749,14 @@ static BOOLEAN drawquick(win)
 	    col >= di->columns ||				/* cursor off right edge of screen */
 	    win->seltop)					/* visually selecting text */
 	{
-		return False;
+		return ElvFalse;
 	}
 
 	/* scan all rows at that column, looking for the cursor's offset */
 	for (i = 0, j = col; di->offsets[j] != cursoff; i++, j += di->columns)
 	{
 		if (i >= di->rows - 2)
-			return False;
+			return ElvFalse;
 	}
 
 	/* Hooray!  We can skip generating a new image */
@@ -1256,7 +1769,7 @@ static BOOLEAN drawquick(win)
 	     col < di->columns - 1;
 	     col++, i++)
 	{
-		if (di->newchar[i] != di->curchar[i] || di->newfont[i] != di->curfont[i])
+		if (!drawnochange(di, i))
 		{
 			if (j < 0)
 			{
@@ -1265,32 +1778,34 @@ static BOOLEAN drawquick(win)
 			else if (di->newfont[j] != di->newfont[i])
 			{
 				guimoveto(win, j - base, di->rows - 1);
-				guidraw(win, di->newfont[j], &di->newchar[j], i - j);
+				(void)guidraw(win, di->newfont[j], &di->newchar[j], i - j, 0);
 				j = i;
 			}
 		}
 		else if (j > 0)
 		{
 			guimoveto(win, j - base, di->rows - 1);
-			guidraw(win, di->newfont[j], &di->newchar[j], i - j);
+			(void)guidraw(win, di->newfont[j], &di->newchar[j], i - j, 0);
 			j = -1;
 		}
 	}
 	if (j > 0)
 	{
 		guimoveto(win, j - base, di->rows - 1);
-		guidraw(win, di->newfont[j], &di->newchar[j], i - j);
+		(void)guidraw(win, di->newfont[j], &di->newchar[j], i - j, 0);
 		j = -1;
 	}
-	memcpy(&di->curfont[base], &di->newfont[base], di->columns * sizeof(*di->curfont));
 	memcpy(&di->curchar[base], &di->newchar[base], di->columns * sizeof(*di->curchar));
+	for (i = 0; i < di->columns; i++)
+		di->curattr[base + 1] = colorinfo[(int)di->newfont[base + i]].da;
 
 	/* leave the cursor in the right place */
 	guimoveto(win, di->curscol, di->cursrow);
 
 	/* That should do it */
-	return True;
+	return ElvTrue;
 }
+#endif /* FEATURE_MISC */
 
 
 /* update the image of a window to reflect changes to its buffer */
@@ -1305,10 +1820,22 @@ void drawimage(win)
 
 	assert(gui->moveto && gui->draw);
 
+#ifdef FEATURE_LISTCHARS
+	if (!o_wrap(win))
+	{
+		lprecedes = dmnlistchars('<', 0L, 0L, NULL, NULL);
+		lextends = dmnlistchars('>', 0L, 0L, NULL, NULL);
+	}
+#endif
+
 	/* unavoidable setup performed here */
 	if (o_bufchars(markbuffer(win->cursor)) > 0)
 	{
-		win->di->curscol = (*win->md->mark2col)(win, marktmp(first, markbuffer(win->cursor), markoffset(win->cursor)), viiscmd(win));
+		win->di->curscol = (*win->md->mark2col)(win,
+						marktmp(first,
+						     markbuffer(win->cursor),
+						     markoffset(win->cursor)),
+						viiscmd(win));
 	}
 	else
 	{
@@ -1324,13 +1851,24 @@ void drawimage(win)
 		win->di->curbuf = markbuffer(win->cursor);
 	}
 
+	/* make sure we use the right colors */
+	if (guicolorsync(win))
+		win->di->logic = DRAW_SCRATCH;
+
+#ifdef FEATURE_MISC
 	/* see if maybe everything else *is* avoidable*/
-	if (drawquick(win))
+	if (
+#ifdef FEATURE_HLOBJECT
+	    hlprep(win, markbuffer(win->cursor)) &&
+#endif
+	    drawquick(win))
 	{
 		return;
 	}
+#endif /* FEATURE_MISC */
 
 	/* setup, and choose a starting point for the drawing */
+	colorsetup();
 	next = (*win->md->setup)(win, win->di->topmark,
 		markoffset(win->cursor), win->di->bottommark, win->mi);
 	thiswin = win;
@@ -1363,13 +1901,21 @@ void drawimage(win)
 		 */
 		leftcol = win->di->skipped;
 		i = win->di->curscol;
+#ifdef FEATURE_LISTCHARS
+		while (i >= leftcol + o_columns(win) - lextends)
+#else
 		while (i >= leftcol + o_columns(win))
+#endif
 		{
 			leftcol += o_sidescroll(win);
 		}
 		if (o_number(win))
 			i -= 8; /* because line number pushed it over 8 cols */
+#ifdef FEATURE_LISTCHARS
+		while (leftcol > 0 && i < leftcol + lprecedes)
+#else
 		while (i < leftcol)
+#endif
 		{
 			leftcol -= o_sidescroll(win);
 		}
@@ -1416,13 +1962,16 @@ void drawimage(win)
 			if (o_number(win))
 				strcpy(thislnumstr, "        ");
 			thiscol = leftcol;
+#ifdef FEATURE_REGION
+			thisregion = NULL;
+#endif
 			if (row != 0)
 			{
 				tmpch = '~';
-				drawchar(&tmpch, 1, 'n', -1);
+				drawchar(&tmpch, 1, COLOR_FONT_NONTEXT, -1);
 			}
 			tmpch = '\n';
-			drawchar(&tmpch, 1, 'n', -1);
+			drawchar(&tmpch, 1, COLOR_FONT_NONTEXT, -1);
 			if (win->di->cursrow < 0)
 			{
 				win->di->cursrow = row;
@@ -1441,7 +1990,33 @@ void drawimage(win)
 			thisline = markoffset(next);
 			thiswin->di->newline[linesshown].width = 0;
 			thisscroll = 0;
+#ifdef FEATURE_LISTCHARS
+			lcscell = thiscell;
+#endif
+#ifdef FEATURE_REGION
+			thisregion = regionfind(next);
+#endif
 			next = (*win->md->image)(win, next, win->mi, drawchar);
+
+#ifdef FEATURE_LISTCHARS
+			/* add arrows, if necessary */
+			if (!o_wrap(win))
+			{
+				int	lcswidth;
+				lcswidth = thiswin->di->newline[linesshown].width;
+				if (lprecedes > 0 && leftcol > 0 && lcswidth > 0)
+				{
+					/* add a left arrow at front of line */
+					(void)dmnlistchars('<', thisline, 0L, NULL, lcsdrawchar);
+				}
+				if (lextends > 0 && lcswidth > rightcol)
+				{
+					/* add a right arrow at end of line */
+					lcscell = thiscell - lextends;
+					(void)dmnlistchars('>', markoffset(next) - 1L, 0L, NULL, lcsdrawchar);
+				}
+			}
+#endif /* FEATURE_LISTCHARS */
 
 			/* remember where each row started. */
 			row -= thisscroll;
@@ -1489,6 +2064,15 @@ void drawimage(win)
 		guiflush();
 	}
 
+#ifdef FEATURE_SPELL
+	spellhighlight(win);
+#endif
+
+#ifdef FEATURE_HLSEARCH
+	/* highlight any text that matches the most recent search */
+	searchhighlight(win, linesshown, markoffset(next));
+#endif
+
 	/* compute insert/delete info */
 	compareimage(win);
 
@@ -1520,7 +2104,7 @@ void drawimage(win)
 }
 
 /*----------------------------------------------------------------------------*/
-/* The follow are line-oriented output functions */
+/* The following are line-oriented output functions */
 
 /* This function either calls gui->textline, or simulates it via the usual
  * screen update functions.
@@ -1557,7 +2141,7 @@ static void opentextline(win, text, len)
 			do
 			{
 				win->di->newchar[win->di->opencell] = ' ';
-				win->di->newfont[win->di->opencell] = 'n';
+				win->di->newfont[win->di->opencell] = COLOR_FONT_BOTTOM;
 				win->di->opencell++;
 				thiscol++;
 			} while (thiscol < win->di->columns && thiscol % 8 != 0);
@@ -1579,7 +2163,7 @@ static void opentextline(win, text, len)
 
 		  default:
 			win->di->newchar[win->di->opencell] = text[i];
-			win->di->newfont[win->di->opencell] = 'n';
+			win->di->newfont[win->di->opencell] = COLOR_FONT_BOTTOM;
 			win->di->opencell++;
 			thiscol++;
 		}
@@ -1595,18 +2179,24 @@ static void opentextline(win, text, len)
 		{
 			delimage(win->di->newchar,
 				win->di->newfont,
+				NULL,
 				win->di->columns,
 				win->di->rows * win->di->columns);
 			if (win->di->logic != DRAW_SCRATCH)
 				win->di->newrow[0].insrows--;
 			win->di->opencell -= win->di->columns;
+#if 0
+			/* This assertion seems to fail (meaninglessly) if you
+			 * backspace around the end of the line.
+			 */
 			assert((win->di->opencell - thiscol) % win->di->columns == 0);
+#endif
 			for (j = win->di->opencell - thiscol;
 			     j < win->di->rows * win->di->columns;
 			     j++)
 			{
 				win->di->newchar[j] = ' ';
-				win->di->newfont[j] = 'n';
+				win->di->newfont[j] = COLOR_FONT_BOTTOM;
 			}
 		}
 	}
@@ -1648,7 +2238,7 @@ void drawopencomplete(win)
 		for (i = win->di->opencell; i < win->di->rows * win->di->columns; i++)
 		{
 			win->di->newchar[i] = ' ';
-			win->di->newfont[i] = 'n';
+			win->di->newfont[i] = COLOR_FONT_BOTTOM;
 		}
 		break;
 
@@ -1724,10 +2314,11 @@ void drawmsg(win, imp, verbose, len)
 			{
 				win->di->newchar[base + i] = win->di->curchar[base + i] = ' ';
 			}
-			win->di->newfont[base + i] = win->di->curfont[base + i] = 'n';
+			win->di->newfont[base + i] = COLOR_FONT_BOTTOM;
+			win->di->curattr[base + i] = colorinfo[COLOR_FONT_BOTTOM].da;
 		}
 		drawexpose(win, (int)(o_lines(win)-1), 0, (int)(o_lines(win)-1), (int)(o_columns(win)-1));
-		win->di->newmsg = True;
+		win->di->newmsg = ElvTrue;
 	}
 	
 	/* non-status messages force us out of DRAW_VISUAL state */
@@ -1742,9 +2333,9 @@ static long	opencnt;	/* column where next image character goes */
 static long	openoffsetcurs;	/* offset of cursor */
 static CHAR	*openimage;	/* buffer, holds new line image */
 static long	opensize;	/* size of openimage */
-static BOOLEAN	opencursfound;	/* has the cursor's cell been found yet? */
-static BOOLEAN	openskipping;	/* has the line containing the cursor been completed? */
-static BOOLEAN	openselect;	/* currently outputting highlighted text? */
+static ELVBOOL	opencursfound;	/* has the cursor's cell been found yet? */
+static ELVBOOL	openskipping;	/* has the line containing the cursor been completed? */
+static ELVBOOL	openselect;	/* currently outputting highlighted text? */
 static long	openseltop;	/* offset of top of highlighted region */
 static long	openselbottom;	/* offset of bottom of highlighted region */
 
@@ -1784,7 +2375,7 @@ static void openchar(p, qty, font, offset)
 		/* is the cursor in this line? */
 		if (offset >= openoffsetcurs)
 		{
-			opencursfound = True;
+			opencursfound = ElvTrue;
 		}
 
 		/* expand the size of the buffer, if necessary */
@@ -1804,7 +2395,7 @@ static void openchar(p, qty, font, offset)
 			{
 				openimage[opencnt++] = '*';
 				openimage[opencnt++] = '[';
-				openselect = True;
+				openselect = ElvTrue;
 			}
 		}
 		else
@@ -1813,7 +2404,7 @@ static void openchar(p, qty, font, offset)
 			{
 				openimage[opencnt++] = ']';
 				openimage[opencnt++] = '*';
-				openselect = False;
+				openselect = ElvFalse;
 			}
 		}
 
@@ -1822,7 +2413,7 @@ static void openchar(p, qty, font, offset)
 		{
 			if (opencursfound)
 			{
-				openskipping = True;
+				openskipping = ElvTrue;
 			}
 			else
 			{
@@ -1878,7 +2469,7 @@ static void openmove(win, oldcol, newcol, image, len)
 	}
 	else if (newcol < oldcol)
 	{
-		/* move right by outputing backspaces */
+		/* move right by outputting backspaces */
 		while (newcol + 10 < oldcol)
 		{
 			opentextline(win, tenbs, 10);
@@ -1905,6 +2496,15 @@ void drawopenedit(win)
 	curline = dispmove(win, 0, 0);
 	curcol = dispmark2col(win);
 
+	/* set up some variables that updateimage() needs */
+	thiswin = win;
+	thiscell = 0;
+	thiscol = 0;
+	maxrow = o_lines(win) - 1;
+	maxcell = maxrow * o_columns(win);
+	scrollrows = (gui->scrolllast ? maxrow + 1 : maxrow);
+	linesshown = 0;
+
 	/* if we were editing a different line before, then end it now */
 	if (win->di->drawstate != DRAW_OPENEDIT
 	 || !win->di->openline
@@ -1918,7 +2518,7 @@ void drawopenedit(win)
 	/* else we're editing the same line as last time */
 
 	/* generate the new line image */
-	opencursfound = openskipping = openselect = False;
+	opencursfound = openskipping = openselect = ElvFalse;
 	opencnt = 0;
 	openoffsetcurs = markoffset(win->state->cursor);
 	openimage = (CHAR *)safealloc(80, sizeof(CHAR));
@@ -1997,6 +2597,7 @@ void drawopenedit(win)
 	 */
 	if (!gui->textline)
 	{
+		colorsetup();
 		updateimage(win);
 		win->di->curscol = win->di->opencell % win->di->columns;
 		win->di->cursrow = win->di->opencell / win->di->columns;
@@ -2075,7 +2676,7 @@ void drawexlist(win, text, len)
 	 */
 	for (from = to = 0; to < len; to++)
 	{
-		if (text[to] != '\n' && iscntrl(text[to]))
+		if (text[to] != '\n' && elvcntrl(text[to]))
 		{
 			/* draw the last printable segment, if any */
 			if (from < to)

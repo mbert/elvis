@@ -5,10 +5,9 @@
 */
 
 #define CHAR    Char
-#define BOOLEAN Boolean
 #include "elvis.h" 
 #undef CHAR
-#undef BOOLEAN 
+#undef ELVBOOL 
 
 #if defined (GUI_WIN32)
 
@@ -59,7 +58,7 @@ static void gw_status_upd_time (HWND hwnd)
 
 /* --------------------------------------------------------------------
 **
-** gw_set_panes  --  set the pames positions.
+** gw_set_panes  --  set the panes' positions.
 */
 
 static void gw_set_panes (GUI_WINDOW *gwp, int maximized)
@@ -140,7 +139,7 @@ void gw_create_status_bar (GUI_WINDOW *gwp)
     dc = GetDC (gwp->statusbarHWnd);
     GetTextExtentPoint32 (dc, " 0000000 ", 9, &size);
     size_pos = size.cx;
-    GetTextExtentPoint32 (dc, " W ", 3, &size);
+    GetTextExtentPoint32 (dc, "MOD", 3, &size);
     size_changed = size.cx;
     GetTextExtentPoint32 (dc, " Command ", 9, &size);
     size_mode = size.cx;
@@ -223,8 +222,12 @@ void gw_upd_status_bar (GUI_WINDOW *gwp, Char *cmd, long row, long col, char lea
     SendMessage (gwp->statusbarHWnd, SB_SETTEXT, (WPARAM)SBT_NOBORDERS, (LPARAM)cmd);
     sprintf (tmp, "%ld,%ld", row, col);
     SendMessage (gwp->statusbarHWnd, SB_SETTEXT, (WPARAM)SB_PART_POS, (LPARAM)&tmp);
-    tmp[0] = learn != ',' ? learn : ' ';
-    tmp[1] = '\0';
+    switch (learn)
+    {
+      case ',':	strcpy(tmp, "   ");	break;
+      case '*': strcpy(tmp, "MOD");	break;
+      default:	sprintf(tmp, " %c ", learn);
+    }
     SendMessage (gwp->statusbarHWnd, SB_SETTEXT, (WPARAM)SB_PART_CHANGED, (LPARAM)&tmp);
     SendMessage (gwp->statusbarHWnd, SB_SETTEXT, (WPARAM)SB_PART_MODE, (LPARAM)mode);
 }

@@ -1,9 +1,11 @@
 /* misc.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_misc[] = "$Id: misc.c,v 2.11 1997/10/17 18:42:24 steve Exp $";
 
 #include "elvis.h"
+#ifdef FEATURE_RCSID
+char id_misc[] = "$Id: misc.c,v 2.20 2003/10/17 17:41:23 steve Exp $";
+#endif
 
 
 
@@ -13,7 +15,16 @@ CHAR	empty[1];
 
 
 /* This is used when we need a bunch of blanks */
-CHAR	blanks[] = "                                                                                ";
+CHAR	blanks[80] = {
+	' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
+	' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
+	' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
+	' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
+	' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
+	' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
+	' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
+	' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '
+};
 
 
 
@@ -42,7 +53,13 @@ int	argnext;	/* index into arglist[] of next arg */
  * reallocates memory.  It returns the number of characters added so far,
  * excluding the terminal NUL.
  */
+#ifdef DEBUG_ALLOC
+int _buildCHAR(file, line, refstr, ch)
+	char	*file;
+	int	line;
+#else
 int buildCHAR(refstr, ch)
+#endif
 	CHAR	**refstr;	/* pointer to variable which points to string */
 	_CHAR_	ch;		/* character to append to that string */
 {
@@ -54,7 +71,11 @@ int buildCHAR(refstr, ch)
 	if (!*refstr)
 	{
 		len = 0;
+#ifdef DEBUG_ALLOC
+		*refstr = (CHAR *)_safealloc(file, line, ElvFalse, GRANULARITY, sizeof(CHAR));
+#else
 		*refstr = (CHAR *)safealloc(GRANULARITY, sizeof(CHAR));
+#endif
 	}
 
 	/* if the string is expanding beyond the current allocated memory,
@@ -62,7 +83,11 @@ int buildCHAR(refstr, ch)
 	 */
 	if ((len + 1) % GRANULARITY == 0)
 	{
+#ifdef DEBUG_ALLOC
+		newp = (CHAR *)_safealloc(file, line, ElvFalse, len + 1 + GRANULARITY, sizeof(CHAR));
+#else
 		newp = (CHAR *)safealloc(len + 1 + GRANULARITY, sizeof(CHAR));
+#endif
 		memcpy(newp, *refstr, len * sizeof(CHAR));
 		safefree(*refstr);
 		*refstr = newp;
@@ -78,14 +103,24 @@ int buildCHAR(refstr, ch)
 /* This function calls buildCHAR() for each character of an argument string.
  * Note that the string is a plain old "char" string, not a "CHAR" string.
  */
+#ifdef DEBUG_ALLOC
+int _buildstr(file, line, refstr, add)
+	char	*file;
+	int	line;
+#else
 int buildstr(refstr, add)
+#endif
 	CHAR	**refstr;	/* pointer to variable which points to string */
 	char	*add;		/* a string to be added */
 {
 	int	len;
 
 	for (len = 0; *add; add++)
+#ifdef DEBUG_ALLOC
+		len = _buildCHAR(file, line, refstr, *add);
+#else
 		len = buildCHAR(refstr, *add);
+#endif
 	return len;
 }
 
@@ -97,11 +132,13 @@ int buildstr(refstr, add)
  * If the argument MARK isn't on a word, this function leaves it unchanged
  * and returns NULL.
  */
-MARK wordatcursor(cursor)
+MARK wordatcursor(cursor, apostrophe)
 	MARK	cursor;	/* some point in the word */
+	ELVBOOL	apostrophe;	/* allow apostrophe between letters? */
 {
  static	MARKBUF	retmark;/* the return value */
 	CHAR	*p;
+	CHAR	prev;
 
 	/* If "cursor" is NULL, fail */
 	if (!cursor)
@@ -111,7 +148,7 @@ MARK wordatcursor(cursor)
 
 	/* If "cursor" isn't on a letter, digit, or underscore, then fail */
 	scanalloc(&p, cursor);
-	if (!p || (!isalnum(*p) && *p != '_'))
+	if (!p || (!elvalnum(*p) && *p != '_' && !(apostrophe && *p == '\'')))
 	{
 		scanfree(&p);
 		return NULL;
@@ -121,17 +158,38 @@ MARK wordatcursor(cursor)
 	retmark = *cursor;
 	do
 	{
+		prev = *p;
 		scanprev(&p);
 		markaddoffset(&retmark, -1);
-	} while (p && (isalnum(*p) || *p == '_'));
+	} while (p && (elvalnum(*p) || *p == '_' || (apostrophe && *p == '\'' && prev != '\'')));
 	markaddoffset(&retmark, 1);
+
+	/* can't start on an apostrophe */
+	if (apostrophe && scanchar(&retmark) == '\'')
+		markaddoffset(&retmark, 1);
 
 	/* search forward to the end of the word */
 	scanseek(&p, cursor);
 	do
 	{
+		prev = *p;
 		scannext(&p);
-	} while (p && (isalnum(*p) || *p == '_'));
+	} while (p && (elvalnum(*p) || *p == '_' || (apostrophe && *p == '\'' && prev != '\'')));
+
+	/* can't end on an apostrophe */
+	if (apostrophe && prev == '\'')
+	{
+		scanprev(&p);
+	}
+
+	/* length must be at least 1 */
+	if (markoffset(scanmark(&p)) - markoffset(&retmark) < 1)
+	{
+		scanfree(&p);
+		return NULL;
+	}
+
+	/* move the cursor to the end of the word */
 	marksetoffset(cursor, markoffset(scanmark(&p)));
 
 	/* clean up & return the front of the word */
@@ -156,7 +214,7 @@ CHAR *addquotes(chars, str)
 	/* build a quoted copy of the string */
 	for (tmp = NULL; *str; str++)
 	{
-		if ((*str == '\\' && str[1] && !isalnum(str[1]))
+		if ((*str == '\\' && str[1] && !elvalnum(str[1]))
 		 || CHARchr(chars, *str))
 			buildCHAR(&tmp, '\\');
 		buildCHAR(&tmp, *str);
@@ -194,4 +252,23 @@ CHAR *removequotes(chars, str)
 
 	/* return the copy */
 	return tmp;
+}
+
+/* Compare two strings in a case-insensitive way */
+int CHARncasecmp(s1, s2, len)
+	CHAR	*s1, *s2;	/* strings to compare */
+	int	len;		/* length of the strings to compare */
+{
+	/* look for a difference */
+	while (len > 0 && elvtolower(*s1) == elvtolower(*s2))
+	{
+		len--;
+		s1++;
+		s2++;
+	}
+
+	/* return the difference */
+	if (len > 0)
+		len = elvtolower(*s1) - elvtolower(*s2);
+	return len;
 }

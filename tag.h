@@ -21,23 +21,23 @@ typedef struct tag_s
 /* Stuff normally defined in elvis.h, but elvis.h might not be included */
 # ifndef QTY
 #  include <stdio.h>
-typedef enum {False, True} BOOLEAN;
+typedef enum {ElvFalse, ElvTrue} ELVBOOL;
 #  define P_(args)	args
 # endif
 #endif
 
 extern char *tagattrname[MAXATTR];
 extern TAG *taglist;
-extern BOOLEAN tagforward;
+extern ELVBOOL tagforward;
 
 BEGIN_EXTERNC
 
 extern void tagnamereset P_((void));
 extern TAG *tagdup P_((TAG *tag));
-extern BOOLEAN tagattr P_((TAG *tag, char *name, char *value));
+extern ELVBOOL tagattr P_((TAG *tag, char *name, char *value));
 extern TAG *tagfree P_((TAG *tag));
-extern void tagdelete P_((BOOLEAN all));
-extern BOOLEAN tagadd P_((TAG *tag));
+extern void tagdelete P_((ELVBOOL all));
+extern void tagadd P_((TAG *tag));
 extern TAG *tagparse P_((char *line));
 
 END_EXTERNC

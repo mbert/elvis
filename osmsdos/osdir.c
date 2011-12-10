@@ -14,6 +14,7 @@
 #endif
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <time.h>
 #include <dos.h>
 #include <errno.h>
 #ifdef  __TURBOC__
@@ -60,6 +61,65 @@ static char *lastslash(char *str);
 
 
 #if !defined(JUST_DIRPATH)
+
+/* This recursive function checks a filename against a wildcard expression.
+ * Returns ElvTrue for match, ElvFalse for mismatch.
+ *
+ * For MSDOS this is case-insensitive and supports the * and ? wildcards.
+ */
+ELVBOOL dirwildcmp(fname, wild)
+	char	*fname;	/* an actual filename */
+	char	*wild;	/* a wildcard expression */
+{
+	int	i;
+	int	c1, c2;
+
+  TailRecursion:
+	switch (*wild)
+	{
+	  case '?':
+		/* match any single character except \0 and / */
+		if (*fname == '/' || !*fname)
+		{
+			return ElvFalse;
+		}
+		fname++;
+		wild++;
+		goto TailRecursion;
+
+	  case '*':
+		/* The * should match as much text as possible.  Start by
+		 * trying to make it match all of the name, and if that doesn't
+		 * work then back off until it does match or no match is
+		 * possible.
+		 */
+		for (i = strlen(fname);
+		     i >= 0 && !dirwildcmp(fname + i, wild + 1);
+		     i--)
+		{
+		}
+		return (ELVBOOL)(i >= 0);
+
+	  case '\0':
+		return ((*fname) ? ElvFalse : ElvTrue);
+
+	  default:
+		c1 = *fname++;
+		if (c1 >= 'A' && c1 <= 'Z')
+			c1 += 'a' - 'A';
+		c2 = *wild++;
+		if (c2 >= 'A' && c2 <= 'Z')
+			c2 += 'a' - 'A';
+		if (c1 != c2)
+		{
+			return ElvFalse;
+		}
+		goto TailRecursion;
+	}
+	/*NOTREACHED*/
+}
+
+
 /* These are used for communication between dirfirst() and dirnext() */
 static char finddir[NAME_MAX];
 static char findwild[NAME_MAX];
@@ -70,7 +130,7 @@ static struct ffblk ff;
  * wildexpr, or wildexpr if none matches.  If wildexpr has no contains
  * no wildcards, then just return wildexpr without checking for files.
  */
-char *dirfirst(char *wildexpr, BOOLEAN ispartial)
+char *dirfirst(char *wildexpr, ELVBOOL ispartial)
 {
 	/* remember the directory name */
 	strcpy(finddir, dirdir(wildexpr));
@@ -98,7 +158,7 @@ char *dirfirst(char *wildexpr, BOOLEAN ispartial)
 	     wildexpr >= found && *wildexpr != '\\' && *wildexpr != ':';
 	     wildexpr--)
 	{
-		*wildexpr = tolower(*wildexpr);
+		*wildexpr = elvtolower(*wildexpr);
 	}
 #endif
 	return found;
@@ -131,7 +191,7 @@ char *dirnext(void)
 	     scan >= found && *scan != '\\' && *scan != ':';
 	     scan--)
 	{
-		*scan = tolower(*scan);
+		*scan = elvtolower(*scan);
 	}
 #endif
 	return found;
@@ -139,14 +199,14 @@ char *dirnext(void)
 #endif /* !JUST_DIRPATH */
 
 #if !defined(JUST_DIRFIRST) && !defined(JUST_DIRPATH)
-/* Return True if wildexpr contains any wildcards; else False */
-BOOLEAN diriswild(char *wildexpr)
+/* Return ElvTrue if wildexpr contains any wildcards; else ElvFalse */
+ELVBOOL diriswild(char *wildexpr)
 {
 	if (strchr(wildexpr, '*') || strchr(wildexpr, '?'))
 	{
-		return True;
+		return ElvTrue;
 	}
-	return False;
+	return ElvFalse;
 }
 
 
@@ -154,7 +214,8 @@ BOOLEAN diriswild(char *wildexpr)
  * following to describe the file's type & permissions:
  *    DIR_INVALID    malformed filename (can't happen with UNIX)
  *    DIR_BADPATH    unable to check file
- *    DIR_NOTFILE    directory or other non-file
+ *    DIR_NOTFILE    file exists but is neither normal nor a directory
+ *    DIR_DIRECTORY  file is a directory
  *    DIR_NEW        file doesn't exist yet
  *    DIR_UNREADABLE file exists but is unreadable
  *    DIR_READONLY   file is readable but not writable
@@ -171,9 +232,9 @@ DIRPERM dirperm(char *filename)
 		else
 			return DIR_BADPATH;
 	}
-	if ((statb.st_mode & S_IFMT) != S_IFREG
-	 || !strcmp(filename, "nul")
-	 || !strcmp(filename, "prn"))
+	if ((statb.st_mode & S_IFMT) != S_IFREG)
+		return DIR_DIRECTORY;
+	if (!strcmp(filename, "nul") || !strcmp(filename, "prn"))
 		return DIR_NOTFILE;
 	if ((statb.st_mode & S_IWRITE) == 0)
 		return DIR_READONLY;
@@ -207,7 +268,7 @@ char *dirdir(char *pathname)
 	{
 		ret[1] = '\0';
 	}
-	else if (isalpha(ret[0]) && ret[1] == ':' && slash == &ret[2])
+	else if (elvalpha(ret[0]) && ret[1] == ':' && slash == &ret[2])
 	{
 		ret[3] = '\0';
 	}
@@ -215,7 +276,7 @@ char *dirdir(char *pathname)
 	{
 		*slash = '\0';
 	}
-	else if (isalpha(ret[0]) && ret[1] == ':')
+	else if (elvalpha(ret[0]) && ret[1] == ':')
 	{
 		ret[2] = '\0';
 	}
@@ -236,13 +297,47 @@ char *dirfile(char *pathname)
 	char	*slash;
 
 	slash = lastslash(pathname);
-	if (!slash && isalpha(*pathname) && pathname[1] == ':')
+	if (!slash && elvalpha(*pathname) && pathname[1] == ':')
 	{
 		slash = &pathname[1];
 	}
 	return slash ? slash + 1 : pathname;
 }
+
 #endif /* !JUST_DIRFIRST && !JUST_DIRPATH */
+
+#ifndef JUST_DIRFIRST
+
+/* Return the timestamp of a file, or the current time if no file is specified.
+ * If an invalid file is specified, return "".
+ */
+char *dirtime(filename)
+	char	*filename;	/* filename to check */
+{
+	static char	str[20];/* "YYYY-MM-DDThh:mm:ss\0" */
+	time_t		when;	/* the date/time */
+	struct stat	st;	/* holds info from timestamp */
+	struct tm	*tp;	/* time, broken down */
+
+	/* Choose a time to return (if any) */
+	if (!filename || !*filename)
+		time(&when);
+	else if (stat(filename, &st) == 0)
+		when = (st.st_mtime > st.st_ctime) ? st.st_mtime : st.st_ctime;
+	else
+		return "";
+
+	/* Convert it to a string */
+	tp = localtime(&when);
+	sprintf(str, "%04d-%02d-%02dT%02d:%02d:%02d",
+		tp->tm_year + 1900, tp->tm_mon + 1, tp->tm_mday,
+		tp->tm_hour, tp->tm_min, tp->tm_sec);
+
+	/* return it */
+	return str;
+}
+
+#endif /* !JUST_DIRFIRST */
 
 /* combine a directory name and a filename, yielding a pathname. */
 char *dirpath(char *dir, char *file)
@@ -251,15 +346,15 @@ char *dirpath(char *dir, char *file)
 
 	if (!strcmp(dir, ".")
 	 || !dir[0]
-	 || (isalpha(file[0]) && file[1] == ':')
-	 || !(isalpha(dir[0]) && dir[1] == ':') && file[0] == '\\')
+	 || (elvalpha(file[0]) && file[1] == ':')
+	 || !(elvalpha(dir[0]) && dir[1] == ':') && file[0] == '\\')
 	{
 		/* no dir, or file has drive letter, or file is absolute within
 		 * drive but dir doesn't specify drive.
 		 */
 		strcpy(path, file);
 	}
-	else if (isalpha(dir[0]) && dir[1] == ':'
+	else if (elvalpha(dir[0]) && dir[1] == ':'
 				&& (!dir[2] || file[0] == '\\'))
 	{
 		/* dir has drive letter, and either dir has no directory name
@@ -297,11 +392,11 @@ char *dircwd(void)
 }
 
 
-/* Change working directory and return True if successful */
-BOOLEAN dirchdir(pathname)
+/* Change working directory and return ElvTrue if successful */
+ELVBOOL dirchdir(pathname)
 	char	*pathname;	/* new directory name */
 {
-	return (BOOLEAN)(chdir(pathname) >= 0);
+	return (ELVBOOL)(chdir(pathname) >= 0);
 }
 
 
@@ -322,13 +417,14 @@ void osinit(argv0)
 	optpreset(o_home, CHARdup(toCHAR(dirdir(argv0))), OPT_FREE);
 
 	/* Set the "elvispath" option.  The value here should include
-	 * ~/ELVISLIB, the directory where ELVIS.EXE resides, and the LIB
-	 * subdirectory under that directory.  Later, the portable code in
-	 * "optglob.c" will override this value if the ELVISPATH environment
-	 * variable is set.
+	 * ~/dotelvis, and the "doc" and "data" subdirectories under the
+	 * the directory where ELVIS.EXE resides
+	 *
+	 * Later, the portable code in "optglob.c" will override this value
+	 * if the ELVISPATH environment variable is set.
 	 */
 	tmp = dirdir(argv0);
-	sprintf(path, "~\\elvislib;%s;%s", tmp, dirpath(tmp, "lib"));
+	sprintf(path, "~\\dotelvis;%s\\data;%s\\doc", tmp, tmp);
 	o_elvispath = toCHAR(path);
 }
 

@@ -1,9 +1,17 @@
 /* calc.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_calc[] = "$Id: calc.c,v 2.68 1999/10/12 22:43:30 steve Exp $";
 
 #include "elvis.h"
+#ifdef FEATURE_RCSID
+char id_calc[] = "$Id: calc.c,v 2.143 2003/10/18 04:47:18 steve Exp $";
+#endif
+
+#ifdef TRY
+# undef FEATURE_CALC
+# define FEATURE_CALC 1
+#endif
+
 #include <setjmp.h>
 #ifdef TRY
 # include <getopt.h>
@@ -11,31 +19,46 @@ char id_calc[] = "$Id: calc.c,v 2.68 1999/10/12 22:43:30 steve Exp $";
 # define o_true "True"
 # undef o_false
 # define o_false "False"
-# undef isdigit
-# undef isupper
-# undef islower
-# undef isalnum
-# undef toupper
-# undef tolower
+# define elvdigit isdigit
+# define elvupper isupper
+# define elvlower islower
+# define elvalnum isalnum
+# define elvcntrl iscntrl
+# define elvspace isspace
+# define elvtoupper toupper
+# define elvtolower tolower
 # if USE_PROTOTYPES
     extern int isdigit(int c);
     extern int isupper(int c);
     extern int islower(int c);
     extern int isalnum(int c);
+    extern int iscntrl(int c);
+    extern int isspace(int c);
     extern int toupper(int c);
     extern int tolower(int c);
 # endif
-#endif
+# define safedup(s)	strdup(s)
+# define safefree(p)	free(p)
+#endif /* TRY */
 
 
-#if USE_PROTOTYPES
-static int copyname(CHAR *dest, CHAR *src, BOOLEAN num);
-static BOOLEAN func(CHAR *name, CHAR *arg);
-static BOOLEAN apply(void);
+#ifdef FEATURE_CALC
+# if USE_PROTOTYPES
+static int copyname(CHAR *dest, CHAR *src, ELVBOOL num);
+static ELVBOOL func(CHAR *name, CHAR *arg);
+static ELVBOOL apply(void);
 static CHAR *applyall(int prec);
-#endif
+static CHAR *maybeconcat(CHAR *build, int base, ELVBOOL asmsg);
+
+#  ifdef FEATURE_ARRAY
+static CHAR *nextelement(CHAR *element, CHAR **setref);
+static CHAR *subnum(CHAR *cp, long nelem, long *from, long *to);
+#  endif
+# endif /* USE_PROTOTYPES */
+#endif /* FEATURE_CALC */
 
 #ifndef TRY
+#ifdef FEATURE_CALC
 static CHAR *feature[] =
 {
 # ifdef PROTOCOL_HTTP
@@ -44,31 +67,120 @@ static CHAR *feature[] =
 # ifdef PROTOCOL_FTP
 	toCHAR("ftp"),
 # endif
-# ifdef FEATURE_SHOWTAG
-	toCHAR("showtag"),
-# endif
-# ifdef FEATURE_LPR
-	toCHAR("lpr"),
-# endif
 # ifdef FEATURE_ALIAS
 	toCHAR("alias"),
 # endif
-# ifdef FEATURE_MKEXRC
-	toCHAR("mkexrc"),
+# ifdef FEATURE_ARRAY
+	toCHAR("array"),
 # endif
-# ifdef FEATURE_COMPLETE
-	toCHAR("complete"),
-#endif
-# ifdef FEATURE_RAM
-	toCHAR("ram"),
+# ifdef FEATURE_AUTOCMD
+	toCHAR("autocmd"),
 # endif
 # ifdef FEATURE_BACKTICK
 	toCHAR("backtick"),
 # endif
+# ifdef FEATURE_BROWSE
+	toCHAR("browse"),
+# endif
+# ifdef FEATURE_CACHEDESC
+	toCHAR("cachedesc"),
+# endif
+# ifdef FEATURE_CALC
+	toCHAR("calc"),
+# endif
+# ifdef FEATURE_COMPLETE
+	toCHAR("complete"),
+# endif
+# ifdef FEATURE_EQUALTILDE
+	toCHAR("equaltilde"),
+# endif
+# ifdef FEATURE_FOLD
+	toCHAR("fold"),
+# endif
+# ifdef FEATURE_G
+	toCHAR("g"),
+# endif
+# ifdef FEATURE_HLOBJECT
+	toCHAR("hlobject"),
+# endif
+# ifdef FEATURE_HLSEARCH
+	toCHAR("hlsearch"),
+# endif
+# ifdef FEATURE_IMAGE
+	toCHAR("image"),
+# endif
+# ifdef FEATURE_INCSEARCH
+	toCHAR("incsearch"),
+# endif
+# ifdef FEATURE_LISTCHARS
+	toCHAR("listchars"),
+# endif
+# ifdef FEATURE_LITRE
+	toCHAR("litre"),
+# endif
+# ifdef FEATURE_LPR
+	toCHAR("lpr"),
+# endif
+# ifdef FEATURE_MAKE
+	toCHAR("make"),
+# endif
+# ifdef FEATURE_MAPDB
+	toCHAR("mapdb"),
+# endif
+# ifdef FEATURE_MISC
+	toCHAR("misc"),
+# endif
+# ifdef FEATURE_MKEXRC
+	toCHAR("mkexrc"),
+# endif
+# ifdef FEATURE_NORMAL
+	toCHAR("normal"),
+# endif
+# ifdef FEATURE_PROTO
+	toCHAR("proto"),
+# endif
+# ifdef FEATURE_RAM
+	toCHAR("ram"),
+# endif
+# ifdef FEATURE_RCSID
+	toCHAR("rcsid"),
+# endif
+# ifdef FEATURE_REGION
+	toCHAR("region"),
+# endif
+# ifdef FEATURE_SHOWTAG
+	toCHAR("showtag"),
+# endif
+# ifdef FEATURE_SMARTARGS
+	toCHAR("smartargs"),
+# endif
+# ifdef FEATURE_SPELL
+	toCHAR("spell"),
+# endif
+# ifdef FEATURE_SPLIT
+	toCHAR("split"),
+# endif
+# ifdef FEATURE_STDIN
+	toCHAR("stdin"),
+# endif
+# ifdef FEATURE_TAGS
+	toCHAR("tags"),
+# endif
+# ifdef FEATURE_TEXTOBJ
+	toCHAR("textobj"),
+# endif
+# ifdef FEATURE_V
+	toCHAR("v"),
+# endif
+# ifdef FEATURE_XFT
+	toCHAR("xft"),
+# endif
 	NULL
 };
-#endif
+#endif /* FEATURE_CALC */
+#endif /* !TRY */
 
+#ifdef FEATURE_CALC
 /* This array describes the operators */
 static struct
 {
@@ -79,31 +191,34 @@ static struct
 } opinfo[] =
 {
 	{"Func",1,	'f',	'('},
+	{"Cat",	17,	'c',	' '},
+	{"Sub",	18,	'a',	'['},
 	{";",	2,	'c',	';'},
 	{",",	2,	'c',	','},
-	{"||",	4,	'b',	'|'},
-	{"&&",	5,	'b',	'&'},
-	{"!=",	9,	's',	'!'},
-	{"==",	9,	's',	'='},
-	{"<=",	10,	's',	'l'},
-	{">=",	10,	's',	'g'},
-	{"<<",	11,	'i',	'<'},
-	{">>",	11,	'i',	'>'},
-	{":",	3,	't',	':'},
-	{"?",	2,	't',	'?'},
-	{"|",	6,	'i',	'|'},
-	{"^",	7,	'i',	'^'},
-	{"&",	8,	'i',	'&'},
-	{"=",	9,	's',	'='},
-	{"<",	10,	's',	'<'},
-	{">",	10,	's',	'>'},
-	{"+",	12,	'i',	'+'},
-	{"-",	12,	'i',	'-'},
-	{"%",	13,	'i',	'%'},
-	{"*",	13,	'i',	'*'},
-	{"/",	13,	'i',	'/'},
-	{"!",	14,	'u',	'!'},
-	{"~",	14,	'u',	'~'},
+	{"..",	3,	'c',	'.'},
+	{"||",	6,	'b',	'|'},
+	{"&&",	7,	'b',	'&'},
+	{"!=",	11,	's',	'!'},
+	{"==",	11,	's',	'='},
+	{"<=",	12,	's',	'l'},
+	{">=",	12,	's',	'g'},
+	{"<<",	13,	'i',	'<'},
+	{">>",	13,	'i',	'>'},
+	{":",	5,	't',	':'},
+	{"?",	4,	't',	'?'},
+	{"|",	8,	'i',	'|'},
+	{"^",	9,	'i',	'^'},
+	{"&",	10,	'i',	'&'},
+	{"=",	11,	's',	'='},
+	{"<",	12,	's',	'<'},
+	{">",	12,	's',	'>'},
+	{"+",	14,	'i',	'+'},
+	{"-",	14,	'i',	'-'},
+	{"%",	15,	'i',	'%'},
+	{"*",	15,	'i',	'*'},
+	{"/",	15,	'i',	'/'},
+	{"!",	16,	'u',	'!'},
+	{"~",	16,	'u',	'~'},
 };
 
 
@@ -124,13 +239,16 @@ static	CHAR	result[1024];
 #define RESULT_END			(&result[QTY(result) - 3])
 #define RESULT_AVAIL(from)		((int)(RESULT_END - (CHAR *)(from)))
 #define RESULT_OVERFLOW(from, need)	(RESULT_AVAIL(from) < (int)(need))
+#define UNSAFE				if (o_security == 'r') goto Unsafe
+
+#endif /* FEATURE_CALC */
 
 
-/* This function returns True iff a string looks like an integer */
-BOOLEAN calcnumber(str)
+/* This function returns ElvTrue iff a string looks like an integer */
+ELVBOOL calcnumber(str)
 	CHAR	*str;	/* a nul-terminated string to check */
 {
-	BOOLEAN	dp = False;	/* has decimal point been seen yet? */
+	ELVBOOL	dp = ElvFalse;	/* has decimal point been seen yet? */
 
 	/* allow a leading "-" */
 	if (*str == '-')
@@ -138,41 +256,42 @@ BOOLEAN calcnumber(str)
 
 	/* The only decimal number that can start with '0' is zero */
 	if (str[0] == '0' && str[1])
-		return False;
+		return ElvFalse;
 
 	/* Require at least one digit, and don't allow any non-digits */
 	do
 	{
-		if (*str == '.' && dp == False && str[1])
-			dp = True;
-		else if (!isdigit(*str))
-			return False;
+		if (*str == '.' && dp == ElvFalse && str[1])
+			dp = ElvTrue;
+		else if (!elvdigit(*str))
+			return ElvFalse;
 	} while (*++str);
-	return True;
+	return ElvTrue;
 }
 
 
-/* This function returns True if passed a string which looks like a number,
- * and False if it doesn't.  This function differs from calcnumber() in that
+#ifdef FEATURE_CALC
+/* This function returns ElvTrue if passed a string which looks like a number,
+ * and ElvFalse if it doesn't.  This function differs from calcnumber() in that
  * this one also converts octal numbers, hex numbers, and literal characters
  * to base ten.  Note that the length of the string may change.
  */
-BOOLEAN calcbase10(str)
+ELVBOOL calcbase10(str)
 	CHAR	*str;
 {
 	long	num;
 	int	i;
 
 	/* do the easy tests first */
-	if (calcnumber(str)) return True;
-	if (*str != '0' && *str != '\'') return False;
+	if (calcnumber(str)) return ElvTrue;
+	if (*str != '0' && *str != '\'') return ElvFalse;
 
 	if (str[0] == '\'')
 	{
 		if (str[1] == '\\')
 		{
 			if (!str[2] || str[3] != '\'')
-				return False;
+				return ElvFalse;
 			switch (str[2])
 			{
 			  case '0':	num = 0;	break;
@@ -191,7 +310,7 @@ BOOLEAN calcbase10(str)
 		else
 		{
 			if (str[1] == '\\' || !str[1] || str[2] != '\'')
-				return False;
+				return ElvFalse;
 			num = str[1];
 			i = 3;
 		}
@@ -222,45 +341,289 @@ BOOLEAN calcbase10(str)
 	}
 
 	/* If we hit a problem before the end of the string, it isn't a number */
-	if (str[i]) return False;
+	if (str[i]) return ElvFalse;
 
 	/* We have a number!  Convert to decimal */
 	long2CHAR(str, num);
-	return True;
+	return ElvTrue;
 }
+#endif /* FEATURE_CALC */
 
 
-/* This function returns False if the string looks like any kind of "false"
- * value, and True otherwise.  The false values are "", "0", "false", "no",
+/* This function returns ElvFalse if the string looks like any kind of "false"
+ * value, and ElvTrue otherwise.  The false values are "", "0", "false", "no",
  * and the value of the `false' option.
  */
-BOOLEAN calctrue(str)
+ELVBOOL calctrue(str)
 	CHAR	*str;	/* the sting to be checked */
 {
 	if (!str || !*str || !CHARcmp(str, toCHAR("0"))
 		|| !CHARcmp(str, toCHAR("false")) || !CHARcmp(str, toCHAR("no"))
 		|| (o_false && !CHARcmp(str, o_false)))
 	{
-		return False;
+		return ElvFalse;
 	}
-	return True;
+	return ElvTrue;
 }
 
 
+#ifdef FEATURE_CALC
+# ifdef FEATURE_ARRAY
+/* parse the next number in a subscript, and return a pointer to the point after
+ * it.  If there is no next number, then return NULL.  Sets *from and *to to
+ * the values, or to 1/nelem if a '.' was involved.
+ */
+static CHAR *subnum(cp, nelem, from, to)
+	CHAR	*cp;	/* number field */
+	long	nelem;	/* number of elements */
+	long	*from;	/* where to store "from" */
+	long	*to;	/* where to store "to" */
+{
+	ELVBOOL	neg;
+	ELVBOOL	from1, tonelem;
+	long	val;
+
+	/* skip whitespace or commas */
+	while (*cp && (elvspace(*cp) || *cp == ','))
+		cp++;
+	if (!*cp)
+		return NULL;
+
+	/* notice a "." indicating that all earlier items should be included */
+	if ((from1 = (ELVBOOL)(*cp == '.')) == ElvTrue)
+		cp++;
+
+	/* notice a "-" sign */
+	if ((neg = (ELVBOOL)(*cp == '-')) == ElvTrue)
+		cp++;
+
+	/* expect a digit or '?'.  If not a digit or '?' then fail */
+	if (!elvdigit(*cp) && *cp != '?')
+		return NULL;
+
+	/* convert the number */
+	if (*cp == '?')
+	{
+		val = rand() % nelem + 1;
+		cp++;
+	}
+	else
+	{
+		for (val = 0; elvdigit(*cp); cp++)
+			val = val * 10 + (*cp - '0');
+	}
+
+	/* notice a "." indicating that later items should be included */
+	if ((tonelem = (ELVBOOL)(*cp == '.')) == ElvTrue)
+		cp++;
+
+	/* return the appropriate stuff */
+	if (val > nelem)
+		val = nelem + 1;
+	else if (neg && val != 0)
+		val = nelem + 1 - val;
+	*from = from1 ? 1L : val;
+	*to = tonelem ? nelem : val;
+	return cp;
+}
+
+/* For a given array, calculate the start & end points of a subscript.
+ * Stores the information in "chunks", and returns the delimiter.
+ */
+_CHAR_ calcsubscript(array, sub, max, chunks)
+	CHAR	*array;	/* array, as a string with delimiters */
+	CHAR	*sub;	/* subscript, as a string of numbers & other symbols */
+	int	max;	/* sizeof of "chunks" output array */
+	CHUNK	*chunks;/* output array */
+{
+ static CHAR	nstr[20];/* number of elements, as a string */
+	long	nelem;	/* number of elements */
+	int	chunk;	/* next element of chunks[] to use */
+	CHAR	delim;	/* delimiter char, if not whitespace */
+	long	start, end;/* index numbers of start & end of chunk */
+	long	lt1, lt2 = 0;/* some other index number */
+	CHAR	*cp;
+	int	len;
+
+	/* check for field name instead of subscripts */
+	if (elvalpha(*sub))
+	{
+		/* check length -- if field name is longer than array, then
+		 * there is no such field.
+		 */
+		chunks[0].ptr = NULL;
+		len = CHARlen(sub);
+		if ((int)CHARlen(array) <= len)
+			return ' ';
+
+		/* search for the name at the start of a comma-delimited item,
+		 * followed by ':'.
+		 */
+		for (cp = array;
+		     ((cp != array && cp[-1] != ',')
+			|| cp[len] != ':'
+			|| CHARncmp(cp, sub, len));
+		     cp++)
+		{
+			/* if hit end without finding field, then fail */
+			if (cp[len] == '\0')
+				return ' ';
+		}
+
+		/* find the length of the field's value */
+		for (chunks[0].ptr = cp += len + 1; *cp && *cp != ','; cp++)
+		{
+		}
+		chunks[0].len = (int)(cp - chunks[0].ptr);
+		chunks[1].ptr = NULL;
+		return ' ';
+	}
+
+	/* check for delimiter at start of sub */
+	if (!sub[0])
+		delim = '\0';
+	else if (sub[1] == ',')
+	{
+		if (!elvdigit(*sub))
+			delim = sub[0], sub += 2;
+		else
+			delim = ' ';
+	}
+	else if (sub[0] == ',')
+		delim = '\0';
+	else if (!elvalnum(*sub) && !elvspace(*sub) && !CHARchr(toCHAR("?-."), *sub))
+		delim = *sub++;
+	else
+		delim = ' ';
+
+	/* count the elements */
+	if (delim == '\0')
+		nelem = CHARlen(array);
+	else if (delim == ' ')
+	{
+		for (cp = array, nelem = 0; *cp; cp++)
+			if ((cp == array || elvspace(cp[-1])) && !elvspace(*cp))
+				nelem++;
+	}
+	else /* some other delimiter */
+	{
+		for (cp = array, nelem = 1; *cp; cp++)
+			if (*cp == delim)
+				nelem++;
+	}
+	long2CHAR(nstr, nelem);
+
+	/* for each chunk... */
+	for (chunk = 0; chunk < max - 1; chunk++)
+	{
+		/* get a number from subscripts string */
+		sub = subnum(sub, nelem, &start, &end);
+		if (!sub)
+			break;
+
+		/* combine following numbers as part of this chunk if possible*/
+		if (start != 0)
+		{
+			while ((cp = subnum(sub, nelem, &lt1, &lt2)) != NULL
+			    && end + 1 == lt1)
+			{
+				sub = cp;
+				end = lt2;
+			}
+		}
+
+		/* now we know this chunk extends from the start of the
+		 * "from" item to the end of the "to" item.
+		 */
+		if (end < start || start > nelem)
+		{
+			/* backwards elements are ignored */
+			chunk--;
+		}
+		else if (start == 0L)
+		{
+			/* number of elements, regardless of what "element" means */
+			chunks[chunk].ptr = nstr;
+			chunks[chunk].len = CHARlen(nstr);
+		}
+		else if (delim == '\0')
+		{
+			/* indexed by character */
+			chunks[chunk].ptr = &array[start - 1];
+			chunks[chunk].len = end - start + 1;
+		}
+		else if (delim == ' ')
+		{
+			/* whitespace-delimited */
+			for (cp = array, lt1 = 0; *cp; cp++, lt2++)
+			{
+				if ((cp == array || elvspace(cp[-1]))
+				  && !elvspace(*cp))
+				{
+					lt1++;
+					if (lt1 == start)
+					{
+						chunks[chunk].ptr = cp;
+						lt2 = 0L;
+					}
+				}
+				else if (cp != array
+					&& !elvspace(cp[-1])
+					&& elvspace(*cp)
+					&& lt1 == end)
+				{
+					
+					break;
+				}
+			}
+			chunks[chunk].len = lt2;
+		}
+		else
+		{
+			/* some other delimiter */
+			if (start == 1)
+				chunks[chunk].ptr = array;
+			for (cp = array, lt1 = 1; *cp; cp++)
+			{
+				if (*cp == delim)
+				{
+					if (end == lt1)
+					{
+						chunks[chunk].len = (int)(cp - chunks[chunk].ptr);
+						break;
+					}
+					lt1++;
+					if (start == lt1)
+						chunks[chunk].ptr = cp + 1;
+				}
+			}
+			if (!*cp)
+				chunks[chunk].len = cp - chunks[chunk].ptr;
+		}
+	}
+
+	/* mark the end of the "chunks" array */
+	chunks[chunk].ptr = NULL;
+
+	/* return the delimiter */
+	return delim;
+}
+# endif /* FEATURE_ARRAY */
+	
 /* This function copies characters up to the next non-alphanumeric character,
  * nul-terminates the copy, and returns the number of characters copied.
  */
 static int copyname(dest, src, num)
 	CHAR	*dest;	/* where to copy into */
 	CHAR	*src;	/* start of alphanumeric string to copy from */
-	BOOLEAN	num;	/* treat numbers specially? */
+	ELVBOOL	num;	/* treat numbers specially? */
 {
 	int	i;
 
 	/* copy until non-alphanumeric character is encountered */
-	if (num && isdigit(*src))
+	if (num && elvdigit(*src))
 	{
-		for (i = 0; isdigit(*src); i++)
+		for (i = 0; elvdigit(*src); i++)
 		{
 			if (RESULT_OVERFLOW(dest, 2)) return 0;
 			*dest++ = *src++;
@@ -268,7 +631,7 @@ static int copyname(dest, src, num)
 	}
 	else
 	{
-		for (i = 0; isalnum(*src) || *src == '_'; i++)
+		for (i = 0; elvalnum(*src) || *src == '_'; i++)
 		{
 			if (RESULT_OVERFLOW(dest, 2)) return 0;
 			*dest++ = *src++;
@@ -281,8 +644,8 @@ static int copyname(dest, src, num)
 /* This function implements the built-in "functions".  The name indicates
  * which function should be performed, and arg is its only argument.  The
  * result should be a string, and it should be copied over the name; func
- * should then return True to indicate success.  If the function fails for
- * any reason, func() should emit an error message and return False.
+ * should then return ElvTrue to indicate success.  If the function fails for
+ * any reason, func() should emit an error message and return ElvFalse.
  *
  * The functions supported are:
  *   strlen(string)	return the number of characters in the string.
@@ -304,48 +667,93 @@ static int copyname(dest, src, num)
  *   basename(file)	return the filename without extension.
  *   elvispath(file)	return the pathname of a file in elvis' path, or ""
  *   buffer(buf)	return "true" iff buffer exist
+ *   window(buf)	return windowid if buffer is shown in a window
+ *   newbuffer(buf)     create/truncate a buffer, and return its name
  *   feature(name)	return "true" iff the named feature is supported
  *   knownsyntax(file)	return language if the file's extension is in elvis.syn
  *   current(what)	return line, column, word, mode, next, prev, or tag
+ *   line(buf,line)	return text of a line
+ *   fold(buf,line)     return name of current fold, or "" if none
+ *   color(face,attr)   return attributes for a given text face
+ *   time(file)		return timestamp in "YYYY-MM-DDThh:mm:ss" format
+ *   rand(number)	return a random number between 1 and number
+ *   spell(word)        return alternate spellings, or "" if good
+ *   spelltag(word)     return alternate spellings, or "" if good
  */
-static BOOLEAN func(name, arg)
+static ELVBOOL func(name, arg)
 	CHAR	*name;	/* name of function to apply */
 	CHAR	*arg;	/* the argument to the function */
 {
 	CHAR	*tmp;
-#ifndef TRY
-	char	*c;
 	int	i;
+#ifndef TRY
+	int	j;
+	char	*c;
 	MARK	begin;
 	MARKBUF	end;
+	BUFFER	buf;
+	WINDOW	win;
+	ELVBOOL	oldsaveregexp, oldmagic, bol;
+	regexp	*re;
+	CHAR	*fg, *bg, *like;
+	unsigned short bits;
 #endif
 
 	if (!CHARcmp(name, toCHAR("strlen")))
 	{
 		long2CHAR(name, (long)CHARlen(arg));
-		return True;
+		return ElvTrue;
 	}
 	else if (!CHARcmp(name, toCHAR("tolower")))
 	{
 		for (; *arg; arg++)
-			*name++ = (isupper(*arg) ? tolower(*arg) : *arg);
+			*name++ = (elvupper(*arg) ? elvtolower(*arg) : *arg);
 		*name = '\0';
-		return True;
+		return ElvTrue;
 	}
 	else if (!CHARcmp(name, toCHAR("toupper")))
 	{
 		for (; *arg; arg++)
-			*name++ = (islower(*arg) ? toupper(*arg) : *arg);
+			*name++ = (elvlower(*arg) ? elvtoupper(*arg) : *arg);
 		*name = '\0';
-		return True;
+		return ElvTrue;
 	}
 	else if (!CHARcmp(name, toCHAR("isnumber")))
 	{
 		if (RESULT_OVERFLOW(name, 6)) goto Overflow;
 		CHARcpy(name, calcnumber(arg) ? o_true : o_false);
-		return True;
+		return ElvTrue;
 	}
 #ifndef TRY
+	else if (!CHARcmp(name, toCHAR("list")))
+	{
+		/* count the displayed with of this string */
+		for (tmp = arg, i = 0; *tmp; tmp++)
+			if (elvcntrl(*tmp))
+				i += 2;
+			else
+				i++;
+		if (RESULT_OVERFLOW(name, i)) goto Overflow;
+
+		/* Copy the arg, converting control chars to printable.
+		 * The display string will overlap "name" on the left, and it
+		 * may overlap the end of "arg" on the right.  To prevent
+		 * overflow from damaging the arg during conversion, we must
+		 * create a temporary copy of it.
+		 */
+		tmp = CHARdup(arg);
+		for (i = j = 0; tmp[i]; i++)
+			if (elvcntrl(tmp[i]))
+			{
+				name[j++] = '^';
+				name[j++] = tmp[i] ^ '@';
+			}
+			else
+				name[j++] = tmp[i];
+		name[j] = '\0';
+		safefree(tmp);
+		return ElvTrue;
+	}
 	else if (!CHARcmp(name, toCHAR("htmlsafe")))
 	{
 		for (i = 0, tmp = NULL; arg[i]; i++)
@@ -370,29 +778,124 @@ static BOOLEAN func(name, arg)
 		{
 			*name = '\0';
 		}
-		return True;
+		return ElvTrue;
 	}
-#endif
+#ifdef FEATURE_MISC
+	else if (!CHARcmp(name, toCHAR("color")))
+	{
+		/* separate face name from attribute name */
+		tmp = CHARchr(arg, ',');
+		if (tmp)
+			*tmp++ = '\0';
+
+		/* decide what we're supposed to return */
+		if (!tmp)
+			j = 0;
+		else if (*tmp == 'f')
+			j = 1;
+		else if (*tmp == 'b')
+			j = 2;
+		else if (*tmp == 'l')
+			j = 3;
+		else if (*tmp == 's')
+			j = 4;
+		else
+			goto BadArgs;
+
+		/* search for the named color.  Note that we don't use
+		 * colorfind() because we don't want to add it if it hasn't
+		 * been set.
+		 */
+		for (i = 1;
+		     i < colornpermanent && CHARcmp(arg, colorinfo[i].name);
+		     i++)
+		{
+		}
+		if (i < colornpermanent)
+		{
+			/* found! */
+
+			/* parse the color description, if necessary */
+			tmp = colorinfo[i].descr;
+			fg = bg = like = NULL;
+			if (j != 0 && j != 4)
+				colorparse(tmp, &fg, &bg, &like, &bits);
+
+			/* choose which attribute to return */
+			switch (j)
+			{
+			  case 1: tmp = fg;	break;
+			  case 2: tmp = bg;	break;
+			  case 3: tmp = like;	break;
+			  case 4: tmp = (colorinfo[i].da.bits & COLOR_SET)
+			  		? o_true
+			  		: o_false;
+						break;
+			}
+
+			/* return it */
+			if (tmp)
+			{
+				if (RESULT_OVERFLOW(name, CHARlen(tmp)))
+				{
+					if (fg) safefree(fg);
+					if (bg) safefree(bg);
+					if (like) safefree(like);
+					goto Overflow;
+				}
+				CHARcpy(name, tmp);
+			}
+			else
+			{
+				*name = '\0';
+			}
+			if (fg) safefree(fg);
+			if (bg) safefree(bg);
+			if (like) safefree(like);
+		}
+		else
+		{
+			/* not found -- return "" */
+			*name = '\0';
+		}
+		return ElvTrue;
+	}
+#endif /* FEATURE_MISC */
+	else if (!CHARcmp(name, toCHAR("time")))
+	{
+		if (RESULT_OVERFLOW(name, 20))
+			goto Overflow;
+		if (arg[0])
+			UNSAFE;
+		CHARcpy(name, toCHAR(dirtime(tochar8(arg))));
+		return ElvTrue;
+	}
+#endif /* !TRY */
 	else if (!CHARcmp(name, toCHAR("hex")))
 	{
 		if (!calcnumber(arg)) goto NeedNumber;
 		if (RESULT_OVERFLOW(name, 10)) goto Overflow;
 		sprintf((char *)name, "0x%lx", CHAR2long(arg));
-		return True;
+		return ElvTrue;
 	}
 	else if (!CHARcmp(name, toCHAR("octal")))
 	{
 		if (!calcnumber(arg)) goto NeedNumber;
 		if (RESULT_OVERFLOW(name, 12)) goto Overflow;
 		sprintf((char *)name, "0%lo", CHAR2long(arg));
-		return True;
+		return ElvTrue;
 	}
 	else if (!CHARcmp(name, toCHAR("char")))
 	{
 		if (!calcnumber(arg)) goto NeedNumber;
 		*name++ = (CHAR)CHAR2long(arg);
 		*name = '\0';
-		return True;
+		return ElvTrue;
+	}
+	else if (!CHARcmp(name, toCHAR("ascii")))
+	{
+		sprintf((char *)name, "%d", *arg);
+		return ElvTrue;
 	}
 	else if (!CHARcmp(name, toCHAR("dirext")))
 	{
@@ -405,7 +908,7 @@ static BOOLEAN func(name, arg)
 			*tmp = '\0';
 
 		/* find the last '.' in the name */
-		for (tmp = arg + CHARlen(arg); --tmp >= arg && isalnum(*tmp); )
+		for (tmp = arg + CHARlen(arg); --tmp >= arg && elvalnum(*tmp); )
 		{
 		}
 		if (*tmp != '.')
@@ -413,7 +916,33 @@ static BOOLEAN func(name, arg)
 			tmp = toCHAR("");
 		}
 		CHARcpy(name, tmp);
-		return True;
+		return ElvTrue;
+	}
+	else if (!CHARcmp(name, toCHAR("rand")))
+	{
+		if (calcnumber(arg))
+		{
+			long2CHAR(name, 1 + rand() % CHAR2long(arg));
+		}
+		else
+		{
+			/* count the comma-delimited values */
+			for (i = 0, tmp = arg; tmp; tmp = CHARchr(tmp+1, ','))
+				i++;
+
+			/* choose one randomly */
+			i = rand() % i;
+
+			/* locate it, and return it */
+			tmp = arg;
+			if (i > 0)
+				for ( ; i > 0; tmp = CHARchr(tmp, ',') + 1)
+					i--;
+			for (; *tmp && *tmp != ','; )
+				*name++ = *tmp++;
+			*name = '\0';
+		}
+		return ElvTrue;
 	}
 #ifndef TRY
 	else if (!CHARcmp(name, toCHAR("quote")))
@@ -434,7 +963,7 @@ static BOOLEAN func(name, arg)
 			goto Overflow;
 		CHARcpy(name, tmp);
 		safefree(tmp);
-		return True;
+		return ElvTrue;
 	}
 	else if (!CHARcmp(name, toCHAR("unquote")))
 	{
@@ -452,27 +981,40 @@ static BOOLEAN func(name, arg)
 		/* store the resulting string (it *will* fit) */
 		CHARcpy(name, tmp);
 		safefree(tmp);
-		return True;
+		return ElvTrue;
 	}
 	else if (!CHARcmp(name, toCHAR("exists")))
 	{
-		switch (urlperm(tochar8(arg)))
-		{
-		  case DIR_INVALID:
-		  case DIR_BADPATH:
-		  case DIR_NOTFILE:
-		  case DIR_NEW:
-			CHARcpy(name, o_false);
-			break;
+		UNSAFE;
 
-		  default:
-			CHARcpy(name, o_true);
-			break;
+#if defined(PROTOCOL_HTTP) || defined(PROTOCOL_FTP)
+		if (urlremote(tochar8(arg)))
+		{
+			CHARcpy(name, o_false);
 		}
-		return True;
+		else
+#endif
+		{
+			switch (urlperm(tochar8(arg)))
+			{
+			  case DIR_INVALID:
+			  case DIR_BADPATH:
+			  case DIR_NOTFILE:
+			  case DIR_NEW:
+				CHARcpy(name, o_false);
+				break;
+
+			  default:
+				CHARcpy(name, o_true);
+				break;
+			}
+		}
+		return ElvTrue;
 	}
 	else if (!CHARcmp(name, toCHAR("dirperm")))
 	{
+		UNSAFE;
+
 		switch (urlperm(tochar8(arg)))
 		{
 		  case DIR_INVALID:
@@ -485,6 +1027,10 @@ static BOOLEAN func(name, arg)
 
 		  case DIR_NOTFILE:
 			CHARcpy(name, toCHAR("notfile"));
+			break;
+
+		  case DIR_DIRECTORY:
+			CHARcpy(name, toCHAR("directory"));
 			break;
 
 		  case DIR_NEW:
@@ -503,39 +1049,40 @@ static BOOLEAN func(name, arg)
 			CHARcpy(name, toCHAR("readwrite"));
 			break;
 		}
-		return True;
+		return ElvTrue;
 	}
 	else if (!CHARcmp(name, toCHAR("dirfile")))
 	{
 		CHARcpy(name, toCHAR(dirfile(tochar8(arg))));
-		return True;
+		return ElvTrue;
 	}
 	else if (!CHARcmp(name, toCHAR("dirname")) || !CHARcmp(name, toCHAR("dirdir")))
 	{
 		CHARcpy(name, toCHAR(dirdir(tochar8(arg))));
-		return True;
+		return ElvTrue;
 	}
 	else if (!CHARcmp(name, toCHAR("basename")))
 	{
 		CHARcpy(name, toCHAR(dirfile(tochar8(arg))));
 		/* find the last '.' in the name */
-		for (tmp = name + CHARlen(name); --tmp >= name && isalnum(*tmp); )
+		for (tmp = name + CHARlen(name); --tmp >= name && elvalnum(*tmp); )
 		{
 		}
 		if (*tmp == '.')
 		{
 			*tmp = '\0';
 		}
-		return True;
+		return ElvTrue;
 	}
 	else if (!CHARcmp(name, toCHAR("fileeol")))
 	{
+		UNSAFE;
 		CHARcpy(name, toCHAR(ioeol(tochar8(arg))));
-		return True;
+		return ElvTrue;
 	}
 	else if (!CHARcmp(name, toCHAR("elvispath")))
 	{
-		tmp = toCHAR(iopath(tochar8(o_elvispath), tochar8(arg), False));
+		tmp = toCHAR(iopath(tochar8(o_elvispath), tochar8(arg), ElvFalse));
 		if (!tmp)
 			*name = '\0';
 		else
@@ -543,42 +1090,61 @@ static BOOLEAN func(name, arg)
 			if (RESULT_OVERFLOW(name, CHARlen(tmp))) goto Overflow;
 			CHARcpy(name, tmp);
 		}
-		return True;
+		return ElvTrue;
 	}
 	else if (!CHARcmp(name, toCHAR("getcwd")))
 	{
 		c = dircwd();
 		if (RESULT_OVERFLOW(name, strlen(c))) goto Overflow;
 		CHARcpy(name, toCHAR(c));
-		return True;
+		return ElvTrue;
 	}
 	else if (!CHARcmp(name, toCHAR("absolute")))
 	{
-		c = urllocal(tochar8(arg));
-		if (c)
-			c = dirpath(dircwd(), c);
-		else
-			c = tochar8(arg);
+		c = ioabsolute(tochar8(arg));
 		if (RESULT_OVERFLOW(name, strlen(c))) goto Overflow;
 		CHARcpy(name, toCHAR(c));
-		return True;
+		return ElvTrue;
 	}
 	else if (!CHARcmp(name, toCHAR("buffer")))
 	{
 		CHARcpy(name, buffind(arg) ? o_true : o_false);
-		return True;
+		return ElvTrue;
+	}
+	else if (!CHARcmp(name, toCHAR("window")))
+	{
+		buf = buffind(arg);
+		win = (buf ? winofbuf(NULL, buf) : NULL);
+		if (win)
+			long2CHAR(name, o_windowid(win));
+		else
+			*name = '\0';
+		return ElvTrue;
+	}
+	else if (!CHARcmp(name, toCHAR("newbuffer")))
+	{
+		if (*arg && (buf = buffind(arg)) != NULL)
+		{
+			/* fail -- tried to create a buffer that exists */
+			*name = '\0';
+			return ElvTrue;
+		}
+		buf = bufalloc(*arg ? arg : NULL, 0, ElvFalse);
+		assert(buf);
+		CHARcpy(name, o_bufname(buf));
+		return ElvTrue;
 	}
 	else if (!CHARcmp(name, toCHAR("alias")))
 	{
 # ifdef FEATURE_ALIAS
-		c = exisalias(tochar8(arg), True);
+		c = exisalias(tochar8(arg), ElvTrue);
 		tmp = (c ? o_true : o_false);
 # else
 		tmp = o_false;
 # endif
 		if (RESULT_OVERFLOW(name, CHARlen(tmp))) goto Overflow;
 		CHARcpy(name, tmp);
-		return True;
+		return ElvTrue;
 	}
 	else if (!CHARcmp(name, toCHAR("feature")))
 	{
@@ -586,15 +1152,14 @@ static BOOLEAN func(name, arg)
 		CHARcpy(name, o_false);
 
 		/* is it the name of a supported display mode? */
-		i = 0;
-		do
+		for (i = 0; allmodes[i] != &dmnormal; i++)
 		{
 			if (!CHARcmp(toCHAR(allmodes[i]->name), arg))
 			{
 				CHARcpy(name, o_true);
-				return True;
+				return ElvTrue;
 			}
-		} while (allmodes[i++] != &dmnormal);
+		}
 
 		/* is it the name of a supported protocol */
 		for (i = 0; feature[i] && CHARcmp(feature[i], arg); i++)
@@ -603,12 +1168,12 @@ static BOOLEAN func(name, arg)
 		if (feature[i])
 			CHARcpy(name, o_true);
 
-		return True;
+		return ElvTrue;
 	}
 	else if (!CHARcmp(name, toCHAR("knownsyntax")))
 	{
 #ifdef DISPLAY_SYNTAX
-		tmp = dmsknown(tochar8(arg));
+		tmp = descr_known(tochar8(arg), SYNTAX_FILE);
 		if (!tmp)
 			*name = '\0';
 		else if (RESULT_OVERFLOW(name, CHARlen(tmp)))
@@ -618,7 +1183,22 @@ static BOOLEAN func(name, arg)
 #else
 		*name = '\0'; /* no syntax modes are supported */
 #endif
-		return True;
+		return ElvTrue;
+	}
+	else if (!CHARcmp(name, toCHAR("knownmarkup")))
+	{
+#ifdef DISPLAY_MARKUP
+		tmp = descr_known(tochar8(arg), MARKUP_FILE);
+		if (!tmp)
+			*name = '\0';
+		else if (RESULT_OVERFLOW(name, CHARlen(tmp)))
+			goto Overflow;
+		else
+			CHARcpy(name, tmp);
+#else
+		*name = '\0'; /* no syntax modes are supported */
+#endif
+		return ElvTrue;
 	}
 	else if (!CHARcmp(name, toCHAR("current")))
 	{
@@ -628,6 +1208,75 @@ static BOOLEAN func(name, arg)
 		/* Other possible values depend on the arg */
 		switch (*arg)
 		{
+		  case '/':	/* regular expression */
+			/* if no default window, then do nothing */
+			if (!windefault)
+				break;
+
+			/* An optimization: If regexp is /./ then get a single
+			 * character from the cursor position (unless newline)
+			 */
+			if (arg[1] == '.' && !arg[2])
+			{
+				*name = scanchar(windefault->cursor);
+				if (*name == '\n')
+					*name = '\0';
+				else
+					name[1] = '\0';
+				break;
+			}
+
+			/* parse the regular expression */
+			oldsaveregexp = o_saveregexp;
+			oldmagic = o_magic;
+			o_saveregexp = ElvFalse;
+			o_magic = ElvTrue;
+			++arg;
+			re = regcomp(arg, windefault->cursor);
+			o_saveregexp = oldsaveregexp;
+			if (!re)
+			{
+				/* error message already given */
+				o_magic = oldmagic;
+				return ElvFalse;
+			}
+
+			/* Search for matches, starting at the beginning of
+			 * the line.  Stop when we find one that ends after
+			 * the cursor position.
+			 */
+			begin = markdup((*dmnormal.move)(
+				windefault, windefault->cursor, 0L, 0, ElvTrue));
+			for (bol = ElvTrue;
+			     markoffset(begin) <= markoffset(windefault->cursor)
+				&& regexec(re, begin, bol);
+			     bol = ElvFalse)
+			{
+				/* Does this match include the cursor? */
+				if (re->startp[0] <= markoffset(windefault->cursor)
+				 && markoffset(windefault->cursor) < re->endp[0])
+				{
+					/* Yes!  Copy the matching text */
+					tmp = regsub(re, toCHAR("&"), ElvFalse);
+					CHARncpy(name, tmp, RESULT_AVAIL(name));
+					safefree(tmp);
+					break;
+				}
+
+				/* This match doesn't include the cursor, so
+				 * repeat the search after the match.
+				 */
+				marksetoffset(begin, re->endp[0]);
+				if (re->startp[0] == re->endp[0])
+					markaddoffset(begin, 1L);
+			}
+
+			/* don't need the regexp or mark anymore */
+			safefree(re);
+			markfree(begin);
+			o_magic = oldmagic;
+			break;
+
 		  case 'l':	/* line number */
 			if (windefault)
 				sprintf(tochar8(name), "%ld", markline(windefault->cursor));
@@ -638,11 +1287,20 @@ static BOOLEAN func(name, arg)
 				sprintf(tochar8(name), "%ld", (*windefault->md->mark2col)(windefault, windefault->cursor, viiscmd(windefault)) + 1);
 			break;
 
+		  case 'f':	/* text face */
+			if (windefault)
+			{
+				i = windefault->di->cursface;
+				if (i < colornpermanent && colorinfo[i].name)
+					CHARcpy(name, colorinfo[i].name);
+			}
+			break;
+
 		  case 'w':	/* word at cursor */
 		  	if (windefault)
 		  	{
 				end = *windefault->cursor;
-				begin = wordatcursor(&end);
+				begin = wordatcursor(&end, (ELVBOOL)(arg[1] == 's'));
 				if (begin && RESULT_OVERFLOW(name, markoffset(&end) - markoffset(begin)))
 					goto Overflow;
 				if (begin)
@@ -665,7 +1323,7 @@ static BOOLEAN func(name, arg)
 				for (c = windefault->state->modename; *c; c++)
 				{
 					if (*c != ' ')
-						*name++ = tolower(*c);
+						*name++ = elvtolower(*c);
 				}
 			}
 			break;
@@ -731,10 +1389,49 @@ static BOOLEAN func(name, arg)
 				CHARcpy(name, tmp);
 			}
 			break;
+
+		  case 'b':
+			if (~colorinfo[COLOR_FONT_NORMAL].da.bits & COLOR_BG)
+				tmp = toCHAR("");
+			else if (colorinfo[COLOR_FONT_NORMAL].da.bg_rgb[0] +
+				 colorinfo[COLOR_FONT_NORMAL].da.bg_rgb[1] +
+				 colorinfo[COLOR_FONT_NORMAL].da.bg_rgb[2]>=384)
+				tmp = toCHAR("light");
+			else
+				tmp = toCHAR("dark");
+			if (RESULT_OVERFLOW(name, CHARlen(tmp)))
+				goto Overflow;
+			CHARcpy(name, tmp);
+			break;
+
+#ifdef FEATURE_REGION
+		  case 'r':	/* region or rcomment*/
+			tmp = NULL;
+			if (windefault)
+			{
+				region_t *r = regionfind(windefault->cursor);
+				if (r && arg[1] == 'c')
+					tmp = r->comment;
+				else if (r)
+					tmp = colorinfo[(int)r->font].name;
+			}
+			if (tmp)
+			{
+				if (RESULT_OVERFLOW(name, CHARlen(tmp)))
+					goto Overflow;
+				CHARcpy(name, tmp);
+			}
+			break;
+#endif
 		}
-		return True;
+		return ElvTrue;
 	}
-	else if (!CHARcmp(name, toCHAR("line")))
+	else if (!CHARcmp(name, toCHAR("line"))
+#ifdef FEATURE_FOLD
+	      || !CHARcmp(name, toCHAR("folded"))
+	      || !CHARcmp(name, toCHAR("unfolded"))
+#endif
+					       )
 	{
 		if (!*arg)
 		{
@@ -770,28 +1467,54 @@ static BOOLEAN func(name, arg)
 		}
 
 		/* one way or another, "begin" is now set to the start of the
-		 * line.  Copy it into the buffer (or as much of it as will fit)
+		 * line.  Use it as appropriate for this function.
 		 */
-		for (scanalloc(&tmp, begin);
-		     tmp && *tmp != '\n' && RESULT_AVAIL(name) > 10;
-		     scannext(&tmp))
+#ifdef FEATURE_FOLD
+		if (*name == 'f' || *name == 'u')
 		{
-			*name++ = *tmp;
+			FOLD	fold = foldmark(begin, (ELVBOOL)(*name == 'f'));
+
+			/* copy FOLD name into result buffer */
+			if (fold)
+			{
+				if (RESULT_OVERFLOW(name, CHARlen(fold->name) + 10))
+					goto Overflow;
+				CHARcpy(name, fold->name);
+			}
+			else
+				*name = '\0';
 		}
-		scanfree(&tmp);
-		*name = '\0';
-		return True;
+		else
+#endif
+		{
+			/* copy text into result buffer */
+			for (scanalloc(&tmp, begin);
+			     tmp && *tmp != '\n' && RESULT_AVAIL(name) > 10;
+			     scannext(&tmp))
+			{
+				*name++ = *tmp;
+			}
+			scanfree(&tmp);
+			*name = '\0';
+		}
+		return ElvTrue;
 	}
 	else if (!CHARcmp(name, toCHAR("shell")))
 	{
+		/* This is unsafe.  We can't use the UNSAFE macro, though,
+		 * because this particular function is unsafe even if
+		 * security=safer; it doesn't depend on security=restricted.
+		 */
+		if (o_security != 'n') goto Unsafe;
+
 		/* Insert a '!' at the front of arg.  (This is safe
 		 * since we know that "shell\0" appears before it.)
 		 */
 		*--arg = '!';
 
 		/* Run the command and read its output */
-		if (!ioopen(tochar8(arg), 'r', False, False, 't'))
-			return False;
+		if (!ioopen(tochar8(arg), 'r', ElvFalse, ElvFalse, 't'))
+			return ElvFalse;
 		arg = name;
 		while ((i = ioread(arg,RESULT_AVAIL(name))) > 0)
 		{
@@ -808,8 +1531,17 @@ static BOOLEAN func(name, arg)
 		if (arg != name && arg[-1] == '\n')
 			arg--;
 		*arg = '\0';
-		return True;
+		return ElvTrue;
 	}
+# ifdef FEATURE_SPELL
+	else if (!CHARcmp(name, toCHAR("spell"))
+	      || !CHARcmp(name, toCHAR("spelltag")))
+	{
+		spellfix(arg, name, RESULT_AVAIL(name) - 100, (ELVBOOL)(name[5] != '\0'));
+		return ElvTrue;
+	}
+# endif /* FEATURE_SPELL */
+
 #endif /* not TRY */
 
 #ifdef TRY
@@ -817,7 +1549,7 @@ static BOOLEAN func(name, arg)
 #else
 	msg(MSG_ERROR, "[S]unknown function $1", name);
 #endif
-	return False;
+	return ElvFalse;
 
 NeedNumber:
 #ifdef TRY
@@ -825,38 +1557,196 @@ NeedNumber:
 #else
 	msg(MSG_ERROR, "[S]$1 requires a numeric argument", name);
 #endif
-	return False;
+	return ElvFalse;
 
 #ifndef TRY
 Need2Args:
 	msg(MSG_ERROR, "[S]$1 requires two arguments", name);
-	return False;
+	return ElvFalse;
 #endif
 
 Overflow:
 	msg(MSG_ERROR, "result too long");
-	return False;
+	return ElvFalse;
 
 #ifndef TRY
 NeedWindefault:
 	msg(MSG_ERROR, "[S]$1 requires both a buffer name and a line number when there is no window", name);
-	return False;
+	return ElvFalse;
 
 BadArgs:
 	msg(MSG_ERROR, "[S]$1 called with bad arguments", name);
-	return False;
+	return ElvFalse;
+
+Unsafe:
+	msg(MSG_ERROR, "[S]$1 is unsafe", name);
+	return ElvFalse;
 #endif
+
 }
 
-/* This function applies a single operator.  Returns False on error.  Its
+
+/* Search for an element within a set.  If not found, then return NULL.
+ * If found, then return a pointer into the set, pointing at the character
+ * after the element's name.  That should be ':' if it has a value.
+ */
+CHAR *calcelement(set, element)
+	CHAR	*set;	/* the set to scan */
+	CHAR	*element;/* element, terminated with NUL, comma, or colon */
+{
+	int	len;
+
+	/* if set is empty then fail */
+	if (!set || !*set)
+		return NULL;
+
+	/* find the length of the element name */
+	for (len = 0;
+	     element[len] && element[len] != ',' && element[len] != ':';
+	     len++)
+	{
+	}
+
+	/* never find "" */
+	if (len == 0)
+		return NULL;
+
+	/* scan the set */
+	do
+	{
+		/* is this it? */
+		if (!CHARncmp(element, set, len)
+		 && (!set[len] || set[len] == ',' || set[len] == ':'))
+			return set + len;
+
+		/* look for the next element in set */
+		set = CHARchr(set, ',');
+	} while (set++);
+
+	/* didn't find it */
+	return NULL;
+}
+
+#ifdef FEATURE_ARRAY
+/* Return a pointer to the next element in a list, or "" if no more elements.
+ * Also, if setref is non-NULL, then insert this element into the set that
+ * (*setref) points to.
+ */
+static CHAR *nextelement(element, setref)
+	CHAR	*element; /* pointer to an element within a set */
+	CHAR	**setref; /* NULL, or reference to set which will have element added */
+{
+	int	len;
+	int	setlen = 0;
+	CHAR	*scan;
+
+	/* Find the length of the element name and optional value.  If we have
+	 * a set to add this to, then make sure the set has enough memory to
+	 * hold the new value.
+	 */
+	setlen = 0;
+	if (setref && *setref)
+	{
+		setlen = buildCHAR(setref, ',') - 1;
+	}
+	for (len = 0; element[len] && element[len] != ','; len++)
+	{
+		if (setref)
+			(void)buildCHAR(setref, element[len]);
+	}
+	if (len == 0)
+		return element + 1;
+
+	/* Decide where to insert the new element */
+	if (setlen > 0 && setref)
+	{
+		/* look for an element in *setref > this element */
+		for (scan = *setref; scan && CHARncmp(scan, element, len) <= 0;)
+		{
+			scan = CHARchr(scan, ',');
+			if (scan)
+				scan++;
+		}
+
+		/* Insert it, if we found a spot.  (Otherwise it should be
+		 * appended, but we already did that when we counted the
+		 * element's length.)
+		 */
+		if (scan)
+		{
+			/* compute the length of the tail */
+			setlen -= (int)(scan - *setref);
+
+			/* move the tail to make room for the element */
+			memmove(scan + len + 1, scan, setlen * sizeof(CHAR));
+
+			/* copy the element into the set */
+			memcpy(scan, element, len);
+
+			/* append a comma */
+			scan[len] = ',';
+		}
+	}
+
+	/* Move past the element */
+	element += len;
+	if (*element)
+		element++;
+	return element;
+}
+
+/* Perform an operation on two sets, and return the result in a dynamically-
+ * allocated string.  If the result is the empty set, then return NULL.
+ * The sets are comma-delimited lists of names, or name:value pairs.  Only
+ * the names matter, though this function is clever enough to consistently
+ * keep the values from the right operand.
+ */
+CHAR *calcset(left, op, right)
+	CHAR	*left;	/* left set */
+	_CHAR_	op;	/* operator: & intersect, | union, ^ difference */
+	CHAR	*right;	/* right set */
+{
+	CHAR *set = NULL;
+	CHAR *scan;
+
+	switch (op)
+	{
+	  case '&': /* INTERSECTION */
+		for (scan = right; *scan; )
+			scan = nextelement(scan, calcelement(left, scan) ? &set : NULL);
+		break;
+
+	  case '|': /* UNION */
+		for (scan = left; *scan; )
+			scan = nextelement(scan, calcelement(right, scan) ? NULL : &set);
+		for (scan = right; *scan; )
+			scan = nextelement(scan, &set);
+		break;
+
+	  case '^': /* DIFFERENCE */
+		for (scan = left; *scan; )
+			scan = nextelement(scan, calcelement(right, scan) ? NULL : &set);
+		break;
+	}
+
+	return set;
+}
+#endif /* FEATURE_ARRAY */
+
+/* This function applies a single operator.  Returns ElvFalse on error.  Its
  * side effects are that it decrements the "ops" counter, and alters the
  * contents of the result buffer.
  */
-static BOOLEAN apply()
+static ELVBOOL apply()
 {
 	long	i, j;
 	CHAR	*first, *second, *third;
 	char	subcode;
+
+#ifdef FEATURE_ARRAY
+	CHAR	delim;
+	CHUNK	chunks[20];
+#endif
 
 	assert(ops >= 1);
 
@@ -916,7 +1806,7 @@ static BOOLEAN apply()
 					if (RESULT_OVERFLOW(first, j))
 					{
 						msg(MSG_ERROR, "result too long");
-						return False;
+						return ElvFalse;
 					}
 
 					/* Pad or truncate */
@@ -961,6 +1851,57 @@ static BOOLEAN apply()
 				}
 				msg(MSG_WARNING, "<< and >> only partially implemented");
 			}
+			else if (subcode == '*' && calcnumber(second))
+			{
+				/* Expressions of the form "string * number"
+				 * return multiple copies of the string.
+				 */
+
+				/* convert arguments */
+				j = CHAR2long(second);
+				if (j <= 0)
+				{
+					/* trivial case */
+					*first = '\0';
+					break;
+				}
+				i = CHARlen(first);
+
+				/* make sure this width wouldn't
+				 * overflow the result buffer.
+				 */
+				if (RESULT_OVERFLOW(first, j * i))
+				{
+					msg(MSG_ERROR, "result too long");
+					return ElvFalse;
+				}
+
+				/* The first copy is already there; we need
+				 * to make j-1 more copies.
+				 */
+				while (--j > 0)
+				{
+					second = first + i;
+					CHARncpy(second, first, (int)i);
+					first = second;
+				}
+				first[i] = '\0';
+				break;
+			}
+#ifdef FEATURE_ARRAY
+			else if (subcode == '&' || subcode == '|' || subcode == '^')
+			{
+				third = calcset(first, subcode, second);
+				if (third)
+				{
+					CHARcpy(first, third);
+					safefree(third);
+				}
+				else
+					*first = '\0';
+				break;
+			}
+#endif /* FEATURE_ARRAY */
 #ifndef TRY
 			else if (subcode == '/')
 			{
@@ -997,6 +1938,45 @@ static BOOLEAN apply()
 		}
 		break;
 
+#ifdef FEATURE_ARRAY
+	  case 'a': /* array subscript */
+		/* first check for an valueless named element */
+		if (elvalpha(*second))
+		{
+			third = calcelement(first, second);
+			if (third && *third != ':')
+			{
+				CHARcpy(first, o_true);
+				break;
+			}
+		}
+
+		/* do it the usual way */
+		third = CHARdup(first);
+		delim = calcsubscript(third, second, QTY(chunks), chunks);
+		for (i = 0; chunks[i].ptr; i++)
+		{
+			/* if not enough room, then fail */
+			if (RESULT_OVERFLOW(first, chunks[i].len + 10))
+			{
+				msg(MSG_ERROR, "result too long");
+				safefree(third);
+				return ElvFalse;
+			}
+
+			/* add a delimiter between chunks */
+			if (delim && i > 0)
+				*first++ = delim;
+
+			/*  add this chunk */
+			CHARncpy(first, chunks[i].ptr, chunks[i].len);
+			first += chunks[i].len;
+		}
+		*first = '\0';
+		safefree(third);
+		break;
+#endif
+
 	  case 's': /* string or integer comparison operators */
 		/* if both arguments look like numbers, then compare
 		 * numerically; else compare as strings.
@@ -1022,22 +2002,60 @@ static BOOLEAN apply()
 		break;
 
 	  case 'c': /* concatenation operators */
-		if (subcode == ';')
+		switch (subcode)
+		{
+		  case ' ':
+			if (*first && *second && !elvspace(*second) && !elvspace(second[-2]))
+			{
+				second[-1] = ' ';
+				break;
+			}
+			/* else fall through for spaceless concatenation */
+
+		  case ';':
 			memmove(second - 1, second, sizeof(CHAR) * (CHARlen(second) + 1));
-		else
+			break;
+
+		  case '.':
+			if (calcnumber(first) && calcnumber(second))
+			{
+				/* if second < first, then return "" */
+				i = CHAR2long(first);
+				j = CHAR2long(second);
+				if (j < i)
+				{
+					*first = '\0';
+					break;
+				}
+
+				/* otherwise, count from first to second */
+				for (; i <= j; i++)
+				{
+					if (RESULT_OVERFLOW(first, 20))
+						goto Overflow;
+					long2CHAR(first, i);
+					first += CHARlen(first);
+					if (i < j)
+						*first++ = ' ';
+				}
+				break;
+			}
+			/* else fall through for non-numbers */
+
+		  default:
 			second[-1] = subcode;
+		}
 		break;
 
 	  case 'b': /* boolean operators */
 		if (subcode == '&')
-		{
-			i = (calctrue(first) && calctrue(second));
-		}
+			i = (long)calctrue(first);
 		else /* subcode == '|' */
-		{
-			i = (calctrue(first) || calctrue(second));
-		}
-		(void)CHARcpy(first, toCHAR(i ? o_true : o_false));
+			i = !(long)calctrue(first);
+		if (i)
+			while ((*first++ = *second++) != '\0')
+			{
+			}
 		break;
 
 	  case 't': /* ternary operator */
@@ -1054,8 +2072,12 @@ static BOOLEAN apply()
 			/* complain if not after a '?' */
 			if (ops < 1 || opstack[ops - 1].prec != opstack[ops].prec - 1)
 			{
-				msg(MSG_ERROR, "bad operator");
-				return False;
+				/* on second thought, it might be handy to make
+				 * a binary ":" operator concatenate its args
+				 * with an OSPATHDELIM between them.
+				 */
+				second[-1] = OSPATHDELIM;
+				return ElvTrue;
 			}
 
 			/* shift the arguments */
@@ -1077,11 +2099,15 @@ static BOOLEAN apply()
 		/* use func() to apply the function. */
 		return func(first, second);
 	}
-	return True;
+	return ElvTrue;
 
 DivZero:
 	msg(MSG_ERROR, "division by 0");
-	return False;
+	return ElvFalse;
+
+Overflow:
+	msg(MSG_ERROR, "result too long");
+	return ElvFalse;
 }
 
 /* This function iteratively applies all preceding operators with a precedence
@@ -1102,19 +2128,62 @@ static CHAR *applyall(prec)
 }
 
 
+/* Push a concatenation operator onto the opstack, if there is a non-empty
+ * first argument.  This should be called from calculate() before parsing
+ * anything except an operator or closing parenthesis.  It returns the new
+ * value of build.
+ */
+static CHAR *maybeconcat(build, base, asmsg)
+	CHAR	*build;	/* current argument */
+	int	base;	/* precedence, influenced by parentheses */
+	ELVBOOL	asmsg;	/* using "simpler syntax" ? */
+{
+	int	prec;	/* precedence of this concatenation */
+
+	/* if first arg would be empty, then do nothing */
+	if (build == opstack[ops].first)
+		return build;
+
+	/* if using "simpler syntax" and outside of parentheses, do nothing */
+	if (asmsg && base == 0)
+		return build;
+
+	/* Otherwise we have an implied concatenation operator.  Apply any
+	 * preceding operators with equal or higher priority.
+	 */
+	prec = base + opinfo[opstack[ops].idx].prec;
+	build = applyall(prec);
+	if (!build)
+	{
+		return (CHAR *)0;
+	}
+
+	/* mark the end of the "build" arg and start a new one */
+	opstack[ops].idx = 1;
+	opstack[ops].prec = prec;
+	opstack[++ops].first = ++build;
+	*build = '\0';
+	return build;
+}
+
 /* This function evaluates an expression, as for a :if or :let command.
  * Returns the result of the evaluation, or NULL if error.
  */
-CHAR *calculate(expr, arg, asmsg)
+CHAR *calculate(expr, arg, rule)
 	CHAR	*expr;	/* an expression to evaluate */
 	CHAR	**arg;	/* arguments, to replace $1 through $9 */
-	BOOLEAN	asmsg;	/* if True, only evaluate parts that are in parens */
+	CALCRULE rule;	/* bitmap of CALC_DOLLAR, CALC_PAREN, CALC_OUTER */
 {
 	CHAR	*build;		/* the result so far */
 	int	base = 0;	/* precedence base, keeps track or () pairs */
 	int	nargs;		/* number of arguments in arg[] */
 	CHAR	*tmp;
 	int	i, prec;
+	ELVBOOL	here_regexp, next_regexp;
+	ELVBOOL	asmsg = (ELVBOOL)((rule & CALC_OUTER) == 0);
+#ifndef TRY
+	CHAR	*scan;
+#endif
 
 	/* count the args */
 	for (nargs = 0; arg && arg[nargs]; nargs++)
@@ -1128,10 +2197,14 @@ CHAR *calculate(expr, arg, asmsg)
 	
 
 	/* process the expression from left to right... */
+	next_regexp = ElvFalse;
 	while (*expr)
 	{
+		here_regexp = next_regexp;
+		next_regexp = ElvFalse;
+
 		if (RESULT_OVERFLOW(build, 1)) goto Overflow;
-		switch (*expr)
+		switch (expr[0] == '.' && expr[1] != '.' ? '\0' : *expr)
 		{
 		  case ' ':
 		  case '\t':
@@ -1155,6 +2228,9 @@ CHAR *calculate(expr, arg, asmsg)
 			else
 			{
 				/* quoted text is copied verbatim */
+				build = maybeconcat(build, base, asmsg);
+				if (!build)
+					return NULL;
 				while (*++expr && *expr != '"')
 				{
 					if (RESULT_OVERFLOW(build, 1))
@@ -1201,31 +2277,49 @@ CHAR *calculate(expr, arg, asmsg)
 			{
 				/* at front of expression, or if followed by
 				 * normal character - literal */
+				build = maybeconcat(build, base, asmsg);
+				if (!build)
+					return NULL;
 				*build++ = '\\';
 			}
 			else if (*expr)
 			{
 				/* followed by special character - quote */
+				build = maybeconcat(build, base, asmsg);
+				if (!build)
+					return NULL;
 				*build++ = *expr++;
 			}
 			*build = '\0';
 			break;
 
 		  case '$':
+			if (base == 0 && (rule & CALC_DOLLAR) == 0)
+			{
+				/* '$' is just another character */
+				*build++ = *expr++;
+				*build = '\0';
+				break;
+			}
+
 			/* if it isn't followed by an alphanumeric character,
 			 * then treat the '$' as a literal character.
 			 */
+			build = maybeconcat(build, base, asmsg);
+			if (!build)
+				return NULL;
 			expr++;
-			if (!isalnum(*expr) && *expr != '_')
+			if (!elvalnum(*expr) && *expr != '_')
 			{
 				*build++ = '$';
+				*build = '\0';
 				break;
 			}
 
 			/* copy the name into the result buffer temporarily,
 			 * just so we have a nul-terminated copy of it.
 			 */
-			i = copyname(build, expr, True);
+			i = copyname(build, expr, ElvTrue);
 			if (i == 0) goto Overflow;
 			expr += i;
 
@@ -1249,17 +2343,31 @@ CHAR *calculate(expr, arg, asmsg)
 			}
 			else
 			{
-				/* try to fetch its value; stuff the value (or an
-				 * empty string) into the result buffer.
+				/* try to fetch its value; stuff the value (or
+				 * an empty string) into the result buffer.
 				 */
 				tmp = toCHAR(getenv(tochar8(build)));
+#ifndef TRY
 				if (!tmp)
 				{
-					/* convert to uppercase & try again */
-					for (tmp = build; *tmp; tmp++)
-						*tmp = toupper(*tmp);
-					tmp = toCHAR(getenv(tochar8(build)));
+					if (optval(tochar8(build)) || !CHARcmp(build, toCHAR("_")))
+					{
+						/* skip the $ but reparse the
+						 * name as an option or _.
+						 */
+						expr -= i;
+					}
+					else
+					{
+						/* convert to uppercase &
+						 * try again
+						 */
+						for (tmp = build; *tmp; tmp++)
+							*tmp = elvtoupper(*tmp);
+						tmp = toCHAR(getenv(tochar8(build)));
+					}
 				}
+#endif
 				if (tmp)
 				{
 					if (RESULT_OVERFLOW(build, CHARlen(tmp)))
@@ -1269,12 +2377,29 @@ CHAR *calculate(expr, arg, asmsg)
 				}
 				else
 				{
+					/* clobber the name.  Harmess for
+					 * options, but for unset environment
+					 * variables it causes the expression
+					 * to return "".
+					 */
 					*build = '\0';
 				}
 			}
 			break;
 
 		  case '(':
+			if (base == 0 && (rule & CALC_PAREN) == 0)
+			{
+				/* '(' is just another character */
+				*build++ = *expr++;
+				*build = '\0';
+				break;
+			}
+
+			build = maybeconcat(build, base, asmsg);
+			if (!build)
+				return NULL;
+
 			/* increment the precedence base */
 			parstack[base / 20] = opstack[ops].first;
 			base += 20;
@@ -1285,10 +2410,75 @@ CHAR *calculate(expr, arg, asmsg)
 			expr++;
 			break;
 
+#ifdef FEATURE_ARRAY
+		  case '\0': /* really the '.' operator */
+		  case '[':
+			/* in "simpler" syntax, ignore outside of parens */
+			if (asmsg && base < 20)
+			{
+				*build++ = *expr++;
+				*build = '\0';
+				break;
+			}
+
+			/* store this operator, and start a new one
+			 * right after it.
+			 */
+			opstack[ops].idx = i = 2; /* Sub */
+			opstack[ops].prec = base + opinfo[i].prec;
+			opstack[++ops].first = ++build;
+			*build = '\0';
+			
+			/* increment the precedence base */
+			parstack[base / 20] = opstack[ops].first;
+			base += 20;
+
+			/* adjust the start of arguments */
+			opstack[ops].first = build;
+
+			if (*expr++ == '[')
+			{
+				break;
+			}
+			else /* the '.' operator */
+			{
+				/* collect the chars in the field name */
+				i = copyname(build, expr, ElvFalse);
+				if (i == 0) goto Overflow;
+				expr += i;
+
+				/* We'll fall through to the ')' case below,
+				 * which will expect to use `expr++' to move
+				 * past the ')' character, but we don't really
+				 * have a ')' character to move past, so...
+				 */
+				expr--;
+			}
+			/* and fall through (for the '.' operator only) */
+			
+		  case ']':
+			if (asmsg && base < 20)
+			{
+				*build++ = *expr++;
+				*build = '\0';
+				break;
+			}
+			/* else fall through... */
+#endif /* FEATURE_ARRAY */
+	
 		  case ')':
 			/* detect mismatched ')' */
 			if (base == 0)
 			{
+				/* if not doing parens, this is okay */
+				if ((rule & CALC_PAREN) == 0)
+				{
+					*build++ = *expr++;
+					*build = '\0';
+					break;
+				}
+
+				/* else it's an error */
 				goto Mismatch;
 			}
 
@@ -1306,15 +2496,36 @@ CHAR *calculate(expr, arg, asmsg)
 			expr++;
 			break;
 
+		  case '_':
+			if (asmsg && base < 20)
+			{
+				/* insert a literal '_' character */
+				*build++ = '_';
+			}
+			else
+			{
+				/* insert a copy of the current line */
+				CHARcpy(build, toCHAR("line"));
+				(void)func(build, toCHAR(""));
+				while (*build)
+					build++;
+			}
+			expr++;
+			break;
+
 		  default:
 			/* It may be an option name, a number, or an operator.
 			 * If it appears to be alphanumeric, then assume it
 			 * is either a number or a name.
 			 */
-			if (isalnum(*expr) || *expr == '_')
+			if (elvalnum(*expr))
 			{
+				build = maybeconcat(build, base, asmsg);
+				if (!build)
+					return NULL;
+
 				/* Copy the string into the result buffer. */
-				i = copyname(build, expr, False);
+				i = copyname(build, expr, ElvFalse);
 				if (i == 0) goto Overflow;
 				expr += i;
 
@@ -1355,6 +2566,9 @@ CHAR *calculate(expr, arg, asmsg)
 					/* compute the precedence of the operator */
 					prec = 1 + base;
 
+					/* first argument may be a regexp */
+					next_regexp = ElvTrue;
+
 					/* store this operator, and start a new
 					 * one right after it.
 					 */
@@ -1388,6 +2602,9 @@ CHAR *calculate(expr, arg, asmsg)
 				/* if asmsg, then use it as plain text */
 				if (base == 0 && asmsg)
 				{
+					build = maybeconcat(build, base, asmsg);
+					if (!build)
+						return NULL;
 					*build++ = *expr++;
 					*build = '\0';
 					break;
@@ -1397,6 +2614,9 @@ CHAR *calculate(expr, arg, asmsg)
 				if (expr[0] == '\'')
 				{
 					/* copy it into build[] */
+					build = maybeconcat(build, base, asmsg);
+					if (!build)
+						return NULL;
 					build[0] = *expr++;
 					for (i = 1; *expr && *expr != '\''; )
 					{
@@ -1421,7 +2641,41 @@ CHAR *calculate(expr, arg, asmsg)
 					}
 				}
 
-				/* try to identify an operator.  This is slightly
+#ifndef TRY
+				/* some contexts allow a regular expression */
+				if (expr[0] == '/' && here_regexp)
+				{
+					build = maybeconcat(build, base, asmsg);
+					if (!build)
+						return NULL;
+
+					/* parse the regexp */
+					scanstring(&scan, expr + 1);
+					tmp = regbuild('/', &scan, ElvTrue);
+
+					/* copy the regexp as a string, keeping
+					 * the initial / delimiter, but not the
+					 * closing delimiter.
+					 */
+					*build++ = '/';
+					if (RESULT_OVERFLOW(build, CHARlen(tmp)))
+					{
+						scanfree(&scan);
+						msg(MSG_ERROR, "result too long");
+						return (CHAR *)0;
+					}
+					CHARcpy(build, tmp);
+					build += CHARlen(build);
+					safefree(tmp);
+
+					/* move past the end of the regexp */
+					expr = (scan ? scan : toCHAR(""));
+					scanfree(&scan);
+					break;
+				}
+#endif /* !TRY */
+
+				/* try to identify an operator. This is slightly
 				 * trickier than it looks -- the order in which
 				 * the comparisons was made had to be fine-tuned
 				 * so it wouldn't think a "!=" was a "!".
@@ -1461,6 +2715,10 @@ CHAR *calculate(expr, arg, asmsg)
 				opstack[++ops].first = ++build;
 				*build = '\0';
 				expr += strlen(opinfo[i].name);
+
+				/* Allow "..." as a synonym for ".." */
+				if (opinfo[i].name[0] == '.' && *expr == '.')
+					expr++;
 			}
 		}
 	}
@@ -1469,7 +2727,7 @@ CHAR *calculate(expr, arg, asmsg)
 	if (base > 0)
 	{
 Mismatch:
-		msg(MSG_ERROR, "\\(\\) mismatch");
+		msg(MSG_ERROR, "(\"()\") mismatch");
 		return (CHAR *)0;
 	}
 
@@ -1488,26 +2746,96 @@ Overflow:
 	return (CHAR *)0;
 }
 
-#ifndef TRY
+# ifndef TRY
 /* This function evaluates a section of a buffer, and replaces that section
- * with the result.  Returns True if successful, or False if there's an error.
+ * with the result.  Returns ElvTrue if successful, or ElvFalse if there's
+ * an error.
  */
-BOOLEAN calcsel(from, to)
+ELVBOOL calcsel(from, to)
 	MARK	from;
 	MARK	to;
 {
 	CHAR	*expr = bufmemory(from, to);
-	CHAR	*result = calculate(expr, (CHAR **)0, False);
+	CHAR	*result = calculate(expr, (CHAR **)0, CALC_ALL);
 
 	safefree(expr);
 	if (!result)
 	{
-		return False;
+		return ElvFalse;
 	}
 	bufreplace(from, to, result, (long)CHARlen(result));
-	return True;
+	return ElvTrue;
 }
-#endif
+# endif /* !TRY */
+
+#else /* ! FEATURE_CALC */
+
+/* Since the real calculate() function is disabled, we must make a fake one
+ * just for outputting messages via message.c.  To do that, it must be able
+ * to replace $n with arguments, and (option) with the option's value.
+ */
+CHAR *calculate(expr, arg, rule)
+	CHAR	*expr;	/* the message, with $n for parameters */
+	CHAR	**arg;	/* the parameters */
+	CALCRULE rule;	/* what kinds of substitutions to make */
+{
+	static CHAR	result[200];
+	CHAR		*build;
+	int		nargs, nest;
+	CHAR		*name, *buildname;
+
+	/* count arguments */
+	for (nargs = 0; arg && arg[nargs]; nargs++)
+	{
+	}
+
+	/* copy msg into result, expanding parameters along the way */
+	for (build = result; *expr; expr++)
+	{
+		if (*expr == '\\' && expr[1])
+			*build++ = *++expr;
+		else if ((rule & CALC_DOLLAR) && *expr == '$' && expr[1] >= '1' && expr[1] < '1'+nargs)
+		{
+			expr++;
+			CHARcpy(build, arg[*expr - '1']);
+			build += CHARlen(build);
+		}
+		else if ((rule & CALC_PAREN) && *expr == '(')
+		{
+			/* skip to matching ')', watching for option name */
+			name = buildname = build;
+			for (nest = 1, expr++; *expr && nest > 0; expr++)
+				if (*expr == '(')
+					nest++, name = NULL;
+				else if (*expr == ')')
+					nest--;
+				else if (name && elvalnum(*expr))
+					*buildname++ = *expr;
+				else
+					name = NULL;
+
+			/* if we have a name, then fetch its value */
+			if (name)
+			{
+				*buildname = '\0';
+				buildname = optgetstr(name, NULL);
+				if (buildname)
+				{
+					CHARcpy(build, buildname);
+					build += CHARlen(build);
+				}
+			}
+
+			/* leave expr pointing at the ')' */
+			expr--;
+		}
+		else
+			*build++ = *expr;
+	}
+	*build = '\0';
+	return result;
+}
+#endif /* ! FEATURE_CALC */
 
 #ifdef TRY
 # include <stdarg.h>
@@ -1530,13 +2858,13 @@ void msg(MSGIMP imp, char *format, ...)
 	va_end(argptr);
 }
 
-void main(int argc, char **argv)
+int main(int argc, char **argv)
 {
 	CHAR	expr[200];
 	CHAR	*result;
 	char	flag;
 	int	i;
-	BOOLEAN	msg = False;
+	ELVRULE	rule = CALC_ALL;
 
 	/* Parse options */
 	expr[0] = '\0';
@@ -1560,7 +2888,7 @@ void main(int argc, char **argv)
 			break;
 
 		  case 'm':
-			msg = True;
+			rule = ELV_DOLLAR|ELV_PAREN;
 			break;
 
 		  case 'e':
@@ -1574,7 +2902,7 @@ void main(int argc, char **argv)
 	/* were we given an expression on the command line? */
 	if (*expr)
 	{
-		result = calculate(expr, (CHAR **)&argv[optind], msg);
+		result = calculate(expr, (CHAR **)&argv[optind], rule);
 		if (result)
 			puts(tochar8(result));
 	}
@@ -1582,11 +2910,12 @@ void main(int argc, char **argv)
 	{
 		while (fgets(tochar8(expr), sizeof expr, stdin))
 		{
-			result = calculate(expr, (CHAR **)&argv[optind], msg);
+			result = calculate(expr, (CHAR **)&argv[optind], rule);
 			if (result)
 				puts(tochar8(result));
 		}
 	}
 	exit(result ? 0 : 1);
+	return result ? 0 : 1;
 }
-#endif
+#endif /* TRY */

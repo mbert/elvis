@@ -4,22 +4,33 @@
 
 RSC=rc.exe
 CPP=cl.exe
-LINK32=link.exe
+LD=link.exe
+!IF "$(CFG)" == "WinElvis - Win32 Release"
 INTDIR=GuiRel
 CFLAGS=/nologo /ML /W1 /GX /O2 /I "." /I ".." /I "oswin32" /I "..\oswin32" \
  /D "NDEBUG" /D "WIN32" /D "_WINDOWS" /D "GUI_WIN32" /Fo"$(INTDIR)/" /c 
-CPP_OBJS=$(INTDIR)/
 RSC_PROJ=/l 0x409 /fo"..\$(INTDIR)\winelvis.res" /d "NDEBUG" 
-HDRS=buffer.h buffer2.h calc.h config.h cut.h digraph.h display.h display2.h \
- draw.h draw2.h elvctype.h elvis.h elvisio.h event.h ex.h gui.h gui2.h \
- input.h lowbuf.h lp.h mark.h message.h misc.h more.h move.h need.h \
- operator.h opsys.h optglob.h options.h options2.h oswin32\osdef.h regexp.h \
- safe.h scan.h session.h state.h state2.h tag.h version.h vi.h vicmd.h window.h
-GUIHDRS=guiwin32\winelvis.h guiwin32\wintools.h
-LINK32_FLAGS=kernel32.lib user32.lib gdi32.lib winspool.lib comctl32.lib\
- comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib\
- wsock32.lib /nologo /subsystem:windows /incremental:no /machine:I386\
+LDFLAGS=/nologo /subsystem:windows /incremental:no /machine:I386 \
  /out:"WinElvis.exe" 
+!ELSE
+INTDIR=GuiDebug
+CFLAGS=/nologo /MLd /W3 /Gm /GX /Zi /Od /I "oswin32" /I "." /D "WIN32" \
+ /D "_DEBUG" /D "_WINDOWS" /D "GUI_WIN32" /Fp"$(INTDIR)/elvis.pch" /YX \
+ /Fo"$(INTDIR)/" /Fd"$(INTDIR)/" /c 
+RSC_PROJ=/l 0x409 /fo"..\$(INTDIR)\winelvis.res"
+LDFLAGS=/nologo /subsystem:windows /incremental:no /pdb:"$(OUTDIR)/elvis.pdb" \
+ /debug /machine:I386 /out:"WinElvis.exe" 
+!ENDIF
+CPP_OBJS=$(INTDIR)/
+HDRS=autocmd.h buffer.h buffer2.h calc.h color.h config.h cut.h descr.h \
+ digraph.h display.h display2.h draw.h draw2.h elvctype.h elvis.h elvisio.h \
+ event.h ex.h fold.h gui.h gui2.h input.h lowbuf.h lp.h mark.h message.h \
+ misc.h more.h move.h need.h operator.h opsys.h optglob.h options.h options2.h \
+ oswin32\osdef.h regexp.h region.h safe.h scan.h session.h spell.h state.h \
+ state2.h tag.h version.h vi.h vicmd.h window.h
+GUIHDRS=guiwin32\winelvis.h guiwin32\wintools.h
+LIBS=kernel32.lib user32.lib gdi32.lib winspool.lib comctl32.lib comdlg32.lib \
+ advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib wsock32.lib
 LINK32_OBJS= \
 	"$(INTDIR)/guiwin.obj" \
 	"$(INTDIR)/gwcmd.obj" \
@@ -30,13 +41,17 @@ LINK32_OBJS= \
 	"$(INTDIR)/gwstatb.obj" \
 	"$(INTDIR)/gwtoolb.obj" \
 	"$(INTDIR)/gwutil.obj" \
+	"$(INTDIR)/gwimage.obj" \
 	"$(INTDIR)/osblock.obj" \
 	"$(INTDIR)/osdir.obj" \
 	"$(INTDIR)/osprg.obj" \
 	"$(INTDIR)/ostext.obj" \
+	"$(INTDIR)/autocmd.obj" \
 	"$(INTDIR)/buffer.obj" \
 	"$(INTDIR)/calc.obj" \
+	"$(INTDIR)/color.obj" \
 	"$(INTDIR)/cut.obj" \
+	"$(INTDIR)/descr.obj" \
 	"$(INTDIR)/digraph.obj" \
 	"$(INTDIR)/display.obj" \
 	"$(INTDIR)/dmhex.obj" \
@@ -51,6 +66,7 @@ LINK32_OBJS= \
 	"$(INTDIR)/exedit.obj" \
 	"$(INTDIR)/exsubst.obj" \
 	"$(INTDIR)/exmake.obj" \
+	"$(INTDIR)/fold.obj" \
 	"$(INTDIR)/gui.obj" \
 	"$(INTDIR)/input.obj" \
 	"$(INTDIR)/io.obj" \
@@ -71,11 +87,13 @@ LINK32_OBJS= \
 	"$(INTDIR)/optglob.obj" \
 	"$(INTDIR)/options.obj" \
 	"$(INTDIR)/regexp.obj" \
+	"$(INTDIR)/region.obj" \
 	"$(INTDIR)/regsub.obj" \
 	"$(INTDIR)/safe.obj" \
 	"$(INTDIR)/scan.obj" \
 	"$(INTDIR)/search.obj" \
 	"$(INTDIR)/session.obj" \
+	"$(INTDIR)/spell.obj" \
 	"$(INTDIR)/state.obj" \
 	"$(INTDIR)/tag.obj" \
 	"$(INTDIR)/tagelvis.obj" \
@@ -110,8 +128,8 @@ ALL : $(INTDIR) WinElvis.exe
 
 
 WinElvis.exe : $(DEF_FILE) $(LINK32_OBJS)
-    $(LINK32) @<<
-  $(LINK32_FLAGS) $(LINK32_OBJS)
+    $(LD) @<<
+  $(LIBS) $(LDFLAGS) $(LINK32_OBJS)
 <<
 
 $(INTDIR) :
@@ -142,6 +160,8 @@ $(INTDIR)\gwdlgs.obj : guiwin32\gwdlgs.c $(HDRS) $(GUIHDRS)
 
 $(INTDIR)\gwtoolb.obj : guiwin32\gwtoolb.c $(HDRS) guiwin32\winelvis.h
 
+$(INTDIR)\gwimage.obj : guiwin32\gwimage.c $(HDRS) guiwin32\winelvis.h
+
 
 $(INTDIR)\ostext.obj : oswin32\ostext.c $(HDRS)
 
@@ -154,11 +174,17 @@ $(INTDIR)\osblock.obj : oswin32\osblock.c $(HDRS)
 $(INTDIR)\osnet.obj : oswin32\osnet.c $(HDRS)
 
 
+$(INTDIR)\autocmd.obj : autocmd.c $(HDRS)
+
 $(INTDIR)\buffer.obj : buffer.c $(HDRS)
 
 $(INTDIR)\calc.obj : calc.c $(HDRS)
 
+$(INTDIR)\color.obj : color.c $(HDRS)
+
 $(INTDIR)\cut.obj : cut.c $(HDRS)
+
+$(INTDIR)\descr.obj : descr.c $(HDRS)
 
 $(INTDIR)\digraph.obj : digraph.c $(HDRS)
 
@@ -183,9 +209,12 @@ $(INTDIR)\exaction.obj : exaction.c $(HDRS)
 $(INTDIR)\exconfig.obj : exconfig.c $(HDRS)
 
 $(INTDIR)\exedit.obj : exedit.c $(HDRS)
+
 $(INTDIR)\exsubst.obj : exsubst.c $(HDRS)
 
 $(INTDIR)\exmake.obj : exmake.c $(HDRS)
+
+$(INTDIR)\fold.obj : fold.c $(HDRS)
 
 $(INTDIR)\ftp.obj : ftp.c $(HDRS)
 
@@ -231,6 +260,8 @@ $(INTDIR)\options.obj : options.c $(HDRS)
 
 $(INTDIR)\regexp.obj : regexp.c $(HDRS)
 
+$(INTDIR)\region.obj : region.c $(HDRS)
+
 $(INTDIR)\regsub.obj : regsub.c $(HDRS)
 
 $(INTDIR)\safe.obj : safe.c $(HDRS)
@@ -240,6 +271,8 @@ $(INTDIR)\scan.obj : scan.c $(HDRS)
 $(INTDIR)\search.obj : search.c $(HDRS)
 
 $(INTDIR)\session.obj : session.c $(HDRS)
+
+$(INTDIR)\spell.obj : spell.c $(HDRS)
 
 $(INTDIR)\state.obj : state.c $(HDRS)
 

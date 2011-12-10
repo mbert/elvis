@@ -5,10 +5,9 @@
 */
 
 #define CHAR    Char
-#define BOOLEAN Boolean
 #include "elvis.h" 
 #undef CHAR
-#undef BOOLEAN 
+#undef ELVBOOL 
 
 #if defined (GUI_WIN32)
 
@@ -68,17 +67,6 @@ LONG gwframe_WM_GETMINMAXINFO (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
 LONG gwframe_WM_INITMENU (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
 
 {
-    HMENU       hMenu;
-
-    /* check if syntax mode is active */
-    hMenu = GetMenu (gwp->frameHWnd);
-    if (hMenu == (HMENU)wParam) {
-        if (windefault->md == &dmsyntax)
-            EnableMenuItem (hMenu, IDM_OPTIONS_SYNTAX, MF_ENABLED);
-        else
-            EnableMenuItem (hMenu, IDM_OPTIONS_SYNTAX, MF_GRAYED);
-    }
-
     return 1;
 }
 
@@ -100,9 +88,9 @@ LONG gwframe_WM_MENUSELECT (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
             if ((p = strchr (str, '\n')) != NULL)
                 *p = '\0';
             gw_status_bar_text (gwp, str);
-		}
-		else
-		    gw_status_bar_text (gwp, NULL);
+	}
+	else
+	    gw_status_bar_text (gwp, NULL);
     }
 
     return 0;
@@ -149,7 +137,7 @@ LONG gwframe_WM_SETFOCUS (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
 
 {
     if (gwp->active)
-		SetFocus (gwp->clientHWnd);
+	SetFocus (gwp->clientHWnd);
 
     return 0;
 }
@@ -185,10 +173,15 @@ LONG gwclient_WM_CHAR (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
 
 {
     unsigned char       chr = (unsigned char)wParam;
-    int			        i;
+    int		        i;
 
+    /* skip <Shift-Tab> -- it is handled in gwclient_WM_KEYDOWN() */
+    if (chr == '\t' && state_shift)
+    	return 1;
+
+    /* otherwise pass the key to elvis */
     for (i = lParam & 0xFFFF; i > 0; i--)
-	    eventkeys((GUIWIN *)gwp, &chr, 1);
+	eventkeys((GUIWIN *)gwp, &chr, 1);
 
     return 0;
 }
@@ -213,7 +206,7 @@ LONG gwclient_WM_DROPFILES (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
         quoted = tochar8(addquotes(toCHAR("#% ()$"), toCHAR(&cmd[3])));
         strcpy(&cmd[3], quoted);
         safefree(quoted);
-        eventex ((GUIWIN *)gwp, cmd, False);
+        eventex ((GUIWIN *)gwp, cmd, ElvFalse);
     }
     DragFinish ((HANDLE)wParam);
 
@@ -229,15 +222,29 @@ LONG gwclient_WM_ERASEBKGND (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
 
 {
     RECT        rect;
-    HBRUSH      brush;
+    HBRUSH      brush, prevbrush;
     HDC         dc;
 
     dc = GetDC (gwp->clientHWnd);
     GetUpdateRect (gwp->clientHWnd, &rect, FALSE);
-    brush = CreateSolidBrush (gwp->colors.bgcolor);
-    SelectObject (dc, brush);
-    FillRect (dc, &rect, brush);
-    DeleteObject (brush);
+#ifdef FEATURE_IMAGE
+    if (normalimage && gwp->bg == (COLORREF)colorinfo[COLOR_FONT_NORMAL].bg)
+    {
+    	gw_erase_rect(dc, &rect, normalimage, gwp->scrolled);
+    }
+    else if (idleimage && gwp->bg == (COLORREF)colorinfo[COLOR_FONT_IDLE].bg)
+    {
+    	gw_erase_rect(dc, &rect, idleimage, gwp->scrolled);
+    }
+    else
+#endif
+    {
+	brush = CreateSolidBrush (gwp->bg);
+	prevbrush = SelectObject (dc, brush);
+	FillRect (dc, &rect, brush);
+	prevbrush = SelectObject (dc, prevbrush);
+	DeleteObject (brush);
+    }
     ReleaseDC (gwp->clientHWnd, dc);
 
     return 0;
@@ -254,15 +261,13 @@ LONG gwclient_WM_KEYDOWN (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
     unsigned char       chr[3];
     int			        i;
 
-    if (wParam == VK_SHIFT) {
+    if (wParam == VK_SHIFT)
         state_shift = 1;
-    }
-    else if (wParam == VK_CONTROL) {
+    else if (wParam == VK_CONTROL)
         state_ctrl = 1;
-    }
     else if (wParam == VK_NUMLOCK || wParam == VK_CAPITAL) {
-		gw_upd_status_bar_ind (gwp, GetKeyState (VK_NUMLOCK) & 1,
-		                       GetKeyState (VK_CAPITAL) & 1);
+	gw_upd_status_bar_ind (gwp, GetKeyState (VK_NUMLOCK) & 1,
+				    GetKeyState (VK_CAPITAL) & 1);
     }
     else {
         if (state_ctrl) {
@@ -288,13 +293,33 @@ LONG gwclient_WM_KEYDOWN (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
                     chr[0] = (unsigned char)'\xFF';
                     chr[1] = 'C';
                     chr[2] = (unsigned char)wParam;
-					for (i = lParam & 0xFFFF; i > 0; i--)
-                        eventkeys ((GUIWIN *)gwp, chr, 3);
-                    return 0;
+		for (i = lParam & 0xFFFF; i > 0; i--)
+		    eventkeys ((GUIWIN *)gwp, chr, 3);
+		return 0;
             }
         }
         else if (state_shift) {
             switch (wParam) {
+                case VK_UP:
+                case VK_DOWN:
+                    eventclick((GUIWIN *)gwp, 0, 0, CLICK_SSLINE);
+                    chr[0] = (unsigned char)'\xFF';
+                    chr[1] = (unsigned char)wParam;
+                    for (i = lParam & 0xFFFF; i > 0; i--)
+                        eventkeys ((GUIWIN *)gwp, chr, 2);
+                    return 0;
+
+                case VK_LEFT:
+                case VK_RIGHT:
+                case VK_HOME:
+                case VK_END:
+                    eventclick((GUIWIN *)gwp, 0, 0, CLICK_SSCHAR);
+                    chr[0] = (unsigned char)'\xFF';
+                    chr[1] = (unsigned char)wParam;
+                    for (i = lParam & 0xFFFF; i > 0; i--)
+                        eventkeys ((GUIWIN *)gwp, chr, 2);
+                    return 0;
+
                 case VK_F1:
                 case VK_F2:
                 case VK_F3:
@@ -307,10 +332,11 @@ LONG gwclient_WM_KEYDOWN (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
                 case VK_F10:
                 case VK_F11:
                 case VK_F12:
+                case VK_TAB:
                     chr[0] = (unsigned char)'\xFF';
                     chr[1] = 'S';
                     chr[2] = (unsigned char)wParam;
-					for (i = lParam & 0xFFFF; i > 0; i--)
+		    for (i = lParam & 0xFFFF; i > 0; i--)
                         eventkeys ((GUIWIN *)gwp, chr, 3);
                     return 0;
             }
@@ -341,7 +367,7 @@ LONG gwclient_WM_KEYDOWN (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
                 case VK_F12:
                     chr[0] = (unsigned char)'\xFF';
                     chr[1] = (unsigned char)wParam;
-					for (i = lParam & 0xFFFF; i > 0; i--)
+		    for (i = lParam & 0xFFFF; i > 0; i--)
                         eventkeys ((GUIWIN *)gwp, chr, 2);
                     return 0;
             }
@@ -364,8 +390,8 @@ LONG gwclient_WM_KEYUP (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
     else if (wParam == VK_CONTROL)
         state_ctrl = 0;
     else if (wParam == VK_NUMLOCK || wParam == VK_CAPITAL)
-		gw_upd_status_bar_ind (gwp, GetKeyState (VK_NUMLOCK) & 1,
-		                       GetKeyState (VK_CAPITAL) & 1);
+	gw_upd_status_bar_ind (gwp, GetKeyState (VK_NUMLOCK) & 1,
+				    GetKeyState (VK_CAPITAL) & 1);
 
     return 1;
 }
@@ -381,6 +407,7 @@ LONG gwclient_WM_KILLFOCUS (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
     HideCaret (gwp->clientHWnd);
     DestroyCaret ();
     gwp->caret = 0;
+    eventfocus(NULL, ElvTrue);
 
     return 0;
 }
@@ -398,8 +425,8 @@ LONG gwclient_WM_LBUTTONDBLCLK (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
 
     eventclick ((GUIWIN *)gwp, row, col, CLICK_MOVE);
     eventclick ((GUIWIN *)gwp, row, col, CLICK_TAG);
-	dblclick = 1;
-	mouse_selection = MOUSE_SEL_NONE;
+    dblclick = 1;
+    mouse_selection = MOUSE_SEL_NONE;
 
     return 0;
 }
@@ -417,12 +444,16 @@ LONG gwclient_WM_LBUTTONDOWN (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
     mouse_init_row = HIWORD (lParam) / gwp->ycsize;
     if (LOWORD (lParam) > (gwp->xcsize / 2))
         mouse_init_col = (LOWORD (lParam) - gwp->xcsize / 2) / gwp->xcsize;
-	else
-	    mouse_init_col = 0;
+    else
+	mouse_init_col = 0;
     mouse_moved = 0;
-    mouse_selection = (LOWORD (lParam) < gwp->xcsize / 2) ?
-                      MOUSE_SEL_LINE : MOUSE_SEL_CHAR;
-	eventclick ((GUIWIN *)gwp, -1, -1, CLICK_CANCEL);
+    if (LOWORD (lParam) < gwp->xcsize / 2)
+	mouse_selection = MOUSE_SEL_LINE;
+    else if (GetKeyState(VK_MENU))
+	mouse_selection = MOUSE_SEL_RECT;
+    else
+    	mouse_selection = MOUSE_SEL_CHAR;
+    eventclick ((GUIWIN *)gwp, -1, -1, CLICK_CANCEL);
 
     return 0;
 }
@@ -438,10 +469,10 @@ LONG gwclient_WM_LBUTTONUP (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
     mouse_down = 0;
     mouse_moved = 0;
     if (dblclick == 0)
-		eventclick ((GUIWIN *)gwp, HIWORD (lParam) / gwp->ycsize, 
+	eventclick ((GUIWIN *)gwp, HIWORD (lParam) / gwp->ycsize, 
                     (LOWORD (lParam) - gwp->xcsize / 2) / gwp->xcsize,
                     CLICK_MOVE);
-	dblclick = 0;
+    dblclick = 0;
 
     return 0;
 }
@@ -544,31 +575,39 @@ LONG gwclient_WM_MOUSEWHEEL (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
 LONG gwclient_WM_PAINT (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
 
 {
-    PAINTSTRUCT     ps;
-    HBRUSH          brush;
-    int             left;
-    int             top;
+    PAINTSTRUCT ps;
+    HBRUSH      brush, prevbrush;
+    int         left;
+    int         top;
 
     BeginPaint (gwp->clientHWnd, &ps);
-    brush = CreateSolidBrush (gwp->colors.bgcolor);
-    SelectObject (ps.hdc, brush);
-    FillRect (ps.hdc, &ps.rcPaint, brush);
+#ifdef FEATURE_IMAGE
+    if (normalimage && gwp->bg == (COLORREF)colorinfo[COLOR_FONT_NORMAL].bg)
+    {
+    	gw_erase_rect(ps.hdc, &ps.rcPaint, normalimage, gwp->scrolled);
+    }
+    else if (idleimage && gwp->bg == (COLORREF)colorinfo[COLOR_FONT_IDLE].bg)
+    {
+    	gw_erase_rect(ps.hdc, &ps.rcPaint, idleimage, gwp->scrolled);
+    }
+    else
+#endif
+    {
+	brush = CreateSolidBrush (gwp->bg);
+	FillRect (ps.hdc, &ps.rcPaint, brush);
+	DeleteObject (brush);
+    }
     if (gwp->active) {
         SetMapMode (ps.hdc, MM_TEXT);
-        gwp->dc = ps.hdc;
-        gwp->hBrush = brush;
         if ((left = ps.rcPaint.left - gwp->xcsize / 2) < 0)
             left = 0;
-		left = left / gwp->xcsize;
+	left = left / gwp->xcsize;
         top = ps.rcPaint.top / gwp->ycsize;
         if (left < gwp->numcols && top < gwp->numrows )
             eventexpose ((GUIWIN *)gwp, top, left,
                          (ps.rcPaint.bottom + gwp->ycsize) / gwp->ycsize,
                          (ps.rcPaint.right + gwp->xcsize) / gwp->xcsize);
-	    gwp->dc = NULL;
-	    gwp->hBrush = NULL;
     }
-    DeleteObject (brush);
     EndPaint (gwp->clientHWnd, &ps);
 
     return 0;
@@ -659,15 +698,15 @@ LONG gwclient_WM_SETFOCUS (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
     state_ctrl = GetKeyState (VK_CONTROL) < 0;
 
     if (gwp->active) {
-		gw_upd_status_bar_ind (gwp, GetKeyState (VK_NUMLOCK) & 1,
-							   GetKeyState (VK_CAPITAL) & 1);
-        gwp->cursor_type = eventfocus ((GUIWIN *)gwp);
-	}
+	gw_upd_status_bar_ind (gwp, GetKeyState (VK_NUMLOCK) & 1,
+				   GetKeyState (VK_CAPITAL) & 1);
+        gwp->cursor_type = eventfocus ((GUIWIN *)gwp, ElvTrue);
+    }
 
     if (gwp->caret) {
-		HideCaret (gwp->clientHWnd);
-		DestroyCaret ();
-	}
+	HideCaret (gwp->clientHWnd);
+	DestroyCaret ();
+    }
     gw_set_cursor(gwp, TRUE);
     ShowCaret (gwp->clientHWnd);
 
@@ -687,18 +726,18 @@ LONG gwclient_WM_SIZE (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
     int     oldrows;
     int     oldcols;
 
-	if (gwp == NULL)
-		return 1;
+    if (gwp == NULL)
+	return 1;
 
     if (gwp->active) {
-		oldrows = gwp->numrows;
-		oldcols = gwp->numcols;
-		gw_get_win_size (gwp);
-		if (oldrows != gwp->numrows || oldcols != gwp->numcols) {
-			eventresize ((GUIWIN *)gwp, gwp->numrows, gwp->numcols);
-			gw_redraw_win (gwp);
-		}
-	}
+	oldrows = gwp->numrows;
+	oldcols = gwp->numcols;
+	gw_get_win_size (gwp);
+	if (oldrows != gwp->numrows || oldcols != gwp->numcols) {
+	    eventresize ((GUIWIN *)gwp, gwp->numrows, gwp->numcols);
+	    gw_redraw_win (gwp);
+	    }
+    }
 
     return 0;
 }
@@ -730,8 +769,8 @@ LONG gwclient_WM_SYSKEYDOWN (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
             chr[0] = (unsigned char)'\xFF';
             chr[1] = 'A';
             chr[2] = (unsigned char)wParam;
-			for (i = lParam & 0xFFFF; i > 0; i--)
-				eventkeys ((GUIWIN *)gwp, chr, 3);
+	    for (i = lParam & 0xFFFF; i > 0; i--)
+		eventkeys ((GUIWIN *)gwp, chr, 3);
             return 0;
     }
 
@@ -775,4 +814,4 @@ LONG gwclient_WM_VSCROLL (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
 }
 
 #endif
-/* ex:se ts=4 sw=4: */
+/* ex:se sw=4 smarttab: */
