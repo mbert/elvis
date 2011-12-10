@@ -1,7 +1,7 @@
 /* misc.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_misc[] = "$Id: misc.c,v 2.6 1996/05/30 17:39:04 steve Exp $";
+char id_misc[] = "$Id: misc.c,v 2.11 1997/10/17 18:42:24 steve Exp $";
 
 #include "elvis.h"
 
@@ -62,7 +62,7 @@ int buildCHAR(refstr, ch)
 	 */
 	if ((len + 1) % GRANULARITY == 0)
 	{
-		newp = safealloc(len + 1 + GRANULARITY, sizeof(CHAR));
+		newp = (CHAR *)safealloc(len + 1 + GRANULARITY, sizeof(CHAR));
 		memcpy(newp, *refstr, len * sizeof(CHAR));
 		safefree(*refstr);
 		*refstr = newp;
@@ -71,6 +71,21 @@ int buildCHAR(refstr, ch)
 	/* append the new character, and a NUL character */
 	(*refstr)[len++] = ch;
 	(*refstr)[len] = '\0';
+	return len;
+}
+
+
+/* This function calls buildCHAR() for each character of an argument string.
+ * Note that the string is a plain old "char" string, not a "CHAR" string.
+ */
+int buildstr(refstr, add)
+	CHAR	**refstr;	/* pointer to variable which points to string */
+	char	*add;		/* a string to be added */
+{
+	int	len;
+
+	for (len = 0; *add; add++)
+		len = buildCHAR(refstr, *add);
 	return len;
 }
 
@@ -122,4 +137,61 @@ MARK wordatcursor(cursor)
 	/* clean up & return the front of the word */
 	scanfree(&p);
 	return &retmark;
+}
+
+
+/* Return a copy of str with backslashes before chars.  The calling function
+ * is responsible for freeing the returned string when it is no longer needed.
+ *
+ * This also adds a backslash before each existing backslash, unless the
+ * existing backslash is followed by a letter or digit, or appears at the end
+ * of str.
+ */
+CHAR *addquotes(chars, str)
+	CHAR	*chars;	/* list of chars to be quoted, other than backslash */
+	CHAR	*str;	/* the string to be quoted */
+{
+	CHAR	*tmp;
+
+	/* build a quoted copy of the string */
+	for (tmp = NULL; *str; str++)
+	{
+		if ((*str == '\\' && str[1] && !isalnum(str[1]))
+		 || CHARchr(chars, *str))
+			buildCHAR(&tmp, '\\');
+		buildCHAR(&tmp, *str);
+	}
+
+	/* if empty string, then return "" instead of NULL */
+	if (tmp == NULL)
+		tmp = (CHAR *)safealloc(1, sizeof(CHAR));
+
+	/* return the copy */
+	return tmp;
+}
+
+/* Return a copy of str, from which the backslash characters have been
+ * removed if they're followed by certain other characters.  This is intended
+ * to be the exact opposite of the addquotes() function.
+ */
+CHAR *removequotes(chars, str)
+	CHAR	*chars;	/* list of chars to be quoted, other than backslash */
+	CHAR	*str;	/* the string to be quoted */
+{
+	CHAR	*tmp;
+
+	/* build an unquoted copy of the string */
+	for (tmp = NULL; *str; str++)
+	{
+		if (*str != '\\'
+		 || (!str[1] || (str[1] != '\\' && !CHARchr(chars, str[1]))))
+		buildCHAR(&tmp, *str);
+	}
+
+	/* if empty string, then return "" instead of NULL */
+	if (tmp == NULL)
+		tmp = (CHAR *)safealloc(1, sizeof(CHAR));
+
+	/* return the copy */
+	return tmp;
 }

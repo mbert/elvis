@@ -6,6 +6,7 @@
 #ifndef OSNAME
 # define OSNAME	"unix"
 #endif
+#define ANY_UNIX 1
 
 /*=============================================================================
  * This is the default shell, as reported by ":set shell?"
@@ -81,6 +82,11 @@
 #define TTY_DEFAULT	"unknown"
 
 /*=============================================================================
+ * This determines whether filename completion should ignore case differences.
+ */
+#define FILES_IGNORE_CASE 0
+
+/*=============================================================================
  * Miscellaneous tweaks
  */
 
@@ -95,7 +101,7 @@
 # include <termios.h>
 #endif
 
-#if defined(M_XENIX) && defined(__STDC__)
+#if (defined(M_XENIX) || defined(__QNX__)) && defined(__STDC__)
 extern char	PC;		/* Pad char */
 extern char	*BC;		/* backspace */
 extern char	*UP;		/* cursor up */
@@ -104,12 +110,16 @@ extern short	ospeed;		/* tty speed, eg B2400 */
 # if defined (__cplusplus)
 extern "C" {
 # endif
+# ifdef __QNX__
+#  include <termcap.h>
+# else
 extern int	tgetent(char *, char *);
 extern int	tgetnum(char *);
 extern int	tgetflag(char *);
 extern char	*tgoto(char *, int, int);
 extern char	*tgetstr(char*, char**);
 extern void	tputs(char *, int, int (*)(int));
+# endif
 # if defined (__cplusplus)
 }
 # endif

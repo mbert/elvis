@@ -1,13 +1,22 @@
 /* state.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_state[] = "$Id: state.c,v 2.25 1996/09/28 15:08:50 steve Exp $";
+char id_state[] = "$Id: state.c,v 2.30 1998/10/04 00:45:29 steve Exp $";
 
 #include "elvis.h"
 
 #if USE_PROTOTYPES
 static void fixbounds(WINDOW win);
 #endif
+
+
+/* This is the window that we're sending the character to.  At the start of
+ * the processing for each keystroke, this is set to focus.  The code
+ * here always uses focus instead of focus from that point on, because
+ * the code here assumes that the window won't switch during the processing
+ * of the keystroke, but focus may in fact change.
+ */
+WINDOW focus;
 
 /* Push a single state, in the current stratum.
  *
@@ -113,7 +122,7 @@ void statestratum(win, bufname, prompt, enter)
 	MARK	mark;
 
 	/* find the buffer.  If it doesn't exist, then create it */
-	buf = bufalloc(bufname, 0);
+	buf = bufalloc(bufname, 0, True); /*!!! sometimes False? */
 
 	/* create a blank line at the end of the buffer, and insert the prompt
 	 * character there, if given.
@@ -191,13 +200,13 @@ static void fixbounds(win)
 				 * if the cursor has moved to a different line
 				 * then it is moved to the end of that line.
 				 */
-				marksetoffset(state->top, markoffset((*dmnormal.move)(windefault, state->top, 0L, 0L, False)));
-				marksetoffset(state->bottom, markoffset((*dmnormal.move)(windefault, state->top, 0L, INFINITY, False)));
+				marksetoffset(state->top, markoffset((*dmnormal.move)(focus, state->top, 0L, 0L, False)));
+				marksetoffset(state->bottom, markoffset((*dmnormal.move)(focus, state->top, 0L, INFINITY, False)));
 				if (markoffset(state->cursor) < markoffset(state->top)
 				 || markoffset(state->cursor) > markoffset(state->bottom))
 				{
-					marksetoffset(state->top, markoffset(dispmove(windefault, 0L, 0L)));
-					marksetoffset(state->bottom, markoffset(dispmove(windefault, 0L, INFINITY)));
+					marksetoffset(state->top, markoffset(dispmove(focus, 0L, 0L)));
+					marksetoffset(state->bottom, markoffset(dispmove(focus, 0L, INFINITY)));
 					marksetoffset(state->cursor, markoffset(state->bottom));
 				}
 			}
@@ -219,7 +228,9 @@ void statekey(key)
 
 	assert(windefault);
 
-	state = windefault->state;
+	/* make an unalterable copy of windefault */
+	focus = windefault;
+	state = focus->state;
 
 	/* If user wants to abort operation, then ignore this key.  This is
 	 * important to check for, because elvis may be stuck in a recursive
@@ -236,11 +247,11 @@ void statekey(key)
 	 * processing <Enter> in the usual way; otherwise we're done.
 	 */
 	if ((key == '\r' || key == '\n')
-	  && (*state->shape)(windefault) != CURSOR_QUOTE
+	  && (*state->shape)(focus) != CURSOR_QUOTE
 	  && state->enter)
 	{
 		/* adjust the input line */
-		inputbeforeenter(windefault);
+		inputbeforeenter(focus);
 
 		/* if this line was entered via a one-time command from
 		 * visual mode, then force drawstate to be DRAW_VISUAL so
@@ -250,17 +261,30 @@ void statekey(key)
 		 */
 		if ((state->flags & ELVIS_1LINE) != 0 && gui->moveto != NULL)
 		{
-			windefault->di->drawstate = DRAW_VISUAL;
+			focus->di->drawstate = DRAW_VISUAL;
 		}
 
 		/* call the "enter" function for this state, and see whether
 		 * the command is complete.
 		 */
-		result = (*state->enter)(windefault);
+		result = (*state->enter)(focus);
+
+		/* if input line wasn't ended by execution of the enter()
+		 * function, then end it now.
+		 */
+		if (windefault
+		 && ((focus->state->acton->flags & ELVIS_BOTTOM) != 0
+		   || (focus->state->flags & (ELVIS_ONCE|ELVIS_1LINE|ELVIS_POP)) == 0))
+			drawopencomplete(focus);
+
+		/* check the results */
 		if (result != RESULT_MORE)
 		{
 			/* If the window went away, then no more processing
-			 * is necessary.
+			 * is necessary.  Note that we're checking windefault
+			 * here, not focus!  If windefault has become NULL,
+			 * that means the window was destroyed, and focus now
+			 * points to freed memory!
 			 */
 			if (!windefault)
 			{
@@ -268,14 +292,15 @@ void statekey(key)
 			}
 
 			/* We did one command line.  Is that all we wanted? */
+			state = focus->state;
 			if (state->flags & ELVIS_1LINE)
 			{
 				/* yes, pop the stratum */
 				while (state->acton != state->pop)
 				{
-					statepop(windefault);
+					statepop(focus);
 				}
-				windefault->state->flags |= ELVIS_POP;
+				state->flags |= ELVIS_POP;
 			}
 			else
 			{
@@ -309,26 +334,26 @@ void statekey(key)
 	if (result == RESULT_ERROR)
 	{
 		/* clobber the "cmdchars" list - all chars entered */
-		windefault->cmdchars[0] = '\0';
+		focus->cmdchars[0] = '\0';
 
 		/* alert the window */
 		mapalert();
 		if (o_errorbells)
-			guibeep(windefault);
+			guibeep(focus);
 	}
-	else if (result == RESULT_COMPLETE && key != -1)
+	else if (result == RESULT_COMPLETE && key != -1 && state == focus->state)
 	{
 		/* clobber the "cmdchars" list - all chars entered */
-		windefault->cmdchars[0] = '\0';
+		focus->cmdchars[0] = '\0';
 
 		/* We have parsed a complete command.  Now perform it */
-		switch ((*state->perform)(windefault))
+		switch ((*state->perform)(focus))
 		{
 		  case RESULT_ERROR:
 			/* command failed!  alert the window */
 			mapalert();
 			if (o_errorbells)
-				guibeep(windefault);
+				guibeep(focus);
 			break;
 
 		  case RESULT_MORE:
@@ -342,7 +367,10 @@ void statekey(key)
 		}
 
 		/* The command may have caused the window to disappear.
-		 * If so, then no more processing is necessary.
+		 * If so, then no more processing is necessary.  Note that
+		 * we check windefault, not focus!  If windefault has become
+		 * NULL, then the window was destroyed and focus points to
+		 * freed memory.
 		 */
 		if (!windefault)
 		{
@@ -352,19 +380,18 @@ void statekey(key)
 		/* If cursor has moved outside state->top and state->bottom,
 		 * then make state->top and state->bottom equal the cursor.
 		 */
-		fixbounds(windefault);
+		fixbounds(focus);
 
 		/* if the "optimize" option is false, and the current window
 		 * is in vi mode, then update the current window's image.
 		 */
-		if (!o_optimize
-		 && windefault
-		 && !windefault->state->pop
-		 && windefault->di->curchgs != markbuffer(windefault->cursor)->changes
-		 && (windefault->di->drawstate == DRAW_VISUAL
-			|| windefault->di->drawstate == DRAW_VMSG))
+		if (!o_optimize /* && focus */
+		 && !focus->state->pop
+		 && focus->di->curchgs != markbuffer(focus->cursor)->changes
+		 && (focus->di->drawstate == DRAW_VISUAL
+			|| focus->di->drawstate == DRAW_VMSG))
 		{
-			drawimage(windefault);
+			drawimage(focus);
 			if (gui->flush)
 				(*gui->flush)();
 		}
@@ -374,13 +401,13 @@ void statekey(key)
 		/* partial command -- add this key to the cmdchars field */
 
 		/* if the array is full, then shift */
-		i = CHARlen(windefault->cmdchars);
+		i = CHARlen(focus->cmdchars);
 		j = (iscntrl(key) ? 2 : 1);
-		if (i + j >= QTY(windefault->cmdchars))
+		if (i + j >= QTY(focus->cmdchars))
 		{
-			for (i = 0; windefault->cmdchars[i]; i++)
+			for (i = 0; focus->cmdchars[i]; i++)
 			{
-				windefault->cmdchars[i] = windefault->cmdchars[i + j];
+				focus->cmdchars[i] = focus->cmdchars[i + j];
 			}
 			i -= j;
 		}
@@ -395,17 +422,17 @@ void statekey(key)
 		}
 		if (iscntrl(key))
 		{
-			windefault->cmdchars[i++] = '^';
+			focus->cmdchars[i++] = '^';
 			key ^= 0x40;
 		}
-		windefault->cmdchars[i++] = key;
-		windefault->cmdchars[i++] = '\0';
+		focus->cmdchars[i++] = key;
+		focus->cmdchars[i++] = '\0';
 	}
 
 	/* if visibly marking, then adjust the marks */
-	if (windefault->seltop)
+	if (focus->seltop)
 	{
-		(void)v_visible(windefault, NULL);
+		(void)v_visible(focus, NULL);
 	}
 
 	/* if we aren't still parsing, then perform other checks */
@@ -413,66 +440,54 @@ void statekey(key)
 	{
 AfterKeystroke:
 		/* pop states, if we're supposed to */
-		while (windefault->state && (windefault->state->flags & ELVIS_POP))
+		while (focus->state && (focus->state->flags & ELVIS_POP))
 		{
 			/* pop the state */
-			statepop(windefault);
+			statepop(focus);
 
 			/* if the next state has its ELVIS_MORE flag set, then
 			 * call the next state's perform() function again.
 			 */
-			if (windefault->state
-				&& windefault->state->flags & ELVIS_MORE)
+			if (focus->state
+				&& focus->state->flags & ELVIS_MORE)
 			{
 				/* call the next state's perform() function again */
-#if 0
-				if (result == RESULT_ERROR ||
-				    (*windefault->state->perform)(windefault) != RESULT_COMPLETE)
-				{
-					/* command failed!  alert the window */
-					mapalert();
-					if (o_errorbells)
-						guibeep(windefault);
-				}
-				windefault->state->flags &= ~ELVIS_MORE;
-#else
 				if (result != RESULT_ERROR)
-					result = (*windefault->state->perform)(windefault);
+					result = (*focus->state->perform)(focus);
 				switch (result)
 				{
 				  case RESULT_ERROR:
 					/* command failed!  alert the window */
 					mapalert();
 					if (o_errorbells)
-						guibeep(windefault);
-					windefault->state->flags &= ~ELVIS_MORE;
+						guibeep(focus);
+					focus->state->flags &= ~ELVIS_MORE;
 					break;
 
 				  case RESULT_COMPLETE:
-					windefault->state->flags &= ~ELVIS_MORE;
+					focus->state->flags &= ~ELVIS_MORE;
 					break;
 
 				  case RESULT_MORE:
-					windefault->state->flags |= ELVIS_MORE;
+					focus->state->flags |= ELVIS_MORE;
 					break;
 				}
-#endif
 			}
 		}
 
 		/* fix the edit bounds */
-		fixbounds(windefault);
+		fixbounds(focus);
 
 		/* convert ELVIS_ONCE to ELVIS_POP */
-		if (windefault->state && (windefault->state->flags & ELVIS_ONCE))
+		if (focus->state && (focus->state->flags & ELVIS_ONCE))
 		{
-			windefault->state->flags |= ELVIS_POP;
+			focus->state->flags |= ELVIS_POP;
 		}
 
 		/* if no states are left, then destroy the window */
-		if (!windefault->state)
+		if (!focus->state)
 		{
-			(*gui->destroygw)(windefault->gw, True);
+			(*gui->destroygw)(focus->gw, True);
 		}
 	}
 }

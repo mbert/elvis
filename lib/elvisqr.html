@@ -1,12 +1,12 @@
 <html><head>
-<title>Elvis 2.0 Quick Reference</title>
+<title>Elvis 2.1 Quick Reference</title>
 </head><body>
 <h1><!-- This "h1" tag is here just to avoid elvis' normal indentation -->
 <font size=2><pre graphic>
 .----------------------.-----------------------.-----------------------------.
 | VISUAL MOVEMENT CMDS | VISUAL EDIT CMDS      | EX COMMANDS [2]             |
 | <a href="elvisvi.html#h">h</a>    Move left       | <a href="elvisvi.html#i">i</a>    Insert           | <a href="elvisex.html#quit">:q!</a>      QUIT, NO SAVE      |
-| <a href="elvisvi.html#j">j</a>    Move down       | <a href="elvisvi.html#a">a</a>    Append           | <a href="elvisex.html#xit">:x</a>       SAVE & QUIT        |
+| <a href="elvisvi.html#j">j</a>    Move down       | <a href="elvisvi.html#a">a</a>    Append           | <a href="elvisex.html#xit">:x</a>       SAVE &amp; QUIT        |
 | <a href="elvisvi.html#k">k</a>    Move up         | <a href="elvisvi.html#o">o</a>    Open line after  | <a href="elvisex.html#qall">:qa</a>      Quit all windows   |
 | <a href="elvisvi.html#l">l</a>    Move right      | <a href="elvisvi.html#O">O</a>    Open line before | <a href="elvisex.html#help">:h topic</a> Help               |
 | <a href="elvisvi.html#G">xxxG</a> Go to line xxx  | <a href="elvisvi.html#R">R</a>    Replace          | <a href="elvisex.html#write">:w file</a>  Write this file    |
@@ -17,11 +17,11 @@
 | VISUAL WINDOW CMDS   | <a href="elvisvi.html#u">u</a>    Undo             | <a href="elvisex.html#tag">:ta name</a> Look up a tag      |
 | <a href="elvisvi.html#^Ws">^Ws</a>  Split window    |-----------------------| <a href="elvisex.html#make">:mak</a>     Compile, find error|
 | <a href="elvisvi.html#^W^W">^W^W</a> Go to next win  | VISUAL OPERATORS [4]  | <a href="elvisex.html#errlist">:er</a>      Find next error    |
-| <a href="elvisvi.html#^Wq">^Wq</a>  SAVE & QUIT     | <a href="elvisvi.html#lt">&lt;</a>    Shift left       |-----------------------------|
+| <a href="elvisvi.html#^Wq">^Wq</a>  SAVE &amp; QUIT     | <a href="elvisvi.html#lt">&lt;</a>    Shift left       |-----------------------------|
 | <a href="elvisvi.html#^Wd">^Wd</a>  Toggle display  | <a href="elvisvi.html#gt">&gt;</a>    Shift right      | OPTIONS [6]                 |
-|----------------------| <a href="elvisvi.html#=">=</a>    Adjust via eq [5]| <a href="elvisopt.html#binary">binary</a>     Is file non-text?|
+|----------------------| <a href="elvisvi.html#=">=</a>    Adjust via ep [5]| <a href="elvisopt.html#readeol">readeol</a>    File type        |
 |VISUAL MISCELLANY     | <a href="elvisvi.html#bang">!xxx</a> Filter thru xxx  | <a href="elvisopt.html#bufdisplay">bufdisplay</a> How to display   |
-| <a href="elvisvi.html#Z">ZZ</a>   SAVE & QUIT     | <a href="elvisvi.html#c">c</a>    Change           | <a href="elvisopt.html#tabstop">tabstop</a>    Width of tab char|
+| <a href="elvisvi.html#Z">ZZ</a>   SAVE &amp; QUIT     | <a href="elvisvi.html#c">c</a>    Change           | <a href="elvisopt.html#tabstop">tabstop</a>    Width of tab char|
 | <a href="elvisvi.html#^L">^L</a>   Refresh screen  | <a href="elvisvi.html#d">d</a>    Delete           | <a href="elvisopt.html#shiftwidth">shiftwidth</a> For &lt; &gt; operators|
 | <a href="elvisvi.html#colon">:</a>    Run 1 ex command| <a href="elvisvi.html#y">y</a>    Yank             | <a href="elvisopt.html#inputtab">inputtab</a>   Role of &lt;tab&gt; key|
 | <a href="elvisvi.html#Q">Q</a>    Run many ex cmds|-----------------------| <a href="elvisopt.html#magic">magic</a>      Searching syntax |
@@ -29,7 +29,7 @@
 | Esc  Cancel command  | <a href="elvisvi.html#h">v</a>    Select chars     | <a href="elvisopt.html#showmode">showmode</a>   Show input state |
 | <a href="elvisvi.html#^G">^G</a>   Show fil info   | <a href="elvisvi.html#V">V</a>    Select lines     | <a href="elvisopt.html#lptype">lptype</a>     Printer type     |
 | <a href="elvisvi.html#stop">.</a>    Repeat change   | <a href="elvisvi.html#^V">^V</a>   Select rectangle | <a href="elvisopt.html#lpout">lpout</a>      Printer port     |
-^----------------------^-----------------------^-----------------------------^</pre></h1>
+^----------------------^-----------------------^-----------------------------^</pre></font></h1>
 <font size=3>NOTES:
 <ol>
 
@@ -66,5 +66,5 @@ This can provide convenient access to an on-line manual.
 
 <li>The visual selection commands can be by hitting the &lt;Esc&gt; key.
 
-</ol>
+</ol></font>
 </body></html>

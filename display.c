@@ -1,7 +1,7 @@
 /* display.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_display[] = "$Id: display.c,v 2.16 1996/07/28 00:38:53 steve Exp $";
+char id_display[] = "$Id: display.c,v 2.17 1997/02/09 22:15:56 steve Exp $";
 
 #include "elvis.h"
 
@@ -14,6 +14,7 @@ DISPMODE *allmodes[] =
 #ifdef DISPLAY_MARKUP
 	&dmhtml,
 	&dmman,
+	&dmtex,
 #endif
 #ifdef DISPLAY_SYNTAX
 	&dmsyntax,

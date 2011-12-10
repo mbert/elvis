@@ -7,7 +7,15 @@
 #include <stdlib.h>
 
 #include "config.h"
+#include "version.h"
+#include "osdef.h"
 
+/* The FTP protocol requires HTTP */
+#if defined(PROTOCOL_FTP) && !defined(PROTOCOL_HTTP)
+# define PROTOCOL_HTTP
+#endif
+
+/* Some handy macros */
 #define QTY(array)	(sizeof(array) / sizeof((array)[0]))
 #define ELVCTRL(ch)	((ch) ^ 0x40)
 
@@ -33,10 +41,15 @@
 #define HELP_BUF	"Elvis documentation"
 #define ERRLIST_BUF	"Elvis error list"
 #define TRACE_BUF	"Elvis map log"
+#define BBROWSE_BUF	"Elvis buffer list"
 
 /* Names of files that store default contents of buffers */
 #define INIT_FILE	"elvis.ini"	/* executed before first file is loaded */
-#define CUSTOM_FILE	"elvis.rc"	/* custom file for each user */
+#if ANY_UNIX
+# define CUSTOM_FILE	".exrc"		/* custom file for each user */
+#else
+# define CUSTOM_FILE	"elvis.rc"	/* custom file for each user */
+#endif
 #define BEFOREREAD_FILE	"elvis.brf"	/* executed before each file is loaded */
 #define AFTERREAD_FILE	"elvis.arf"	/* executed after each file is loaded */
 #define BEFOREWRITE_FILE "elvis.bwf"	/* executed before writing a file */
@@ -44,13 +57,20 @@
 #define MSG_FILE	"elvis.msg"	/* verbose message translations */
 #define HELP_FILE	"elvis.html"	/* elvis online documentation */
 #define SYNTAX_FILE	"elvis.syn"	/* descriptions of languages */
+#define BROWSER_FILE	"elvis.bro"	/* prototype of browser document */
+#define NET_FILE	"elvis.net"	/* network proxy list */
+#define FTP_FILE	"elvis.ftp"	/* ftp account information */
 
 /* a very large number */
 #define INFINITY	2147483647L
 
 /* default size of the tag stack (for each window) */
-#define TAGSTK		10
+#ifndef TAGSTK
+# define TAGSTK		10
+#endif
 
+
+/* Some useful data types */
 typedef enum {False, True} BOOLEAN;
 typedef enum { RESULT_COMPLETE, RESULT_MORE, RESULT_ERROR } RESULT;
 typedef unsigned char CHAR;
@@ -59,6 +79,10 @@ typedef unsigned int	_COUNT_;
 typedef unsigned int	_CHAR_;
 typedef int		_char_;
 
+
+/* Include one version of the ctype macros.  Elvis' versions have the advantage
+ * of automatically checking the digraph table.
+ */
 #ifdef NEED_CTYPE
 # include "elvctype.h"
 #else
@@ -80,9 +104,6 @@ typedef int		_char_;
 #define long2CHAR(s,l)	((void)sprintf((char *)(s), "%ld", (l)))
 #define CHAR2long(s)	(atol(tochar8(s)))
 
-/* Module header files */
-#include "version.h"
-#include "osdef.h"
 #ifndef USE_PROTOTYPES
 # if defined(__STDC__) || defined(__cplusplus)
 #  define USE_PROTOTYPES	1
@@ -96,6 +117,7 @@ typedef int		_char_;
 # define P_(args)	()
 #endif
 
+/* Some macros to handle C++ in a graceful way */
 #if defined (__cplusplus)
 #define BEGIN_EXTERNC	extern "C" {
 #define END_EXTERNC	}
@@ -104,6 +126,7 @@ typedef int		_char_;
 #define END_EXTERNC
 #endif
 
+/* Header files for the modules */
 #include "safe.h"
 #include "options.h"
 #include "optglob.h"
@@ -113,7 +136,6 @@ typedef int		_char_;
 #include "buffer.h"
 #include "mark.h"
 #include "buffer2.h"
-#include "options2.h"
 #include "scan.h"
 #include "opsys.h"
 #include "map.h"
@@ -122,6 +144,7 @@ typedef int		_char_;
 #include "draw.h"
 #include "state.h"
 #include "window.h"
+#include "options2.h"
 #include "gui2.h"
 #include "display2.h"
 #include "draw2.h"
@@ -140,6 +163,9 @@ typedef int		_char_;
 #include "calc.h"
 #include "more.h"
 #include "digraph.h"
+#include "tag.h"
+#include "tagsrch.h"
+#include "tagelvis.h"
 #include "need.h"
 #include "misc.h"
 

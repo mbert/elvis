@@ -1,7 +1,3 @@
 """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 " TAKE A GUESS AT THE BUFFER'S TYPE
-let e=tolower(dirext(filename))
-if e==".bin" || e==".dat"
-then set! binary
-if (os=="msdos" || os=="win32") && (e=".exe" || e=".com" || e=".dll")
-then set! binary
+let! readeol=fileeol(filename)

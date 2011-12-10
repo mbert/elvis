@@ -11,13 +11,15 @@
  * Elvis maintains the "set" and "show" flags itself; the "save" flag is'
  * maintained by each option's store() function.
  */
-#define OPT_SET		0x01	/* value has been changed */
-#define OPT_SHOW	0x02	/* value should be shown */
-#define OPT_HIDE	0x04	/* value should be hidden even if ":set all" */
-#define OPT_LOCK	0x08	/* value can never be changed */
-#define OPT_UNSAFE	0x10	/* value can't be changed if "safer" is set */
-#define OPT_FREE	0x20	/* call safefree() on the value before freeing/changing it */
-#define OPT_REDRAW	0x40	/* changing this option forces a redraw */
+#define OPT_SET		0x001	/* value has been changed */
+#define OPT_SHOW	0x002	/* value should be shown */
+#define OPT_HIDE	0x004	/* value should be hidden even if ":set all" */
+#define OPT_LOCK	0x008	/* value can never be changed */
+#define OPT_UNSAFE	0x010	/* value can't be changed if "safer" is set */
+#define OPT_FREE	0x020	/* call safefree() on the value before freeing/changing it */
+#define OPT_REDRAW	0x040	/* changing this option forces a redraw */
+#define OPT_SCRATCH	0x080	/* changing forces redraw from scratch */
+#define OPT_NODFLT	0x100	/* no default value */
 
 /* Instances of this structure are used to store values of variables.  Values
  * are stored apart from their descriptions because for some options the
@@ -44,6 +46,7 @@ typedef struct optdesc_s
    int	(*isvalid) P_((struct optdesc_s *opt, OPTVAL *val, CHAR *newval));
    char *limit;
    int	(*store) P_((struct optdesc_s *opt, OPTVAL *val, CHAR *newval));
+   CHAR	*dflt;
 } OPTDESC;
 
 
@@ -56,7 +59,7 @@ typedef struct optdesc_s
 
 /* This macro sets the value & flags of an option.  For example, the macro
  * optpreset(o_session, "session.elv", OPT_HIDE) sets the value of the
- * "session" option "session.elv", and turns on its OPT_HIDE flag.
+ * "session" option to "session.elv", and turns on its OPT_HIDE flag.
  */
 #define optpreset(o, v, f)	((o) = (v), optflags(o) |= (f))
 
@@ -75,9 +78,11 @@ extern CHAR *optnstring P_((OPTDESC *desc, OPTVAL *val));
 extern CHAR *optsstring P_((OPTDESC *desc, OPTVAL *val));
 extern CHAR *opt1string P_((OPTDESC *desc, OPTVAL *val));
 extern BOOLEAN optset P_((BOOLEAN bang, CHAR *ARGS, CHAR *OUTBUF, size_t outsize));
-extern CHAR *optgetstr P_((CHAR *name));
-extern BOOLEAN optputstr P_((CHAR *name, CHAR *value));
-extern CHAR *optname P_((CHAR *name));
+extern CHAR *optgetstr P_((CHAR *name, OPTDESC **desc));
+extern BOOLEAN optputstr P_((CHAR *name, CHAR *value, BOOLEAN bang));
+extern OPTVAL *optval P_((char *name));
+extern void optsetdflt P_((void));
+extern void *optlocal P_((void *leval));
 #if defined (GUI_WIN32)
 extern int optiswinsize (OPTDESC *desc, OPTVAL *val, CHAR *newval);
 #endif

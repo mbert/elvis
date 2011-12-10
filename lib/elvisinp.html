@@ -1,5 +1,5 @@
 <html><head>
-<title>Elvis 2.0 Input Mode</title>
+<title>Elvis 2.1 Input Mode</title>
 </head><body>
 <h1>3. INPUT MODE</h1>
 
@@ -38,11 +38,10 @@ cursor's position, except for the following:
 | ^H  | (Backspace) Erase the character before the cursor   |
 | ^I  | (Tab) Depends on the <a href="elvisopt.html#inputtab">inputtab</a> option                |
 | ^K  | Compose the next two characters as a digraph        |
-| ^L  | Redraw the window                                   |
 | ^M  | (Enter) Insert a newline (^J, linefeed)             |
-| ^O  | Execute next key as a visual command                |
+| ^O  | Read &amp; run a single <a href="elvisvi.html">vi command</a>, then resume input   |
 | ^P  | Insert the contents of the cut buffer               |
-| ^R  | Redraw the screen, like ^L                          |
+| ^R  | Redraw the window, like ^L                          |
 | ^T  | Insert an indent character                          |
 | ^U  | Backspace to the beginning of the line              |
 | ^V  | Insert the following keystroke, even if special     |
@@ -76,9 +75,10 @@ A digraph is a character which is composed of two other characters.
 For example, an apostrophe and the letter i could be defined as a digraph
 which is to be stored and displayed as an accented i.
 
-<p>There is no single standard for extended ASCII character sets.
+<p>There is no single standard for extended ASCII character sets,
+so elvis uses a configurable digraph table.
 You can view or edit the digraph table via the
-<a href="elvisex.html#digraph">:digraph</a> ex command.
+<a href="elvisex.html#digraph">:digraph!</a> ex command.
 
 <p>When inputting text, there are two ways you can type in a digraph.
 The first way is to type the first character, then hit <kbd>backspace</kbd>,
@@ -93,32 +93,34 @@ the <a href="elvisopt.html#digraph">digraph</a> option.
 
 <h3>3.2.1 Latin-1 digraphs</h3>
 
-The most common standard for non-ASCII symbol sets is called Latin-1.
-(It may also called ISO 8859/1, and ECMA-94.)
-This symbol set is used by X-windows, but not MS-DOS.
+The most common standard for non-ASCII symbol sets is called Latin-1
+(or ISO 8859/1, or ECMA-94 -- these are all the same).
+This symbol set is used by X-windows and graphical Windows95 programs,
+but not MS-DOS.
 
-<p>Elvis is distributed with a file named "lib/elvis.lat" which contains the
+<p>Elvis is distributed with a file named
+<a href="elvisses.html#elvis.lat">lib/elvis.lat</a> which contains the
 <a href="elvisex.html#digraph">:digraph</a> commands necessary to set up
 the digraph table appropriately for Latin-1.
 Most of these digraphs are fairly straight-forward.
 For example, to generate an accented "i", type <kbd>^K, i,</kbd>
 and an apostrophe character.
-You can list all of the digraphs via the command ":dig!"
+You can list all of the digraphs via the command "<code>:dig!</code>"
 
 <p>The default <a href="elvisses.html#elvis.ini">lib/elvis.ini</a> file reads
 the lib/elvis.lat file automatically.
 This is very handy if your system really does use Latin-1, but if it doesn't
 then you'll probably want to disable the automatic loading.
 You can disable it by editing the lib/elvis.ini file,
-searching for the "<tt>source!&nbsp;(elvispath("elvis.lat"))</tt>" line,
+searching for the "<code>source!&nbsp;(elvispath("elvis.lat"))</code>" line,
 and inserting a double-quote character at the start of that line.
 
 <h3>3.2.2 PC-8 digraphs</h3>
 
-MS-DOS doesn't use Latin-1, and neither do Win32 console applications,
+MS-DOS doesn't use Latin-1, and neither do OS/2 or Win32 console applications,
 such as elvis.
 So for Microsoft operating systems, elvis loads its digraph table via
-a file named "lib/elvis.pc8".
+a file named <a href="elvisses.html#elvis.pc8">lib/elvis.pc8</a>.
 This sets up the digraph table appropriately for the 437 code page,
 which is Microsoft's default.
 If you use a different code page, you may wish to edit lib/elvis.pc8.

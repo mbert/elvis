@@ -1,0 +1,848 @@
+//Microsoft Developer Studio generated resource script.
+//
+#include "elvisres.h"
+
+#define APSTUDIO_READONLY_SYMBOLS
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 2 resource.
+//
+#include <windows.h>
+#include <dlgs.h>
+
+/////////////////////////////////////////////////////////////////////////////
+#undef APSTUDIO_READONLY_SYMBOLS
+
+/////////////////////////////////////////////////////////////////////////////
+// English (U.S.) resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENU)
+#ifdef _WIN32
+LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
+#pragma code_page(1252)
+#endif //_WIN32
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Menu
+//
+
+IDM_ELVIS MENU DISCARDABLE 
+BEGIN
+    POPUP "&File"
+    BEGIN
+        MENUITEM "&New",                        IDM_FILE_NEW
+        MENUITEM "&Open...",                    IDM_FILE_OPEN
+        MENUITEM "Spli&t...",                   IDM_FILE_SPLIT
+        MENUITEM "&Save",                       IDM_FILE_SAVE
+        MENUITEM "Save &As...",                 IDM_FILE_SAVEAS
+        MENUITEM SEPARATOR
+        MENUITEM "Change &Directory...",        IDM_FILE_CD
+        MENUITEM SEPARATOR
+        MENUITEM "&Print",                      IDM_FILE_PRINT
+        MENUITEM "Print Set&up...",             IDM_FILE_PRINTSETUP
+        MENUITEM SEPARATOR
+        MENUITEM "E&xit",                       IDM_FILE_EXIT
+    END
+    POPUP "&Edit"
+    BEGIN
+        MENUITEM "&Undo",                       IDM_EDIT_UNDO
+        MENUITEM "&Redo",                       IDM_EDIT_REDO
+        MENUITEM SEPARATOR
+        MENUITEM "Cu&t",                        IDM_EDIT_CUT
+        MENUITEM "&Copy",                       IDM_EDIT_COPY
+        MENUITEM "&Paste",                      IDM_EDIT_PASTE
+    END
+    POPUP "&Search"
+    BEGIN
+        MENUITEM "&Search...",                  IDM_SEARCH_SEARCH
+        MENUITEM "Search &again",               IDM_SEARCH_AGAIN
+        MENUITEM "&Replace...",                 IDM_SEARCH_REPLACE
+        MENUITEM SEPARATOR
+        MENUITEM "&Goto line...",               IDM_SEARCH_GOTO
+        MENUITEM "&Next error",                 IDM_SEARCH_NEXT_ERROR
+    END
+    POPUP "&Window"
+    BEGIN
+        MENUITEM "&Split new",                  IDM_WINDOW_NEW
+        MENUITEM "&Next",                       IDM_WINDOW_NEXT
+        MENUITEM "&Previous",                   IDM_WINDOW_PREVIOUS
+        MENUITEM SEPARATOR
+        MENUITEM "Next &File",                  IDM_WINDOW_NFILE
+        MENUITEM "P&revious File",              IDM_WINDOW_PFILE
+        MENUITEM SEPARATOR
+        MENUITEM "&Buffer...",                  IDM_WINDOW_BUFFER
+    END
+    POPUP "&Options"
+    BEGIN
+        MENUITEM "&Font...",                    IDM_OPTIONS_FONT
+        MENUITEM "&Gui...",                     IDM_OPTIONS_GUI
+        MENUITEM SEPARATOR
+        MENUITEM "&Buffer...",                  IDM_OPTIONS_BUFFER
+        MENUITEM "G&lobal...",                  IDM_OPTIONS_GLOBAL
+        MENUITEM "&Syntax...",                  IDM_OPTIONS_SYNTAX
+        MENUITEM "&Window...",                  IDM_OPTIONS_WINDOW
+        MENUITEM "&User...",                    IDM_OPTIONS_USER
+        MENUITEM SEPARATOR
+        MENUITEM "Sa&ve",                       IDM_OPTIONS_SAVE
+    END
+    POPUP "&Tools"
+    BEGIN
+        MENUITEM "&Compile",                    IDM_TOOLS_COMPILE
+        MENUITEM "&Make",                       IDM_TOOLS_MAKE
+        MENUITEM SEPARATOR
+        MENUITEM "Make &tags...",               IDM_TOOLS_TAGS
+        MENUITEM SEPARATOR
+        MENUITEM "&WinApp...",                  IDM_TOOLS_RUN
+        MENUITEM "&Shell",                      IDM_TOOLS_SHELL
+    END
+    POPUP "&Help"
+    BEGIN
+        MENUITEM "&Index...",                   IDM_HELP_INDEX
+        MENUITEM "&Ex...",                      IDM_HELP_EX
+        MENUITEM "&Vi...",                      IDM_HELP_VI
+        MENUITEM "&Options...",                 IDM_HELP_OPTIONS
+        MENUITEM SEPARATOR
+        MENUITEM "&About...",                   IDM_HELP_ABOUT
+    END
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Dialog
+//
+
+IDD_DIR_SELECT DIALOG DISCARDABLE  36, 24, 161, 135
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Change Directory"
+FONT 8, "Helv"
+BEGIN
+    LTEXT           "File &Name:",1090,149,81,8,9,NOT WS_VISIBLE
+    EDITTEXT        1152,127,122,34,12,ES_AUTOHSCROLL | ES_OEMCONVERT | NOT 
+                    WS_VISIBLE
+    LISTBOX         1120,102,82,16,26,LBS_SORT | LBS_OWNERDRAWFIXED | 
+                    LBS_HASSTRINGS | LBS_DISABLENOSCROLL | NOT WS_VISIBLE | 
+                    WS_VSCROLL | WS_TABSTOP
+    LTEXT           "&Directories:",-1,5,6,92,9
+    LTEXT           "",1088,6,17,91,9,SS_NOPREFIX
+    LISTBOX         1121,5,32,92,71,LBS_SORT | LBS_OWNERDRAWFIXED | 
+                    LBS_HASSTRINGS | LBS_DISABLENOSCROLL | WS_VSCROLL | 
+                    WS_TABSTOP
+    LTEXT           "List Files of &Type:",1089,126,114,35,9,NOT WS_VISIBLE
+    COMBOBOX        1136,6,114,90,36,CBS_DROPDOWNLIST | CBS_AUTOHSCROLL | 
+                    NOT WS_VISIBLE | WS_BORDER | WS_VSCROLL | WS_TABSTOP
+    LTEXT           "Dri&ves:",1091,5,104,92,9
+    COMBOBOX        1137,5,114,92,68,CBS_DROPDOWNLIST | CBS_OWNERDRAWFIXED | 
+                    CBS_AUTOHSCROLL | CBS_SORT | CBS_HASSTRINGS | WS_BORDER | 
+                    WS_VSCROLL | WS_TABSTOP
+    DEFPUSHBUTTON   "OK",IDOK,103,6,50,14,WS_GROUP
+    PUSHBUTTON      "Cancel",IDCANCEL,103,24,50,14,WS_GROUP
+    PUSHBUTTON      "&Help",1038,103,46,50,14,NOT WS_VISIBLE | WS_GROUP
+    CONTROL         "&Read Only",1040,"Button",BS_AUTOCHECKBOX | NOT 
+                    WS_VISIBLE | WS_GROUP | WS_TABSTOP,103,68,50,12
+END
+
+IDD_ABOUT DIALOG DISCARDABLE  0, 0, 199, 109
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "About WinElvis"
+FONT 8, "MS Sans Serif"
+BEGIN
+    DEFPUSHBUTTON   "OK",IDOK,74,88,50,14
+    ICON            IDI_ELVIS,IDC_STATIC,7,7,18,20
+    CTEXT           "WinElvis Version ",IDAB_VERSION,41,7,151,8
+    CTEXT           "Copyright 1996, Steve Kirkendall",IDC_STATIC,41,19,151,
+                    8
+    CTEXT           "Windows Port by Serge Pirotte",IDC_STATIC,41,31,151,8
+    LTEXT           "Physical Memory :",IDC_STATIC,41,56,62,8
+    LTEXT           "Disk Space :",IDC_STATIC,41,68,59,8
+    LTEXT           "",IDAB_PHYS_MEM,103,56,89,8
+    LTEXT           "",IDAB_DISK_SPACE,103,68,89,8
+    CONTROL         "",IDC_STATIC,"Static",SS_BLACKRECT,41,48,151,1
+END
+
+IDD_GOTO DIALOG DISCARDABLE  0, 0, 118, 68
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Goto Line"
+FONT 8, "MS Sans Serif"
+BEGIN
+    LTEXT           "Destination &Line :",IDC_STATIC,7,14,56,8
+    EDITTEXT        IDGT_LINE,67,14,44,14,ES_AUTOHSCROLL
+    DEFPUSHBUTTON   "OK",IDOK,7,46,50,14
+    PUSHBUTTON      "Cancel",IDCANCEL,61,46,50,14
+END
+
+IDD_SEARCH DIALOG DISCARDABLE  0, 0, 204, 126
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Search"
+FONT 8, "MS Sans Serif"
+BEGIN
+    LTEXT           "&Search",IDC_STATIC,6,7,24,8
+    COMBOBOX        IDSR_STRING,6,17,191,30,CBS_DROPDOWN | 
+                    CBS_NOINTEGRALHEIGHT | WS_VSCROLL | WS_TABSTOP
+    GROUPBOX        "&Options",IDC_STATIC,6,36,191,61
+    CONTROL         "&Forward",IDSR_FORWARD,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,12,52,41,10
+    CONTROL         "&Ignorecase",IDSR_IGNORECASE,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,12,66,51,10
+    CONTROL         "&Magic",IDSR_MAGIC,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,12,81,35,10
+    CONTROL         "&Autoselect",IDSR_AUTOSELECT,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,100,52,49,10
+    CONTROL         "&Wrapscan",IDSR_WRAPSCAN,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,100,66,49,10
+    DEFPUSHBUTTON   "OK",IDOK,6,105,50,14
+    PUSHBUTTON      "Cancel",IDCANCEL,61,105,50,14
+END
+
+IDD_RUN DIALOG DISCARDABLE  0, 0, 186, 62
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Run a Windows Application"
+FONT 8, "MS Sans Serif"
+BEGIN
+    LTEXT           "&Command Line",IDC_STATIC,7,7,48,8
+    COMBOBOX        IDRUN_CMDLINE,7,18,172,30,CBS_DROPDOWN | WS_VSCROLL | 
+                    WS_TABSTOP
+    DEFPUSHBUTTON   "OK",IDOK,7,41,50,14
+    PUSHBUTTON      "Cancel",IDCANCEL,61,41,50,14
+END
+
+IDD_TAGS DIALOG DISCARDABLE  0, 0, 235, 143
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Make Tags"
+FONT 8, "MS Sans Serif"
+BEGIN
+    LTEXT           "&Files",IDC_STATIC,7,7,15,8
+    EDITTEXT        IDTAG_FILES,7,17,221,14,ES_AUTOHSCROLL
+    GROUPBOX        "&Options",IDC_STATIC,7,38,221,75
+    CONTROL         "Use &? Instead of /",IDTAG_USEQUEST,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,14,50,73,10
+    CONTROL         "Use Line &Numbers",IDTAG_LINENUMBERS,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,14,64,74,10
+    CONTROL         "Include &Static Tags",IDTAG_STATIC,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,14,79,77,10
+    CONTROL         "Include &Inline Definitions",IDTAG_INLINE,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,14,95,93,10
+    CONTROL         "Include &Typedefs",IDTAG_TYPEDEFS,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,121,50,71,10
+    CONTROL         "Include &Variable Definitions",IDTAG_VARIABLE,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,121,64,101,10
+    CONTROL         "Write a &Refs File",IDTAG_REFS,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,121,79,68,10
+    CONTROL         "&Append to Tags File",IDTAG_APPEND,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,121,95,79,10
+    DEFPUSHBUTTON   "OK",IDOK,7,122,50,14
+    PUSHBUTTON      "Cancel",IDCANCEL,61,122,50,14
+END
+
+IDD_REPLACE DIALOG DISCARDABLE  0, 0, 226, 172
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Replace"
+FONT 8, "MS Sans Serif"
+BEGIN
+    LTEXT           "&Replace",IDC_STATIC,7,7,28,8
+    COMBOBOX        IDREP_STR1,7,18,212,30,CBS_DROPDOWN | 
+                    CBS_NOINTEGRALHEIGHT | WS_VSCROLL | WS_TABSTOP
+    LTEXT           "&With",IDC_STATIC,7,37,16,8
+    COMBOBOX        IDREP_STR2,7,48,212,30,CBS_DROPDOWN | 
+                    CBS_NOINTEGRALHEIGHT | WS_VSCROLL | WS_TABSTOP
+    LTEXT           "&From",IDC_STATIC,7,67,16,8
+    EDITTEXT        IDREP_FROM,26,67,40,14,ES_AUTOHSCROLL
+    LTEXT           "&To",IDC_STATIC,114,67,10,8
+    EDITTEXT        IDREP_TO,127,67,40,14,ES_AUTOHSCROLL
+    GROUPBOX        "&Arguments",IDC_STATIC,7,86,212,27
+    CONTROL         "&g",IDREP_G,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,15,99,
+                    20,10
+    CONTROL         "&p",IDREP_P,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,101,
+                    99,20,10
+    CONTROL         "&x",IDREP_X,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,170,
+                    99,19,10
+    GROUPBOX        "&Options",IDC_STATIC,7,118,212,24
+    CONTROL         "&Magic",IDREP_MAGIC,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,15,129,35,10
+    CONTROL         "&Ignorecase",IDREP_IGNORECASE,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,114,129,51,10
+    DEFPUSHBUTTON   "OK",IDOK,7,151,50,14
+    PUSHBUTTON      "Cancel",IDCANCEL,61,151,50,14
+END
+
+IDD_OPT_BUFFER DIALOG DISCARDABLE  0, 0, 276, 226
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Buffer Options"
+FONT 8, "MS Sans Serif"
+BEGIN
+    DEFPUSHBUTTON   "OK",IDOK,5,205,50,14
+    GROUPBOX        "&Boolean options",IDC_STATIC,5,5,265,40
+    CONTROL         "autoindent",IDC_BO_AUTOINDENT,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,10,15,49,10
+    CONTROL         "autotab",IDC_BO_AUTOTAB,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,10,30,40,10
+    CONTROL         "modified",IDC_BO_MODIFIED,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,159,15,42,10
+    GROUPBOX        "&Numeric options",IDC_STATIC,5,50,265,50
+    LTEXT           "shiftwidth",IDC_STATIC,10,60,30,8
+    EDITTEXT        IDC_BO_SHIFTWIDTH,50,60,40,14,ES_AUTOHSCROLL
+    LTEXT           "textwidth",IDC_STATIC,150,60,31,8
+    EDITTEXT        IDC_BO_TEXTWIDTH,190,60,40,14,ES_AUTOHSCROLL
+    LTEXT           "tabstop",IDC_BO_TABSTOPSTR,10,80,24,8
+    EDITTEXT        IDC_BO_TABSTOP,50,80,40,14,ES_AUTOHSCROLL
+    LTEXT           "undolevels",IDC_STATIC,150,80,35,8
+    EDITTEXT        IDC_BO_UNDOLEVELS,190,80,40,14,ES_AUTOHSCROLL
+    GROUPBOX        "&String options",IDC_STATIC,5,105,265,95
+    LTEXT           "paragraphs",IDC_STATIC,10,120,36,8
+    EDITTEXT        IDC_BO_PARAGRAPHS,50,120,70,14,ES_AUTOHSCROLL
+    LTEXT           "sections",IDC_STATIC,150,120,27,8
+    EDITTEXT        IDC_BO_SECTIONS,190,120,70,14,ES_AUTOHSCROLL
+    LTEXT           "ccprg",IDC_STATIC,10,140,19,8
+    EDITTEXT        IDC_BO_CCPRG,50,140,70,14,ES_AUTOHSCROLL
+    LTEXT           "keywordprg",IDC_KWD,150,140,38,8
+    EDITTEXT        IDC_BO_KEYWORDPRG,190,140,70,14,ES_AUTOHSCROLL
+    LTEXT           "equalprg",IDC_STATIC,10,160,28,8
+    EDITTEXT        IDC_BO_EQUALPRG,50,160,70,14,ES_AUTOHSCROLL
+    LTEXT           "makeprg",IDC_STATIC,150,160,28,8
+    EDITTEXT        IDC_BO_MAKEPRG,190,160,70,14,ES_AUTOHSCROLL
+    LTEXT           "inputtab",IDC_STATIC,10,180,26,8
+    EDITTEXT        IDC_BO_INPUTTAB,50,180,70,14,ES_AUTOHSCROLL
+    PUSHBUTTON      "Cancel",IDCANCEL,60,205,50,14
+    EDITTEXT        IDC_BO_READEOL,190,180,70,14,ES_AUTOHSCROLL
+    LTEXT           "readeol",IDC_STATIC,150,180,24,8
+END
+
+IDD_OPT_USER DIALOG DISCARDABLE  0, 0, 327, 231
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "User Options"
+FONT 8, "MS Sans Serif"
+BEGIN
+    DEFPUSHBUTTON   "OK",IDOK,5,210,50,14
+    GROUPBOX        "",IDC_STATIC,5,5,315,195
+    LTEXT           "a",IDC_STATIC,10,15,8,8
+    EDITTEXT        IDC_UO_A,20,15,85,14,ES_AUTOHSCROLL
+    LTEXT           "b",IDC_STATIC,115,15,8,8
+    EDITTEXT        IDC_UO_B,125,15,85,14,ES_AUTOHSCROLL
+    LTEXT           "c",IDC_STATIC,220,15,8,8
+    EDITTEXT        IDC_UO_C,230,15,85,14,ES_AUTOHSCROLL
+    LTEXT           "d",IDC_STATIC,10,35,8,8
+    EDITTEXT        IDC_UO_D,22,35,85,14,ES_AUTOHSCROLL
+    LTEXT           "e",IDC_STATIC,115,35,8,8
+    EDITTEXT        IDC_UO_E,125,35,85,14,ES_AUTOHSCROLL
+    LTEXT           "f",IDC_STATIC,220,35,8,8
+    EDITTEXT        IDC_UO_F,230,35,85,14,ES_AUTOHSCROLL
+    LTEXT           "g",IDC_STATIC,10,55,8,8
+    EDITTEXT        IDC_UO_G,20,55,85,14,ES_AUTOHSCROLL
+    LTEXT           "h",IDC_STATIC,115,55,8,8
+    EDITTEXT        IDC_UO_H,125,55,85,14,ES_AUTOHSCROLL
+    LTEXT           "i",IDC_STATIC,220,55,8,8
+    EDITTEXT        IDC_UO_I,230,55,85,14,ES_AUTOHSCROLL
+    LTEXT           "j",IDC_STATIC,10,75,8,8
+    EDITTEXT        IDC_UO_J,20,75,85,14,ES_AUTOHSCROLL
+    LTEXT           "k",IDC_STATIC,115,75,8,8
+    EDITTEXT        IDC_UO_K,125,75,85,14,ES_AUTOHSCROLL
+    LTEXT           "l",IDC_STATIC,220,75,8,8
+    EDITTEXT        IDC_UO_L,230,75,85,14,ES_AUTOHSCROLL
+    LTEXT           "m",IDC_STATIC,10,95,8,8
+    EDITTEXT        IDC_UO_M,20,95,85,14,ES_AUTOHSCROLL
+    LTEXT           "n",IDC_STATIC,115,95,8,8
+    EDITTEXT        IDC_UO_N,125,95,85,14,ES_AUTOHSCROLL
+    LTEXT           "o",IDC_STATIC,220,95,8,8
+    EDITTEXT        IDC_UO_O,230,95,85,14,ES_AUTOHSCROLL
+    LTEXT           "p",IDC_STATIC,10,115,8,8
+    EDITTEXT        IDC_UO_P,20,115,85,14,ES_AUTOHSCROLL
+    LTEXT           "q",IDC_STATIC,115,115,8,8
+    EDITTEXT        IDC_UO_Q,125,115,85,14,ES_AUTOHSCROLL
+    LTEXT           "r",IDC_STATIC,220,115,8,8
+    EDITTEXT        IDC_UO_R,230,115,85,14,ES_AUTOHSCROLL
+    LTEXT           "s",IDC_STATIC,10,135,8,8
+    EDITTEXT        IDC_UO_S,20,135,85,14,ES_AUTOHSCROLL
+    LTEXT           "t",IDC_STATIC,115,135,8,8
+    EDITTEXT        IDC_UO_T,125,135,85,14,ES_AUTOHSCROLL
+    LTEXT           "u",IDC_STATIC,220,135,8,8
+    EDITTEXT        IDC_UO_U,230,135,85,14,ES_AUTOHSCROLL
+    LTEXT           "v",IDC_STATIC,10,155,8,8
+    EDITTEXT        IDC_UO_V,20,155,85,14,ES_AUTOHSCROLL
+    LTEXT           "w",IDC_STATIC,115,155,8,8
+    EDITTEXT        IDC_UO_W,125,155,85,14,ES_AUTOHSCROLL
+    LTEXT           "x",IDC_STATIC,220,155,8,8
+    EDITTEXT        IDC_UO_X,230,155,85,14,ES_AUTOHSCROLL
+    LTEXT           "y",IDC_STATIC,10,175,8,8
+    EDITTEXT        IDC_UO_Y,20,175,85,14,ES_AUTOHSCROLL
+    LTEXT           "z",IDC_STATIC,115,175,8,8
+    EDITTEXT        IDC_UO_Z,125,175,85,14,ES_AUTOHSCROLL
+    PUSHBUTTON      "Cancel",IDCANCEL,60,210,50,14
+END
+
+IDD_OPT_WINDOW DIALOG DISCARDABLE  0, 0, 232, 161
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Window Options"
+FONT 8, "MS Sans Serif"
+BEGIN
+    DEFPUSHBUTTON   "OK",IDOK,7,140,50,14
+    GROUPBOX        "&Boolean options",IDC_STATIC,7,7,220,49
+    CONTROL         "list",IDC_WO_LIST,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,
+                    15,20,24,10
+    CONTROL         "number",IDC_WO_NUMBER,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,15,36,39,10
+    CONTROL         "showmatch",IDC_WO_SHOWMATCH,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,141,20,52,10
+    CONTROL         "wrap",IDC_WO_WRAP,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,
+                    141,36,31,10
+    GROUPBOX        "&Numeric options",IDC_STATIC,7,58,220,77
+    LTEXT           "columns",IDC_STATIC,17,74,27,8
+    EDITTEXT        IDC_WO_COLUMNS,57,74,40,14,ES_AUTOHSCROLL
+    LTEXT           "lines",IDC_STATIC,142,74,15,8
+    EDITTEXT        IDC_WO_LINES,177,74,40,14,ES_AUTOHSCROLL
+    LTEXT           "scroll",IDC_STATIC,17,95,17,8
+    EDITTEXT        IDC_WO_SCROLL,57,95,40,14,ES_AUTOHSCROLL
+    LTEXT           "sidescroll",IDC_STATIC,142,95,30,8
+    EDITTEXT        IDC_WO_SIDESCROLL,177,95,40,14,ES_AUTOHSCROLL
+    LTEXT           "wrapmargin",IDC_STATIC,17,114,37,8
+    EDITTEXT        IDC_WO_WRAPMARGIN,57,114,40,14,ES_AUTOHSCROLL
+    PUSHBUTTON      "Cancel",IDCANCEL,62,140,50,14
+END
+
+IDD_OPT_SYNTAX DIALOG DISCARDABLE  0, 0, 267, 130
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Syntax Options"
+FONT 8, "MS Sans Serif"
+BEGIN
+    DEFPUSHBUTTON   "OK",IDOK,5,110,50,14
+    GROUPBOX        "",IDC_STATIC,5,5,255,95
+    LTEXT           "&Element",IDC_STATIC,15,15,26,8
+    LISTBOX         IDC_SO_ELEMENT,15,25,90,65,LBS_NOINTEGRALHEIGHT | 
+                    WS_VSCROLL | WS_TABSTOP
+    GROUPBOX        "&Font mapping",IDC_STATIC,115,20,135,70
+    CONTROL         "Normal",IDC_SO_NORMAL,"Button",BS_AUTORADIOBUTTON | 
+                    WS_TABSTOP,125,40,38,10
+    CONTROL         "Bold",IDC_SO_BOLD,"Button",BS_AUTORADIOBUTTON,125,55,30,
+                    10
+    CONTROL         "Emphasized",IDC_SO_EMPHASIZED,"Button",
+                    BS_AUTORADIOBUTTON,125,70,54,10
+    CONTROL         "Italic",IDC_SO_ITALIC,"Button",BS_AUTORADIOBUTTON,195,
+                    40,31,10
+    CONTROL         "Underlined",IDC_SO_UNDERLINED,"Button",
+                    BS_AUTORADIOBUTTON,195,55,50,10
+    CONTROL         "Fixed",IDC_SO_FIXED,"Button",BS_AUTORADIOBUTTON,195,70,
+                    33,10
+    PUSHBUTTON      "Cancel",IDCANCEL,60,110,50,14,WS_GROUP
+END
+
+IDD_OPT_GLOBAL DIALOG DISCARDABLE  0, 0, 382, 258
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Global Options"
+FONT 8, "MS Sans Serif"
+BEGIN
+    DEFPUSHBUTTON   "OK",IDOK,7,237,50,14
+    GROUPBOX        "&Boolean options",IDC_STATIC,7,7,368,104
+    CONTROL         "anyerror",IDC_GO_ANYERROR,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,15,20,41,10
+    CONTROL         "autoprint",IDC_GO_AUTOPRINT,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,90,20,43,10
+    CONTROL         "autoselect",IDC_GO_AUTOSELECT,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,155,20,49,10
+    CONTROL         "autowrite",IDC_GO_AUTOWRITE,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,230,20,45,10
+    CONTROL         "backup",IDC_GO_BACKUP,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,300,20,40,10
+    CONTROL         "beautify",IDC_GO_BEAUTIFY,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,15,35,41,10
+    CONTROL         "defaultreadonly",IDC_GO_DEFAULTREADONLY,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,90,35,64,10
+    CONTROL         "digraph",IDC_GO_DIGRAPH,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,155,35,39,10
+    CONTROL         "edcompatible",IDC_GO_EDCOMPATIBLE,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,230,35,58,10
+    CONTROL         "errorbells",IDC_GO_ERRORBELLS,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,300,35,44,10
+    CONTROL         "exrc",IDC_GO_EXRC,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,
+                    15,50,29,10
+    CONTROL         "flash",IDC_GO_FLASH,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,90,50,31,10
+    CONTROL         "gdefault",IDC_GO_GDEFAULT,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,155,50,41,10
+    CONTROL         "ignorecase",IDC_GO_IGNORECASE,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,230,50,51,10
+    CONTROL         "magic",IDC_GO_MAGIC,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,300,50,35,10
+    CONTROL         "mesg",IDC_GO_MESG,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,
+                    15,65,33,10
+    CONTROL         "modeline",IDC_GO_MODELINE,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,90,65,44,10
+    CONTROL         "novice",IDC_GO_NOVICE,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,155,65,37,10
+    CONTROL         "optimize",IDC_GO_OPTIMIZE,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,230,65,41,10
+    CONTROL         "prompt",IDC_GO_PROMPT,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,300,65,37,10
+    CONTROL         "remap",IDC_GO_REMAP,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,15,80,35,10
+    CONTROL         "safer",IDC_GO_SAFER,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,90,80,31,10
+    CONTROL         "showmarkups",IDC_GO_SHOWMARKUPS,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,155,80,59,10
+    CONTROL         "sync",IDC_GO_SYNC,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,
+                    230,80,31,10
+    CONTROL         "tagstack",IDC_GO_TAGSTACK,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,300,80,43,10
+    CONTROL         "terse",IDC_GO_TERSE,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,15,95,31,10
+    CONTROL         "warn",IDC_GO_WARN,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,
+                    90,95,31,10
+    CONTROL         "warningbells",IDC_GO_WARNINGBELLS,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,155,95,55,10
+    CONTROL         "wrapscan",IDC_GO_WRAPSCAN,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,230,95,47,10
+    CONTROL         "writeany",IDC_GO_WRITEANY,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,300,95,42,10
+    GROUPBOX        "&Numeric options",IDC_STATIC,7,117,368,55
+    LTEXT           "modelines",IDC_STATIC,17,132,32,8
+    EDITTEXT        IDC_GO_MODELINES,67,132,40,14,ES_AUTOHSCROLL
+    LTEXT           "nearscroll",IDC_STATIC,132,132,31,8
+    EDITTEXT        IDC_GO_NEARSCROLL,172,132,40,14,ES_AUTOHSCROLL
+    LTEXT           "report",IDC_STATIC,252,132,19,8
+    EDITTEXT        IDC_GO_REPORT,282,132,40,14,ES_AUTOHSCROLL
+    LTEXT           "taglength",IDC_STATIC,17,152,30,8
+    EDITTEXT        IDC_GO_TAGLENGTH,67,152,40,14,ES_AUTOHSCROLL
+    GROUPBOX        "&String options",IDC_STATIC,7,177,368,55
+    LTEXT           "directory",IDC_STATIC,15,192,28,8
+    EDITTEXT        IDC_GO_DIRECTORY,50,192,75,14,ES_AUTOHSCROLL
+    LTEXT           "home",IDC_STATIC,130,192,18,8
+    EDITTEXT        IDC_GO_HOME,155,192,90,14,ES_AUTOHSCROLL
+    LTEXT           "nonascii",IDC_STATIC,250,192,27,8
+    EDITTEXT        IDC_GO_NONASCII,280,192,90,14,ES_AUTOHSCROLL
+    LTEXT           "shell",IDC_STATIC,15,212,15,8
+    EDITTEXT        IDC_GO_SHELL,50,212,75,14,ES_AUTOHSCROLL
+    LTEXT           "tags",IDC_STATIC,130,212,14,8
+    EDITTEXT        IDC_GO_TAGS,155,212,90,14,ES_AUTOHSCROLL
+    PUSHBUTTON      "Cancel",IDCANCEL,62,237,50,14
+    EDITTEXT        IDC_GO_WRITEEOL,280,212,90,14,ES_AUTOHSCROLL
+    LTEXT           "writeeol",IDC_STATIC,250,212,25,8
+END
+
+IDD_OPT_GUI DIALOG DISCARDABLE  0, 0, 197, 170
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Gui Options"
+FONT 8, "MS Sans Serif"
+BEGIN
+    DEFPUSHBUTTON   "OK",IDOK,5,150,50,14
+    GROUPBOX        "",IDC_STATIC,5,5,185,25
+    CONTROL         "&Scrollbar",IDC_GUI_SCROLLBAR,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,15,15,43,10
+    CONTROL         "&Toolbar",IDC_GUI_TOOLBAR,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,110,15,40,10
+    GROUPBOX        "&Font types",IDC_STATIC,5,35,185,105
+    LISTBOX         IDC_GUI_FONTS,10,50,90,80,LBS_NOINTEGRALHEIGHT | 
+                    WS_VSCROLL | WS_TABSTOP
+    GROUPBOX        "&Attributes",IDC_STATIC,110,50,70,80
+    CONTROL         "&Bold",IDC_GUI_BOLD,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,120,65,30,10
+    CONTROL         "&Italic",IDC_GUI_ITALIC,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,120,86,31,10
+    CONTROL         "&Underlined",IDC_GUI_UNDERLINED,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,120,105,50,10
+    PUSHBUTTON      "Cancel",IDCANCEL,60,150,50,14
+END
+
+
+#ifdef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// TEXTINCLUDE
+//
+
+1 TEXTINCLUDE DISCARDABLE 
+BEGIN
+    "elvisres.h\0"
+END
+
+2 TEXTINCLUDE DISCARDABLE 
+BEGIN
+    "#include <windows.h>\r\n"
+    "#include <dlgs.h>\r\n"
+    "\0"
+END
+
+3 TEXTINCLUDE DISCARDABLE 
+BEGIN
+    "\r\n"
+    "\0"
+END
+
+#endif    // APSTUDIO_INVOKED
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Icon
+//
+
+// Icon with lowest ID value placed first to ensure application icon
+// remains consistent on all systems.
+IDI_ELVIS               ICON    DISCARDABLE     "elvis.ico"
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// DESIGNINFO
+//
+
+#ifdef APSTUDIO_INVOKED
+GUIDELINES DESIGNINFO DISCARDABLE 
+BEGIN
+    IDD_ABOUT, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 192
+        VERTGUIDE, 41
+        VERTGUIDE, 103
+        VERTGUIDE, 192
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 102
+        HORZGUIDE, 56
+        HORZGUIDE, 68
+    END
+
+    IDD_GOTO, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 111
+        VERTGUIDE, 111
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 61
+        HORZGUIDE, 14
+        HORZGUIDE, 46
+    END
+
+    IDD_SEARCH, DIALOG
+    BEGIN
+        LEFTMARGIN, 6
+        RIGHTMARGIN, 197
+        VERTGUIDE, 12
+        VERTGUIDE, 100
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 119
+        HORZGUIDE, 60
+        HORZGUIDE, 75
+        HORZGUIDE, 89
+    END
+
+    IDD_RUN, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 179
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 55
+    END
+
+    IDD_TAGS, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 228
+        VERTGUIDE, 14
+        VERTGUIDE, 121
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 136
+        HORZGUIDE, 50
+        HORZGUIDE, 64
+        HORZGUIDE, 79
+        HORZGUIDE, 95
+    END
+
+    IDD_REPLACE, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 219
+        VERTGUIDE, 114
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 165
+        HORZGUIDE, 67
+        HORZGUIDE, 99
+        HORZGUIDE, 129
+    END
+
+    IDD_OPT_BUFFER, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 269
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 219
+        HORZGUIDE, 25
+    END
+
+    IDD_OPT_USER, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 320
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 224
+    END
+
+    IDD_OPT_WINDOW, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 225
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 154
+    END
+
+    IDD_OPT_SYNTAX, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 260
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 123
+    END
+
+    IDD_OPT_GLOBAL, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 375
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 251
+    END
+
+    IDD_OPT_GUI, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 190
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 163
+    END
+END
+#endif    // APSTUDIO_INVOKED
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Bitmap
+//
+
+IDT_ELVIS               BITMAP  DISCARDABLE     "toolbar.bmp"
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Cursor
+//
+
+IDC_RIGHTARROW          CURSOR  DISCARDABLE     "arrow.cur"
+
+#ifndef _MAC
+/////////////////////////////////////////////////////////////////////////////
+//
+// Version
+//
+
+VS_VERSION_INFO VERSIONINFO
+ FILEVERSION 1,0,0,1
+ PRODUCTVERSION 1,0,0,1
+ FILEFLAGSMASK 0x3fL
+#ifdef _DEBUG
+ FILEFLAGS 0x1L
+#else
+ FILEFLAGS 0x0L
+#endif
+ FILEOS 0x40004L
+ FILETYPE 0x1L
+ FILESUBTYPE 0x0L
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904b0"
+        BEGIN
+            VALUE "CompanyName", "\0"
+            VALUE "FileDescription", "WinElvis\0"
+            VALUE "FileVersion", "2.1d-alpha\0"
+            VALUE "InternalName", "WinElvis\0"
+            VALUE "LegalCopyright", "Copyright © 1996 Steve Kirkendall & Serge Pirotte\0"
+            VALUE "OriginalFilename", "WinElvis.exe\0"
+            VALUE "ProductName", " WinElvis\0"
+            VALUE "ProductVersion", "2.0\0"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x409, 1200
+    END
+END
+
+#endif    // !_MAC
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// String Table
+//
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDM_FILE_EXIT           "Quit WinElvis / Close Current Window\nQuit"
+    IDM_FILE_NEW            "Create a New File\nNew File"
+    IDM_FILE_OPEN           "Open a Existing File...\nOpen File"
+    IDM_FILE_SAVE           "Save Current File\nSave"
+    IDM_FILE_SAVEAS         "Save Current File Under a New Name...\nSave As"
+    IDM_FILE_CD             "Change Current Directory...\nChange Directory"
+    IDM_FILE_PRINT          "Print Current Buffer\nPrint"
+    IDM_FILE_PRINTSETUP     "Setup Printer...\nPrinter Setup"
+    IDM_HELP_INDEX          "Display Help File...\nHelp"
+    IDM_HELP_EX             "Display Help on ex Commands\nex help"
+    IDM_HELP_VI             "Display Help on vi Commands\nvi help"
+    IDM_HELP_OPTIONS        "Display Help on WinElvis Options\nOptions Help"
+    IDM_HELP_ABOUT          "Display Program Information\nAbout"
+    IDM_EDIT_UNDO           "Undo the Last Action\nUndo"
+    IDM_EDIT_REDO           "Redo the Last Action\nRedo"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDM_EDIT_CUT            "Cut the Selection and Copy to the Clipboard\nCut"
+    IDM_EDIT_COPY           "Copy the Selection to the Clipboard\nCopy"
+    IDM_EDIT_PASTE          "Copy the Clipboard Contents\nPaste"
+    IDM_WINDOW_NEW          "Create a New Window\nNew Window"
+    IDM_WINDOW_NEXT         "Switch to the Next Window\nNext Window"
+    IDM_WINDOW_PREVIOUS     "Switch to the Previous Window\nPrevious Window"
+    IDM_WINDOW_NFILE        "Edit the Next File in the List\nNext File"
+    IDM_WINDOW_PFILE        "Switch to the Previous File in the List\nPrevious File"
+    IDM_WINDOW_BUFFER       "Select a Buffer for Editing\nSelect Buffer"
+    IDM_SEARCH_SEARCH       "Search for Strings...\nSearch"
+    IDM_SEARCH_AGAIN        "Repeat Least Search\nSearch Again"
+    IDM_SEARCH_REPLACE      "Replace one String by Another...\nReplace"
+    IDM_SEARCH_GOTO         "Move to a Specified Line...\nGoto"
+    IDM_SEARCH_NEXT_ERROR   "Locate Next Compiler Error\nNext Error"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDM_TOOLS_COMPILE       "Compile the Edited File\nCompile"
+    IDM_TOOLS_MAKE          "Run the Make Utility\nMake"
+    IDM_TOOLS_TAGS          "Run the WinTags Utility\nWinTags"
+    IDM_TOOLS_RUN           "Run a Windows Application\nWindows App"
+    IDM_TOOLS_SHELL         "Start a Shell\nShell"
+    IDM_OPTIONS_SAVE        "Save Current Options\nSave Options"
+    IDM_OPTIONS_FONT        "Select a Font...\nSelect Font"
+    IDM_OPTIONS_TOOLBAR     "Show or Hide the Toolbar\nToolbar"
+    IDM_OPTIONS_SCROLLBAR   "Show or Hide the Scrollbar\nScrollbar"
+    IDM_FILE_SPLIT          "Open a Existing File into a New Window...\nSplit File..."
+    IDM_OPTIONS_BUFFER      "Change Buffer Specific Options...\nBuffer Options..."
+    IDM_OPTIONS_USER        "Change User Options...\nUser Options..."
+    IDM_OPTIONS_WINDOW      "Change Window Specific Options...\nWindow Options..."
+    IDM_OPTIONS_SYNTAX      "Change Syntax Specific Options...\nSyntax Options..."
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    IDM_OPTIONS_GLOBAL      "Change Global Options...\nGlobal Options..."
+    IDM_OPTIONS_GUI         "Change Gui Specific Options...\nGui Options..."
+END
+
+#endif    // English (U.S.) resources
+/////////////////////////////////////////////////////////////////////////////
+
+
+
+#ifndef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 3 resource.
+//
+
+
+/////////////////////////////////////////////////////////////////////////////
+#endif    // not APSTUDIO_INVOKED
+

@@ -1,7 +1,7 @@
 /* buffer.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_buffer[] = "$Id: buffer.c,v 2.68 1996/09/26 01:05:21 steve Exp $";
+char id_buffer[] = "$Id: buffer.c,v 2.92 1998/11/29 18:53:51 steve Exp $";
 
 #include "elvis.h"
 
@@ -10,6 +10,7 @@ char id_buffer[] = "$Id: buffer.c,v 2.68 1996/09/26 01:05:21 steve Exp $";
 #if USE_PROTOTYPES
 static void proc(_BLKNO_ bufinfo, long nchars, long nlines, long changes, long prevloc, CHAR *name);
 static void freeundo(BUFFER buffer);
+static struct undo_s *allocundo(BUFFER buf);
 static void bufdo(BUFFER buf, BOOLEAN wipe);
 # ifdef DEBUG_ALLOC
 static void checkundo(char *where);
@@ -18,7 +19,7 @@ static void removeundo(struct undo_s *undo);
 #endif
 
 /* This variable points to the head of a linked list of buffers */
-BUFFER buffers;
+BUFFER elvis_buffers;
 
 /* This is the default buffer.  Its options have been inserted into the
  * list accessible via optset().  This variable should only be changed by
@@ -47,6 +48,7 @@ static OPTDESC bdesc[] =
 {
 	{"filename", "file",	optsstring,	optisstring	},
 	{"bufname", "buffer",	optsstring,	optisstring	},
+	{"bufid", "bufferid",	optnstring,	optisnumber	},
 	{"buflines", "bl",	optnstring,	optisnumber	},
 	{"bufchars", "bc",	optnstring,	optisnumber	},
 	{"retain", "ret",	NULL,		NULL		},
@@ -55,7 +57,7 @@ static OPTDESC bdesc[] =
 	{"newfile", "new",	NULL,		NULL,		},
 	{"readonly", "ro",	NULL,		NULL,		},
 	{"autoindent", "ai",	NULL,		NULL,		},
-	{"inputtab", "itab",	opt1string,	optisoneof,	"tab spaces filename"},
+	{"inputtab", "it",	opt1string,	optisoneof,	"tab spaces ex filename identifier"},
 	{"autotab", "at",	NULL,		NULL,		},
 	{"tabstop", "ts",	optnstring,	optisnumber,	"1:100"},
 	{"ccprg", "cp",		optsstring,	optisstring	},
@@ -70,7 +72,10 @@ static OPTDESC bdesc[] =
 	{"internal", "internal",NULL,		NULL		},
 	{"bufdisplay", "bd",    optsstring,	optisstring	},
 	{"errlines", "errlines",optnstring,	optisnumber	},
-	{"binary", "bin",	NULL,		NULL		}
+	{"readeol", "reol",	opt1string,	optisoneof,	"unix dos mac text binary"},
+	{"locked", "lock",	NULL,		NULL		},
+	{"partiallastline","pll",NULL,		NULL		},
+	{"putstyle", "ps",	opt1string,	optisoneof,	"character line rectangle"}
 };
 
 #ifdef DEBUG_ALLOC
@@ -91,7 +96,7 @@ static void checkundo(where)
 	for (scan = undohead; scan; scan = scan->link1)
 	{
 		/* make sure the buffer still exists */
-		for (buf = buffers; buf != scan->buf; buf = buf->next)
+		for (buf = elvis_buffers; buf != scan->buf; buf = buf->next)
 		{
 			if (!buf)
 				msg(MSG_FATAL, "[s]$1 - buffer disappeared, undo/redo not freed", where);
@@ -148,9 +153,10 @@ static void proc(bufinfo, nchars, nlines, changes, prevloc, name)
 	BUFFER		buf;
 	BLKNO		tmp;
 	struct undo_s	*undo, *scan, *lag;
+	BOOLEAN		internal;
 
 	/* try to find a buffer by this name */
-	for (buf = buffers; buf && CHARcmp(o_bufname(buf), name); buf = buf->next)
+	for (buf = elvis_buffers; buf && CHARcmp(o_bufname(buf), name); buf = buf->next)
 	{
 	}
 
@@ -159,7 +165,9 @@ static void proc(bufinfo, nchars, nlines, changes, prevloc, name)
 	 */
 	if (!buf)
 	{
-		buf = bufalloc(name, bufinfo);
+		internal = (BOOLEAN)(!CHARncmp(name, toCHAR("Elvis "), 6) &&
+				CHARncmp(name, toCHAR("Elvis untitled"), 14));
+		buf = bufalloc(name, bufinfo, internal);
 		buf->bufinfo = bufinfo;
 		o_buflines(buf) = nlines;
 		o_bufchars(buf) = nchars;
@@ -173,6 +181,7 @@ static void proc(bufinfo, nchars, nlines, changes, prevloc, name)
 			/* probably an internal buffer */
 			optpreset(o_internal(buf), True, OPT_HIDE);
 			optpreset(o_modified(buf), False, OPT_HIDE);
+			optpreset(o_filename(buf), NULL, OPT_HIDE);
 		}
 		else
 		{
@@ -254,8 +263,7 @@ void bufinit()
 	lowinit(proc);
 
 	/* create the default options buffer, if it doesn't exist already */
-	bufdefopts = bufalloc(toCHAR(DEFAULT_BUF), 0);
-	o_internal(bufdefopts) = True;
+	bufdefopts = bufalloc(toCHAR(DEFAULT_BUF), 0, True);
 	bufoptions(bufdefopts);
 }
 
@@ -265,14 +273,16 @@ void bufinit()
  * a buffer with the desired name, it returns a pointer to the old buffer
  * instead of creating a new one.
  */
-BUFFER bufalloc(name, bufinfo)
+BUFFER bufalloc(name, bufinfo, internal)
 	CHAR	*name;	/* name of the buffer */
 	_BLKNO_	bufinfo;/* block number describing the buffer (0 to create) */
+	BOOLEAN internal;/* is this supposed to be an internal buffer? */
 {
 	BUFFER	buffer;
 	BUFFER	scan, lag;	/* used for inserting new buffer */
 	char	unique[255];	/* name of untitled buffer */
 	int	i = 1;		/* for generating a name for untitled buffer */
+ static long	bufid = 1;	/* for generating bufid values */
 
 	/* if no name was specified, generate a unique untitled name */
 	if (!name)
@@ -308,8 +318,9 @@ BUFFER bufalloc(name, bufinfo)
 	optpreset(o_readonly(buffer), o_defaultreadonly, OPT_HIDE);
 	if (bufdefopts)
 	{
-		/* copy all options except the following: filename bufname
+		/* copy all options except the following: filename bufname bufid
 		 * buflines bufchars modified edited newfile internal autotab
+		 * partiallastline putstyle.
 		 */
 		optpreset(buffer->retain, bufdefopts->retain, OPT_HIDE);
 		buffer->autoindent = bufdefopts->autoindent;
@@ -319,6 +330,8 @@ BUFFER bufalloc(name, bufinfo)
 		buffer->undolevels = bufdefopts->undolevels;
 		buffer->textwidth = bufdefopts->textwidth;
 		buffer->autotab = bufdefopts->autotab;
+		buffer->readeol = bufdefopts->readeol;
+		buffer->locked = bufdefopts->locked;
 
 		/* Strings are tricky, because we may need to allocate a
 		 * duplicate of the value.
@@ -352,33 +365,49 @@ BUFFER bufalloc(name, bufinfo)
 		o_inputtab(buffer) = 't';
 		o_autotab(buffer) = True;
 		o_tabstop(buffer) = 8;
-#ifdef OSCCPRG
-		o_cc(buffer) = toCHAR(OSCCPRG);
-#else
-		o_cc(buffer) = toCHAR("cc ($1?$1:$2)");
+#ifndef OSCCPRG
+# define OSCCPRG "cc ($1?$1:$2)"
 #endif
-		o_equalprg(buffer) = toCHAR("fmt");
-		o_keywordprg(buffer) = toCHAR("ref");
-#ifdef OSMAKEPRG
-		o_make(buffer) = toCHAR(OSMAKEPRG);
-#else
-		o_make(buffer) = toCHAR("make $1");
+		optpreset(o_cc(buffer), toCHAR(OSCCPRG), OPT_UNSAFE);
+		optpreset(o_equalprg(buffer), toCHAR("fmt"), OPT_UNSAFE);
+		optpreset(o_keywordprg(buffer), toCHAR("ref $1 file:$2"), OPT_UNSAFE);
+#ifndef OSMAKEPRG
+# define OSMAKEPRG "make $1"
 #endif
+		optpreset(o_make(buffer), toCHAR(OSMAKEPRG), OPT_UNSAFE);
 		o_paragraphs(buffer) = toCHAR("PPppIPLPQPP");
 		o_sections(buffer) = toCHAR("NHSHSSSEse");
 		o_shiftwidth(buffer) = 8;
 		o_undolevels(buffer) = 0;
 		o_bufdisplay(buffer) = toCHAR("normal");
 		optflags(o_textwidth(buffer)) = OPT_REDRAW;
+		o_readeol(buffer) = 't'; /* text */
+		o_locked(buffer) = False;
 	}
 
 	/* set the name of this buffer, and limit access to some options */
 	optpreset(o_bufname(buffer), CHARkdup(name), OPT_HIDE|OPT_LOCK|OPT_FREE);
+	optpreset(o_internal(buffer), internal, OPT_HIDE|OPT_LOCK);
 	optflags(o_buflines(buffer)) = OPT_HIDE|OPT_LOCK;
 	optflags(o_bufchars(buffer)) = OPT_HIDE|OPT_LOCK;
+	optflags(o_bufid(buffer)) = OPT_HIDE|OPT_LOCK;
+	optflags(o_filename(buffer)) |= OPT_HIDE;
+	optflags(o_edited(buffer)) |= OPT_HIDE;
+	optflags(o_errlines(buffer)) |= OPT_HIDE;
+	optflags(o_modified(buffer)) |= OPT_HIDE;
+	optflags(o_newfile(buffer)) |= OPT_HIDE;
+	if (!internal)
+	{
+		o_bufid(buffer) = bufid++;
+	}
+	optpreset(o_partiallastline(buffer), False, OPT_HIDE);
+	optpreset(o_putstyle(buffer), 'c', OPT_HIDE|OPT_LOCK);
+
+	/* initialize the "willevent" field to a safe value */
+	buffer->willevent = -1;
 
 	/* Add the buffer to the linked list of buffers.  Keep it sorted. */
-	for (lag = (BUFFER)0, scan = buffers;
+	for (lag = (BUFFER)0, scan = elvis_buffers;
 	     scan && CHARcmp(o_bufname(scan), o_bufname(buffer)) < 0;
 	     lag = scan, scan = scan->next)
 	{
@@ -390,7 +419,7 @@ BUFFER bufalloc(name, bufinfo)
 	}
 	else
 	{
-		buffers = buffer;
+		elvis_buffers = buffer;
 	}
 
 	/* return the new buffer */
@@ -404,14 +433,129 @@ BUFFER bufalloc(name, bufinfo)
 BUFFER buffind(name)
 	CHAR	*name;	/* name of the buffer to find */
 {
-	BUFFER buffer;
+	BUFFER	buffer;
+	long	bufid;
+	CHAR	*b, *n;
 
 	/* scan through buffers, looking for a match */
-	for (buffer = buffers; buffer && CHARcmp(name, o_bufname(buffer)); buffer = buffer->next)
+	for (buffer = elvis_buffers; buffer && CHARcmp(name, o_bufname(buffer)); buffer = buffer->next)
 	{
 	}
+
+	/* If no exact match, and the name is a quote and some other char, then
+	 * try searching for a cut buffer.
+	 */
+	if (!buffer && name[0] == '"' && name[1] && !name[2])
+	{
+		buffer = cutbuffer(name[1], False);
+	}
+
+	/* If no exact match, and name is the initials of a buffer, then
+	 * use that.
+	 */
+	if (!buffer && name[0] == '"')
+	{
+		for (buffer = elvis_buffers; buffer; buffer = buffer->next)
+		{
+			/* if first char doesn't match, skip it */
+			if (*o_bufname(buffer) != name[1])
+				continue;
+
+			/* check other chars as initials */
+			for (b = o_bufname(buffer) + 1, n = name + 2; *b; b++)
+			{
+				if (b[-1] == ' ')
+				{
+					if (*b == *n)
+						n++;
+					else
+						break;
+				}
+			}
+
+			/* if matched, then stop looking */
+			if (!*n && !*b)
+				break;
+		}
+	}
+
+	/* If no exact match, and the name looks like a number, then try
+	 * searching by bufid.
+	 */
+	if (!buffer && (calcnumber(name) || (*name == '#' && calcnumber(++name))))
+	{
+		for (bufid = atol(tochar8(name)), buffer = elvis_buffers;
+		     buffer && o_bufid(buffer) != bufid;
+		     buffer = buffer->next)
+		{
+		}
+	}
+
 	return buffer;
 }
+
+
+/* Look up the filename of a buffer, given a reference to a scan variable.
+ * The scan variable should be in an existing scan context, and should point
+ * to a '#' character.  If the filename is found, the scan variable is left
+ * on the last character of the # expression, and the filename is returned.
+ * Otherwise it returns NULL and the scan variable is undefined.
+ *
+ * This is used for expanding # in filenames.
+ */
+CHAR *buffilenumber(refp)
+	CHAR	**refp;
+{
+	long	id;
+	BUFFER	buf;
+	MARKBUF	tmp;
+
+	assert(*refp && **refp == '#');
+
+	/* remember which buf we're scanning, so we can fix *refp after NULL */
+	buf = markbuffer(scanmark(refp));
+	if (buf)
+	{
+		/* the scanning context is in a buffer */
+
+		/* get the buffer number */
+		for (id = 0; scannext(refp) && isdigit(**refp); )
+		{
+			id = id * 10 + **refp - '0';
+		}
+
+		/* move back one character, so *refp points to final char. This
+		 * can be tricky if we bumped into the end of the buffer.
+		 */
+		if (*refp)
+			(void)scanprev(refp);
+		else
+			(void)scanseek(refp, marktmp(tmp, buf, o_bufchars(buf) - 1));
+	}
+	else
+	{
+		/* The scanning context is in a string. */
+
+		/* get the buffer number */
+		for (id = 0; isdigit(*++*refp); )
+		{
+			id = id * 10 + **refp - '0';
+		}
+		--*refp;
+	}
+
+	/* if 0, then use alternate file */
+	if (id == 0)
+		return o_previousfile;
+
+	/* try to find a buffer with that value */
+	for (buf = elvis_buffers; buf && o_bufid(buf) != id; buf = buf->next)
+	{
+	}
+	return o_filename(buf);
+}
+
+
 
 /* Read a text file or filter output into a specific place in the buffer */
 BOOLEAN bufread(mark, rfile)
@@ -431,9 +575,9 @@ BOOLEAN bufread(mark, rfile)
 	origlines = o_buflines(buf);
 
 	/* open the file/filter */
-	if (!ioopen(rfile, 'r', False, False, o_binary(markbuffer(mark))))
+	if (!ioopen(rfile, 'r', False, False, o_readeol(markbuffer(mark))))
 	{
-		msg(MSG_ERROR, "[s]error opening $1", rfile);
+		/* failed -- error message already given */
 		return False;
 	}
 
@@ -478,11 +622,13 @@ BUFFER bufload(bufname, filename, reload)
 	MARKBUF	top;
 	MARKBUF	end;
 	BUFFER	initbuf;	/* buffer containing the initialization script */
+	BOOLEAN	oldthen;
 	int	i;
+	void	*locals;
 
 
 	/* Create a buffer, whose name defaults to the same as this file */
-	buf = bufalloc(bufname ? bufname : toCHAR(filename), 0);
+	buf = bufalloc(bufname ? bufname : toCHAR(filename), 0, (BOOLEAN)(bufname != NULL));
 
 	/* Does the buffer already contain text? */
 	if (o_bufchars(buf) > 0)
@@ -495,17 +641,16 @@ BUFFER bufload(bufname, filename, reload)
 
 		/* Save the text as an "undo" version, and then delete it */
 		if (windefault && markbuffer(windefault->cursor) == buf)
-			bufwilldo(windefault->cursor);
+			bufwilldo(windefault->cursor, True);
 		else
-			bufwilldo(marktmp(top, buf, 0));
+			bufwilldo(marktmp(top, buf, 0), True);
 		bufreplace(marktmp(top, buf, 0), marktmp(end, buf, o_bufchars(buf)), (CHAR *)0, 0);
 	}
 
 	/* Set the buffer's options */
 	optpreset(o_filename(buf), CHARkdup(filename), OPT_HIDE|OPT_LOCK|OPT_FREE);
-	optpreset(o_internal(buf), (bufname ? True : False), OPT_HIDE);
 	optpreset(o_edited(buf), True, OPT_HIDE);
-	o_readonly(buf) = False;
+	o_readonly(buf) = o_defaultreadonly;
 	optpreset(o_newfile(buf), False, OPT_HIDE);
 	switch (dirperm(filename))
 	{
@@ -538,11 +683,16 @@ BUFFER bufload(bufname, filename, reload)
 			bufoptions(buf);
 
 			/* execute the script */
+			locals = optlocal(NULL);
+			oldthen = exthenflag;
 			if (experform(windefault, marktmp(top, initbuf, 0),
 				marktmp(end, initbuf, o_bufchars(initbuf))) != RESULT_COMPLETE)
 			{
+				exthenflag = oldthen;
 				return buf;
 			}
+			exthenflag = oldthen;
+			(void)optlocal(locals);
 		}
 	}
 
@@ -557,9 +707,24 @@ BUFFER bufload(bufname, filename, reload)
 		return buf;
 	}
 
+	/* if it ends with a partial last line, then add a newline */
+	(void)marktmp(end, buf, o_bufchars(buf) - 1);
+	if (o_bufchars(buf) > 0L && scanchar(&end) != '\n')
+	{
+		o_partiallastline(buf) = True;
+		marksetoffset(&end, markoffset(&end) + 1);
+		bufreplace(&end, &end, toCHAR("\n"), 1L);
+	}
+	else
+		o_partiallastline(buf) = False;
+
 	/* set other options to describe the file */
 	o_modified(buf) = False;
 	optpreset(o_errlines(buf), o_buflines(buf), OPT_HIDE);
+#ifdef PROTOCOL_FTP
+	if (!strncmp(filename, "ftp:", 4))
+		o_readonly(buf) = (BOOLEAN)(ftpperms == DIR_READONLY);
+#endif
 
 	/* Restore the marks to their previous offsets.  Otherwise any marks
 	 * which refer to this buffer will be set to the end of the file.
@@ -599,10 +764,22 @@ BUFFER bufload(bufname, filename, reload)
 			bufoptions(buf);
 
 			/* Execute the script's contents. */
+			locals = optlocal(NULL);
+			oldthen = exthenflag;
 			(void)experform(windefault, marktmp(top, initbuf, 0),
 				marktmp(end, initbuf, o_bufchars(initbuf)));
+			exthenflag = oldthen;
+			(void)optlocal(locals);
 		}
 	}
+
+#ifdef FEATURE_SHOWTAG
+	/* load the tag definitions for this file */
+	tebuilddef(buf);
+#endif
+
+	/* set the initial cursor offset to 0 */
+	buf->docursor = 0L;
 
 	return buf;
 }
@@ -653,7 +830,7 @@ BUFFER bufpath(path, filename, bufname)
 static void freeundo(buffer)
 	BUFFER	buffer;	/* buffer to be cleaned */
 {
-	struct undo_s *undo, *other, *tail;
+	struct undo_s *undo, *other;
 	int	      i;
 
 	checkundo("before freundo()");
@@ -676,10 +853,9 @@ static void freeundo(buffer)
 	/* Remove the most recent doomed version (and all following versions)
 	 * from the linked list of undo versions.
 	 */
-	tail = other;
-	if (tail)
+	if (other)
 	{
-		tail->next = NULL;
+		other->next = NULL;
 	}
 	else
 	{
@@ -725,6 +901,11 @@ void buffree(buffer)
 		marksetbuffer(buffer->marks, bufdefopts);
 	}
 
+#ifdef FEATURE_SHOWTAG
+	/* free the array of tag definitions */
+	tefreedef(buffer);
+#endif
+
 	/* free any undo/redo versions of this buffer */
 	while (buffer->undo)
 	{
@@ -758,7 +939,7 @@ void buffree(buffer)
 	assert(buffer->undo == NULL && buffer->redo == NULL);
 
 	/* locate the buffer in the linked list */
-	for (lag = NULL, scan = buffers; scan != buffer; lag = scan, scan = scan->next)
+	for (lag = NULL, scan = elvis_buffers; scan != buffer; lag = scan, scan = scan->next)
 	{
 		assert(scan->next);
 	}
@@ -770,7 +951,7 @@ void buffree(buffer)
 	}
 	else
 	{
-		buffers = scan->next;
+		elvis_buffers = scan->next;
 	}
 
 	/* free the values of any string options which have been set */
@@ -845,7 +1026,7 @@ BOOLEAN bufunload(buf, force, save)
 	if (save && o_filename(buf)
 	 && bufwrite(marktmp(top, buf, 0), marktmp(bottom, buf, o_bufchars(buf)), tochar8(o_filename(buf)), force))
 	{
-		free(buf);
+		buffree(buf);
 		return True;
 	}
 	return False;
@@ -916,7 +1097,9 @@ BOOLEAN bufwrite(from, to, wfile, force)
 	BOOLEAN	filter;		/* If True, we're writing to a filter */
 	BOOLEAN	wholebuf;	/* if True, we're writing the whole buffer */
 	BOOLEAN	samefile;	/* If True, we're writing the buffer to its original file */
+	BOOLEAN	oldthen;
 	int	bytes;
+	void	*locals;
 
 	assert(from && to && wfile);
 	assert(markbuffer(from) == markbuffer(to));
@@ -938,7 +1121,7 @@ BOOLEAN bufwrite(from, to, wfile, force)
 		}
 	}
 
-	/* If writing to the same file, as it is a readonly file, then fail
+	/* If writing to the same file, and it is a readonly file, then fail
 	 * unless we're forcing a write.
 	 */
 	if (!filter && wholebuf && samefile && o_readonly(buf) && !force)
@@ -956,7 +1139,7 @@ BOOLEAN bufwrite(from, to, wfile, force)
 	  && !force
 	  && !append
 	  && !filter
-	  && dirperm(wfile) != DIR_NEW)
+	  && urlperm(wfile) != DIR_NEW)
 	{
 		msg(MSG_ERROR, "[s]$1 exists", wfile);
 		return False;
@@ -975,17 +1158,44 @@ BOOLEAN bufwrite(from, to, wfile, force)
 			bufoptions(buf);
 
 			/* execute the script */
+			locals = optlocal(NULL);
+			oldthen = exthenflag;
 			if (experform(windefault, marktmp(top, initbuf, 0),
 				marktmp(next, initbuf, o_bufchars(initbuf))) != RESULT_COMPLETE
 			    && !force)
 			{
+				exthenflag = oldthen;
 				return False;
 			}
+			exthenflag = oldthen;
+			(void)optlocal(locals);
 		}
 	}
 
+	/* If "partiallastline" is set (indicating that the original file
+	 * wasn't terminated with a newline so elvis added one) then we
+	 * probably don't want to write that newline.  However, if this is a
+	 * text-mode write or the added newline isn't there anymore then we
+	 * want to write the whole file.
+	 */
+	if (wholebuf)
+	{
+		next = *to;
+		marksetoffset(&next, markoffset(&next) - 1);
+		if (!o_partiallastline(buf)
+		 || (o_writeeol != 'b' && o_readeol(markbuffer(from)) != 'b')
+		 || o_bufchars(markbuffer(from)) == 0
+		 || scanchar(&next) != '\n')
+			o_partiallastline(markbuffer(from)) = False;
+		else
+			marksetoffset(to, markoffset(&next));
+	}
+
 	/* Try to write the file */
-	if (ioopen(wfile, append ? 'a' : 'w', False, True, o_binary(markbuffer(from))))
+	if (ioopen(wfile, append ? 'a' : 'w', False, True,
+		o_writeeol == 's' || o_readeol(markbuffer(from)) == 'b'
+			? o_readeol(markbuffer(from))
+			: o_writeeol))
 	{
 		if (wholebuf && !filter)
 		{
@@ -1050,8 +1260,12 @@ BOOLEAN bufwrite(from, to, wfile, force)
 			bufoptions(buf);
 
 			/* execute the script */
+			locals = optlocal(NULL);
+			oldthen = exthenflag;
 			(void)experform(windefault, marktmp(top, initbuf, 0),
 				marktmp(next, initbuf, o_bufchars(initbuf)));
+			exthenflag = oldthen;
+			(void)optlocal(locals);
 		}
 	}
 
@@ -1124,7 +1338,10 @@ void buftitle(buffer, title)
 {
 	WINDOW	win;
 
-	/* change the name */
+	/* change the name on disk */
+	lowtitle(buffer->bufinfo, title);
+
+	/* change the name in RAM */
 	safefree(o_bufname(buffer));
 	o_bufname(buffer) = CHARkdup(title);
 
@@ -1144,30 +1361,30 @@ void buftitle(buffer, title)
 /* Set the buffer's flag that will eventually cause an undo version of to
  * be saved.
  */
-void bufwilldo(cursor)
+void bufwilldo(cursor, will)
 	MARK	cursor;	/* where to put cursor if we return to this "undo" version */
+	BOOLEAN	will;	/* True to set flag, False to merely remember cursor */
 {
-	markbuffer(cursor)->willdo = True;
+	if (will && markbuffer(cursor)->willevent != eventcounter)
+	{
+		markbuffer(cursor)->willdo = True;
+		markbuffer(cursor)->willevent = eventcounter;
+	}
 	markbuffer(cursor)->docursor = markoffset(cursor);
 }
 
 
-/* Save an "undo" version of the buffer that "cursor" points to */
-static void bufdo(buf, wipe)
-	BUFFER	buf;	/* buffer to make an "undo" version for */
-	BOOLEAN	wipe;	/* if True, then delete all "redo" versions */
+/* allocate an "undo" version for a buffer, but don't insert it into the
+ * buffer's undo list.  This function is called only from the bufdo() function,
+ * which handles any other processing that may be necessary.
+ */
+static struct undo_s *allocundo(buf)
+	BUFFER	buf;
 {
-	struct undo_s	*undo;
-	int		i;
-	long		linenum;
+	struct undo_s *undo;
+	int	i;
 
-	checkundo("before bufdo");
-
-	/* never save an undo version of an internal buffer */
-	if (o_internal(buf))
-		return;
-
-	/* allocate an undo structure */
+	/* allocate a structure */
 	undo = (struct undo_s *)safealloc(1, sizeof *undo);
 #ifdef DEBUG_ALLOC
 	undo->link1 = undohead;
@@ -1197,6 +1414,29 @@ static void bufdo(buf, wipe)
 		}
 	}
 	undo->bufinfo = lowdup(buf->bufinfo);
+	undo->next = NULL;
+
+	/* return it */
+	return undo;
+}
+
+
+/* Save an "undo" version of a buffer */
+static void bufdo(buf, wipe)
+	BUFFER	buf;	/* buffer to make an "undo" version for */
+	BOOLEAN	wipe;	/* if True, then delete all "redo" versions */
+{
+	struct undo_s	*undo;
+	long		linenum;
+
+	checkundo("before bufdo");
+
+	/* never save an undo version of an internal buffer */
+	if (o_internal(buf))
+		return;
+
+	/* allocate an undo structure and fill it in */
+	undo = allocundo(buf);
 
 	/* insert it into the buffer's "undo" list */
 	undo->next = buf->undo;
@@ -1204,32 +1444,14 @@ static void bufdo(buf, wipe)
 
 	checkundo("in bufdo, before changing undolnptr");
 
-	/* If this is on a different line from previous change, then store this
-	 * as the current "line-undo".  This is done by recursively calling
-	 * bufdo() with the same arguments to create a second identical
-	 * struct undo_s structure, and then moving the second one from the
-	 * undo list to the undolnptr variable.
+	/* If this is on a different line from previous change, then allocate
+	 * another undo structure to use as the line-undo version.
 	 */
 	(void)lowoffset(undo->bufinfo, undo->changepos,
 		(COUNT *)0, (COUNT *)0, (LBLKNO *)0, &linenum);
 	if (linenum != buf->undoline)
 	{
-		/* change undoline to the expected line NOW, so we don't get
-		 * stuck in infinite recursion.
-		 */
-		buf->undoline = linenum;
-
-		/* Call bufdo() again to make another copy of the undo version.
-		 * Increment undolevels temporarily so we don't loose the
-		 * oldest one yet.
-		 */
-		linenum = o_undolevels(buf);
-		o_undolevels(buf)++;
-		if (o_undolevels(buf) < 2) o_undolevels(buf) = 2;
-		bufdo(buf, False);
-		o_undolevels(buf) = linenum;
-
-		/* free the old one, if any */
+		/* free the old line-undo version, if any */
 		if (buf->undolnptr)
 		{
 			lowfree(buf->undolnptr->bufinfo);
@@ -1239,13 +1461,12 @@ static void bufdo(buf, wipe)
 			safefree(buf->undolnptr);
 		}
 
-		/* Use the second undo copy as the line-undo version */
-		buf->undolnptr = buf->undo;
-		buf->undo = buf->undo->next;
+		/* allocate & store the new line-undo version */
+		buf->undolnptr = allocundo(buf);
+		buf->undoline = linenum;
 #ifdef DEBUG_ALLOC
 		buf->undolnptr->undoredo = 'l';
 #endif
-		assert(buf->undo == undo);
 	}
 
 	checkundo("in bufdo, after changing undolnptr");
@@ -1340,8 +1561,9 @@ long bufundo(cursor, back)
 	 */
 	origulev = o_undolevels(buffer);
 	o_undolevels(buffer)++;
-	if (o_undolevels(buffer) < 2) o_undolevels(buffer) = 2;
-	bufwilldo(marktmp(from, buffer, undo->changepos));
+	if (o_undolevels(buffer) < 2)
+		o_undolevels(buffer) = 2;
+	bufwilldo(marktmp(from, buffer, undo->changepos), True);
 	bufdo(buffer, False);
 	if (back > 0)
 	{
@@ -1384,7 +1606,7 @@ long bufundo(cursor, back)
 		/* line-undo: Remove the selected undo version from the
 		 * undolnptr pointer.
 		 */
-		buffer->undolnptr = (struct undo_s *)0;
+		buffer->undolnptr = NULL;
 		buffer->undoline = 0;
 	}
 
@@ -1396,7 +1618,10 @@ long bufundo(cursor, back)
 	o_buflines(buffer) = undo->buflines;
 	o_bufchars(buffer) = undo->bufchars;
 	buffer->changes++;
-	o_modified(buffer) = True;
+	o_modified(buffer) = (BOOLEAN)!o_internal(buffer);
+	/*!!! But since internal buffers never store any undo versions, if
+	 * we get here we know that o_internal(buffer) is False.
+	 */
 
 	/* Adjust the values of any marks.  Most marks can be fixed just by
 	 * calling markadjust(), but the named marks' old values are stored in
@@ -1410,11 +1635,12 @@ long bufundo(cursor, back)
 	}
 	else
 	{
-		markadjust(marktmp(from, buffer, undo->changepos), &from, delta);
+		markadjust(marktmp(from, buffer, undo->changepos), &from,delta);
 	}
 	for (i = 0; i < QTY(namedmark); i++)
 	{
-		if (undo->offset[i] >= 0 && (!namedmark[i] || markbuffer(namedmark[i]) == buffer))
+		if (undo->offset[i] >= 0
+		 && (!namedmark[i] || markbuffer(namedmark[i]) == buffer))
 		{
 			if (namedmark[i])
 				markfree(namedmark[i]);
@@ -1502,7 +1728,7 @@ void bufreplace(from, to, newp, newlen)
 	chgchars = newlen - (markoffset(to) - markoffset(from));
 	o_buflines(markbuffer(from)) += chglines;
 	o_bufchars(markbuffer(from)) += chgchars;
-	o_modified(markbuffer(from)) = True;
+	o_modified(markbuffer(from)) = (BOOLEAN)!o_internal(markbuffer(from));
 	markbuffer(from)->changes++;
 
 	/* adjust the marks */
@@ -1548,7 +1774,7 @@ void bufpaste(dst, from, to)
 	chgchars = markoffset(to) - markoffset(from);
 	o_buflines(markbuffer(dst)) += chglines;
 	o_bufchars(markbuffer(dst)) += chgchars;
-	o_modified(markbuffer(dst)) = True;
+	o_modified(markbuffer(dst)) = (BOOLEAN)!o_internal(markbuffer(dst));
 	markbuffer(dst)->changes++;
 
 	/* adjust marks */

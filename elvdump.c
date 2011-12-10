@@ -1,18 +1,61 @@
 /* elvdump.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_elvdump[] = "$Id: elvdump.c,v 1.5 1996/01/19 23:16:16 steve Exp $";
+char id_elvdump[] = "$Id: elvdump.c,v 1.8 1998/09/20 18:31:50 steve Exp $";
 
 /* This file contains a replacement for elvis' main() function.  The resulting
  * program will test each component of elvis.
  */
 
 #include "elvis.h"
+
+#ifdef FEATURE_COMPLETE
+# error You must #undef FEATURE_COMPLETE in config.h to compile this program
+#endif
+
 extern void dump(char *bufname, BOOLEAN useronly);
+
+/* support for elvis' ctype macros */
+#ifdef ELVCT_DIGIT
+CHAR elvct_class[256] = {
+	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+	ELVCT_DIGIT,ELVCT_DIGIT,ELVCT_DIGIT,ELVCT_DIGIT,ELVCT_DIGIT,
+	ELVCT_DIGIT,ELVCT_DIGIT,ELVCT_DIGIT,ELVCT_DIGIT,ELVCT_DIGIT,
+	0,0,0,0,0,0,0,
+	ELVCT_UPPER,ELVCT_UPPER,ELVCT_UPPER,ELVCT_UPPER,ELVCT_UPPER,
+	ELVCT_UPPER,ELVCT_UPPER,ELVCT_UPPER,ELVCT_UPPER,ELVCT_UPPER,
+	ELVCT_UPPER,ELVCT_UPPER,ELVCT_UPPER,ELVCT_UPPER,ELVCT_UPPER,
+	ELVCT_UPPER,ELVCT_UPPER,ELVCT_UPPER,ELVCT_UPPER,ELVCT_UPPER,
+	ELVCT_UPPER,ELVCT_UPPER,ELVCT_UPPER,ELVCT_UPPER,ELVCT_UPPER,
+	ELVCT_UPPER,
+	0,0,0,0,0,0,
+	ELVCT_LOWER,ELVCT_LOWER,ELVCT_LOWER,ELVCT_LOWER,ELVCT_LOWER,
+	ELVCT_LOWER,ELVCT_LOWER,ELVCT_LOWER,ELVCT_LOWER,ELVCT_LOWER,
+	ELVCT_LOWER,ELVCT_LOWER,ELVCT_LOWER,ELVCT_LOWER,ELVCT_LOWER,
+	ELVCT_LOWER,ELVCT_LOWER,ELVCT_LOWER,ELVCT_LOWER,ELVCT_LOWER,
+	ELVCT_LOWER,ELVCT_LOWER,ELVCT_LOWER,ELVCT_LOWER,ELVCT_LOWER,
+	ELVCT_LOWER
+};
+#endif
+
+static GUI nogui;
+GUI *chosengui = &nogui;
+GUI *gui = &nogui;
+
+BOOLEAN guipoll(BOOLEAN reset)
+{
+	return False;
+}
 
 void msg(MSGIMP imp, char *format, ...)
 {
 	fprintf(stderr, "%s\n", format);
+}
+
+CHAR *msgtranslate(char *msg)
+{
+	return toCHAR(msg);
 }
 
 BOOLEAN calcnumber(CHAR *arg)
@@ -29,6 +72,10 @@ WINDOW windefault;
 WINDOW winofbuf(WINDOW window, BUFFER buffer)
 {
 	return windefault;
+}
+
+void bufreplace(MARK from, MARK to, CHAR *newp, long newlen)
+{
 }
 
 void dump(char *bufname, BOOLEAN useronly)
@@ -52,7 +99,7 @@ void dump(char *bufname, BOOLEAN useronly)
 		}
 
 		/* read the bufinfo block */
-		sesalloc(super->super.buf[i]);
+		sesalloc(super->super.buf[i], SES_BUFINFO);
 		seslock(super->super.buf[i], False, SES_BUFINFO);
 		bufinfo = sesblk(super->super.buf[i]);
 
@@ -83,7 +130,7 @@ void dump(char *bufname, BOOLEAN useronly)
 			if (!bufname) printf("%6d      blklist for #%d\n", blkno, super->super.buf[i]);
 
 			/* read the blklist block */
-			sesalloc(blkno);
+			sesalloc(blkno, SES_BLKLIST);
 			seslock(blkno, False, SES_BLKLIST);
 			blklist = sesblk(blkno);
 
@@ -99,7 +146,7 @@ void dump(char *bufname, BOOLEAN useronly)
 				if (bufname && !strcmp(bufname, bufinfo->bufinfo.name))
 				{
 					/* read the chars block & output its contents */
-					sesalloc(blklist->blklist.blk[j].blkno);
+					sesalloc(blklist->blklist.blk[j].blkno, SES_CHARS);
 					seslock(blklist->blklist.blk[j].blkno, False, SES_CHARS);
 					chars = sesblk(blklist->blklist.blk[j].blkno);
 					fwrite(chars->chars.chars, blklist->blklist.blk[j].nchars, sizeof(CHAR), stdout);
@@ -132,19 +179,26 @@ int main(int argc, char **argv)
 	}
 	if (argc == 1)
 		dump(NULL, useronly);
-	else if (argc == 2)
+	else if (argc == 2 && argv[1][0] != '-')
 	{
-		o_session = argv[1];
+		o_session = toCHAR(argv[1]);
 		dump(NULL, useronly);
 	}
-	else if (argc == 3)
+	else if (argc == 3 && argv[1][0] != '-')
 	{
-		o_session = argv[1];
+		o_session = toCHAR(argv[1]);
 		dump(argv[2], useronly);
 	}
 	else
 	{
-		fprintf(stderr, "usage: elvdump [-u] [session [buffer]]\n");
+		printf("Usage: elvdump [-u] [session [buffer]]\n");
+		printf("When invoked with a session file name and a buffer name, elvdump\n");
+		printf("will write the text of all versions of that buffer to stdout.\n");
+		printf("When invoked with just a session file name, it will describe\n");
+		printf("the block usage for each buffer in the file (or, with -h, only\n");
+		printf("the user buffers).  When invoked with no arguments, it will\n");
+		printf("open an anonymous session file and describe its block usage.\n");
+
 		exit(1);
 	}
 	exit(0);

@@ -1,7 +1,7 @@
 /* cut.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_cut[] = "$Id: cut.c,v 2.24 1996/06/28 01:33:43 steve Exp $";
+char id_cut[] = "$Id: cut.c,v 2.33 1998/10/12 18:57:49 steve Exp $";
 
 #include "elvis.h"
 #if USE_PROTOTYPES
@@ -52,6 +52,7 @@ BUFFER cutbuffer(cbname, create)
 
 	  case '<':
 	  case '>':
+	  case '^':
 		bufname = CUTEXTERN_BUF;
 		break;
 
@@ -79,9 +80,13 @@ BUFFER cutbuffer(cbname, create)
 
 	/* find the buffer, or create it */
 	previous = cbname;
-	buf = (create ? bufalloc(toCHAR(bufname), 0) : buffind(toCHAR(bufname)));
+	buf = (create ? bufalloc(toCHAR(bufname), 0, True) : buffind(toCHAR(bufname)));
 	if (buf)
-		o_internal(buf) = True;
+	{
+		o_internal(buf) = True;	/* probably already set */
+		o_locked(buf) = False;
+		o_bufid(buf) = 0;
+	}
 	return buf;
 }
 
@@ -213,23 +218,34 @@ void cutyank(cbname, from, to, type, del)
 		return;
 	}
 
+	/* when editing a cut buffer, you can't yank it into itself */
+	if (markbuffer(from) == dest)
+	{
+		/* for the anonymous cut buffer, just ignore it */
+		if (cbname)
+		{
+			msg(MSG_ERROR, "can't yank a buffer into itself");
+		}
+		return;
+	}
+
 	/* discard the old contents, unless we want to append */
 	if (!isupper(cbname))
 	{
 		(void)marktmp(dfrom, dest, 0);
 		(void)marktmp(dto, dest, o_bufchars(dest));
-		switch (type)
-		{
-		  case 'c': bufreplace(&dfrom, &dto, toCHAR("character\n"), CUT_TYPELEN); break;
-		  case 'L':
-		  case 'l': bufreplace(&dfrom, &dto, toCHAR("line     \n"), CUT_TYPELEN); break;
-		  case 'r': bufreplace(&dfrom, &dto, toCHAR("rectangle\n"), CUT_TYPELEN); break;
-		}
-		origlines = 1;
+		bufreplace(&dfrom, &dto, NULL, 0L);
+		o_putstyle(dest) = tolower(type);
+		origlines = 0;
 	}
 	else
 	{
-		(void)marktmp(dfrom, dest, o_bufchars(dest));
+		if (o_partiallastline(dest) && type == 'c')
+		{
+			(void)marktmp(dfrom, dest, o_bufchars(dest) - 1);
+			(void)marktmp(dto, dest, o_bufchars(dest));
+			bufreplace(&dfrom, &dto, NULL, 0L);
+		}
 		origlines = o_buflines(dest);
 	}
 
@@ -335,9 +351,9 @@ void cutyank(cbname, from, to, type, del)
 	}
 
 	/* if this the external cut buffer, then write it */
-	if (cbname == '>' && gui->clipopen && (*gui->clipopen)(True))
+	if ((cbname == '>' || cbname == '^') && gui->clipopen && (*gui->clipopen)(True))
 	{
-		for (scanalloc(&cp, marktmp(dfrom, dest, CUT_TYPELEN));
+		for (scanalloc(&cp, marktmp(dfrom, dest, 0L));
 		     cp;
 		     markaddoffset(&dfrom, scanright(&cp)), scanseek(&cp, &dfrom))
 		{
@@ -347,14 +363,28 @@ void cutyank(cbname, from, to, type, del)
 		scanfree(&cp);
 	}
 
+	/* if it doesn't end with a newline, then slap a newline onto the
+	 * end so the last line can be edited.
+	 */
+	o_partiallastline(dest) = (BOOLEAN)(o_bufchars(dest) > 0L
+		&& scanchar(marktmp(dto, dest, o_bufchars(dest) - 1)) != '\n');
+	if (o_partiallastline(dest))
+	{
+		markaddoffset(&dto, 1L);
+		bufreplace(&dto, &dto, toCHAR("\n"), 1);
+	}
+
 	/* Report.  Except that we don't need to report how many new input
 	 * lines we've copied to the ELVIS_PREVIOUS_INPUT buffer.  Also, when
 	 * the mouse is used to mark text under X11, it is immediately copied
 	 * to the clipboard and we don't want to report that.
 	 */
-	if (o_buflines(dest) - origlines >= o_report
+	if (o_report != 0
+	 && (o_partiallastline(dest)
+	 	? (o_buflines(dest) - origlines > o_report)
+	 	: (o_buflines(dest) - origlines >= o_report))
 	 && cbname != '.'
-	 && (cbname != '>' || !windefault || !windefault->seltop))
+	 && ((cbname != '>' && cbname != '^') || !windefault || !windefault->seltop))
 	{
 		if (del)
 			msg(MSG_INFO, "[d]$1 lines deleted", o_buflines(dest) - origlines);
@@ -378,13 +408,13 @@ MARK cutput(cbname, win, at, after, cretend, lretend)
 {
 	BUFFER	src;
 	CHAR	iobuf[1000];
-	CHAR	type;
 	CHAR	*cp;
 	MARKBUF	sfrom, sto;
 	static MARKBUF ret;
 	int	i;
-	long	line, col;
+	long	line, col, len;
 	BOOLEAN	cmd;
+	long     location;
 
 	/* If anonymous buffer, and most recent paste was from a numbered
 	 * cut buffer, then use the successive numbered buffer by default.
@@ -404,19 +434,41 @@ MARK cutput(cbname, win, at, after, cretend, lretend)
 		return NULL;
 	}
 
-	/* if external cut buffer, then fill it from GUI */
-	if (cbname == '<' && gui->clipopen && (*gui->clipopen)(False))
+	/* when editing a cut buffer, you can't paste it into itself */
+	if (markbuffer(at) == src)
 	{
-		bufreplace(marktmp(sfrom, src, 0), marktmp(sto, src, o_bufchars(src)), toCHAR("character\n"), CUT_TYPELEN);
+		/* for the anonymous cut buffer, just ignore it */
+		if (!CHARcmp(o_bufname(src), toCHAR(CUTANON_BUF)))
+		{
+			ret = *at;
+			return &ret;
+		}
+		msg(MSG_ERROR, "can't paste a buffer into itself");
+		return NULL;
+	}
+
+	/* if external cut buffer, then fill it from GUI */
+	if ((cbname == '<' || cbname == '^') && gui->clipopen && (*gui->clipopen)(False))
+	{
+		bufreplace(marktmp(sfrom, src, 0), marktmp(sto, src, o_bufchars(src)), NULL, 0L);
+		location = 0L;
 		while ((i = (*gui->clipread)(iobuf, sizeof(iobuf))) > 0)
 		{
-			bufreplace(marktmp(sfrom, src, CUT_TYPELEN), &sfrom, iobuf, i);
+			bufreplace(marktmp(sfrom, src, location), &sfrom, iobuf, i);
+			location += i;
 		}
 		(*gui->clipclose)();
+		o_putstyle(src) = 'c';
+		o_partiallastline(src) = (BOOLEAN)(location > 0L
+			&& scanchar(marktmp(sfrom, src, location - 1)) != 'n');
+		if (o_partiallastline(src))
+		{
+			bufreplace(marktmp(sfrom, src, location), &sfrom, toCHAR("\n"), 1L);
+		}
 	}
 
 	/* if the buffer is empty, fail */
-	if (o_bufchars(src) <= CUT_TYPELEN)
+	if (o_bufchars(src) == 0L)
 	{
 		/* well, the '.' buffer is okay, but all others fail */
 		if (cbname == '.')
@@ -428,11 +480,8 @@ MARK cutput(cbname, win, at, after, cretend, lretend)
 		return NULL;
 	}
 
-	/* figure out what type of yank this was */
-	type = scanchar(marktmp(sfrom, src, 0));
-
 	/* do the paste */
-	switch (type)
+	switch (o_putstyle(src))
 	{
 	  case 'c': /* CHARACTER MODE */
 		/* choose the insertion point */
@@ -443,10 +492,13 @@ MARK cutput(cbname, win, at, after, cretend, lretend)
 		}
 
 		/* paste it & set "ret" to the new cursor cursor */
-		bufpaste(&ret, marktmp(sfrom, src, CUT_TYPELEN), marktmp(sto, src, o_bufchars(src)));
+		len = o_bufchars(src);
+		if (o_partiallastline(src))
+			len--;
+		bufpaste(&ret, marktmp(sfrom, src, 0L), marktmp(sto, src, len));
 		if (cretend)
 		{
-			markaddoffset(&ret, o_bufchars(src) - CUT_TYPELEN - 1);
+			markaddoffset(&ret, len - 1);
 		}
 		break;
 
@@ -463,10 +515,10 @@ MARK cutput(cbname, win, at, after, cretend, lretend)
 		}
 
 		/* paste it & set "ret" to the start of the new cursor line */
-		bufpaste(&ret, marktmp(sfrom, src, CUT_TYPELEN), marktmp(sto, src, o_bufchars(src)));
+		bufpaste(&ret, marktmp(sfrom, src, 0L), marktmp(sto, src, o_bufchars(src)));
 		if (lretend)
 		{
-			markaddoffset(&ret, o_bufchars(src) - CUT_TYPELEN);
+			markaddoffset(&ret, o_bufchars(src));
 			ret = *(win->md->move)(win, &ret, -1, 0, True);
 		}
 
@@ -481,7 +533,7 @@ MARK cutput(cbname, win, at, after, cretend, lretend)
 		scanfree(&cp);
 		break;
 
-	  case 'r': /* RECTANGLE MODE */
+	  default: /* 'r' -- RECTANGLE MODE */
 		/* choose a starting point, and a column to try for */
 		if (after)
 		{
@@ -494,10 +546,10 @@ MARK cutput(cbname, win, at, after, cretend, lretend)
 			col = (*win->md->mark2col)(win, at, cmd);
 		}
 		ret = *(*win->md->move)(win, at, 0, col, cmd);
-		(void)marktmp(sto, src, lowline(bufbufinfo(src), 2) - 1);
+		(void)marktmp(sto, src, lowline(bufbufinfo(src), 1) - 1);
 
 		/* for each data line in the cut buffer... */
-		for (line = 2;
+		for (line = 1;
 		     line <= o_buflines(src) && markoffset(&ret) < o_bufchars(markbuffer(&ret));
 		     line++)
 		{
@@ -517,17 +569,13 @@ MARK cutput(cbname, win, at, after, cretend, lretend)
 			ret = *at;
 		}
 		break;
-
-	  default:
-		msg(MSG_ERROR, "[C]cut buffer $1 scrambled", cbname);
-		return NULL;
 	}
 
 
 	/* report */
-	if (o_buflines(src) - 1 >= o_report && cbname != '.')
+	if (o_report != 0 && o_buflines(src) >= o_report && cbname != '.')
 	{
-		msg(MSG_INFO, "[d]$1 lines pasted", o_buflines(src) - 1);
+		msg(MSG_INFO, "[d]$1 lines pasted", o_buflines(src));
 	}
 
 	return &ret;
@@ -538,21 +586,25 @@ MARK cutput(cbname, win, at, after, cretend, lretend)
  * cut, or rectangle.  The calling function is responsible for calling
  * safefree() when the memory image is no longer needed.  Returns NULL if
  * the buffer is empty, doesn't exist, or appears to be corrupt.  The
- * "< cut buffer is illegal in this contents, and will also return NULL.
+ * "< cut buffer is illegal in this context, and will also return NULL.
  */
 CHAR *cutmemory(cbname)
 	_CHAR_	cbname;	/* cut buffer name */
 {
 	BUFFER	src;
 	MARKBUF	from, to;
+	long	len;
 
 	/* Find the cut buffer.  If it looks wrong, then return NULL. */
 	src = cutbuffer(cbname, False);
-	if (cbname == '<' || !src || o_bufchars(src) <= CUT_TYPELEN)
+	if ((cbname == '<' || cbname == '^') || !src || o_bufchars(src) == 0L)
 	{
 		return NULL;
 	}
 
 	/* copy the contents into the memory */
-	return bufmemory(marktmp(from, src, CUT_TYPELEN), marktmp(to, src, o_bufchars(src)));
+	len = o_bufchars(src);
+	if (o_putstyle(src) == 'c' && o_partiallastline(src))
+		len--;
+	return bufmemory(marktmp(from, src, 0L), marktmp(to, src, len));
 }

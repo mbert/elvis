@@ -11,7 +11,7 @@
 # include <sys/wait.h>
 #endif
 
-char id_osprg[] = "$Id: osprg.c,v 2.9 1996/05/23 00:03:51 steve Exp $";
+char id_osprg[] = "$Id: osprg.c,v 2.10 1998/02/23 18:56:42 steve Exp $";
 
 #define TMPDIR	(o_directory ? tochar8(o_directory) : "/tmp")
 #define SHELL	(o_shell ? tochar8(o_shell) : "/bin/sh")
@@ -52,7 +52,7 @@ BOOLEAN prgopen(cmd, willwrite, willread)
 	if (willwrite && willread)
 	{
 		/* save the command */
-		command = strdup(cmd);
+		command = safedup(cmd);
 
 		/* create a temporary file for feeding the program's stdin */
 		sprintf(tempfname, "%s/elvis%d.tmp", TMPDIR, (int)getpid());
@@ -60,7 +60,8 @@ BOOLEAN prgopen(cmd, willwrite, willread)
 		if (writefd < 0)
 		{
 			msg(MSG_ERROR, "can't make temporary file");
-			free(command);
+			safefree(command);
+			command = NULL;
 			return False;
 		}
 	}
@@ -209,6 +210,8 @@ BOOLEAN prggo()
 			msg(MSG_ERROR, "can't fork");
 			close(r0w1[0]);
 			close(r0w1[1]);
+			safefree(command);
+			command = NULL;
 			return False;
 		}
 		else if (pid == 0) /* child */
@@ -242,7 +245,8 @@ BOOLEAN prggo()
 			readfd = r0w1[0];
 
 			/* don't need the command string any more. */
-			free(command);
+			safefree(command);
+			command = NULL;
 		}
 	}
 	else /* writing but not reading */

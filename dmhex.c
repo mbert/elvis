@@ -1,7 +1,7 @@
 /* dmhex.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_dmhex[] = "$Id: dmhex.c,v 2.13 1996/05/24 00:53:01 steve Exp $";
+char id_dmhex[] = "$Id: dmhex.c,v 2.15 1998/07/31 02:03:45 steve Exp $";
 
 #include "elvis.h"
 #ifdef DISPLAY_HEX
@@ -15,7 +15,7 @@ static DMINFO *init(WINDOW win);
 static void term(DMINFO *info);
 static long mark2col(WINDOW w, MARK mark, BOOLEAN cmd);
 static MARK move(WINDOW w, MARK from, long linedelta, long column, BOOLEAN cmd);
-static MARK setup(MARK top, long cursor, MARK bottom, DMINFO *info);
+static MARK setup(WINDOW win, MARK top, long cursor, MARK bottom, DMINFO *info);
 static MARK image(WINDOW w, MARK line, DMINFO *info, void (*draw)(CHAR *p, long qty, _char_ font, long offset));
 #endif
 
@@ -118,7 +118,8 @@ static MARK move(w, from, linedelta, column, cmd)
 /* Choose a line to appear at the top of the screen, and return its mark.
  * Also, initialize the info for the next line.
  */
-static MARK setup(top, cursor, bottom, info)
+static MARK setup(win, top, cursor, bottom, info)
+	WINDOW	win;	/* window to be updated */
 	MARK	top;	/* where previous image started */
 	long	cursor;	/* offset of cursor */
 	MARK	bottom;	/* where previous image ended */
@@ -199,6 +200,18 @@ static MARK image(w, line, info, draw)
 	space = ' ';
 	for ((void)scanalloc(&cp, line), i = 0; i < 16 && cp; scannext(&cp), i++)
 	{
+		/* special case: if the last newline was added by elvis
+		 * (not in the file) then hide it unless the cursor is on it.
+		 */
+		if (o_partiallastline(markbuffer(line))
+		 && (o_readeol(markbuffer(line)) == 'b' || o_writeeol == 'b')
+		 && *cp == '\n'
+		 && markoffset(line) + i == o_bufchars(markbuffer(line)) - 1
+		 && j != i)
+		{
+			break;
+		}
+
 		if ((i & 0x03) == 0)
 		{
 			(*draw)(&space, 1, 'n', -1);
@@ -215,6 +228,7 @@ static MARK image(w, line, info, draw)
 			(*draw)(&space, 1, 'n', -1);
 			space = ' ';
 		}
+
 		sprintf(buf, "%02x", *cp);
 		tmp = buf[0];
 		(*draw)(&tmp, 1, (char)(j==i ? 'u' : 'n'), markoffset(line) + i);
@@ -236,7 +250,18 @@ static MARK image(w, line, info, draw)
 	tmp = '.';
 	for ((void)scanseek(&cp, line), i = 0; i < 16 && cp; scannext(&cp), i++)
 	{
-		if (*cp < ' ' || *cp == '\177')
+		/* special case: if the last newline was added by elvis
+		 * (not in the file) then hide it unless the cursor is on it.
+		 */
+		if (o_partiallastline(markbuffer(line))
+		 && (o_readeol(markbuffer(line)) == 'b' || o_writeeol == 'b')
+		 && *cp == '\n'
+		 && markoffset(line) + i == o_bufchars(markbuffer(line)) - 1
+		 && j != i)
+		{
+			(*draw)(blanks, 1, 'n', markoffset(line) + i);
+		}
+		else if (*cp < ' ' || *cp == '\177')
 		{
 			(*draw)(&tmp, 1, 'n', markoffset(line) + i);
 		}

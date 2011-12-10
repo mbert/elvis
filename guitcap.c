@@ -4,6 +4,7 @@
 #ifdef GUI_TERMCAP
 #include <signal.h>
 
+
 /* This file contains a termcap-based user interface.  It is derived from the
  * "curses.c" file of elvis 1.8.
  */
@@ -125,6 +126,8 @@ static char	*MD;		/* :md=: bold start */
 static char	*ME;		/* :me=: bold end */
 static char	*MH;		/* :mh=: half-bright start (end with :me=:) */
 static char	*CM;		/* :cm=: cursor movement */
+static char	*DO;		/* :do=: move down one line */
+static char	*DOmany;	/* :DO=: move down many lines */
 static char	*CE;		/* :ce=: clear to end of line */
 static char	*AL;		/* :al=: add a line */
 static char	*ALmany;	/* :AL=: add many lines */
@@ -139,6 +142,8 @@ static char	*DC;		/* :dc=: delete a character */
 static char	*DCmany;	/* :DC=: delete many characters */
 static char	*TI;		/* :ti=: terminal init */
 static char	*TE;		/* :te=: terminal exit */
+static char	*SC;		/* :sc=: save cursor position & attribute */
+static char	*RC;		/* :rc=: restore cursor position & attribute */
 static char	*CQ;		/* :cQ=: normal cursor */
 static char	*CX;		/* :cX=: cursor used for EX command/entry */
 static char	*CV;		/* :cV=: cursor used for VI command mode */
@@ -178,9 +183,12 @@ static struct
 	{"<PgUp>",	"PUkPk2",	"\002", MAP_ALL},
 	{"<PgDn>",	"PDkNk5",	"\006", MAP_ALL},
 	{"<Home>",	"HMkhK1",	"^",	MAP_ALL},
-	{"<End>",	"ENkHK5",	"$",	MAP_ALL},
+	{"<End>",	"ENkHK5@7",	"$",	MAP_ALL},
 	{"<Insert>",	"kI",		"i",	MAP_ALL},
 	{"<Delete>",	"kD",		"x",	MAP_ALL},
+	{"<Compose>",	"k+",		"\013",	MAP_INPUT},
+	{"<CLeft>",	"#4KL",		"B",	MAP_ALL},
+	{"<CRight>",	"%iKR",		"W",	MAP_ALL},
 	{"#1",		"k1"},
 	{"#2",		"k2"},
 	{"#3",		"k3"},
@@ -224,24 +232,18 @@ static struct
 };
 
 /* These are GUI-dependent global options */
-static struct
-{
-	OPTVAL	term;		/* string - terminal type */
-	OPTVAL	ttyrows;	/* number - rows of screen */
-	OPTVAL	ttycolumns;	/* number - columns of screen */
-	OPTVAL	ttyunderline;	/* boolean - whether colors and underline mix */
-} goptvals;
 static OPTDESC goptdesc[] =
 {
-	{"term", "termtype",	optsstring,	optisstring},
+	{"term", "ttytype",	optsstring,	optisstring},
 	{"ttyrows", "ttylines",	optnstring,	optisnumber},
 	{"ttycolumns", "ttycolumns",optnstring,	optisnumber},
 	{"ttyunderline", "ttyu",NULL,		NULL	   },
 };
-#define o_term		goptvals.term.value.string
-#define o_ttyrows	goptvals.ttyrows.value.number
-#define o_ttycolumns	goptvals.ttycolumns.value.number
-#define o_ttyunderline	goptvals.ttyunderline.value.boolean
+struct ttygoptvals_s ttygoptvals;
+#define o_term		ttygoptvals.term.value.string
+#define o_ttyrows	ttygoptvals.ttyrows.value.number
+#define o_ttycolumns	ttygoptvals.ttycolumns.value.number
+#define o_ttyunderline	ttygoptvals.ttyunderline.value.boolean
 
 
 /*----------------------------------------------------------------------------*/
@@ -275,6 +277,9 @@ static int ttych(ch)
 	ttybuf[ttycount++] = ch;
 	if (ttycount >= QTY(ttybuf))
 		ttyflush();
+#ifndef NDEBUG
+	ttybuf[ttycount] = '\0';
+#endif
 	return ch;
 }
 
@@ -308,18 +313,15 @@ void ttysuspend()
 	/* revert to the normal font */
 	revert(NULL);
 
-	if (CQ)
-	{
-		tputs(CQ, 1, ttych);
-	}
-	if (TE)
-	{
-		tputs(TE, 1, ttych);
-	}
-	if (KE)
-	{
-		tputs(KE, 1, ttych);
-	}
+	/* restore some things */
+	if (CQ) tputs(CQ, 1, ttych);	/* restore cursor shape */
+	if (TE) tputs(TE, 1, ttych);	/* restore terminal mode/page */
+	if (KE) tputs(KE, 1, ttych);	/* restore keypad mode */
+	if (RC) tputs(RC, 1, ttych);	/* restore cursor & attributes */
+
+	/* Move the cursor to the bottom of the screen */
+	tputs(tgoto(CM, 0, (int)o_ttyrows - 1), 0, ttych);
+	ttych('\n');
 	ttyflush();
 
 	/* change the terminal mode back the way it was */
@@ -339,18 +341,12 @@ void ttyresume(sendstr)
 	{
 		ttych('\r');
 		tputs(CE, (int)o_ttycolumns, ttych);
-		if (TI)
-		{
-			tputs(TI, 1, ttych);
-		}
-		if (KS)
-		{
-			tputs(KS, 1, ttych);
-		}
-
-		/* reset, so we don't try any suspicious optimizations */
-		reset();
+		if (TI) tputs(TI, 1, ttych);
+		if (KS) tputs(KS, 1, ttych);
 	}
+
+	/* reset, so we don't try any suspicious optimizations */
+	reset();
 }
 
 /* This function determines the screen size.  It does this by calling the
@@ -361,15 +357,29 @@ static void ttygetsize()
 {
 	int	lines;
 	int	cols;
+	char	*tmp;
 
 	/* get the window size, one way or another. */
 	lines = cols = 0;
 	if (!ttysize(&lines, &cols) || lines < 2 || cols < 30)
 	{
-		lines = tgetnum("li");
-		if (lines <= 0) lines = 24;
-		cols = tgetnum("co");
-		if (cols <= 0) cols = 80;
+		/* get lines from $LINES or :li#: */
+		tmp = getenv("LINES");
+		if (tmp)
+			lines = atoi(tmp);
+		else
+			lines = tgetnum("li");
+		if (lines <= 0)
+			lines = 24;
+
+		/* get columns from $COLUMNS or :co#: */
+		tmp = getenv("COLUMNS");
+		if (tmp)
+			cols = atoi(tmp);
+		else
+			cols = tgetnum("co");
+		if (cols <= 0)
+			cols = 80;
 	}
 
 	/* did we get a realistic value? */
@@ -378,6 +388,8 @@ static void ttygetsize()
 		o_ttyrows = lines;
 		o_ttycolumns = cols;
 	}
+	optflags(o_ttyrows) |= OPT_HIDE;
+	optflags(o_ttycolumns) |= OPT_HIDE;
 }
 
 
@@ -473,6 +485,7 @@ static void starttcap()
 	{
 		o_term = toCHAR("unknown");
 	}
+	optflags(o_term) |= OPT_SET|OPT_LOCK|OPT_NODFLT;
 
 	/* allocate memory for capbuf */
 	capbuf = cbmem;
@@ -490,8 +503,12 @@ static void starttcap()
 	mayhave(&BC, "bc");
 	mayhave(&VB, "vb");
 	musthave(&CM, "cm");
+	DO = "\n";
+	mayhave(&DO, "do");
+	mayhave(&DOmany, "DO");
 	mayhave(&TI, "ti");
 	mayhave(&TE, "te");
+	pair(&SC, &RC, "sc", "rc");	/* cursor save/restore */
 	pair(&KS, &KE, "ks", "ke");	/* keypad enable/disable */
 	if (tgetnum("sg") <= 0)
 	{
@@ -500,9 +517,13 @@ static void starttcap()
 	if (tgetnum("ug") <= 0)
 	{
 		pair(&US, &UE, "us", "ue");
-		pair(&MD, &ME, "md", "me");
-		if (ME)
+		/* bor: some terminals don't have :md:, but _do_ have :me:
+		   Check, that we can switch attribute off before using it
+		 */
+		mayhave(&ME, "me");
+		if (ME && *ME)
 		{
+			mayhave(&MD, "md");
 			mayhave(&MH, "mh");
 		}
 	}
@@ -607,6 +628,7 @@ static void starttcap()
 
 	/* change the terminal mode to cbreak/noecho */
 	ttyinit();
+	if (SC) tputs(SC, 1, ttych);
 	ttyresume(True);
 
 	/* try to get true screen size, from the operating system */
@@ -758,10 +780,6 @@ static BOOLEAN ansi_color(tw, font, fgname, bgname)
 			30 + fg);		/* foreground color */
 		if (o_ttyunderline && US && font == 'u')
 			strcat(build, US);
-#if 0
-		if (SO && build == tw->starthilite)
-			strcat(build, SO);
-#endif
 	}
 
 	/* if 'n' font, copy startnormal into endXXX */
@@ -841,13 +859,7 @@ static BOOLEAN ansi_color(tw, font, fgname, bgname)
 		*tw->endunderline = '\0';
 			if (UE) strcpy(tw->endunderline, UE);
 			strcat(tw->endunderline, tw->startnormal);
-#if 0
-		*tw->endhilite = '\0';
-			if (SE && bg < 0) strcpy(tw->endhilite, SE);
-			strcat(tw->endhilite, tw->startnormal);
-#else
 		strcpy(tw->endhilite, tw->startnormal);
-#endif
 		strcpy(tw->endfixed, tw->startnormal);
 	}
 
@@ -865,19 +877,36 @@ static void movecurs(tw)
 	int	i;
 
 	/* maybe we don't need to move at all? */
-	if ((afterprg > 0 && y <= o_ttyrows - afterscrl)
+	/* JohnW 13/08/96 > 1 was > 0 */
+	if ((afterprg > 1 && y <= o_ttyrows - afterscrl)
 		|| (y == physy && tw->cursx == physx))
 	{
 		/* already there */
 		return;
 	}
 
+        if (afterprg == 1)  /* JohnW 13/08/96 - only use the bottom line */
+        {
+		/* We get the 'bottom' line by adding the difference between
+		 * the window's bottom line and the screen's bottom line. This
+		 * then allows scrolling of an input line and moving back onto
+		 * the penultimate line */
+		tputs(tgoto(CM, tw->cursx, y + ((int)o_ttyrows - (tw->pos + tw->height))), 1, ttych);
+                physx = tw->cursx;
+                return;
+	}
+	else
 	/* Try some simple alternatives to the CM string */
-	if (y >= physy && y - physy < gui->movecost && (tw->cursx == 0 || tw->cursx == physx))
+	if (y >= physy
+	 && (y - physy < gui->movecost || DOmany)
+	 && (tw->cursx == 0 || tw->cursx == physx))
 	{
 		/* output a bunch of newlines, and maybe a carriage return */
-		for (i = y - physy; i > 0; i--)
-			ttych('\n');
+		if (y - physy > 1 && DOmany)
+			tputs(tgoto(DOmany, y - physy, y - physy), 1, ttych);
+		else
+			for (i = y - physy; i > 0; i--)
+				tputs(DO, 1, ttych);
 		if (tw->cursx != physx)
 			ttych('\r');
 	}
@@ -890,10 +919,8 @@ static void movecurs(tw)
 	/* many other special cases could be handled here */
 	else
 	{
-#if 1
 		/* revert to the normal font */
 		revert(tw);
-#endif
 
 		/* move it the hard way */
 		tputs(tgoto(CM, tw->cursx, y), 1, ttych);
@@ -911,7 +938,8 @@ static BOOLEAN clrtoeol(gw)
 	TWIN	*tw = (TWIN *)gw;
 
 	/* after running a program, disable the :ce: string for a while. */
-	if (afterprg)
+	/* JohnW 13/08/96 Not disabled for the bottom line of window */
+	if (afterprg && tw->cursy != (int)tw->height - 1)
 		return True;
 
 	/* if we're on the bottom row of a window which doesn't end at the
@@ -919,7 +947,8 @@ static BOOLEAN clrtoeol(gw)
 	 * a bunch of spaces instead.  The draw() function will convert those
 	 * spaces to underscore characters so the window has a border.
 	 */
-	if (tw->cursy == tw->height - 1 && tw->pos + tw->height != o_ttyrows)
+	if ( !afterprg && /* JohnW 13/08/96 Not after a prog... */
+	    tw->cursy == tw->height - 1 && tw->pos + tw->height != o_ttyrows)
 	{
 		return False;
 	}
@@ -1039,7 +1068,7 @@ static BOOLEAN scroll(gw, qty, notlast)
 			op = (tw->cursy == 0 && tw->pos == 0 && SRev) ? SRev : AL;
 
 			/* if we don't know how to do this, we're screwed */
-			if (!op)
+			if (!op || qty > o_ttyrows / 2)
 			{
 				return False;
 			}
@@ -1069,7 +1098,7 @@ static BOOLEAN scroll(gw, qty, notlast)
 			op = DL; /* but don't try very hard, for now! */
 
 			/* if we don't know how to do this, we're screwed */
-			if (!op)
+			if (!op || qty > o_ttyrows / 2)
 			{
 				return False;
 			}
@@ -1109,6 +1138,7 @@ static void moveto(gw, column, row)
 	int	column;	/* new column of cursor */
 	int	row;	/* new row of cursor */
 {
+	assert(twins);
 	((TWIN *)gw)->cursx = column;
 	((TWIN *)gw)->cursy = row;
 }
@@ -1221,7 +1251,7 @@ static void draw(gw, font, text, len)
 	CHAR	*text;	/* text to draw */
 	int	len;	/* length of text */
 {
-	TWIN	*tw = (GUIWIN *)gw;
+	TWIN	*tw = (TWIN *)gw;
 	char	*startf, *endf; /* font control strings */
 	int	i;
 #ifndef NDEBUG
@@ -1240,12 +1270,9 @@ static void draw(gw, font, text, len)
 	 */
 	if (afterprg > 0)
 	{
-#if 0
-fprintf(stderr, "draw(\"%.*s\"), tw->cursy=%d, tw->height=%d, physy=%d, afterscrl=%d\n", len, tochar8(text), tw->cursy, tw->height, physy, afterscrl);
-#endif
 		if (tw->cursy < tw->height - afterscrl - 1)
 			return;
-		else if (tw->cursx > 0)
+		else if (tw->cursx > 0 && afterprg == 2) /* JohnW not for 1 */
 		{
 			ttych('\r');
 			ttych('\n');
@@ -1371,6 +1398,10 @@ static int init(argc, argv)
 {
 	int	i;
 
+	/* add the global options to the list known to :set */
+	o_ttyunderline = True;
+	optinsert("tcap", QTY(goptdesc), goptdesc, &ttygoptvals.term);
+
 	/* initialize the termcap stuff */
 	starttcap();
 
@@ -1390,10 +1421,6 @@ static int init(argc, argv)
 				keys[i].flags);
 		}
 	}
-
-	/* add the global options to the list known to :set */
-	o_ttyunderline = True;
-	optinsert("tcap", QTY(goptdesc), goptdesc, &goptvals.term);
 
 	return argc;
 }
@@ -1456,10 +1483,8 @@ static void loop P_((void))
 			current->shape = eventdraw((GUIWIN *)current);
 			movecurs(current);
 
-#if 1
 			/* make the cursor be this window's shape */
 			cursorshape(current->shape);
-#endif
 		}
 
 		/* choose a timeout value */
@@ -1496,12 +1521,33 @@ static void loop P_((void))
 		}
 		else
 		{
+			/* If this is the erase key (as specified by the
+			 * serial port's configuration) then make sure elvis
+			 * sees it as a backspace character.
+			 */
+			if (len == 1 && buf[0] == ttyerasekey)
+				buf[0] = '\b';
+
 			mst = eventkeys((GUIWIN *)current, toCHAR(buf), len);
 
 			/* if first keystroke after running an external
 			 * program, then we need to expose every window.
+			 *
+			 * JohnW 13/08/96 - try to sort out keeping program
+			 * output on screen until vi mode is entered again.
+                         * We have some program output on the screen and we
+                         * may want to keep looking at it while we do another
+                         * command, so don't do a big refresh until we're
+                         * out of bottom-line mode
+			 *
+			 * Steve 9/12/96 - switched it back, partially, because
+			 * moving the ttyresume() call to the afterprg==2
+			 * state caused problems with terminals which switch
+			 * screens.
 			 */
-			if (afterprg == 1)
+			if (afterprg == 1 && /* JohnW added next bit */
+				  windefault && windefault->state &&
+				  !(windefault->state->flags & ELVIS_BOTTOM))
 			{
 				/* reset the flag BEFORE exposing windows,
 				 * or else the eventexpose() won't work right.
@@ -1521,6 +1567,7 @@ static void loop P_((void))
 				 * read one more keystroke before exposing
 				 * all the windows.
 				 */
+				ttyresume(False);
 				afterprg = 1;
 			}
 		}
@@ -1532,7 +1579,6 @@ static void term P_((void))
 {
 	cursorshape(CURSOR_NONE);
 	endtcap();
-	ttyflush();
 }
 
 
@@ -1718,9 +1764,9 @@ static void chgsize(tw, newheight, winch)
 
 
 /* This function creates a window */
-static BOOLEAN creategw(name, attributes)
+static BOOLEAN creategw(name, firstcmd)
 	char	*name;		/* name of new window's buffer */
-	char	*attributes;	/* other window parameters, if any */
+	char	*firstcmd;	/* first command to run in window */
 {
 	TWIN	*newp;
 
@@ -1731,7 +1777,7 @@ static BOOLEAN creategw(name, attributes)
 	}
 
 	/* create a window */
-	newp = safealloc(1, sizeof(TWIN));
+	newp = (TWIN *)safealloc(1, sizeof(TWIN));
 
 	/* initialize the window */
 	if (twins)
@@ -1781,6 +1827,10 @@ static BOOLEAN creategw(name, attributes)
 	chgsize(newp, (int)(o_ttyrows / nwindows), False);
 	drawborder(newp);
 
+	/* some versions of tcaphelp.c support retitle() */
+	if (gui->retitle)
+		(*gui->retitle)((GUIWIN *)newp, name);
+
 	/* make elvis do its own initialization */
 	if (!eventcreate((GUIWIN *)newp, NULL, name, newp->height, (int)o_ttycolumns))
 	{
@@ -1792,6 +1842,13 @@ static BOOLEAN creategw(name, attributes)
 	/* make the new window be the current window */
 	current = newp;
 
+	/* execute the first command, if any */
+	if (firstcmd)
+	{
+		winoptions(winofgw((GUIWIN *)newp));
+		exstring(windefault, toCHAR(firstcmd));
+	}
+
 	return True;
 }
 
@@ -1802,6 +1859,7 @@ static void destroygw(gw, force)
 	BOOLEAN	force;	/* if True, try harder */
 {
 	TWIN	*scan, *lag;
+	WINDOW	win;
 
 	/* delete the window from the list of windows */
 	for (lag = NULL, scan = twins; scan != (TWIN *)gw; lag = scan, scan = scan->next)
@@ -1845,6 +1903,13 @@ static void destroygw(gw, force)
 
 	/* free the storage */
 	safefree(gw);
+
+	/* some versions of tcaphelp.c support retitle() */
+	if (current && gui->retitle && (win=winofgw((GUIWIN *)current)) != NULL)
+	{
+		(*gui->retitle)((GUIWIN *)current,
+			tochar8(o_bufname(markbuffer(win->cursor))));
+	}
 }
 
 
@@ -1852,7 +1917,15 @@ static void destroygw(gw, force)
 static BOOLEAN focusgw(gw)
 	GUIWIN	*gw;	/* window to be the new "current" window */
 {
+	WINDOW	win;
+
+	/* make this window current */
 	current = (TWIN *)gw;
+
+	/* some versions of tcaphelp.c support retitle() */
+	if (gui->retitle && (win = winofgw(gw)) != NULL)
+		(*gui->retitle)(gw, tochar8(o_bufname(markbuffer(win->cursor))));
+
 	return True;
 }
 
@@ -1863,7 +1936,7 @@ static BOOLEAN tabcmd(gw, key2, count)
 	_CHAR_	key2;	/* second key of <Tab> command */
 	long	count;	/* argument of the <Tab> command */
 {
-	TWIN	*tw = (GUIWIN *)gw;
+	TWIN	*tw = (TWIN *)gw;
 	int	newheight;
 	int	oldheight;
 	int	oldpos;
@@ -1927,7 +2000,7 @@ static BOOLEAN tabcmd(gw, key2, count)
 static void beep(gw)
 	GUIWIN	*gw;	/* window that generated the beep */
 {
-	if (VB)
+	if (o_flash && VB)
 		tputs(VB, 0, ttych);
 	else
 		ttych('\007');
@@ -2051,7 +2124,7 @@ static BOOLEAN color(gw, font, fg, bg)
 }
 
 
-static BOOLEAN isfilter;
+static BOOLEAN isread;
 
 /* Suspend curses while running an external program */
 static BOOLEAN ttyprgopen(command, willwrite, willread)
@@ -2059,22 +2132,12 @@ static BOOLEAN ttyprgopen(command, willwrite, willread)
 	BOOLEAN	willwrite;	/* redirect stdin from elvis */
 	BOOLEAN	willread;	/* redirect stdiout back to elvis */
 {
-	/* unless both stdin and stdout/stderr are going to be redirected,
-	 * move the cursor to the bottom of the screen before running program.
+	/* unless stdout/stderr is going to be redirected, move the cursor
+	 * to the bottom of the screen before running program.
 	 */
-	isfilter = (BOOLEAN)(willwrite && willread);
-	if (!isfilter)
+	isread = willread;
+	if (!isread)
 	{
-		tputs(tgoto(CM, 0, (int)o_ttyrows - 1), 0, ttych);
-#if 0
-		if (CE)
-			tputs(CE, 0, ttych);
-		else
-#endif
-			ttych('\n');
-		reset();
-		ttyflush();
-	
 		/* suspend curses */
 		ttysuspend();
 	}
@@ -2082,7 +2145,7 @@ static BOOLEAN ttyprgopen(command, willwrite, willread)
 	/* try to call the regular prgopen(); if it fails, then clean up */
 	if (!prgopen(command, willwrite, willread))
 	{
-		if (!isfilter)
+		if (!isread)
 			ttyresume(True);
 		return False;
 	}
@@ -2095,12 +2158,13 @@ static BOOLEAN ttyprgopen(command, willwrite, willread)
 static int ttyprgclose P_((void))
 {
 	int	status;
+	WINDOW	win;
 
 	/* wait for the program to terminate */
 	status = prgclose();
 
 	/* resume curses */
-	if (!isfilter)
+	if (!isread)
 	{
 		ttyresume(False);
 
@@ -2123,6 +2187,11 @@ static int ttyprgclose P_((void))
 		afterprg = 2;
 		afterscrl = 0;
 	}
+
+	/* some versions of tcaphelp.c set the title */
+	if (gui->retitle && (win = winofgw((GUIWIN *)current)) != NULL)
+		(*gui->retitle)((GUIWIN *)current,
+				tochar8(o_bufname(markbuffer(win->cursor))));
 
 	return status;
 }

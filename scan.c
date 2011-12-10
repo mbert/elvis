@@ -1,10 +1,14 @@
 /* scan.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_scan[] = "$Id: scan.c,v 2.14 1996/08/28 23:45:16 steve Exp $";
+char id_scan[] = "$Id: scan.c,v 2.16 1998/11/28 20:17:56 steve Exp $";
 
 #include "elvis.h"
 
+#ifdef FEATURE_LITRE
+static	struct scan_s saved;
+static long changes;
+#endif
 
 /* This variable points to the top of the stack of scan contexts */
 struct scan_s *scan__top;
@@ -172,6 +176,15 @@ void	scanfree(cp)
 	assert(scan__top != NULL);
 	assert(scan__top->ptr == cp);
 
+#ifdef FEATURE_LITRE
+	/* save info from this scan, to speed up later scans */
+	if (scan__top->next && scan__top->buffer)
+	{
+		saved = *scan__top;
+		changes = scan__top->buffer->changes;
+	}
+#endif /* FEATURE_LITRE */
+
 	/* delete it from the list */
 	context = scan__top;
 	scan__top = scan__top->next;
@@ -262,6 +275,22 @@ CHAR	*scanseek(cp, restart)
 			right = (int)(scan__top->next->rightedge - scan__top->next->leftedge)
 				- left;
 		}
+#ifdef FEATURE_LITRE
+		else if (saved.buffer == scan__top->buffer
+		 && changes == scan__top->buffer->changes
+		 && saved.leoffset <= markoffset(restart)
+		 && saved.leoffset + (int)(saved.rightedge - saved.leftedge)
+				> markoffset(restart))
+		{
+			/* In a previous block, but that block isn't locked
+			 * anymore.  Need to lock it, but at least we avoided
+			 * calling lowoffset().
+			 */
+			nextblkno = saved.blkno;
+			left = (int)(markoffset(restart) - saved.leoffset);
+			right = (int)(saved.rightedge - saved.leftedge) - left;
+		}
+#endif /* FEATURE_LITRE */
 		else
 		{
 			/* can't optimize; must call lowoffset to find block */

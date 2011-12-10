@@ -1,7 +1,9 @@
 /* gui2.h */
 /* Copyright 1995 by Steve Kirkendall */
 
-
+/* Herbert: 
+ * two more GUI's (by Lee).
+ */
 
 #define guiscrollbar(w,t,b,n)	if (gui->scrollbar != NULL) \
 					(*scrollbar)((w)->gw, t, b, n); else (void)0
@@ -24,12 +26,20 @@ extern GUI	*gui;
 extern GUI	guix11;
 #endif
 
+#ifdef GUI_PM
+extern GUI	guipm;
+#endif
+
 #ifdef GUI_CURSES
 extern GUI	guicurses;
 #endif
 
 #ifdef GUI_BIOS
 extern GUI	guibios;
+#endif
+
+#ifdef GUI_VIO
+extern GUI	guivio;
 #endif
 
 #ifdef GUI_TERMCAP
@@ -39,6 +49,7 @@ extern GUI	guitermcap;
 #ifdef GUI_OPEN
 extern GUI	guiopen;
 extern GUI	guiquit;
+extern GUI	guiscript;
 #endif
 
 #ifdef GUI_WIN32

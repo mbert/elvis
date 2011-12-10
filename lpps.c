@@ -1,7 +1,7 @@
 /* lpps.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_lpps[] = "$Id: lpps.c,v 2.11 1996/07/11 15:33:20 steve Exp $";
+char id_lpps[] = "$Id: lpps.c,v 2.13 1997/10/05 19:06:12 steve Exp $";
 
 
 /* This file contains a driver for Adobe PostScript.  The driver supports
@@ -10,6 +10,7 @@ char id_lpps[] = "$Id: lpps.c,v 2.11 1996/07/11 15:33:20 steve Exp $";
 
 
 #include "elvis.h"
+#ifdef FEATURE_LPR
 
 #if USE_PROTOTYPES
 static void out(char *str, char *param);
@@ -269,6 +270,7 @@ static void before(minorno, draw)
 			else if (isalnum(o_lppaper[i]))
 				paper[j++] = o_lppaper[i];
 		}
+		paper[j] = '\0';
 		strcat(paper, ") def");
 	}
 	out("/ElvisPaper ", paper);
@@ -423,3 +425,5 @@ static void after(linesleft)
 /* These describe the printer types supported by these functions */
 LPTYPE lpps =	{"ps", 1, True, before, fontch, page, after};
 LPTYPE lpps2 =	{"ps2", 2, True, before, fontch, page, after};
+
+#endif /* FEATURE_LPR */

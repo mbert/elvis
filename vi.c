@@ -1,7 +1,7 @@
 /* vi.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_vi[] = "$Id: vi.c,v 2.52 1996/09/21 00:27:55 steve Exp $";
+char id_vi[] = "$Id: vi.c,v 2.58 1998/10/06 16:10:51 steve Exp $";
 
 #include "elvis.h"
 
@@ -10,7 +10,6 @@ static RESULT parse(_CHAR_ key, void *info);
 static ELVCURSOR shape(WINDOW win);
 #endif
 
-#define FIX_EMPTY	/* when command would fail on empty buffer: define=fix buffer */
 
 /* This variable stores the command which <.> is supposed to repeat.
  * If the command is supposed to switch to input mode, then those
@@ -68,7 +67,7 @@ vikeys[] =
 /* ^L  redraw screen	 */	{ v_expose,	WHEN_SEL_ONCE|WHEN_EMPTY,	TWEAK_NONE,		"^L"	},
 /* ^M  mv front next ln  */	{ m_updown,	WHEN_ANY,			TWEAK_FRONT_INCL_LINE,	"^M"	},
 /* ^N  move down	 */	{ m_updown,	WHEN_ANY,			TWEAK_IGNCOL_INCL_LINE,	"^N"	},
-/* ^O  not defined	 */	{ NULL,		WHEN_NEVER,			TWEAK_NONE,		"^O"	},
+/* ^O  ignored    	 */	{ NULL,		WHEN_NEVER,			TWEAK_NONE,		"^O"	},
 /* ^P  move up		 */	{ m_updown,	WHEN_ANY,			TWEAK_IGNCOL_INCL_LINE,	"^P"	},
 /* ^Q  not defined	 */	{ NULL,		WHEN_NEVER,			TWEAK_NONE,		"^Q"	},
 /* ^R  redo change	 */	{ v_undo,	WHEN_ONCE_OPEN|WHEN_EMPTY,	TWEAK_NONE,		"^R"	},
@@ -79,7 +78,7 @@ vikeys[] =
 /* ^W  window operations */	{ v_window,	WHEN_SEL_ONCE_OPEN_HIST|WHEN_EMPTY,TWEAK_NONE,		"^W"	},
 /* ^X  move to phys col	 */	{ m_column,	WHEN_SEL_ONCE_OPEN_HIST|WHEN_MOVE,TWEAK_IGNCOL_MARK,	"^X"	},
 /* ^Y  scroll down	 */	{ m_scroll,	WHEN_SEL_ONCE,			TWEAK_FIXCOL,		"^Y"	},
-/* ^Z  not defined	 */	{ v_notex,	WHEN_ANY,			TWEAK_NONE,		"^Z"	},
+/* ^Z  stop process	 */	{ v_notex,	WHEN_ANY,			TWEAK_NONE,		"^Z"	},
 /* ESC end visible mark	 */	{ v_visible,	WHEN_SEL,			TWEAK_NONE,		"^obra"	},
 /* ^\  not defined	 */	{ NULL,		WHEN_NEVER,			TWEAK_NONE,		"^bksl"	},
 /* ^]  keyword is tag	 */	{ v_tag,	WHEN_ONCE_OPEN,			TWEAK_NONE,		"^cbra"	},
@@ -139,7 +138,7 @@ vikeys[] =
 /*  S  change line	 */	{ v_notop,	WHEN_OPEN,			TWEAK_DOT_UNDO			},
 /*  T  move bk to char	 */	{ m_csearch,	WHEN_ANY,			TWEAK_INCL			},
 /*  U  undo whole line	 */	{ v_undo,	WHEN_OPEN_HIST|WHEN_EMPTY,	TWEAK_FRONT_UNDO		},
-/*  V  start visible	 */	{ v_visible,	WHEN_SEL_ONCE,			TWEAK_LINE			},
+/*  V  start visible	 */	{ v_visible,	WHEN_SEL_ONCE_OPEN,		TWEAK_LINE			},
 /*  W  move forward Word */	{ m_bigword,	WHEN_ANY,			TWEAK_NONE			},
 /*  X  delete to left	 */	{ v_delchar,	WHEN_ONCE_OPEN_HIST,		TWEAK_DOT_UNDO			},
 /*  Y  yank text	 */	{ v_notop,	WHEN_OPEN,			TWEAK_NONE			},
@@ -148,7 +147,7 @@ vikeys[] =
 /*  \  not defined	 */	{ NULL,		WHEN_NEVER,			TWEAK_NONE,		"bksl"	},
 /*  ]  move fwd section  */	{ m_fsection,	WHEN_ANY,			TWEAK_LINE_MARK,	"cbra"	},
 /*  ^  move to front	 */	{ m_front,	WHEN_ANY,			TWEAK_NONE			},
-/*  _  current line	 */	{ m_updown,	WHEN_ANY,			TWEAK_FIXCOL_INCL_LINE		},
+/*  _  current line	 */	{ m_updown,	WHEN_ANY,			TWEAK_FRONT_INCL_LINE		},
 /*  `  move to mark	 */	{ m_mark,	WHEN_SEL_ONCE_OPEN_MOVE,	TWEAK_MARK,		"grave"	},
 /*  a  append at cursor	 */	{ v_input,	WHEN_OPEN_HIST|WHEN_EMPTY|WHEN_MORE, TWEAK_DOT_UNDO		},
 /*  b  move back word	 */	{ m_word,	WHEN_ANY,			TWEAK_NONE			},
@@ -171,7 +170,7 @@ vikeys[] =
 /*  s  subst N chars	 */	{ v_notop,	WHEN_OPEN,			TWEAK_DOT_UNDO			},
 /*  t  move fwd to char	 */	{ m_csearch,	WHEN_ANY,			TWEAK_INCL			},
 /*  u  undo		 */	{ v_undo,	WHEN_ONCE_OPEN|WHEN_EMPTY,	TWEAK_NONE			},
-/*  v  start visible	 */	{ v_visible,	WHEN_SEL_ONCE,			TWEAK_NONE			},
+/*  v  start visible	 */	{ v_visible,	WHEN_SEL_ONCE_OPEN,		TWEAK_NONE			},
 /*  w  move fwd word	 */	{ m_word,	WHEN_ANY,			TWEAK_NONE			},
 /*  x  delete character	 */	{ v_delchar,	WHEN_ONCE_OPEN_HIST,		TWEAK_DOT_UNDO			},
 /*  y  yank text	 */	{ NULL,		WHEN_OPEN,			TWEAK_OPER			},
@@ -217,6 +216,9 @@ RESULT	viperform(win, vinf)
 	MARKBUF	from, to;
 	unsigned short flags;
 	long	tmp;
+
+	/* Remember the cursor position */
+	bufwilldo(win->cursor, False);
 
 	/* If command is ^M and this display mode has a tagnext() function,
 	 * then pretend this is a ^] command (which calls tagatcursor() ).
@@ -265,26 +267,22 @@ RESULT	viperform(win, vinf)
 	 || ((state->flags & ELVIS_BOTTOM) && !(flags & WHEN_OPEN))
 	 || (state->acton && !(flags & WHEN_HIST))
 	 || (vinf->oper && !(flags & WHEN_MOVE))
-#ifndef FIX_EMPTY
-	 || (o_bufchars(markbuffer(state->cursor)) == 0 && !(flags & WHEN_EMPTY))
-#endif
+	 || (o_locked(markbuffer(state->cursor))
+	 	&& ((vikeys[vinf->command].tweak & TWEAK_UNDO) || vinf->oper))
 	 || vikeys[vinf->command].func == NULL)
 	{
 		viinitcmd(vinf);
 		return RESULT_ERROR;
 	}
 
-#ifdef FIX_EMPTY
 	/* if the buffer is empty, and this command doesn't work on an empty
 	 * buffer, then stuff a newline into the buffer.
 	 */
 	if (o_bufchars(markbuffer(state->cursor)) == 0 && !(flags & WHEN_EMPTY))
 	{
-		/* bufwilldo(state->cursor); */
 		bufreplace(marktmp(from, markbuffer(state->cursor), 0L), &from, toCHAR("\n"), 1L);
 		o_modified(markbuffer(state->cursor)) = False;
 	}
-#endif
 
 	/* If we're using an operator, then combine the operator's flags
 	 * with the movement command's flags.
@@ -317,7 +315,7 @@ RESULT	viperform(win, vinf)
 	 */
 	if ((vinf->tweak & TWEAK_UNDO) != 0 && (win->state->flags & ELVIS_MORE) == 0)
 	{
-		bufwilldo(state->cursor);
+		bufwilldo(state->cursor, True);
 	}
 
 	/* unless we're applying an operator to a visible selection... */
@@ -453,11 +451,15 @@ RESULT	viperform(win, vinf)
 		}
 		else
 		{
-			if ((vinf->tweak & TWEAK_INCL) != 0 && scanchar(&to) != '\n')/*!!!*/
+			if ((vinf->tweak & TWEAK_INCL) != 0 && scanchar(&to) != '\n')
 			{
 				to.offset++;
 			}
 		}
+
+		/* guard against the possibility of overflowing the buffer */
+		if (markoffset(&to) > o_bufchars(markbuffer(&to)))
+			marksetoffset(&to, o_bufchars(markbuffer(&to)));
 
 		/* do the operator */
 		result = oper(win, vinf, &from, &to);

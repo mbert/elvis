@@ -1,7 +1,7 @@
 /* gui.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_gui[] = "$Id: gui.c,v 2.12 1996/09/18 20:38:17 steve Exp $";
+char id_gui[] = "$Id: gui.c,v 2.13 1997/12/24 03:12:52 steve Exp $";
 
 #include "elvis.h"
 
@@ -17,15 +17,10 @@ void guimoveto(win, column, row)
 	int	column;	/* column where cursor should be placed */
 	int	row;	/* row where cursor should be placed */
 {
-	/* perform the moveto, unless the cursor is already there */
-#if 0
-	if (column != win->cursx || row != win->cursy)
-#endif
-	{
-		(*gui->moveto)(win->gw, column, row);
-		win->cursx = column;
-		win->cursy = row;
-	}
+	/* perform the moveto */
+	(*gui->moveto)(win->gw, column, row);
+	win->cursx = column;
+	win->cursy = row;
 }
 
 /* This function calls the GUI's draw() function, and then updates elvis'

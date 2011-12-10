@@ -108,16 +108,20 @@ extern BLK	*sesblk P_((_BLKNO_));
 extern void	sesunlock P_((_BLKNO_ blkno, BOOLEAN forwrite));
 extern void	sesflush P_((_BLKNO_ blkno));
 extern void	sessync P_((void));
-extern BLKNO	sesalloc P_((_BLKNO_ blkno));
-extern void	sesfree P_((_BLKNO_ blkno));
 END_EXTERNC
 #ifdef DEBUG_SESSION
 # define seslock(b,f,t)	_seslock(__FILE__, __LINE__, b, f, t)
+# define sesalloc(b,t)	_sesalloc(__FILE__, __LINE__, b, t)
+# define sesfree(b)	_sesfree(__FILE__, __LINE__, b)
 BEGIN_EXTERNC
 extern BLKNO	_seslock P_((char *file, int line, _BLKNO_ blkno, BOOLEAN forwrite, BLKTYPE blktype));
+extern BLKNO	_sesalloc P_((char *file, int line, _BLKNO_ blkno, BLKTYPE blktype));
+extern void	_sesfree P_((char *file, int line, _BLKNO_ blkno));
 END_EXTERNC
 #else
 BEGIN_EXTERNC
 extern BLKNO	seslock P_((_BLKNO_ blkno, BOOLEAN forwrite, BLKTYPE blktype));
+extern BLKNO	sesalloc P_((_BLKNO_ blkno, BLKTYPE blktype));
+extern void	sesfree P_((_BLKNO_ blkno));
 END_EXTERNC
 #endif

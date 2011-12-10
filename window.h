@@ -15,7 +15,7 @@ typedef struct window_s
 	MARK	seltop;		/* start of selected text, or NULL */
 	MARK	selbottom;	/* end of selected text, or NULL */
 	long	selleft;	/* left column limit for marking (0 for any) */
-	long	selright;	/* right column limit (INIFINITY for any) */
+	long	selright;	/* right column limit (INFINITY for any) */
 	long	selorigcol;	/* column where cursor was when marking began */
 	BOOLEAN	selattop;	/* boolean: does seltop follow cursor? (else selbottom does) */
 	CHAR	seltype;	/* 'c'=character, 'l'=line, 'r'=rectangle */
@@ -74,7 +74,6 @@ extern int wincount P_((BUFFER buf));
 extern void winchgbuf P_((WINDOW win, BUFFER newbuf, BOOLEAN force));
 extern WINDOW winofbuf P_((WINDOW win, BUFFER buf));
 extern WINDOW winofgw P_((GUIWIN *gw));
-extern WINDOW winofid P_((long id));
 END_EXTERNC
 
 extern WINDOW windows;

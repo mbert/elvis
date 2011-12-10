@@ -1,7 +1,7 @@
 /* more.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_more[] = "$Id: more.c,v 2.12 1996/07/02 17:12:43 steve Exp $";
+char id_more[] = "$Id: more.c,v 2.15 1998/10/01 16:42:31 steve Exp $";
 
 
 /* This file contains code which implements the "Hit <Enter> to continue"
@@ -62,7 +62,7 @@ static RESULT enter(win)
 	WINDOW	win;	/* window where <Enter> was hit */
 {
 	return RESULT_MORE;
-	/* Note RESULT_COMPLETE, because RESULT_COMPLETE interferes with the
+	/* Not RESULT_COMPLETE, because RESULT_COMPLETE interferes with the
 	 * perform() function, some how.  I may be working around a bug here.
 	 */
 }
@@ -109,9 +109,12 @@ void morepush(win, special)
 	BUFFER	buf;
 	MARKBUF	from, to;
 
+	/* if we're in the middle of a macro, never wait for <Enter> */
+	if (mapbusy())
+		return;
+
 	/* Create the "more" buffer, and put the prompt into it */
-	buf = bufalloc(toCHAR(MORE_BUF), 0);
-	o_internal(buf) = True;
+	buf = bufalloc(toCHAR(MORE_BUF), 0, True);
 	bufreplace(marktmp(from, buf, 0), marktmp(to, buf, o_bufchars(buf)),
 		toCHAR("Hit <Enter> to continue\n"), 24);
 

@@ -22,6 +22,11 @@
 # define MAX_PATH (_MAX_FNAME * 3)
 #endif
 
+#if defined(JUST_DIRFIRST) || defined(JUST_DIRPATH)
+# undef isalpha
+# define isalpha(c)	((unsigned)(((c) & 0xffdf) - 'A') < 26)
+#endif /* JUST_DIRFIRST */
+
 #ifndef JUST_DIRPATH
 
 /* These are used for communication between dirfirst() and dirnext() */
@@ -53,6 +58,14 @@ char *dirfirst(char *wildexpr, BOOLEAN ispartial)
 
 	/* if no match, then return the original wildexpr unchanged */
 	hSearch = _findfirst(findwild, &FileData);
+	while (hSearch >= 0 && *FileData.name == '.')
+	{
+		if (_findnext(hSearch, &FileData) < 0)
+		{
+			_findclose(hSearch);
+			hSearch = -1;
+		}
+	}
 	if (hSearch < 0)
 	{
 		found[0] = '\0';
@@ -75,12 +88,15 @@ char *dirnext(void)
 		return NULL;
 
 	/* if there is no match, then return NULL */
-	if (_findnext(hSearch, &FileData) < 0)
+	do
 	{
-		found[0] = '\0';
-		_findclose(hSearch);
-		return NULL;
-	}
+		if (_findnext(hSearch, &FileData) < 0)
+		{
+			found[0] = '\0';
+			_findclose(hSearch);
+			return NULL;
+		}
+	} while (*FileData.name == '.');
 
 	/* combine the directory name with the found file's name */
 	strcpy(found, dirpath(finddir, FileData.name));
@@ -114,6 +130,22 @@ BOOLEAN diriswild(char *wildexpr)
 DIRPERM dirperm(char *filename)
 {
 	struct _stat statb;
+	int	i;
+
+	/* check for a protocol */
+	for (i = 0; isalpha(filename[i]); i++)
+	{
+	}
+	if (i < 2 || filename[i] != ':')
+		i = 0;
+
+	/* skip past "file:" protocol; assume all others are readonly */
+	if (!strncmp(filename, "file:", 5))
+		filename += i + 1;
+	else if (!strncmp(filename, "ftp:", 4))
+		return DIR_READWRITE;
+	else if (i > 0)
+		return DIR_READONLY;
 
 	if (_stat(filename, &statb) < 0)
 	{
@@ -139,8 +171,13 @@ char *dirdir(char *pathname)
  static char	ret[MAX_PATH];
 	char	*slash;
 
+	/* break the name at the last backslash */
 	strcpy(ret, pathname);
-	slash = strrchr(ret, '\\');
+	for (slash = &ret[strlen(ret)];
+	     --slash >= ret && *slash != '/' && *slash != '\\';
+	     )
+	{
+	}
 	if (slash == ret)
 	{
 		ret[1] = '\0';
@@ -149,7 +186,7 @@ char *dirdir(char *pathname)
 	{
 		ret[3] = '\0';
 	}
-	else if (slash)
+	else if (slash >= ret)
 	{
 		*slash = '\0';
 	}
@@ -171,9 +208,13 @@ char *dirdir(char *pathname)
  */
 char *dirfile(char *pathname)
 {
+	char	*backslash;
 	char	*slash;
 
-	slash = strrchr(pathname, '\\');
+	backslash = strrchr(pathname, '\\');
+	slash = strchr(pathname, '/');
+	if (!slash || (backslash && backslash > slash))
+		slash = backslash;
 	if (!slash)
 	{
 		slash = strrchr(pathname, ':');
@@ -191,35 +232,60 @@ char *dirfile(char *pathname)
 char *dirpath(char *dir, char *file)
 {
 	static char	path[MAX_PATH + 1];
+	char		*build = path;
 
-	if (!strcmp(dir, ".")
-	 || !dir[0]
-	 || (isalpha(file[0]) && file[1] == ':')
-	 || !(isalpha(dir[0]) && dir[1] == ':') && file[0] == '\\')
+	/* choose a drive letter, from either dir or file.  If file is used,
+	 * then ignore dir completely.
+	 */
+	if (isalpha(file[0]) && file[1] == ':')
 	{
-		/* no dir, or file has drive letter, or file is absolute within
-		 * drive but dir doesn't specify drive.
-		 */
-		strcpy(path, file);
+		*build++ = *file++;
+		*build++ = *file++;
+		dir = ".";
 	}
-	else if (isalpha(dir[0]) && dir[1] == ':'
-				&& (!dir[2] || file[0] == '\\'))
+	else if (isalpha(dir[0]) && dir[1] == ':')
 	{
-		/* dir has drive letter, and either dir has no directory or
-		 * the file is absolute within the drive
-		 */
-		sprintf(path, "%.2s%s", dir, file);
+		*build++ = *dir++;
+		*build++ = *dir++;
 	}
-	else if (!dir[0] || dir[strlen(dir) - 1] != '\\')
+
+	/* if file has absolute path, or dir is ".", then ignore dir.  Else
+	 * add dir to the path now, deleting the terminal backslash (if any).
+	 */
+	if (file[0] != '/' && file[0] != '\\' && strcmp(dir, "."))
 	{
-		/* dir ends without \, and file is relative to dir */
-		sprintf(path, "%s\\%s", dir, file);
+		while (*dir)
+		{
+#if 0
+			switch (*dir)
+			{
+			  case '/':	if (dir[1]) *build++ = '\\';	break;
+			  case '\\':	if (dir[1]) *build++ = *dir;	break;
+			  default:	*build++ = *dir;		break;
+			}
+#else
+			if (*dir == '/')
+				*build++ = '\\';
+			else
+				*build++ = *dir;
+#endif
+			dir++;
+		}
 	}
-	else
+
+	/* add a backslash, if necessary. */
+	if (build != path && build[-1] != ':' && build[-1] != '\\' && *file != '/' && *file != '\\')
+		*build++ = '\\';
+
+	/* add the filename */
+	while (*file)
 	{
-		/* dir ends with \, and file is relative to dir */
-		sprintf(path, "%s%s", dir, file);
+		if (*file == '/')
+			*build++ = '\\', file++;
+		else
+			*build++ = *file++;
 	}
+	*build = '\0';
 	return path;
 }
 

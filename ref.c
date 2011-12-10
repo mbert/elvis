@@ -1,46 +1,8 @@
 /* ref.c */
 
-char id_ref[] = "$Id: ref.c,v 2.8 1996/09/21 02:12:31 steve Exp $";
+/* This program locates a tag, and displays its context.  A handy reference. */
 
-/* This program looks for a givne tag in the "tags" file, and then tries to
- * locate the definition in the original source file, and display it.  If the
- * original source file is unreadable then it looks for it in a file named
- * "refs".
- *
- * Usage:	ref [-t] [-x] [-f file] [-c class] tag
- * Options:	-t	   output tag info, not the definition
- *		-x         require exact match
- *		-f file	   default filename for static functions
- *		-c class   default class names for class functions
- */
-#ifdef __STDC__
-# include <string.h>
-# include <stdlib.h>
-#endif
-
-#include <stdio.h>
 #include "elvis.h"
-#define JUST_DIRPATH
-#include "osdir.c"
-
-#ifndef BLKSIZE
-# define BLKSIZE 512
-#endif
-#ifndef TAGS
-# define TAGS	"tags"
-#endif
-#ifndef REFS
-# define REFS	"refs"
-#endif
-
-extern char	*cktagdir P_((char *, char *));
-extern int	getline P_((char *, int, FILE *));
-extern int	lookup P_((char *, char *));
-extern int	find P_((char *));
-extern void	usage P_((void));
-extern int	countcolons P_((char *));
-extern void	main P_((int, char **));
-
 
 /* This is the default path that is searched for tags */
 #if OSK
@@ -51,11 +13,9 @@ extern void	main P_((int, char **));
 # else
 #  if MSDOS || TOS || OS2
 #   define DEFTAGPATH ".;C:\\include;C:\\include\\sys;C:\\lib;..\\lib"
-#   define OSPATHDELIM ';'
 #  else
 #   if AMIGA
 #    define DEFTAGPATH ".;Include:;Include:sys"
-#    define OSPATHDELIM ';'
 #   else /* any other OS */
 #    define DEFTAGPATH "."
 #   endif
@@ -63,408 +23,425 @@ extern void	main P_((int, char **));
 # endif
 #endif
 
-#ifndef OSPATHDELIM
-# define OSPATHDELIM ':'
+/* maximum length of a path list */
+#define MAXPATH	1024
+
+/* compile some of the osdir functions into this module */
+#define JUST_DIRPATH
+#include "osdir.c"
+
+/* This data type is used for classifying lines */
+typedef enum
+{
+	LC_BLANK,	/* an empty line */
+	LC_COMMENT,	/* a comment, or continuation of a comment */
+	LC_PARTIAL,	/* partial definition -- no semicolon, or in brackets */
+	LC_COMPLETE	/* anything else */
+} LINECLS;
+
+
+#if USE_PROTOTYPES
+static void usage(char *argv0);
+static char *getline(FILE *fp);
+static void store(char *line, char **list);
+static LINECLS classify(char *line, LINECLS prev);
+static void lookup(TAG *tag);
+static void add_to_path(char *file);
+int main(int argc, char **argv);
+#endif /* USE_PROTOTYPES */
+
+
+/* support for elvis' ctype macros */
+#ifdef ELVCT_DIGIT
+CHAR elvct_class[256] = {
+	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+	0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+	ELVCT_DIGIT,ELVCT_DIGIT,ELVCT_DIGIT,ELVCT_DIGIT,ELVCT_DIGIT,
+	ELVCT_DIGIT,ELVCT_DIGIT,ELVCT_DIGIT,ELVCT_DIGIT,ELVCT_DIGIT,
+	0,0,0,0,0,0,0,
+	ELVCT_UPPER,ELVCT_UPPER,ELVCT_UPPER,ELVCT_UPPER,ELVCT_UPPER,
+	ELVCT_UPPER,ELVCT_UPPER,ELVCT_UPPER,ELVCT_UPPER,ELVCT_UPPER,
+	ELVCT_UPPER,ELVCT_UPPER,ELVCT_UPPER,ELVCT_UPPER,ELVCT_UPPER,
+	ELVCT_UPPER,ELVCT_UPPER,ELVCT_UPPER,ELVCT_UPPER,ELVCT_UPPER,
+	ELVCT_UPPER,ELVCT_UPPER,ELVCT_UPPER,ELVCT_UPPER,ELVCT_UPPER,
+	ELVCT_UPPER,
+	0,0,0,0,0,0,
+	ELVCT_LOWER,ELVCT_LOWER,ELVCT_LOWER,ELVCT_LOWER,ELVCT_LOWER,
+	ELVCT_LOWER,ELVCT_LOWER,ELVCT_LOWER,ELVCT_LOWER,ELVCT_LOWER,
+	ELVCT_LOWER,ELVCT_LOWER,ELVCT_LOWER,ELVCT_LOWER,ELVCT_LOWER,
+	ELVCT_LOWER,ELVCT_LOWER,ELVCT_LOWER,ELVCT_LOWER,ELVCT_LOWER,
+	ELVCT_LOWER,ELVCT_LOWER,ELVCT_LOWER,ELVCT_LOWER,ELVCT_LOWER,
+	ELVCT_LOWER
+};
 #endif
 
 
-/* These variables reflect the command-line options given by the user. */
-int	taginfo;	/* boolean: give only the tag info? (not header?) */
-int	exact;		/* boolean: require exact match? */
-char	*def_file;	/* default filename for static functions */
-char	*def_class;	/* default classname for class members */
-int	colons;		/* #colons in tag: 0=normal, 1=static, 2=member */
+/* These reflect the command-line options */
+static int output_tag_info;
+static int output_verbose_info;
+static int output_html_browser;
+static int output_all_matches;
+static int omit_comment_lines;
+static int omit_other_lines;
+static int search_all_files;
+static char tag_path[MAXPATH] = DEFTAGPATH;
+static long tag_length;
 
-/* This function checks for a tag in the "tags" file of given directory.
- * If the tag is found, then it returns a pointer to a static buffer which
- * contains the filename, a tab character, and a linespec for finding the
- * the tag.  If the tag is not found in the "tags" file, or if the "tags"
- * file cannot be opened or doesn't exist, then this function returns NULL.
- */
-char *cktagdir(tag, dir)
-	char	*tag;	/* name of the tag to look for */
-	char	*dir;	/* name of the directory to check */
+
+/* These store lines which preceed the tag definition. */
+static char	*comments[20];	/* comment lines before tag */
+static int	ncomments;	/* number of comment lines */
+static char	*members[20];	/* partial definitions before tag */
+static int	nmembers;	/* number of partial definition lines */
+
+static void usage(argv0)
+	char *argv0;	/* name of program */
 {
-	char	buf[BLKSIZE];
-	static char found[BLKSIZE];
-	FILE	*tfile;
-	unsigned len;
-	char	*scan;
+	fprintf(stderr, "Usage: %s [options] [restrictions]...\n", argv0);
+	fprintf(stderr, "Options:\n");
+	fprintf(stderr, "   -t             Output tag info, instead of the function header\n");
+	fprintf(stderr, "   -v             Output verbose tag info, instead of the function header\n");
+	fprintf(stderr, "   -h             Output HTML browser info, instead of the function header\n");
+	fprintf(stderr, "   -c             Don't output introductory comments\n");
+	fprintf(stderr, "   -d             Don't output other lines of the definition\n");
+	fprintf(stderr, "   -a             List all matches (else just the most likely one)\n");
+	fprintf(stderr, "   -s             Search all tags files (else stop after first with matches)\n");
+	fprintf(stderr, "   -p tagpath     List of directories or tags files to search\n");
+	fprintf(stderr, "   -l taglength   Only check the first 'taglength' characters of tag names\n");
+	fprintf(stderr, "Restrictions:\n");
+	fprintf(stderr, "   tag            A tag to search for, short for tagname:tag\n");
+	fprintf(stderr, "   attrib:value   An optional attribute (global tags permitted)\n");
+	fprintf(stderr, "   attrib:=value  A mandatory attribute (global tags rejected)\n");
+	fprintf(stderr, "   attrib:/value  An optional attribute, but require as substring of tagaddr\n");
+	fprintf(stderr, "   attrib:+value  List tags with given attribute first (more likely)\n");
+	fprintf(stderr, "   attrib:-value  List tags with given attribute last (less likely)\n");
+	fprintf(stderr, "A single attribute can be given multiple acceptable values.  The easiest way\n");
+	fprintf(stderr, "to specify them is \"attrib:value,value,value\".  This works for any of the\n");
+	fprintf(stderr, "restriction operators.  A global tag is one which has no value for a given\n");
+	fprintf(stderr, "attribute; e.g., for the \"class\" attribute, a tag with no class is global.\n");
+	exit(0);
+}
 
-	/* first try to open a "tags" file in the directory.  If that fails,
-	 * then try to open dir as a regular file itself.
-	 */
-	tfile = fopen(dirpath(dir, TAGS), "r");
-	if (!tfile)
+
+/* display a fatal error message from safe.c */
+#if USE_PROTOTYPES
+void msg(MSGIMP type, char *msg, ...)
+#else
+void msg(type, msg)
+	MSGIMP	type;
+	char	*msg;
+#endif
+{
+	fprintf(stderr, "%s\n", msg);
+	abort();
+}
+
+
+/* some custom versions of elvis text I/O functions */
+static FILE *iofp;
+#ifdef DEBUG_ALLOC
+BOOLEAN _ioopen(file, line, name, rwa, prgsafe, force, eol)
+	char	*file;
+	int	line;
+#else
+BOOLEAN ioopen(name, rwa, prgsafe, force, eol)
+#endif
+	char	*name;	/* name of file to open */
+	_char_	rwa;	/* ignored; 'r'=read, 'w'=write, 'a'=append */
+	BOOLEAN	prgsafe;/* ignored; safe to use "!prg" as file name? */
+	BOOLEAN	force;	/* ignored; okay to overwrite existing files? */
+	_char_	eol;	/* ignored; open in binary mode? */
+{
+	iofp = fopen(name, "r");
+	return (BOOLEAN)(iofp != NULL);
+}
+int ioread(iobuf, len)
+	CHAR	*iobuf;	/* Input buffer */
+	int	len;	/* maximum number of CHARs to read into iobuf */
+{
+	return fread(iobuf, sizeof(CHAR), len, iofp);
+}
+BOOLEAN ioclose P_((void))
+{
+	fclose(iofp);
+	return True;
+}
+
+
+/* This function reads a single line, and replaces the terminating newline with
+ * a '\0' byte.  The string will be in a static buffer.  Returns NULL at EOF.
+ */
+static char *getline(fp)
+	FILE	*fp;
+{
+	int	ch;
+ static char	buf[1024];
+ 	int	len;
+
+	for (len = 0; len < QTY(buf) - 1 && (ch = getc(fp)) != EOF && ch != '\n'; )
 	{
-		tfile = fopen(dir, "r");
-		if (!tfile)
-		{
-			return (char *)0;
-		}
+		buf[len++] = ch;
+	}
+	if (ch == EOF)
+		return NULL;
+	buf[len] = '\0';
+	return buf;
+}
 
-		/* If we get here, the "dir" variable must contain the name of
-		 * a file, not a directory.  Get the directory name from it.
-		 */
-		strcpy(dir, dirdir(dir));
+
+/* Store a line in a list, or clobber the list. */
+static void store(line, list)
+	char	*line;	/* the text to store, or NULL to clobber */
+	char	**list;	/* either comments[] or members[] */
+{
+	int	qty;	/* size of the array */
+	int	*nptr;	/* pointer to number of items already in the list */
+	int	i;	/* in case we need to scroll the list */
+
+
+	/* get the list specifics */
+	if (list == comments)
+		qty = QTY(comments), nptr = &ncomments;
+	else
+		qty = QTY(members), nptr = &nmembers;
+
+	/* if supposed to clobber, then clobber */
+	if (!line)
+	{
+		for (i = 0; i < *nptr; i++)
+		{
+			safefree(list[i]);
+		}
+		*nptr = 0;
+		return;
 	}
 
-	/* compute the length of the tagname once */
-	len = strlen(tag);
-
-	/* read lines until we get the one for this tag */
-	found[0] = '\0';
-	while (fgets(buf, sizeof buf, tfile))
+	/* if list is full, then scroll it */
+	if (*nptr == qty)
 	{
-		/* is this the one we want? */
-		if (!strncmp(buf, tag, len) && buf[len] == '\t')
+		safefree(list[0]);
+		for (i = 1; i < *nptr; i++)
 		{
-			/* we've found a match -- remember it */
-			strcpy(found, buf);
+			list[i - 1] = list[i];
+		}
+		(*nptr)--;
+	}
 
-			/* if there is no default file, or this match is in
-			 * the default file, then we've definitely found the
-			 * one we want.  Break out of the loop now.
+	/* add the new line to the list */
+	list[(*nptr)++] = safedup(line);
+}
+
+
+/* This function classifies a line */
+static LINECLS classify(line, prev)
+	char	*line;	/* the line to classify */
+	LINECLS prev;	/* classification of previous line */
+{
+	char	*front;	/* line, after skipping indentation */
+
+	/* find the front of the line */
+	for (front = line; *front == ' ' || *front == '\t'; front++)
+	{
+	}
+
+	/* blank line? */
+	if (!*front)
+		return LC_BLANK;
+
+	/* is it the start of a comment? */
+	if ((front[0] == '/' && (front[1] == '*' || front[1] == '/'))
+	 || (front[0] == '(' && front[1] == '*')
+	 || (front[0] == '-' && front[1] == '-'))
+	{
+		return LC_COMMENT;
+	}
+
+	/* is it a continuation of a comment? */
+	if (prev == LC_COMMENT
+	 && !(front[0] == '#' || isalnum(*front)))
+	{
+		return LC_COMMENT;
+	}
+
+	/* is it a partial declaration? */
+	if (*front == '#'
+		? front[strlen(front) - 1] == '\\'
+		: (strchr(front, ';') == NULL
+			|| (prev == LC_PARTIAL && front != line)))
+	{
+		return LC_PARTIAL;
+	}
+
+	/* anything else is considered to be a complete declaration */
+	return LC_COMPLETE;
+}
+
+/* display the source lines which define a given tag */
+static void lookup(tag)
+	TAG	*tag;	/* the tag to be displayed */
+{
+	char	*line;	/* current line from file */
+	long	lnum;	/* current line number */
+	char	*l, *t;	/* for scanning chars in line and tag->TAGADDR*/
+	FILE	*fp;	/* source file */
+	long	taglnum;/* line number of number tag address, or 0 */
+	char	*tagline;/* text form of regexp tag address */
+	LINECLS	lc;	/* line classification */
+	int	i;
+
+	/* open the file, or the "refs" file if the source file is unreadable */
+	fp = fopen(tag->TAGFILE, "r");
+	if (!fp)
+	{
+		fp = fopen(dirpath(dirdir(tag->TAGFILE), "refs"), "r");
+		if (!fp)
+		{
+			/* can't open anything -- give error for source file */
+			(void)fopen(tag->TAGFILE, "r");
+			perror(tag->TAGFILE);
+			exit(1);
+		}
+	}
+
+	/* initially we have no stored lines */
+	store(NULL, comments);
+	store(NULL, members);
+
+	/* Convert tag address */
+	taglnum = atol(tag->TAGADDR);
+	if (!taglnum)
+	{
+		/* NOTE: We alter the regexp string!  This is okay since "ref"
+		 * only searches for each tag once.
+		 */
+		tagline = tag->TAGADDR;
+		for (l = tagline, t = tag->TAGADDR + 2; t[2]; )
+		{
+			if (*t == '\\')
+				t++;
+			*l++ = *t++;
+		}
+		*l = '\0';
+	}
+
+	/* for each line... */
+	for (lnum = 1, lc = LC_COMPLETE; (line = getline(fp)) != NULL; lnum++)
+	{
+		/* is this the tag definition? */
+		if (taglnum > 0 ? taglnum == lnum : !strcmp(tagline, line))
+		{
+			/* output the tag location */
+			if (!omit_comment_lines)
+				printf("\"%s\", %s, line %ld:\n", tag->TAGNAME, tag->TAGFILE, lnum);
+
+			/* output any introductory comments */
+			if (!omit_comment_lines)
+				for (i = 0; i < ncomments; i++)
+					puts(comments[i]);
+
+			/* output any partial definition lines */
+			if (!omit_other_lines)
+				for (i = 0; i < nmembers; i++)
+					puts(members[i]);
+
+			/* output this line */
+			puts(line);
+
+			/* output any following argument lines, unless the
+			 * line ends with a semicolon.
 			 */
-			if (!def_file || !strncmp(&buf[len + 1], def_file, strlen(def_file)))
+			if (!omit_other_lines && line[strlen(line) - 1] != ';')
 			{
-				break;
-			}
-		}
-
-		/* does it maybe match the stuff after the colons? */
-		if (!exact)
-		{
-			scan = strchr(buf, '\t');
-			if (scan
-			 && (unsigned int)(scan - buf) > len
-			 && scan[-(int)len - 1] == ':'
-			 && !strncmp(tag, scan - len, len))
-			{
-				strcpy(found, buf);
-				len = (int)(scan - buf);
-				break;
-			}
-		}
-	}
-
-	/* we're through reading */
-	fclose(tfile);
-
-	/* if there's anything in found[], use it */
-	if (found[0])
-	{
-		return &found[len + 1];
-	}
-
-	/* else we didn't find it */
-	return (char *)0;
-}
-
-/* This function reads a single textline from a binary file.  It returns
- * the number of bytes read, or 0 at EOF.
- */
-int getline(buf, limit, fp)
-	char	*buf;	/* buffer to read into */
-	int	limit;	/* maximum characters to read */
-	FILE	*fp;	/* binary stream to read from */
-{
-	int	bytes;	/* number of bytes read so far */
-	int	ch;	/* single character from file */
-
-	for (bytes = 0, ch = 0; ch != '\n' && --limit > 0 && (ch = getc(fp)) != EOF; bytes++)
-	{
-#if MSDOS || TOS || OS2
-		/* since this is a binary file, we'll need to manually strip CR's */
-		if (ch == '\r')
-		{
-			continue;
-		}
-#endif
-		*buf++ = ch;
-	}
-	*buf = '\0';
-
-	return bytes;
-}
-
-
-/* This function reads a source file, looking for a given tag.  If it finds
- * the tag, then it displays it and returns TRUE.  Otherwise it returns FALSE.
- * To display the tag, it attempts to output any introductory comment, the
- * tag line itself, and any arguments.  Arguments are assumed to immediately
- * follow the tag line, and start with whitespace.  Comments are assumed to
- * start with lines that begin with "/ *", "//", "(*", or "--", and end at the
- * tag line or at a blank line.
- */
-int lookup(dir, entry)
-	char	*dir;	/* name of the directory that contains the source */
-	char	*entry;	/* source filename, <Tab>, linespec */
-{
-	char	*name;		/* basename of source file */
-	char	buf[BLKSIZE];	/* pathname of source file */
-	long	lnum;		/* desired line number */
-	long	thislnum;	/* current line number */
-	long	here;		/* seek position where current line began */
-	long	comment;	/* seek position of introductory comment, or -1L */
-	FILE	*sfile;		/* used for reading the source file */
-	unsigned len = 0;	/* length of string */
-	int	noargs = 0;	/* boolean: don't show lines after tag line? */
-	unsigned i, j;
-
-
-	/* skip past the name, to find the linespec */
-	name = entry;
-	do
-	{
-		if (!*entry)
-		{
-			printf("malformed tag line: \"%s\"\n", name);
-		}
-	} while (*entry++ != '\t');
-	entry[-1] = '\0';
-
-	/* construct the pathname of the source file */
-	strcpy(buf, dirpath(dir, name));
-
-	/* searching for regexp or number? */
-	if (*entry >= '0' && *entry <= '9')
-	{
-		/* given a specific line number */
-		lnum = atol(entry);
-		entry = (char *)0;
-		noargs = 1;
-	}
-	else
-	{
-		/* given a string -- strip off "/^" and "$/\n" */
-		entry += 2;
-		len = strlen(entry) - 2;
-		if (entry[len - 1] == '$')
-		{
-			entry[len - 1] = '\n';
-		}
-
-		/* delete backslashes used for quoting characters */
-		for (i = j = 0; i < len; )
-		{
-			if (entry[i] == '\\' && i + 1 < len && strchr("\\?/", entry[i + 1]))
-			{
-				i++;
-			}
-			entry[j++] = entry[i++];
-		}
-		len = j;
-
-		/* decide whether we'll need to show following lines */
-		if (!strchr(entry, '('))
-		{
-			noargs = 1;
-		}
-		lnum = 0L;
-	}
-
-	/* Open the file. */
-	sfile = fopen(buf, "rb");
-	if (!sfile)
-	{
-		/* can't open the real source file.  Try "refs" instead */
-		strcpy(buf, dirpath(dir, REFS));
-		sfile = fopen(buf, "rb");
-		if (!sfile)
-		{
-			/* failed! */
-			return 0;
-		}
-		name = "refs";
-	}
-
-	/* search the file */
-	for (comment = -1L, thislnum = 0; here = ftell(sfile), thislnum++, getline(buf, BLKSIZE, sfile) > 0; )
-	{
-		/* is this the tag line? */
-		if (lnum == thislnum || (entry && !strncmp(buf, entry, len)))
-		{
-			/* display the filename & line number where found */
-			printf("%s, line %ld:\n", dirpath(dir, name), thislnum);
-
-			/* if there were introductory comments, show them */
-			if (comment != -1L)
-			{
-				fseek(sfile, comment, 0);
-				while (comment != here)
+				if (strchr(line, '(') != NULL)
 				{
-					getline(buf, BLKSIZE, sfile);
-					fputs(buf, stdout);
-					comment = ftell(sfile);
+					while ((line = getline(fp)) != NULL
+					    && *line
+					    && ((*line != '#' && *line != '{')
+						|| line[strlen(line) - 1] == '\\'))
+					{
+						puts(line);
+					}
 				}
-
-				/* re-fetch the tag line */
-				fgets(buf, BLKSIZE, sfile);
-			}
-
-			/* show the tag line */
-			fputs(buf, stdout);
-
-			/* are we expected to show argument lines? */
-			if (!noargs)
-			{
-				/* show any argument lines */
-				while (getline(buf, BLKSIZE, sfile) > 0
-				    && buf[0] != '#'
-				    && strchr(buf, '{') == (char *)0)
+				else if ((lc = classify(line, lc)) == LC_PARTIAL)
 				{
-					fputs(buf, stdout);
+					while ((line = getline(fp)) != NULL
+					    && (lc = classify(line, lc)) == LC_PARTIAL)
+					{
+						puts(line);
+					}
+					if (lc == LC_COMPLETE)
+						puts(line);
 				}
 			}
 
-			/* Done!  Close the file, and return TRUE */
-			fclose(sfile);
-			return 1;
+			/* done! */
+			goto Succeed;
 		}
 
-		/* Is this the start/end of a comment? */
-		if (comment == -1L)
-		{
-			/* starting a comment? */
-			if ((buf[0] == '/' && buf[1] == '*')
-			 || (buf[0] == '/' && buf[1] == '/')
-			 || (buf[0] == '(' && buf[1] == '*')
-			 || (buf[0] == '-' && buf[1] == '-')
-			 || (strlen(buf) >= 2 && buf[strlen(buf) - 2] == '{'))
-			{
-				comment = here;
-			}
-		}
-		else
-		{
-			/* ending a comment? */
-			if (buf[0] == '\n' || buf[0] == '#' 
-				|| buf[0] == '}' || (unsigned)buf[0] >= 'A')
-			{
-				comment = -1L;
-			}
-		}
+		/* classify this line */
+		lc = classify(line, lc);
 
+		/* process each line, to adjust the stored lines */
+		switch (lc)
+		{
+		  case LC_COMMENT:
+			store(line, comments);
+			store(NULL, members);
+			break;
+
+		  case LC_PARTIAL:
+			/* leave comments unchanged, but... */
+			store(line, members);
+			break;
+
+		  default:
+			store(NULL, comments);
+			store(NULL, members);
+			break;
+		}
 	}
 
-	/* not found -- return FALSE */
-	return 0;
+/* Fail:*/
+	/* complain: not found */
+	fprintf(stderr, "%s: not found in %s\n", tag->TAGNAME, tag->TAGFILE);
+
+Succeed:
+	/* close the file */
+	fclose(fp);
 }
 
-/* This function searches through the entire search path for a given tag.
- * If it finds the tag, then it displays the info and returns TRUE;
- * otherwise it returns FALSE.
- */
-int find(tag)
-	char	*tag;	/* the tag to look up */
+/* Add the directory portion of a file name to the path */
+static void add_to_path(file)
+	char	*file;
 {
-	char	*tagpath;
-	char	dir[80];
-	char	*ptr;
+	int	len;
 
-	if (colons == 1)
-	{
-		/* looking for static function -- only look in current dir */
-		tagpath = ".";
-	}
-	else
-	{
-		/* get the tagpath from the environment.  Default to DEFTAGPATH */
-		tagpath = getenv("TAGPATH");
-		if (!tagpath)
-		{
-			tagpath = DEFTAGPATH;
-		}
-	}
-
-	/* for each entry in the path... */
-	while (*tagpath)
-	{
-		/* Copy the entry into the dir[] buffer */
-		for (ptr = dir; *tagpath && *tagpath != OSPATHDELIM; tagpath++)
-		{
-			*ptr++ = *tagpath;
-		}
-		if (*tagpath == OSPATHDELIM)
-		{
-			tagpath++;
-		}
-
-		/* if the entry is now an empty string, then assume "." */
-		if (ptr == dir)
-		{
-			*ptr++ = '.';
-		}
-		*ptr = '\0';
-
-		/* look for the tag in this path.  If found, then display it
-		 * and exit.
-		 */
-		ptr = cktagdir(tag, dir);
-		if (ptr) {
-			/* just supposed to display tag info? */
-			if (taginfo)
-			{
-				/* then do only that! */
-				printf("%s\n", dirpath(dir, ptr));
-				return 1;
-			}
-			else
-			{
-				/* else look up the declaration of the thing */
-				return lookup(dir, ptr);
-			}
-		}
-	}
-
-	/* if we get here, then the tag wasn't found anywhere */
-	return 0;
+	len = strlen(tag_path);
+	tag_path[len++] = OSPATHDELIM;
+	strcpy(tag_path + len, dirdir(file));
 }
 
-void usage()
-{
-	fputs("usage: ref [-t] [-x] [-c class] [-f file] tag\n", stderr);
-	fputs("   -t        output tag info, instead of the function header\n", stderr);
-	fputs("   -x        require exact match, including colons\n", stderr);
-	fputs("   -f File   tag might be a static function in File\n", stderr);
-	fputs("   -c Class  tag might be a member of class Class\n", stderr);
-	fputs("Report bugs to kirkenda@cs.pdx.edu\n", stderr);
-	exit(2);
-}
-
-
-int countcolons(str)
-	char	*str;
-{
-	while (*str != ':' && *str)
-	{
-		str++;
-	}
-	if (str[0] != ':')
-	{
-		return 0;
-	}
-	else if (str[1] != ':')
-	{
-		return 1;
-	}
-	return 2;
-}
-
-void main(argc, argv)
+/* The main function */
+int main(argc, argv)
 	int	argc;
 	char	**argv;
 {
-	char	def_tag[100];	/* used to build tag name with default file/class */
-	int	i;
+	int	i, j;
+	char	*dir, *file, *scan;
+	TAG	*tag;
 
-	/* detect special GNU flags */
-	if (argc >= 2)
+	/* check for some standard arguments */
+	if (argc > 1)
 	{
-		if (!strcmp(argv[1], "-v")
-		 || !strcmp(argv[1], "-version")
-		 || !strcmp(argv[1], "--version"))
+		if (!strcmp(argv[1], "-help")	/* old GNU */
+		 || !strcmp(argv[1], "--help")	/* new GNU */
+		 || !strcmp(argv[1], "/?")	/* DOS */
+		 || !strcmp(argv[1], "-?"))	/* common */
+		{
+			usage(argv[0]);
+		}
+		if (!strcmp(argv[1], "-version")  /* old GNU */
+		 || !strcmp(argv[1], "--version"))/* new GNU */
 		{
 			printf("ref (elvis) %s\n", VERSION);
 #ifdef COPY1
@@ -479,108 +456,250 @@ void main(argc, argv)
 #ifdef COPY4
 			puts(COPY4);
 #endif
+#ifdef COPY5
+			puts(COPY5);
+#endif
+#ifdef PORTEDBY
+			puts(PORTEDBY);
+#endif
 			exit(0);
 		}
 	}
 
-	/* parse flags */
+	/* check the environment for TAGPATH */
+	scan = getenv("TAGPATH");
+	if (scan)
+		strcpy(tag_path, scan);
+
+	/* parse the options */
 	for (i = 1; i < argc && argv[i][0] == '-'; i++)
 	{
-		switch (argv[i][1])
+		for (j = 1; argv[i][j]; j++)
 		{
-		  case 't':
-			taginfo = 1;
-			break;
-
-		  case 'x':
-			exact = 1;
-			break;
-
-		  case 'f':
-			if (argv[i][2])
+			switch (argv[i][j])
 			{
-				def_file = &argv[i][2];
+			  case 't':
+				output_tag_info = 1;
+				break;
+
+			  case 'v':
+				output_verbose_info = 1;
+				break;
+
+			  case 'h':
+			  	output_html_browser = 1;
+			  	break;
+
+			  case 'c':
+			  	omit_comment_lines = 1;
+			  	break;
+
+			  case 'd':
+			  	omit_other_lines = 1;
+			  	break;
+
+			  case 'a':
+				output_all_matches = 1;
+				break;
+
+			  case 's':
+			  	search_all_files = 1;
+			  	break;
+
+			  case 'p':
+			  	if (argv[i][j + 1])
+			  		strcpy(tag_path, &argv[i][j + 1]);
+			  	else if (i + 1 < argc)
+					strcpy(tag_path, argv[++i]);
+			  	else
+			  		usage(argv[0]);
+				j = strlen(argv[i]) - 1; /* skip to next argv */
+				break;
+
+			  case 'l':
+			  	if (argv[i][j + 1])
+			  		tag_length = atol(&argv[i][j + 1]);
+			  	else if (i + 1 < argc)
+			  		tag_length = atol(argv[++i]);
+			  	else
+			  		usage(argv[0]);
+			  	if (tag_length < 0)
+			  		usage(argv[0]);
+				j = strlen(argv[i]) - 1; /* skip to next argv */
+				break;
+
+			  default:
+			  	usage(argv[0]);
 			}
-			else if (++i < argc)
+		}
+	}
+
+	/* -h implies -a; nobody would want to browse a single tag */
+	if (output_html_browser)
+		output_all_matches = True;
+	if (output_html_browser + output_tag_info + output_verbose_info > 1)
+	{
+		fprintf(stderr, "%s: can't mix -t, -v, and -h\n", argv[0]);
+		exit(1);
+	}
+
+	/* parse any restrictions */
+	tsreset();
+	j = i;
+	for ( ; i < argc; i++)
+	{
+		/* a little extra work for "file:" -- add its directory name
+		 * to the tag path.
+		 */
+		if (!strncmp(argv[i], "file:", 5))
+		{
+			if (strchr("+-=/", argv[i][5]))
+				add_to_path(&argv[i][6]);
+			else
+				add_to_path(&argv[i][5]);
+		}
+
+		tsparse(argv[i]);
+	}
+
+	/* for each element of the tag path... */
+	for (dir = tag_path; *dir && (search_all_files || !taglist); dir = scan)
+	{
+		/* find the end of this directory name */
+		for (scan = dir; *scan && *scan != OSPATHDELIM; scan++)
+		{
+		}
+		if (*scan)
+			*scan++ = '\0';
+
+		/* first check to see if there is a tags file there */
+		file = dirpath(*dir ? dir : ".", "tags");
+		if (ioopen(file, 'r', False, False, 't'))
+		{
+			/* yes, scan the tags file */
+			ioclose();
+			tsfile(file, tag_length);
+		}
+		else
+		{
+			/* no, perhaps this tag element is a file? */
+			tsfile(dir, tag_length);
+		}
+	}
+
+	/* if nothing found, then complain */
+	if (!taglist)
+	{
+		fprintf(stderr, "%s: tag not found\n", argv[0]);
+		exit(1);
+	}
+
+	/* output HTML header, if appropriate */
+	if (output_html_browser)
+	{
+		printf("<html><head>\n");
+		printf("<title>Tag Browser</title>\n");
+		printf("</head><body>\n");
+		printf("<h1>Tag Browser</h1>\n");
+		printf("<table border=2 cellspacing=0>\n");
+	}
+
+	/* output the information */
+	for (tag = taglist; tag; tag = tag->next)
+	{
+		/* skip tags whose name starts with "!_".  They're pseudo-tags
+		 * added to describe the tags file, not any of the user's
+		 * source files.  The user doesn't care about them.
+		 */
+		if (!strncmp(tag->TAGNAME, "!_", 2))
+			continue;
+
+		/* output the tag */
+		if (output_tag_info)
+		{
+			printf("%s\t%s\t%s\n", tag->TAGNAME, tag->TAGFILE, tag->TAGADDR);
+		}
+		else if (output_verbose_info)
+		{
+			for (i = 0; i < MAXATTR; i++)
 			{
-				def_file = argv[i];
+				if (tag->attr[i])
+				{
+					printf("%10s:%s\n",
+						tagattrname[i], tag->attr[i]);
+				}
+			}
+			printf("     match:%ld\n", tag->match);
+			if (tag->next && output_all_matches)
+				putchar('\n');
+		}
+		else if (output_html_browser)
+		{
+			printf("<tr>\n");
+			printf("<th><a href=\"%s?", tag->TAGFILE);
+			for (scan = tag->TAGADDR; *scan; scan++)
+			{
+				switch (*scan)
+				{
+				  case '\t':
+				  case '+':
+				  case '"':
+				  case '%':
+					printf("%%%02X", *scan);
+					break;
+
+				  case ' ':
+					putchar('+');
+					break;
+
+				  default:
+					putchar(*scan);
+				}
+			}
+			printf("\">%s</a></th>\n", tag->TAGNAME);
+			printf("<td>%s</td>\n", tag->TAGFILE);
+			printf("<td>");
+			if (isdigit(*tag->TAGADDR))
+			{
+				printf("<em>line %s</em>", tag->TAGADDR);
 			}
 			else
 			{
-				usage();
+				for (scan = tag->TAGADDR + 2; scan[2]; scan++)
+				{
+					switch (*scan)
+					{
+					  case '&':  printf("&amp;");	break;
+					  case '<':  printf("&lt;");	break;
+					  case '>':  printf("&gt");	break;
+					  case '"':  printf("&quot;");	break;
+					  case '\\': scan++; /* and fall thru */
+					  default:   putchar(*scan);
+					}
+				}
 			}
-			break;
-
-		  case 'c':
-			if (argv[i][2])
-			{
-				def_class = &argv[i][2];
-			}
-			else if (++i < argc)
-			{
-				def_class = argv[i];
-			}
-			else
-			{
-				usage();
-			}
-			break;
-
-		  default:
-			usage();
+			printf("</td>\n</tr>\n");
 		}
-	}
-
-	/* if no tag was given, complain */
-	if (i + 1 != argc)
-	{
-		usage();
-	}
-
-	/* does the tag have an explicit class or file? */
-	colons = countcolons(argv[i]);
-
-	/* if not, then maybe try some defaults */
-	if (colons == 0)
-	{
-		/* try a static function in the file first */
-		if (def_file)
+		else
 		{
-			sprintf(def_tag, "%s:%s", def_file, argv[i]);
-			colons = 1;
-			if (find(def_tag))
-			{
-				exit(0);
-			}
+			lookup(tag);
+			if (tag->next && output_all_matches && !omit_comment_lines)
+				puts("-------------------------------------------------------------------------------");
 		}
 
-		/* try a member function for a class */
-		if (def_class)
-		{
-			sprintf(def_tag, "%s::%s", def_class, argv[i]);
-			colons = 2;
-			if (find(def_tag))
-			{
-				exit(0);
-			}
-		}
-
-		/* oh, well */
-		colons = 0;
+		/* if supposed to stop after first, then stop */
+		if (!output_all_matches)
+			break;
 	}
-	else /* at least one colon was given */
+
+	/* output the HTML trailer, if appropriate */
+	if (output_html_browser)
 	{
-		/* this implies -x */
-		exact = 1;
+		printf("</table>\n");
+		printf("</body></html>");
 	}
 
-	/* find the tag */
-	if (find(argv[i]))
-	{
-		exit(0);
-	}
-
-	/* Give up.  If doing tag lookup then exit(0), else exit(1) */
-	exit(!taginfo);
-	/*NOTREACHED*/
+	/* done! */
+	exit(0);
+	return 0;	/* <- to silence a compiler warning */
 }

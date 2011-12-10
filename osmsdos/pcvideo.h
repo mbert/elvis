@@ -35,7 +35,9 @@
 # include <dos.h>
 #else
 # ifndef REGS
-#  define REGS	_REGS
+#  ifndef GO32
+#   define REGS	_REGS
+#  endif
 # endif
 #endif
 
@@ -191,7 +193,6 @@ int v_put(ch)
 	ch &= 0xff;
 	if (ch >= ' ')
 		video(0x900 | ch, &cx, (int *)0);
-	video(0xe00 | ch, (int *)0, (int *)0);
 	return ch;
 }
 
@@ -224,6 +225,7 @@ int v_rows()
 {
 	int line, oldline;
 
+#ifndef GO32
 	/* screen size less then 4K? then we have 25 lines only */
 
 	if (*(int far *)(0x0040004cl)<=4096)
@@ -237,6 +239,7 @@ int v_rows()
 		(*(unsigned char far *)(0x00400084L)+1))+0xfff)&(~0xfff)) ==
 		*(unsigned int far *)(0x0040004cL))
 			return (vrows = *(unsigned char far *)(0x00400084L)+1);
+#endif
 
 	/* uh oh. Emit '\n's until screen starts scrolling. */
 

@@ -8,13 +8,14 @@
  * defined then the whole file is compiled.
  */
 
-char id_osdir[] = "$Id: osdir.c,v 2.16 1996/09/20 23:56:25 steve Exp $";
+char id_osdir[] = "$Id: osdir.c,v 2.19 1998/02/16 23:55:53 steve Exp $";
 
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <errno.h>
 #include <dirent.h>
+#include <pwd.h>
 #ifndef S_ISREG
 # define S_ISREG(mode)	(((mode) & 0070000) == 0)
 #endif
@@ -192,8 +193,9 @@ char *dirnext()
 	 * match a . at the start of a filename; those files are supposed to
 	 * be hidden.
 	 */
+
 	while ((dent = readdir(dirfp)) != NULL
-	    && ((dent->d_name[0] == '.' && (wildfile[0] != '.' || wildfile[0] != '['))
+	    && ((dent->d_name[0] == '.' && (wildfile[0] != '.' && wildfile[0] != '['))
 		|| !wildcmp(dent->d_name, wildfile)))
 	{
 	}
@@ -258,6 +260,24 @@ DIRPERM dirperm(filename)
 	char	*filename;	/* name of file to check */
 {
 	struct stat st;
+	int	i;
+
+	/* check for a protocol */
+	for (i = 0; isalpha(filename[i]); i++)
+	{
+	}
+	if (i < 2 || filename[i] != ':')
+		i = 0;
+
+	/* Skip past "file:" protocol; assume ftp is read/write, and all others
+	 * are readonly
+	 */
+	if (!strncmp(filename, "file:", 5))
+		filename += i + 1;
+	else if (!strncmp(filename, "ftp:", 4))
+		return DIR_READWRITE;
+	else if (i > 0)
+		return DIR_READONLY;
 
 	if (stat(filename, &st) < 0)
 	{
@@ -379,5 +399,30 @@ BOOLEAN dirchdir(pathname)
 	return (BOOLEAN)(chdir(pathname) >= 0);
 }
 
+/* This only handles ~user, because the ~/dir is handled elsewhere. */
+char *expanduserhome(pathname, dest)
+	char *pathname;
+	char *dest;
+{
+	char *p;
+	struct passwd *u;
+
+	strcpy(dest, pathname+1);
+	if ((p = strchr(dest, '/'))) /* yes, ASSIGNMENT! */
+		*p = 0;
+
+	if ((u = getpwnam(dest))) /* yes, ASSIGNMENT! */
+	{
+		strcpy(dest, u->pw_dir);
+		if ((p = strchr(pathname, '/'))) /* yes, ASSIGNMENT! */
+			strcat(dest, p);
+		strcpy(pathname, dest);
+	} else
+	{
+		strcpy(dest, pathname);
+	}
+	
+	return(dest);
+}
 #endif /* !JUST_DIRPATH */
 #endif /* !JUST_DIRFIRST */

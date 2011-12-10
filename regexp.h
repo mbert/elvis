@@ -11,11 +11,14 @@ typedef struct regexp {
 	int	minlen;		/* length of shortest possible match */
 	CHAR	first;		/* first character, if known; else \0 */
 	BOOLEAN	bol;		/* must start at beginning of line? */
+	BOOLEAN	literal;	/* contains no metacharacters? */
 	CHAR	program[1];	/* Unwarranted chumminess with compiler. */
 } regexp;
 
 BEGIN_EXTERNC
+extern CHAR	*regbuild P_((_CHAR_ delim, CHAR **refp));
 extern regexp	*regcomp P_((CHAR *retext, MARK cursor));
+extern regexp	*regdup P_((regexp *re));
 extern int	regexec P_((regexp *re, MARK from, BOOLEAN bol));
 extern CHAR	*regtilde P_((CHAR *newp));
 extern CHAR	*regsub P_((regexp *re, CHAR *newp, BOOLEAN doit));

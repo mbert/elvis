@@ -54,7 +54,7 @@ BOOLEAN blkopen(BOOLEAN force, BLK *buf)
 	} while ((i = open(sesname, O_RDWR|O_CREAT, 0666)) < 0 && *sespath++);
 	if (i < 0)
 	{
-		msg(MSG_FATAL, "set \\$SESSIONPATH to a writable directory");
+		msg(MSG_FATAL, "set SESSIONPATH to a writable directory");
 	}
 	close(i);
 	remove(sesname);

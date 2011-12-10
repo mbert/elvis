@@ -1,7 +1,7 @@
 /* input.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_input[] = "$Id: input.c,v 2.46 1996/09/21 05:26:35 steve Exp $";
+char id_input[] = "$Id: input.c,v 2.62 1998/11/25 19:20:58 steve Exp $";
 
 #include "elvis.h"
 
@@ -65,13 +65,16 @@ static void cleanup(win, del, backsp, yank)
 	BOOLEAN	yank;	/* if True, yank input text into ". buffer */
 {
 	/* delete the excess in the edited region */
-	if (del && markoffset(win->state->cursor) < markoffset(win->state->bottom))
+	if (del && markoffset(win->state->cursor) < markoffset(win->state->bottom)
+	        && markoffset(win->state->top) < markoffset(win->state->bottom))
 	{
 		bufreplace(win->state->cursor, win->state->bottom, NULL, 0);
 	}
 	else
 	{
 		marksetoffset(win->state->bottom, markoffset(win->state->cursor));
+		if (markoffset(win->state->top) > markoffset(win->state->cursor))
+			marksetoffset(win->state->top, markoffset(win->state->cursor));
 	}
 	assert(markoffset(win->state->cursor) == markoffset(win->state->bottom));
 
@@ -148,8 +151,16 @@ static BOOLEAN tryabbr(win, nextc)
 {
 	MARKBUF	from, to;
 	CHAR	*cp, *build;
-	long	slen, llen;
+	long	slen, llen, tlen;
 	CHAR	cbuf[1];
+
+
+#if 0 /* this would prevent abbrs from being expanded on command lines */
+	if((win->state->flags & (ELVIS_POP|ELVIS_ONCE|ELVIS_1LINE)) ==
+		 (ELVIS_POP|ELVIS_ONCE|ELVIS_1LINE)) { /* nishi */
+	    return False;
+	}
+#endif
 
 	/* Try to do an abbreviation.  To do this, we collect
 	 * characters backward to the preceding whitespace.  We
@@ -173,21 +184,48 @@ static BOOLEAN tryabbr(win, nextc)
 		{
 			/* yes, we have an abbreviation! */
 
-			/* delete the short form */
+			/* count the characters in the long form which appear
+			 * before the first control character.
+			 */
+			for (tlen = 0; tlen < llen && cp[tlen] >= ' '; tlen++)
+			{
+			}
+
+			/* replace the short form with the plain text part of
+			 * the long form.
+			 */
 			cleanup(win, True, False, False);
 			(void)marktmp(from, markbuffer(win->state->cursor), markoffset(win->state->cursor) - slen);
 			(void)marktmp(to, markbuffer(win->state->cursor), markoffset(win->state->cursor));
-			bufreplace(&from, &to, NULL, 0);
+			bufreplace(&from, &to, cp, tlen);
+			cp += tlen;
+			llen -= tlen;
+			markaddoffset(&from, tlen);
 
-			/* stuff the long form, and the user's
-			 * non-alnum character, into the queue
+			/* handle the final character (space or tab typed by
+			 * the user) and any remaining characters from the
+			 * long form of the abbreviation.
 			 */
 			if (nextc)
 			{
 				cbuf[0] = nextc;
-				mapunget(cbuf, 1, False);
+				if (llen > 0)
+				{
+					/* stuff the long form, and the user's
+					 * non-alnum character, into the queue
+					 */
+					mapunget(cbuf, 1, False);
+					mapunget(cp, (int)llen, False);
+				}
+				else
+				{
+					/* insert the final character into the
+					 * text
+					 */
+					bufreplace(&from, &from, cbuf, 1L);
+					markaddoffset(&from, 1L);
+				}
 			}
-			mapunget(cp, (int)llen, False);
 
 			/* move cursor to where word goes */
 			marksetoffset(win->state->bottom, markoffset(&from));
@@ -213,15 +251,18 @@ static RESULT perform(win)
 	MARK	  tmp;
 	MARKBUF	  from, to;
 	CHAR	  *cp;
-	char	  *littlecp, ch;
 	EXINFO	  xinfb;
 	VIINFO	  vinfb;
+	long	  col, len;
+#ifdef FEATURE_COMPLETE
+	CHAR	  *end;
 	union
 	{
 		char	  partial[256];
 		CHAR	  full[256];
 	}	  name;
-	long	  col, len;
+	char	  *littlecp, ch, peek;
+#endif
 
 	safeinspect();
 
@@ -259,11 +300,11 @@ static RESULT perform(win)
 		 * (Note: Since we never expand abbreviations except in the
 		 * main buffer or the ex history buffer, we can skip it if
 		 * we're editing some other buffer such as regexp history.
-		 * Assume only the ex history buffer has inputtab=filename.)
+		 * Assume only the ex history buffer has inputtab=ex.)
 		 */
 		if (!isalnum(ii->arg)
 		 && ii->arg != '_'
-		 && (state->acton == NULL || o_inputtab(markbuffer(cursor)) == 'f'))
+		 && (state->acton == NULL || o_inputtab(markbuffer(cursor)) == 'e'))
 		{
 			if (tryabbr(win, ii->arg))
 				break;
@@ -287,7 +328,7 @@ static RESULT perform(win)
 		{
 			/* Figure out where the current word started */
 			for (scanalloc(&cp, cursor);
-			     scanprev(&cp) && !isspace(*cp);
+			     cp && scanprev(&cp) && !isspace(*cp);
 			     )
 			{
 			}
@@ -295,6 +336,10 @@ static RESULT perform(win)
 			{
 				to = *scanmark(&cp);
 				markaddoffset(&to, 1L);
+			}
+			else
+			{
+				to = *dispmove(win, 0L, 0L);
 			}
 
 			/* Locate the front of this line.  We won't look past
@@ -366,10 +411,15 @@ static RESULT perform(win)
 		break;
 
 	  case INP_TAB:
-		if (!tryabbr(win, '\n'))
+		if (!tryabbr(win, '\t'))
 		{
 			switch (o_inputtab(markbuffer(cursor)))
 			{
+#ifndef FEATURE_COMPLETE
+			  case 'e':
+			  case 'f':
+			  case 'i':
+#endif /* not FEATURE_COMPLETE */
 			  case 't':
 				/* insert a tab */
 				addchar(cursor, state->top, state->bottom, ii);
@@ -384,6 +434,59 @@ static RESULT perform(win)
 					addchar(cursor, state->top, state->bottom, ii);
 				} while ((++col) % o_tabstop(markbuffer(cursor)) != 0);
 				break;
+#ifdef FEATURE_COMPLETE
+			  case 'i':
+				/* try to find a matching tag name */
+				cp = tagcomplete(win, cursor);
+
+				/* If no matching tag, or already at end of
+				 * complete tag, then insert a literal tab
+				 * character, not a space.
+				 */
+				if (*cp == ' ')
+					*cp = '\t';
+
+				/* For other values, delete the trailing
+				 * whitespace which would normally be appended.
+				 */
+				end = CHARchr(cp, ' ');
+				if (end)
+					*end = '\0';
+
+				/* Now... if we have anything to add, add it */
+				if (*cp)
+				{
+					len = CHARlen(cp);
+					col = markoffset(cursor) + len;
+					bufreplace(cursor, win->state->bottom, cp, len);
+					marksetoffset(cursor, col);
+					marksetoffset(win->state->bottom, col);
+				}
+				break;
+
+			  case 'e':
+				/* Assume this is an ex command line, and try
+				 * to do something useful.
+				 */
+				tmp = markdup(cursor);
+				(void)marksetline(tmp, markline(cursor));
+				cp = excomplete(win, tmp, cursor);
+				markfree(tmp);
+				if (cp)
+				{
+					/* excomplete() found something useful,
+					 * or returned "\t" to make the <Tab>
+					 * be a literal tab character.  Copy
+					 * it into the buffer.
+					 */
+					len = CHARlen(cp);
+					col = markoffset(cursor) + len;
+					bufreplace(cursor, win->state->bottom, cp, len);
+					marksetoffset(cursor, col);
+					marksetoffset(win->state->bottom, col);
+					break;
+				}
+				/* else fall through to filename completion */
 
 			  case 'f':
 				/* filename completion */
@@ -399,8 +502,8 @@ static RESULT perform(win)
 				tmp = markdup(cursor);
 				markaddoffset(tmp, -1);
 
-				/* if previous is whitespace, then fail */
-				if (isspace(scanchar(tmp)) || scanchar(tmp) == '(')
+				/* if previous char can't be in name, fail */
+				if (CHARchr(toCHAR(" \t\n()<>"), scanchar(tmp)))
 				{
 					markfree(tmp);
 					guibeep(win);
@@ -414,13 +517,26 @@ static RESULT perform(win)
 				do
 				{
 					*--littlecp = ch;
-					markaddoffset(tmp, -1);
-					ch = (markoffset(tmp) >= markoffset(state->top)) ? scanchar(tmp) : ' ';
-				} while (!isspace(ch) && ch != '(');
+					markaddoffset(tmp, -1L);
+					ch = (markoffset(tmp) >= markoffset(state->top)) ? scanchar(tmp) : '\n';
+					if (markoffset(tmp) - 1 >= markoffset(state->top))
+					{
+						from = *tmp;
+						markaddoffset(&from, -1L);
+						peek = scanchar(&from);
+					}
+					else
+						peek = 'x'; /* not backslash */
+				} while (ch != '\n' && ch && ch != '\t' &&
+				   (!(ch == ' ' || ch == '<' || ch == '>' || ch == '(' || ch == ')')
+					|| peek == '\\'));
 				markaddoffset(tmp, 1);
 
 				/* try to expand the filename */
-				littlecp = iofilename(littlecp, (ch == '(') ? ')' : '\t');
+				littlecp = iofilename(littlecp,
+					(ch == '(') ? ')' :
+					o_inputtab(markbuffer(cursor)) == 'e' ? ' ' :
+					'\t');
 				if (!littlecp)
 				{
 					markfree(tmp);
@@ -438,6 +554,7 @@ static RESULT perform(win)
 				marksetoffset(cursor, markoffset(tmp) + col);
 				marksetoffset(win->state->bottom, markoffset(cursor));
 				markfree(tmp);
+#endif /* FEATURE_COMPLETE */
 			}
 		}
 		ii->backsp = ii->prev = '\0';
@@ -451,12 +568,12 @@ static RESULT perform(win)
 		break;
 
 	  case INP_MULTIVI:
+		(void)tryabbr(win, '\0');
 		cleanup(win, True, True, True);
 		win->state->flags |= ELVIS_POP;
 		ii->backsp = ii->prev = '\0';
 
-#if 1
-		/* if blank line in autoindent mode, then delete any whitespace */
+		/* if blank line in autoindent mode, then delete whitespace */
 		if (o_autoindent(markbuffer(cursor)))
 		{
 			for (from = *dispmove(win,0L,0L), scanalloc(&cp, &from);
@@ -479,7 +596,6 @@ static RESULT perform(win)
 				scanfree(&cp);
 			}
 		}
-#endif
 		break;
 
 	  case INP_BACKSPACE:
@@ -646,6 +762,15 @@ static RESULT parse(key, info)
 	void	*info;	/* current parsing state */
 {
 	INPUTINFO *ii = (INPUTINFO *)info;
+	CHAR	sym;	/* visible symbol, e.g. '^' after a ^V */
+
+	/* maybe adjust the edit bounds */
+	if (ii->setbottom)
+	{
+		marksetoffset(windefault->state->bottom,
+			markoffset(windefault->state->cursor));
+		ii->setbottom = False;
+	}
 
 	/* parse the input command */
 	if (ii->cmd == INP_HEX1 || ii->cmd == INP_HEX2)
@@ -706,6 +831,7 @@ static RESULT parse(key, info)
 	else
 	{
 		ii->arg = key;
+		sym = '\0';
 		switch (key)
 		{
 		  case ELVCTRL('@'):	ii->cmd = INP_PREVIOUS;		break;
@@ -715,24 +841,31 @@ static RESULT parse(key, info)
 		  case ELVCTRL('H'):	ii->cmd = INP_BACKSPACE;	break;
 		  case ELVCTRL('I'):	ii->cmd = INP_TAB;		break;
 		  case ELVCTRL('J'):	ii->cmd = INP_NEWLINE;		break;
-		  case ELVCTRL('K'):	ii->cmd = INP_DIG1;		break;
-		  case ELVCTRL('L'):	ii->cmd = INP_EXPOSE;		break;
+		  case ELVCTRL('K'):	ii->cmd = INP_DIG1, sym = '+';	break;
 		  case ELVCTRL('M'):	ii->cmd = INP_NEWLINE;		break;
 		  case ELVCTRL('O'):	ii->cmd = INP_ONEVI;		break;
 		  case ELVCTRL('P'):	ii->cmd = INP_PUT;		break;
 		  case ELVCTRL('R'):	ii->cmd = INP_EXPOSE;		break;
 		  case ELVCTRL('T'):	ii->cmd = INP_SHIFTR;		break;
 		  case ELVCTRL('U'):	ii->cmd = INP_BACKLINE;		break;
-		  case ELVCTRL('V'):	ii->cmd = INP_QUOTE;		break;
+		  case ELVCTRL('V'):	ii->cmd = INP_QUOTE, sym = '^';	break;
 		  case ELVCTRL('W'):	ii->cmd = INP_BACKWORD;		break;
-		  case ELVCTRL('X'):	ii->cmd = INP_HEX1;		break;
+		  case ELVCTRL('X'):	ii->cmd = INP_HEX1, sym = '$';	break;
 		  case ELVCTRL('['):	ii->cmd = INP_MULTIVI;		break;
 		  default:		ii->cmd = INP_NORMAL;
 		}
 
 		/* ^V, ^X, and ^K require more keystrokes... */
-		if (ii->cmd == INP_QUOTE || ii->cmd == INP_HEX1 || ii->cmd == INP_DIG1)
+		if (sym)
 		{
+			/* display a symbol on the screen */
+			ii->arg = sym;
+			addchar(windefault->state->cursor,
+				windefault->state->top,
+				windefault->state->bottom, ii);
+			markaddoffset(windefault->state->cursor, -1);
+
+			/* disable maps during extra character[s] */
 			windefault->state->mapflags |= MAP_DISABLE;
 			return RESULT_MORE;
 		}
@@ -872,6 +1005,7 @@ void inputchange(win, from, to, linemd)
 {
 	MARKBUF	tmp;
 	CHAR	ch;
+	BOOLEAN	ctrl_o = False;	/* JohnW 19/06/96 */
 
 	assert(markbuffer(from) == markbuffer(win->state->cursor));
 	assert(markbuffer(from) == markbuffer(to));
@@ -884,6 +1018,10 @@ void inputchange(win, from, to, linemd)
 	{
 		inputpush(win, 0, 'i');
 	}
+	else
+	{
+		ctrl_o = True;
+	}
 
 	/* replace the last char with '$', if there is a last char
 	 * and it is on the same line.  If it is on a different line,
@@ -893,7 +1031,8 @@ void inputchange(win, from, to, linemd)
 	{
 		/* do nothing */
 	}
-	else if (markoffset(to) > markoffset(dispmove(win, 0, INFINITY)))
+	else if (ctrl_o || /* JohnW 19/06/96 */
+		markoffset(to) > markoffset(dispmove(win, 0, INFINITY)))
 	{
 		/* delete the old text */
 		if (linemd)
@@ -947,6 +1086,9 @@ void inputbeforeenter(win)
 
 	/* Delete stuff from after the cursor */
 	cleanup(win, True, False, False);
+
+	/* Attempt to expand an abbreviation at the end of the line */
+	(void)tryabbr(win, '\0');
 
 	/* adjust the endpoints of the edited area to be whole lines */
 	marksetoffset(win->state->top,

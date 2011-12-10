@@ -1,15 +1,16 @@
 /* mark.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_mark[] = "$Id: mark.c,v 2.10 1996/05/30 17:39:04 steve Exp $";
+char id_mark[] = "$Id: mark.c,v 2.13 1998/11/21 01:34:45 steve Exp $";
 
 #include "elvis.h"
 
 
 MARK namedmark[26];
 
-/* Allocate a mark, pointing to a specific location in a specific buffer.  As changes are
- * make to the buffer, the mark's offset into that buffer will automatically be updated.
+/* Allocate a mark, pointing to a specific location in a specific buffer.
+ * As changes are make to the buffer, the mark's offset into that buffer
+ * will automatically be updated.
  */
 #ifndef DEBUG_ALLOC
 MARK markalloc(buffer, offset)
@@ -31,6 +32,7 @@ MARK _markalloc(file, line, buffer, offset)
 	assert(buffer != NULL && offset >= 0 && offset <= o_bufchars(buffer));
 
 	newp = (MARK)_safealloc(file, line, False, 1, sizeof(MARKBUF));
+	fprintf(stderr, "markalloc(0x%lx, %ld) called from %s(%d), returning 0x%lx\n", (long)buffer, offset, file, line, (long)newp);
 #endif
 	newp->buffer = buffer;
 	newp->offset = offset;
@@ -56,6 +58,9 @@ void _markfree(file, line, mark)
 	MARK	lag;
 	int	i;
 
+#ifdef DEBUG_ALLOC
+	fprintf(stderr, "markfree(0x%lx) called from %s(%d)\n", (long)mark, file, line);
+#endif
 	/* remove from buffer's list of marks */
 	if (mark == bufmarks(mark->buffer))
 	{
@@ -172,14 +177,18 @@ MARK marksetline(mark, linenum)
 	return mark;
 }
 
-/* Change the buffer of a mark.  This involves deleting the mark from the mark list of the old
- * buffer, and then adding it to the list of the new buffer.
+/* Change the buffer of a mark.  This involves deleting the mark from the mark
+ * list of the old buffer, and then adding it to the list of the new buffer.
  */
 void marksetbuffer(mark, buffer)
 	MARK	mark;	/* the mark to be moved */
 	BUFFER	buffer;	/* the new buffer that the mark should refer to */
 {
 	MARK	lag;
+
+	/* if no change, then do nothing */
+	if (markbuffer(mark) == buffer)
+		return;
 
 	/* remove from old buffer's list of marks */
 	if (mark == bufmarks(mark->buffer))

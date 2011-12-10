@@ -1,6 +1,6 @@
 /* tcapsysv.h */
 
-char id_tcapsysv[] = "$Id: tcapsysv.h,v 2.7 1996/04/28 18:18:27 steve Exp $";
+char id_tcapsysv[] = "$Id: tcapsysv.h,v 2.9 1996/12/23 22:23:06 steve Exp $";
 
 #include <termio.h>
 #include <signal.h>
@@ -38,7 +38,6 @@ void ttyraw(erasekey)
 	char	*erasekey;	/* where to store the ERASE key */
 {
 	/* arrange for signals to be caught or ignored */
-	signal(SIGHUP, catchsig);
 	signal(SIGINT, catchsig);
 #ifdef SIGWINCH
 	signal(SIGWINCH, catchsig);
@@ -91,7 +90,6 @@ int ttyread(buf, len, timeout)
 	caught = 0;
 
 	/* make sure the signal handler is still in place */
-	signal(SIGHUP, catchsig);
 	signal(SIGINT, catchsig);
 #ifdef SIGWINCH
 	signal(SIGWINCH, catchsig);

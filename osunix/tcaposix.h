@@ -1,6 +1,6 @@
 /* tcaposix.c */
 
-char id_tcaposix[] = "$Id: tcaposix.h,v 2.8 1996/10/01 19:49:01 steve Exp $";
+char id_tcaposix[] = "$Id: tcaposix.h,v 2.10 1997/12/31 21:37:57 steve Exp $";
 
 #include <termios.h>
 #include <signal.h>
@@ -38,19 +38,19 @@ void ttyraw(erasekey)
 	char	*erasekey;	/* where to store the ERASE char */
 {
 #ifdef SA_NOMASK
-	struct sigaction new;
+	struct sigaction newsa;
 
 	/* arrange for signals to be caught */
-	new.sa_handler = catchsig;
-	new.sa_flags = (SA_INTERRUPT|SA_NOMASK); /* not one-shot */
-	new.sa_restorer = NULL;
-	sigaction(SIGHUP, &new, NULL);
-	sigaction(SIGINT, &new, NULL);
+	newsa.sa_handler = catchsig;
+	newsa.sa_flags = (SA_INTERRUPT|SA_NOMASK); /* not one-shot */
+#if 0
+	newsa.sa_restorer = NULL;
+#endif
+	sigaction(SIGINT, &newsa, NULL);
 # ifdef SIGWINCH
-	sigaction(SIGWINCH, &new, NULL);
+	sigaction(SIGWINCH, &newsa, NULL);
 # endif
 #else
-	signal(SIGHUP, catchsig);
 	signal(SIGINT, catchsig);
 # ifdef SIGWINCH
 	signal(SIGWINCH, catchsig);
@@ -109,7 +109,6 @@ int ttyread(buf, len, timeout)
 
 #ifndef SA_NOMASK
 	/* make sure the signal catcher hasn't been reset */
-	signal(SIGHUP, catchsig);
 	signal(SIGINT, catchsig);
 # ifdef SIGWINCH
 	signal(SIGWINCH, catchsig);

@@ -42,7 +42,34 @@ extern void	txtclose P_((void));
 extern int	txtwrite P_((CHAR *buf, int nbytes));
 extern int	txtread P_((CHAR *buf, int nbytes));
 
+#if defined(PROTOCOL_HTTP) || defined(PROTOCOL_FTP)
+typedef struct
+{
+	int	fd;		/* file descriptor of a socket to read from */
+	int	left;		/* number of chars used from buf */
+	int	right;		/* total number of chars in buf */
+	char	buf[4096];	/* buffer */
+} sockbuf_t;
+
+#define netbuffer(sb)		((sb)->buf + (sb)->left)
+#define netbytes(sb)		((sb)->right - (sb)->left)
+#define netconsume(sb, n)	((sb)->left += (n))
+
+sockbuf_t *netconnect P_((char *site_port, unsigned int defport));
+void	  netdisconnect P_((sockbuf_t *sb));
+BOOLEAN	  netread P_((sockbuf_t *sb));
+char	  *netgetline P_((sockbuf_t *sb));
+BOOLEAN	  netwrite P_((sockbuf_t *sb, char *data, int len));
+BOOLEAN	  netputline P_((sockbuf_t *sb, char *command, char *arg1, char *arg2));
+char	  *netself P_((void));
+#endif
+
 #ifdef OSINIT
 extern void	osinit P_((char *argv0));
 #endif
+
+#if ANY_UNIX
+extern char *expanduserhome P_((char *pathname, char *dest));
+#endif
+
 END_EXTERNC

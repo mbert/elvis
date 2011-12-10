@@ -1,10 +1,15 @@
 /* guiopen.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_guiopen[] = "$Id: guiopen.c,v 2.19 1996/09/26 18:43:37 steve Exp $";
+char id_guiopen[] = "$Id: guiopen.c,v 2.21 1997/11/23 19:54:15 steve Exp $";
 
 #include "elvis.h"
 #ifdef GUI_OPEN
+# if ANY_UNIX
+#  include <unistd.h>
+# else
+#  include <io.h>
+# endif
 
 /* This file contains a user interface which internally resembles guitcap.c,
  * but which doesn't depend on termcap and can therefore be used with terminals
@@ -13,17 +18,20 @@ char id_guiopen[] = "$Id: guiopen.c,v 2.19 1996/09/26 18:43:37 steve Exp $";
 
 
 #if USE_PROTOTYPES
-static BOOLEAN creategw(char *name, char *attributes);
+static BOOLEAN creategw(char *name, char *firstcmd);
 static int init(int argc, char **argv);
+static int scriptinit(int argc, char **argv);
 static int test(void);
 static void beep(GUIWIN *gw);
 static void destroygw(GUIWIN *gw, BOOLEAN force);
 static void endtty(void);
 static void loop(void);
+static void scriptloop(void);
 static void quitloop(void);
-static BOOLEAN quitmsg(GUIWIN *gw, MSGIMP imp, CHAR *text, int len);
+static BOOLEAN scriptmsg(GUIWIN *gw, MSGIMP imp, CHAR *text, int len);
 static void starttty(void);
 static void term(void);
+static void scriptterm(void);
 static void textline(GUIWIN *gw, CHAR *text, int len);
 static BOOLEAN oprgopen(char *command, BOOLEAN willread, BOOLEAN willwrite);
 static int oprgclose(void);
@@ -61,14 +69,14 @@ static int test P_((void))
 }
 
 
-/* initialize the interface. */
+/* initialize the "open" interface. */
 static int init(argc, argv)
 	int	argc;	/* number of command-line arguments */
 	char	**argv;	/* values of command-line arguments */
 {
 	int	i;
 
-	/* initialize the termcap stuff */
+	/* initialize the tty */
 	starttty();
 
 	/* set anycmd if there is a "-c cmd" or "+cmd" argument. */
@@ -105,6 +113,63 @@ static void loop P_((void))
 }
 
 
+/* shut down the "open" interface */
+static void term P_((void))
+{
+	if (gui == &guiopen)
+		endtty();
+}
+
+
+/* initialize the "script" or "quit" interface. */
+static int scriptinit(argc, argv)
+	int	argc;	/* number of command-line arguments */
+	char	**argv;	/* values of command-line arguments */
+{
+	int	i;
+
+	/* set anycmd if there is a "-c cmd" or "+cmd" argument. */
+	for (i = 1; i < argc && !anycmd; i++)
+	{
+		anycmd = (BOOLEAN)(argv[i][0] == '+' ||
+				  (argv[i][0] == '-' && argv[i][1] == 'c'));
+	}
+	return argc;
+}
+
+
+/* This is the loop function for the "script" user interface.  It reads text
+ * from stdin, and then executes it.  Finishes by deleting the only window.
+ */
+static void scriptloop P_((void))
+{
+	BUFFER	script;
+	MARKBUF	start, end;
+	RESULT	result;
+	char	inbuf[1024];
+	long	n;
+
+	/* create a buffer to hold the script */
+	script = bufalloc(NULL, 0, True);
+
+	/* read from stdin, into a buffer */
+	while ((n = read(0, inbuf, sizeof(inbuf))) > 0)
+	{
+		(void)marktmp(end, script, o_bufchars(script));
+		bufreplace(&end, &end, toCHAR(inbuf), n);
+	}
+
+	/* execute the script */
+	eventfocus(current);
+	result = experform(windefault, marktmp(start, script, 0L),
+				    marktmp(end, script, o_bufchars(script)));
+
+	/* destroy the window (if the script didn't do that already) */
+	if (current)
+		(void)eventdestroy(current);
+}
+
+
 /* This is the loop function for the "quit" user interface.  It immediately
  * deletes the only window, and then exits.
  */
@@ -117,17 +182,17 @@ static void quitloop P_((void))
 }
 
 
-/* shut down the termcap interface */
-static void term P_((void))
+/* shut down the "script" or "quit" interface */
+static void scriptterm P_((void))
 {
-	endtty();
+	/* nothing actions needed */
 }
 
 
 /* This function creates a window */
-static BOOLEAN creategw(name, attributes)
+static BOOLEAN creategw(name, firstcmd)
 	char	*name;		/* name of new window's buffer */
-	char	*attributes;	/* other parameters, if any */
+	char	*firstcmd;	/* other parameters, if any */
 {
 	/* We can only have one window.  If we already made it, fail */
 	if (current)
@@ -141,6 +206,13 @@ static BOOLEAN creategw(name, attributes)
 	{
 		/* elvis can't make it -- fail */
 		return False;
+	}
+
+	/* if there is a firstcmd, then execute it */
+	if (firstcmd)
+	{
+		winoptions(winofgw(current));
+		exstring(windefault, toCHAR(firstcmd));
 	}
 
 	return True;
@@ -180,13 +252,17 @@ static void textline(gw, text, len)
 
 
 /* This function is used by the "quit" gui to hide all messages except errors */
-static BOOLEAN quitmsg(gw, imp, text, len)
+static BOOLEAN scriptmsg(gw, imp, text, len)
 	GUIWIN	*gw;	/* window which generated the message */
 	MSGIMP	imp;	/* message importance */
 	CHAR	*text;	/* the message itself */
 	int	len;	/* length of the message */
 {
-	return (BOOLEAN)(imp != MSG_ERROR && imp != MSG_FATAL);
+	if (imp == MSG_ERROR || imp == MSG_FATAL)
+		return False; /* so error is displayed normally */
+
+	/* other message types are ignored */
+	return True;
 }
 
 
@@ -267,25 +343,26 @@ GUI guiopen =
 };
 
 
+
 /* structs of this type are used to describe each available GUI */
-GUI guiquit =
+GUI guiscript =
 {
-	"quit",		/* name */
-	"Quits immediately after processing \"-c cmd\"",
-	False,	 	/* exonly */
+	"script",	/* name */
+	"Reads a script from stdin",
+	True,	 	/* exonly */
 	True,	 	/* newblank */
 	False,	 	/* minimizeclr */
 	True,		/* scrolllast */
 	False,		/* shiftrows */
-	3,		/* movecost */
+	0,		/* movecost */
 	0,		/* opts */
 	NULL,		/* optdescs */
 	test,
-	init,
+	scriptinit,
 	NULL,		/* usage */
-	quitloop,
-	ttypoll,	/* poll */
-	term,
+	scriptloop,
+	NULL,		/* poll */
+	scriptterm,
 	creategw,
 	destroygw,
 	NULL,		/* focusgw */
@@ -299,7 +376,7 @@ GUI guiquit =
 	NULL,		/* clrtoeol */
 	textline,
 	beep,
-	quitmsg,
+	scriptmsg,
 	NULL,		/* scrollbar */
 	NULL,		/* status */
 	NULL,		/* keylabel */
@@ -312,7 +389,58 @@ GUI guiquit =
 	NULL,		/* tabcmd */
 	NULL,		/* save */
 	NULL,		/* wildcard */
-	oprgopen,	/* prgopen */
-	oprgclose	/* prgclose */
+	NULL,		/* prgopen */
+	NULL		/* prgclose */
+};
+
+
+
+/* structs of this type are used to describe each available GUI */
+GUI guiquit =
+{
+	"quit",		/* name */
+	"Quits immediately after processing \"-c cmd\"",
+	True,	 	/* exonly */
+	True,	 	/* newblank */
+	False,	 	/* minimizeclr */
+	True,		/* scrolllast */
+	False,		/* shiftrows */
+	3,		/* movecost */
+	0,		/* opts */
+	NULL,		/* optdescs */
+	test,
+	scriptinit,
+	NULL,		/* usage */
+	quitloop,
+	NULL,		/* poll */
+	scriptterm,
+	creategw,
+	destroygw,
+	NULL,		/* focusgw */
+	NULL,		/* retitle */
+	NULL,		/* reset */
+	NULL,		/* flush */
+	NULL,		/* moveto */
+	NULL,		/* draw */
+	NULL,		/* shift */
+	NULL,		/* scroll */
+	NULL,		/* clrtoeol */
+	textline,
+	beep,
+	scriptmsg,
+	NULL,		/* scrollbar */
+	NULL,		/* status */
+	NULL,		/* keylabel */
+	NULL,		/* clipopen */
+	NULL,		/* clipwrite */
+	NULL,		/* clipread */
+	NULL,		/* clipclose */
+	NULL,		/* color */
+	NULL,	 	/* guicmd */
+	NULL,		/* tabcmd */
+	NULL,		/* save */
+	NULL,		/* wildcard */
+	NULL,		/* prgopen */
+	NULL		/* prgclose */
 };
 #endif

@@ -1,6 +1,6 @@
 /* osmsdos/osdef.h */
 
-#define PORTEDBY "DOS port by S.K., from code by Guntram Blohm & Martin Patzel"
+#define PORTEDBY "SK from code by Guntram Blohm, Martin Patzel, Thomas Wagner"
 
 /*=============================================================================
  * This is the name of the OS, as reported by ":set os?"
@@ -36,7 +36,7 @@
 # define OSCCPRG	"cl /c ($1?$1:$2)"
 #endif
 #ifndef OSMAKEPRG
-# define OSMAKEPRG	"nmake -f ($1?$1:basename($2)\".mak\")"
+# define OSMAKEPRG	"make"
 #endif
 
 /*=============================================================================
@@ -74,3 +74,8 @@
  * This is just to make sure that prototypes are used
  */
 #define USE_PROTOTYPES	1
+
+/*=============================================================================
+ * This determines whether filename completion should ignore case differences.
+ */
+#define FILES_IGNORE_CASE 1

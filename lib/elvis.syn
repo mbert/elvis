@@ -5,11 +5,11 @@
 # but if we must guess, then C++ is the better choice because C++ declarations
 # use a lot of keywords which are absent from C.
 language c
-extension .c
-keyword auto break case char const continue default delete do double else
-keyword enum extern far float friend for goto if int long near register
-keyword return short signed sizeof static struct switch typedef union
-keyword unsigned void volatile while
+extension .c .ic .ec
+keyword auto break case char const continue default delete defined do
+keyword double else enum extern far float friend for goto if int long
+keyword near register return short signed sizeof static struct switch
+keyword typedef union unless unsigned void volatile while
 comment //
 comment /* */
 preprocessor #
@@ -19,18 +19,20 @@ string "
 character '
 startword _
 inword _
-other allcaps final_t initialpunct
+other allcaps final_t
+#other allcaps final_t initialpunct
 
 # C++.  In addition to the extra keywords, it also causes mixed-case words
 # which begin with an uppercase letter to be displayed in the "otherfont".
 # This is because those names are typically class names.
 language c++
 extension .C .cxx .cc .cpp .h .H .hxx .hh .hpp
-keyword auto break case char class const continue default delete do
-keyword double else enum extern far float friend for goto if inline
-keyword int long near new operator private protected public register
-keyword return short signed sizeof static struct switch this typedef
-keyword union unsigned virtual void volatile while
+keyword auto bool break case catch char class const const_cast continue default
+keyword defined delete do double dynamic_cast else enum extern false far float
+keyword friend for goto if inline int long near new operator private protected
+keyword public register reinterpret_cast return short signed sizeof static
+keyword static_cast struct switch template this throw true try typedef union
+keyword unsigned virtual void volatile while
 comment //
 comment /* */
 preprocessor #
@@ -40,6 +42,7 @@ string "
 character '
 startword _
 inword _
+operator operator ~!%^&*+|-=[]<>/
 other allcaps initialcaps initialpunct final_t
 
 # Java.  Note that ".jav" is offered as a possible file name extension for
@@ -63,7 +66,7 @@ inword _
 other allcaps initialcaps
 
 # Awk.  This is actually for Thompson Automation's AWK compiler, which is
-# somewhat beefier than the standard AWK interpretter.
+# somewhat beefier than the standard AWK interpreter.
 language tawk awk
 extension .awk
 keyword BEGIN BEGINFILE END ENDFILE INIT break continue do else for function
@@ -80,7 +83,7 @@ other allcaps
 # as a preprocessor directive, and anywhere else as the start of a comment.
 # The '/' character can't appear at the start of a word because that would
 # interfere with its use in /*...*/ comments.  Note that this language appears
-# before the "make" language, so "Imakefile" # files won't be misrecognized as
+# before the "make" language, so "Imakefile" files won't be misrecognized as
 # Makefiles.
 language xmkmf imakefile
 extension Imakefile
@@ -88,19 +91,22 @@ preprocessor #
 comment #
 comment /* */
 startword .$
-inword /.$()
+inword /.$()_
 
 # Makefiles.  Note that file names like "Makefile" & "makefile" are recognized.
 # The keywords listed here are actually just common names for pseudo-targets.
 # The word characters include anything that's commonly used in a filename.
 # Any word followed by a : will be displayed in the functionfont.
 language make
-extension akefile
-keyword all clean depend install uninstall
+extension akefile akefile.in
+keyword .PHONY .SUFFIXES .DEFAULT .PRECIOUS .IGNORE .SILENT
+keyword .EXPORT_ALL_VARIABLES
+keyword all again clean depend distclean install realclean uninstall
 comment #
 startword /.$
-inword /.$()
+inword /.$()_
 function :
+other allcaps
 
 # Microsoft NMAKE-style makefiles.  Microsoft's NMAKE uses ! to introduce
 # preprocessor directives.
@@ -109,7 +115,7 @@ extension .mak
 comment #
 preprocessor !
 startword \.$
-inword \.$()
+inword \.$()_
 function :
 
 # PostScript
@@ -127,9 +133,9 @@ string ( )
 comment %
 
 # Pascal.  Note that Pascal supports two styles of multi-line comments, while
-# elvis only permits one multi-line and one single-line style.  The style
-# supported here uses { } for the multi-line comments, and also pretends that
-# (* markes the start of a single-line comment -- elvis won't detect *)
+# elvis only permits one multi-line style and many single-line styles.  This
+# version uses { } for the multi-line comments, and also pretends that (*
+# markes the start of a single-line comment -- elvis won't detect *)
 language pascal
 extension .p .pas
 keyword and array begin boolean case char const delete div do downto else end
@@ -146,23 +152,50 @@ ignorecase true
 # Korn shell scripts.  It also tries to format other Bourne-like shell scripts.
 # Contributed by Gabriel Zachmann (zach@igd.fhg.de)
 # Modified by S.K. to take advantage of new features of elvis
+# NOTE: The "elvis.arf" file also checks for "#!/bin/sh" on the first line,
+#       and uses this syntax then.  Script names don't need to end with ".sh"
+# Added extra words and put in lexical order - Walter Briscoe 1997/06/18
 language ksh bash sh shV sh5
 extension .sh
 keyword $* $@ $# $? $- $$ $! & | ; [ ] < > ( )
-keyword for in do done select shift case esac eval set if then elif else fi
-keyword while until return echo test
+keyword alias autoload bg break case cd continue do done echo elif else esac
+keyword eval exec exit export false fc fg fi for getopts hash history
+keyword if in integer jobs kill let newgrp nohup print pwd r read readonly
+keyword select set shift stop suspend test then time times trap type typeset
+keyword ulimit umask unalias unset until wait whence while
 function (
 comment #
 startword /?-*!.
 inword /?*!.
 string `
+strnewline empty
 character '
+
+# Modula-2
+# Contributed by Peter Funk (pf@artcom0.north.de)
+language modula2
+extension .MOD .DEF .mod .def .mi .md
+keyword + - * / = := & | <> <= >= .. : ; { } [ ]
+keyword AND ARRAY BEGIN BY CASE CONST DEFINITION DIV DO ELSE ELSIF END
+keyword EXIT EXPORT FOR FROM IF IMPLEMENTATION IMPORT IN LOOP MOD MODULE
+keyword NOT OF OR POINTER PROCEDURE QUALIFIED RECORD REPEAT RETURN SET
+keyword THEN TO TYPE UNTIL VAR WHILE WITH
+comment (* *)
+# Nested comments like (* foo (* bar *) gnu *) are NOT taken into account!
+function (
+# comment this out, if you don't like it:
+font emphasized CONST TYPE VAR MODULE PROCEDURE RETURN EXIT
+string "
+character '
+# you might want to try this out :
+# inword ._
+other allcaps initialcaps
 
 # Perl.
 # Original version contributed by Herb Kateley (herb@ke.com).  Another version
 # was contributed by Jeff Wang (jeffw@enterprise.advance.com).  What you see
 # here is the merger of those two, with other modifications.  The "font normal"
-# line exists to prevent $# from being interpretted as a plain dollar sign
+# line exists to prevent $# from being interpreted as a plain dollar sign
 # followed by a comment.
 language perl  
 extension .pl .pm 
@@ -191,17 +224,18 @@ keyword stat study sub substr symlink syscall sysread system syswrite tell
 keyword telldir tie time times tr truncate uc ucfirst umask undef unless
 keyword unlink unpack unshift untie until use utime values vec wait waitpid
 keyword wantarray warn while write x xor y
-font normal $# $'
 comment #
 function (
-startword &_@$%
-inword _'
+startword &_@%$
+inword _'#
 string "
+strnewline empty
 character '
-regexp /?#
-useregexp if while m (,~&|
+regexp /?#:
+useregexp if unless while until m (,~&|
 useregsub s tr
 other allcaps
+font e ( ) { }
 
 # TCL shell scripts.
 # Contributed by Jeff Wang (jeffw@advance.com)
@@ -223,13 +257,12 @@ keyword option pack pid place proc protected public puts pwd radiobutton raise
 keyword read regexp regsub rename return scale scan scrollbar seek selection
 keyword send set source split string subst switch tell text then time tix tk
 keyword tk_popup tkwait toplevel trace unknown unset update uplevel upvar while
-keyword winfo wm
+keyword winfo wm [ ]
 font emphasized proc
 function {
 startword &$_
 inword _
-string " "
-character [
+string "
 other allcaps
 
 # VRML markups.
@@ -258,12 +291,25 @@ inword _
 string [ ]
 other allcaps
 
-# Quick hack to make context diffs use different colors for different lines
+# Quick hack to make diffs use different colors for different lines
 # This isn't perfect, but it is useful
-language diff cdiff
+language diff
 extension .dif .cdi .patch
 comment <
-regexp >
+comment >
+font emphasized >
+anchor 1 < >
+
+language cdiff patch
+extension .cdi .patch .pat
+comment +
+comment **
+comment -
+comment !
+anchor 1 + - ** !
+font fixed !
+font emphasized -
+font bold + **
 
 # Fortran 77
 # Contributed by Lois Amoreira (amoreira@ubistf.ubi.pt)
@@ -271,7 +317,8 @@ regexp >
 # I defined them as "*'"
 language fortran77 f77 fortran
 extension .f .f77
-comment *'
+comment c *'
+anchor 1 c *'
 keyword .and.  .eq.  .eqv.  .ge.  .gt.  .le.  .lt.  .ne.  .neqv.  .not.  .or.
 keyword accept access assign backspace blank block blockdata boolean buffer
 keyword call character close common complex continue data data decode define
@@ -287,3 +334,742 @@ inword .
 string '
 function (
 ignorecase true
+
+# Python source
+# Contributed by Dan Fandrich (dan@fch.wimsey.bc.ca)
+# Note that there is no perfect way to specify Python's multiline strings here,
+# so after the first empty line they may be displayed as program text
+language python
+extension .py
+comment #
+# keywords
+keyword access and break class continue def del elif else except finally for
+keyword from global if import in is lambda not or pass print raise return try
+keyword while
+# built-in exceptions
+keyword AccessError AttributeError ConflictError EOFError
+keyword IOError ImportError IndexError KeyError KeyboardInterrupt
+keyword MemoryError NameError None OverflowError RuntimeError
+keyword SyntaxError SystemError SystemExit TypeError ValueError
+keyword ZeroDivisionError
+# built-in functions
+keyword abs apply callable chr cmp coerce compile delattr
+keyword dir divmod eval execfile filter float getattr
+keyword globals hasattr hash hex id input int len
+keyword locals long map max min oct open ord pow
+keyword range raw_input reduce reload repr round setattr
+keyword str tuple type vars xrange
+# other
+keyword exec _ __doc__ __import__ __main__ __name__ None
+# special methods
+keyword __abs__ __add__ __and__ __bases__ __builtins__ __call__ __class__
+keyword __cmp__ __coerce__ __del__ __delattr__ __delitem__ __delslice__
+keyword __dict__ __div__ __divmod__ __float__ __getattr__ __getitem__
+keyword __getslice__ __hash__ __hex__ __init__ __int__ __invert__ __len__
+keyword __long__ __lshift__ __members__ __methods__ __mod__ __mul__ __neg__
+keyword __nonzero__ __oct__ __or__ __pos__ __pow__ __repr__ __rshift__
+keyword __setattr__ __setitem__ __setslice__ __str__ __sub__ __version__ __xor__
+string '
+strnewline empty
+character "
+function (
+startword _
+inword _
+
+# Scheme
+# Contributed by Iver Odin Kvello (i.o.kvello@sum.uio.no)
+# R4RS Scheme, with keywords from the macro appendix. No functions, 
+# doesn't work well with s-exp syntax. Also no chars or constants (beginning
+# with #.) 
+language scheme
+extension .scm .sc
+keyword define lambda let let* letrec if cond begin and or case 
+keyword => delay do else quasiquote quote set! unquote unquote-splicing
+keyword define-syntax syntax-rules syntax let-syntax letrec-syntax 
+comment ;
+string "
+ignorecase true
+startword + - . * / < = > ! ? : $ % _ & ~ ^
+inword    + - . * / < = > ! ? : $ % _ & ~ ^
+
+# HTML
+language html
+extension .html .htm .HTML .HTM
+# Standard tags for HTML 3.2
+keyword <a </a <applet </applet <area <b </b <base <basefont <big </big
+keyword <blockquote </blockquote <body </body <br <center </center
+keyword <cite </cite <code </code <dd <dir </dir <div </div <dl </dl <dt
+keyword <em </em <font </font <form </form <h1 </h1 <h2 </h2 <h3 </h3
+keyword <h4 </h4 <h5 </h5 <h6 </h6 <head </head <hr <html </html
+keyword <i </i <img <input <isindex <kbd </kbd <li <link <map </map
+keyword <menu </menu <meta <ol </ol <option <p </p <param <pre </pre
+keyword <samp </samp <script </script <select </select <small </small
+keyword <strong </strong <style </style <sub </sub <sup </sup <table </table
+keyword <td </td <textarea <th </th <title </title <tr </tr <tt </tt <u </u
+keyword <ul </ul <var </var >
+# Standard parameters for HTML 3.2
+font emphasized action= align= alink= alt= background= bgcolor= border=
+font emphasized cellpadding= cellspacing= code= codebase= color= cols= colspan=
+font emphasized content= coords= enctype= height= href= hspace= http-equiv=
+font emphasized link= maxlength= method= name= prompt= rel= rev= rows= rowspan=
+font emphasized shape= size= src= text= title= type= usemap= valign= value=
+font emphasized vlink= vspace= width=
+font emphasized ismap noshade nowrap
+# Netscape-specific tags
+font fixed <nobr </nobr <wbr
+# Part of HTML 3.2, but not supported by Netscape
+font fixed <dfn </dfn
+# Obsolete or otherwise discouraged
+font fixed <xmp </xmp <listing </listing <plaintext </plaintext
+font fixed <strike </strike face=
+# Standard parameters which would produce too many false highlights
+#font emphasized checked multiple selected
+startword <
+inword /-
+comment <! >
+function =
+character &;
+ignorecase true
+
+# nroff -man
+language man
+extension .man .1 .MAN
+font emphasized \
+preprocessor .
+
+# TeX
+language tex
+extension .tex
+keyword LaTeX
+comment %
+startword \
+font fixed \_ \& \{ \} \% \$ \\
+keyword & $$ { }
+string $
+other initialpunct
+
+# RTF
+language rtf
+extension .rtf .RTF
+startword \
+font fixed \' \* \- \: \\ \_ \{ \| \} \~ \chatn \chdate \chdpa \chdpl \chftn
+font fixed \chftnsep \chftnsepc \chpgn \chtime
+font emphasized ' * - : _ { | } ~
+other initialpunct
+
+# Ada 95
+# Contributed by Zhu QunYing (zhu@pobox.org.sg)
+# some common predefined types are added as keyword after "xor"
+language ada ada95
+extension .adb .ads .ada
+comment --
+keyword abort abs abstract accept access aliased all and array at
+keyword begin body
+keyword case constant
+keyword declare delay delta digits do
+keyword else elsif end entry exception exit
+keyword for function
+keyword generic goto
+keyword if in is
+keyword limited loop
+keyword mod
+keyword new not null
+keyword of or others out
+keyword package pragma private procedure protected
+keyword raise range record rem renames requeue return reverse
+keyword select separate subtype
+keyword tagged task terminate then type
+keyword until use
+keyword when while with
+keyword xor
+keyword Boolean Character Wide_Character Integer Float Duration File_type
+keyword String Wide_String Natural Positive
+function (
+startword _
+inword _'
+character '
+string "
+other allcaps
+ignorecase true
+
+# ODL (object description files)
+# Contributed by David Gottner (dgottner@microsoft.com)
+language odl
+extension .ODL .odl
+keyword boolean char double float int long short void wchar_t
+keyword BSTR CURRENCY DATE HRESULT LPSTR LPWSTR SAFEARRAY SCODE VARIANT
+keyword IDispatch IUnknown
+keyword appobject bindable control default defaultbind displaybind
+keyword dllname dual entry helpcontext helpfile helpstring
+keyword hidden id in lcid licensed nonextensible odl oleautomation
+keyword optional out propget propput propputref public readonly
+keyword requestedit restricted retval source string uuid vararg
+keyword version
+keyword coclass dispinterface enum importlib interface library
+keyword methods module properties struct typedef union
+comment //
+comment /* */
+preprocessor #
+string "
+startword _
+inword _
+other allcaps initialpunct
+
+# Bibtex  
+# Contributed by Woody Jin (wjin@cs.uh.edu)
+language bib
+extension .bib .BIB
+font emphasized author year volume number pages month note
+font emphasized title publisher series address edition journal
+font emphasized booktitle organization howpublished type chapter
+font emphasized institution school editor
+comment	%
+startword @
+string "
+ignorecase false
+other initialpunct
+strnewline allowed
+
+# This "elvis.syn" file
+# Contributed by Woody Jin (wjin@cs.uh.edu)
+# Modified by S.K. to take advantage of new features of elvis
+language syn
+extension elvis.syn ELVIS.SYN
+anchor 1 anchor keyword function inword character string other
+anchor 1 font ignorecase extension language comment startword operator
+anchor 1 strnewline preprocessor regexp useregexp useregsub prepquote
+font fixed allcaps initialcaps mixedcaps final_t initialpunct
+font fixed true false allowed backslash indent empty
+font emphasized normal bold italic emphasized fixed underlined
+anchor 6 normal bold italic emphasized fixed underlined
+anchor 1 #
+comment #
+inword _
+
+# EX
+# Ironically, elvis' syntax coloring method isn't versatile enough to color
+# ex syntax.  Still, it can color comments and most keywords; maybe that's
+# enough.  The particular variation shown here works okay for aliases.
+language ex
+extension .ex .exrc .elvisrc elvis.ini elvis.brf elvis.arf elvis.bwf elvis.awf elvis.ali
+keyword a ab abbr abbreviate all alias append ar args b bb bbrowse br bre break
+keyword browse buffer c ca calc calculate cc cd change chd chdir cl close
+keyword co col color copy d delete di dig digraph dis display do e ec echo
+keyword edit el else er err errlist erro error ev eval ex f file g global
+keyword go goto gu gui h help i if insert j join k l la last le let list lo
+keyword local lp lpr m ma mak make map mark me message mk mkexrc move n N new
+keyword next Next no normal nu number o open p po pop pre previous print
+keyword pu put q qa qall quit r read red redo rew rewind s sN sNext sa saf
+keyword safer sall sb sbb sbbrowse sbr sbrowse se set sh shell sl slast sn
+keyword sne snew snext so source sp split sre srew srewind st sta stac
+keyword stack stag stop subst substitute sus susp suspend t ta tag th then
+keyword to try u una unab unabbr unabbreviate unb unbreak undo unm unmap v
+keyword ve version vglobal vi visual w wa warning wh while wi window wn
+keyword wnext wq wquit write x xit y yank z
+anchor ^ " # & ( < = > @ ~
+# note that ! is not listed as a keyword because it interferes with alias args
+comment "
+regexp /?;:
+useregsub s
+useregexp , g v global vglobal
+font fixed !0 !1 !2 !3 !4 !5 !6 !7 !8 !9 !^ !$ !* !< !> !% !! !?
+font fixed 'a 'b 'c 'd 'e 'f 'g 'h 'i 'j 'k 'l 'm 'n 'o 'p 'q 'r 's 't 'u 'v
+font fixed 'w 'x 'y 'z % $
+
+# MASM/TASM style x86 assembly language
+# Contributed by Dan Fandrich (dan@fch.wimsey.bc.ca)
+language x86 asm assembly
+extension .asm .s .def .mac .inc .ASM .DEF
+keyword alias align arg assume at byte casemap catstr codeptr codeseg
+keyword comm comment common compact const dataptr dataseg db dd df
+keyword display dosseg dp dq dt dup dw dword else elseif elseif1 elseif2
+keyword elseifb elseifdef elseifdif elseifdifi elseife elseifidn
+keyword elseifidni elseifnb elseifndef emul end endif endm endp ends
+keyword enter enterd enterw enum eq equ err errif errif1 errif2 errifb
+keyword errifdef errifdif errifdifi errife errifidn errifidni errifnb
+keyword errifndef error even evendata exitm export extern externdef extrn
+keyword far fardata farstack flat fword ge getfield global goto group gt
+keyword high highword huge ideal if if1 if2 ifb ifdef ifdif ifdifi ife
+keyword ifidn ifnb ifndef ignore include includelib instr invoke irp irpc
+keyword jumps label large largestack le leave leaved leavew length
+keyword lengthof local locals low lowword lroffset lt macro mask masm
+keyword medium memory mod model multerrs name ne near nearstack noemul
+keyword nojumps nolocals nomasm51 nomulterrs nosmart nothing nowarn
+keyword offset ofidni option org p186 p286 p286n p287 p386 p386n p387
+keyword p486 p486n p8086 p8087 page pascal pn087 private proc proto ptr
+keyword public publicdll purge pword quirks qword radix record rept
+keyword retcode seg segment short size sizeof sizestr small smallstack
+keyword smart stack startupcode struc substr subttl sword symtype table
+keyword tblinit tblinst tblptr tbyte this tiny title type typedef
+keyword udataseg ufardata union use16 use32 usecs useds usees usefs usegs
+keyword uses usess vararg version warn wbinvd while width word
+# DS pseudo-op conflicts with Data Segment register
+#keyword ds 
+# Reserved words that conflict with opcodes
+#keyword not or shr shl xor
+# Words starting with . or % are always highlighted as reserved words
+startword .%
+comment ;
+string "
+character '
+inword .[]_$
+other initialpunct
+ignorecase true
+
+# MS-DOS batch file
+# Contributed by Dan Fandrich (dan@fch.wimsey.bc.ca)
+# Only the commands which may be considered part of the batch "language"
+# are included as keywords.  Note that ".cmd" is the OS/2 extension for
+# batch files.
+language batch
+extension .bat .BAT .cmd .CMD
+keyword break call cd cls echo echo. echo/ echo\ echo+ exit for goto if lh
+keyword loadfix loadhigh path pause prompt rem set shift truename verify
+keyword @ | < == do errorlevel exist not on off
+keyword %0 %1 %2 %3 %4 %5 %6 %7 %8 %9
+# environment variable references
+string %
+# goto labels
+preprocessor :
+# file redirections
+comment >
+font underlined >
+comment rem
+comment ::
+anchor 1 ::
+inword ._/\\:$!@#^&-
+ignorecase true
+
+# MS-DOS config.sys file
+# Contributed by Walter Briscoe (walter@wbriscoe.demon.co.uk)
+language config.sys
+extension config.sys
+ignorecase true
+inword ._/\\:$!@#^&-
+comment rem
+comment ;
+# ; and rem as the first graphic characters on a line start comment lines
+keyword Break Buffers Country Device Devicehigh Dos Drivparm Fcbs Files
+keyword Include Lastdrive Menucolor Menudefault Menuitem Numlock
+keyword Set Shell Stacks Submenu Switches
+
+# Windows and LanManager INI files
+# Original version contributed by Jay Wardle <jayw@lsid.hp.com>
+# Modified by SK to take advantage of new elvis features.
+language ini
+extension .ini .INI
+function =
+comment ;
+comment [
+font emphasized [
+anchor 1 [
+inword _ $ .
+
+# Verilog
+language verilog
+extension .v .V .vc
+keyword always assign attribute case casez cazex deassign default
+keyword defparam disable else end endattribute endcase endfunction
+keyword endmodule endpackage endprimative endtable endtask event for
+keyword force fork forever function if initial join macromodule module
+keyword package primative realtime release repeat scalared signed
+keyword specparam table task use vectored wait when while
+keyword centgrade endspecify femtosecs follow ifnone invert latchhigh
+keyword latchlow megahertz microsecs millisecs nanosecs picofarads
+keyword picosecs posedge pulselow seconds specify unknown volts
+keyword >= >> <= << && || == != === !== ^~ ~^ ~& ~| -> > < ! ~ & | ^
+font underlined const highz0 highz1 inout input integer output parameter
+font underlined real reg strong0 strong1 supply0 supply1 time tri tri0
+font underlined tri1 trireg weak0 weak1 wire
+font fixed and begin edge end negedge not or posedge
+font emphasized buf bufif0 bufif1 cmos large medium nand nmos nor notif0
+font emphasized notif1 pmos pull0 pull1 pulldown pullup rcmos
+font emphasized rnmos rpmos rtran rtranif0 rtranif1 small strength tran
+font emphasized tranif0 tranif1 triand trior wor xnor xor
+comment //
+comment /* */
+preprocessor `
+function (
+string "
+startword $`\<>
+inword _$'=
+other allcaps initialpunct
+strnewline empty
+
+# ACCELL.
+language accell
+extension .fs .fz .as .az .h
+keyword ACCELL ACCELL_TYPE ACTION ADD ADD_ALLOWED ADD_UPDATE AFTER ALL ALTER
+keyword AMOUNT AND APPLICATION ARCHIVES ARE ASC ASCENDING AT AUD_ACTION AUD_LABEL
+keyword AUD_ON_ENTRY AUTO_ACCEPT AUTO_COMMIT AUTO_EDIT AUTO_FIND AUTO_ZOOM
+keyword BEFORE BEGIN BEGIN_SQL BETWEEN BINARY BLINK BOOL BOUNDED BREAK BREAKPOINT
+keyword BUTTON BY
+keyword CACHED CANCEL_ZOOM CASE CASE_CONVERSION CENTERED CHANGE CHANGES 
+keyword CHARACTERISTICS CHOOSE CLEAR CLEAR_ADD_EXP CLEAR_AFTER_AU CLEAR_FIND_EXP
+keyword CLEAR_TO_ADD CLEAR_TO_FIND CLICK_ON_FIELD
+keyword CLOSE CODE_SECTION
+keyword COL COL_ORIGIN COLUMN_INDEX COLUMN_LOWER_BOUNDS COLUMN_UPPER_BOUNDS
+keyword COLUMNS COMMAND COMMIT CONTINUE CREATE CUR_FIELD CUR_NEXT_FIELD CURRENT
+keyword DATA_TYPE DATE DB_LENGTH DB_TYPE DBMS_ERROR DEFAULT DEFINE DEINSTALL
+keyword DELETE DELETE_ALLOWED DESC DESCENDING DIMENSION DISABLE DISABLED DISPLAY
+keyword DISPLAY_FORMAT DISPLAY_JUSTIFY DROP
+keyword ECHOED ELSE ENABLE END END_SQL ERASE ESTIMATED COUNT ESTIMATING EVENT
+keyword EVENTS EXCEPT EXECUTING EXIT EXTERN
+keyword FALSE FIELD FIELD_LENGTH FIELD_NAME FILE FILE_PATH FIND FIND_ACTION
+keyword FIND_ALLOWED FIND_COUNT FIND_LABEL FIND_PROMPT FINDABLE FIRST FIRST_FIELD
+keyword FIRST_RECORD FLOAT FOR FORM FORM_NAME FORMS FROM FUNCTION FUNCTION_KEY
+keyword FUNCTIONS FYI_MESSAGE
+keyword GRANT GROUP
+keyword HANDLER HEIGHT HELP HELP_ARCHIVE HELP_FORM_NAME HELP_FORM_COL
+keyword HELP_FORM_ROW
+keyword IDENTIFIED IF IN IN_MEMORY INIT INPUT INSERT INSTALL INTO IS
+keyword KEY KEYS
+keyword LABEL LAST_RECORD LEFT LIKE LIST LIST_INDEX LIST_LOWER_BOUNDS
+keyword LIST_UPPER_BOUNDS LOCAL LOCATION LOCKED_IN_CACHE LOWER LOW_INTENSITY
+keyword MATRIX MENU_LABEL MULTI_VALUED
+keyword NEXT NEXT_FIELD NEXT_FORM NEXT_RECORD NO_CONSISTENCY NONE NOT NULL NUMBER_OF_ARRAYS NUMERIC
+keyword OCCURRENCES ON OPERATION OR ORDER ORDERED_BY OUTPUT
+keyword PAGE PIPELINE PREVIOUS_FIELD PREV_FORM PREVIOUS_FORM PREVIOUS_RECORD PREVIOUS
+keyword QUEUE
+keyword RECORD RECORD_CONSISTENCY REF REFERENCE REFRESH REJECT REPAINT REPEAT
+keyword REPEATED REQUIRED RESTART RESULT RETRIEVE RETRIEVE_VALUE RETURN REVERSE
+keyword REVOKE RIGHT ROLLBACK ROW ROW_INDEX ROW_LOWER_BOUNDS ROW_ORIGIN
+keyword ROW_UPPER_BOUNDS ROW_VALUED
+keyword SCHEMA SCREEN SEARCH_RANGES SEC SECOND SECONDS SELECT SELECTED
+keyword SELECTED_SET_SCROLLBAR SET SET_CONSISTENCY SHLIKE SLOCK
+keyword SQL_COLUMN_CONDITION SQL_OPTIONAL_CONDITION SQL_ORDER_BY_CLAUSE
+keyword SQL_ORDER_BY_COLUMN SQL_WHERE_CLAUSE START STOP_FOR_INPUT STORE STORED
+keyword STRING SWITCH
+keyword TAB_STOP TABLE TARGET_FIELD TARGET_TABLE TEXT THEN TIME TIMER TO TRIM
+keyword TRUE TX
+keyword UNCACHED UNDEFINED UNDERLINE UNKNOWN UNLOCK UNTIL UPDATE UPDATE_ALLOWED
+keyword UPDATEABLE UPPER USAGE USE_BASE_WINDOW USERMENU USING
+keyword VALUES VIEW VOID
+keyword WAIT WHEN WHERE WHILE WIDTH WINDOW_HEIGHT WINDOW_WIDTH WORK WRITE
+keyword XLOCK
+keyword ZOOM
+comment /* */
+preprocessor #
+prepquote " "
+function (
+startword
+inword _
+other initialpunct
+string ' '
+character '
+font e BEGIN END ( )
+
+# Objective-C.
+# Contributed by David Stes (stes@can.nl)
+language objc
+extension .m
+keyword auto break case char const continue default delete defined do
+keyword double else enum extern far float friend for goto if int long
+keyword near register return short signed sizeof static struct switch
+keyword typedef union unsigned void volatile while
+# Objective-C specific
+keyword id interface implementation end selector defs
+comment //
+comment /* */
+preprocessor #
+prepquote < >
+function (
+string "
+character '
+startword _ @
+inword _
+other allcaps final_t initialpunct
+
+# EMACS Lisp
+language lisp elisp
+extension .el
+inword -
+font emphasized t nil
+keyword and autoload car cdr cons defconst define-key defmacro defun defvar
+keyword eq fboundp fset if interactive let list mapcar not or progn put set
+keyword setq while
+strnewline empty
+string "
+comment ;
+
+# Email messages
+language email
+inword -:
+anchor 1 Received: Message-ID: Message-Id: Date: From: To: Cc: Subject:
+anchor 1 References: Reply-To: MIME-Version: Organization:
+anchor 1 Content-Type: Content-Length: Content-Transfer-Encoding: Content-ID:
+anchor 1 Content-Description: X-Mailer: In-Reply-To: Status: > From
+comment >
+comment From
+font emphasized From
+
+# POV-Ray.
+# Contributed by Christian Perle (christian.perle@tu-clausthal.de)
+language povray
+extension .pov .inc
+keyword aa_level aa_threshold abs acos acosh adaptive adc_bailout agate
+keyword agate_turb all alpha ambient ambient_light angle aperture arc_angle
+keyword area_light asc asin asinh assumed_gamma atan atan2 atanh atmosphere
+keyword atmospheric_attenuation attenuating average background bicubic_patch
+keyword black_hole blob blue blur_samples bounded_by box box_mapping bozo break
+keyword brick brick_size brightness brilliance bumps bumpy1 bumpy2 bumpy3
+keyword bump_map bump_size camera case caustics ceil checker chr clipped_by
+keyword clock color color_map colour colour_map component composite concat cone
+keyword confidence conic_sweep constant control0 control1 cos cosh count crackle
+keyword crand cube cubic cubic_spline cylinder cylindrical_mapping debug declare
+keyword default degrees dents difference diffuse direction disc distance
+keyword distance_maximum div dust dust_type eccentricity else emitting end error
+keyword error_bound exp exponent fade_distance fade_power falloff falloff_angle
+keyword false file_exists filter finish fisheye flatness flip floor focal_point
+keyword fog fog_alt fog_offset fog_type frequency gif global_settings glowing
+keyword gradient granite gray_threshold green halo height_field hexagon
+keyword hf_gray_16 hierarchy hollow hypercomplex if ifdef iff image_map
+keyword incidence include int interpolate intersection inverse ior irid
+keyword irid_wavelength jitter julia_fractal lambda lathe leopard light_source
+keyword linear linear_spline linear_sweep location log looks_like look_at
+keyword low_error_factor mandel map_type marble material_map matrix max
+keyword max_intersections max_iteration max_trace_level max_value merge mesh
+keyword metallic min minimum_reuse mod mortar nearest_count no normal normal_map
+keyword no_shadow number_of_waves object octaves off offset omega omnimax on
+keyword once onion open orthographic panoramic pattern1 pattern2 pattern3
+keyword perspective pgm phase phong phong_size pi pigment pigment_map
+keyword planar_mapping plane png point_at poly polygon pot pow ppm precision
+keyword prism pwr quadratic_spline quadric quartic quaternion quick_color
+keyword quick_colour quilted radial radians radiosity radius rainbow ramp_wave
+keyword rand range reciprocal recursion_limit red reflection refraction render
+keyword repeat rgb rgbf rgbft rgbt right ripples rotate roughness samples scale
+keyword scallop_wave scattering seed shadowless sin sine_wave sinh sky
+keyword sky_sphere slice slope_map smooth smooth_triangle sor specular sphere
+keyword spherical_mapping spiral spiral1 spiral2 spotlight spotted sqr sqrt
+keyword statistics str strcmp strength strlen strlwr strupr sturm substr
+keyword superellipsoid switch sys t tan tanh test_camera_1 test_camera_2
+keyword test_camera_3 test_camera_4 text texture texture_map tga thickness
+keyword threshold tightness tile2 tiles torus track transform translate transmit
+keyword triangle triangle_wave true ttf turbulence turb_depth type u
+keyword ultra_wide_angle union up use_color use_colour use_index u_steps v val
+keyword variance vaxis_rotate vcross vdot version vlength vnormalize
+keyword volume_object volume_rendered vol_with_light vrotate v_steps warning
+keyword warp water_level waves while width wood wrinkles x y yes z
+comment	//
+comment /* */
+preprocessor #
+prepquote < >
+function (
+string "
+inword _
+other allcaps
+
+# PRO*C
+# Contributed by Walter Briscoe (walter@wbriscoe.demon.co.uk)
+# 
+# pro*c is Oracle's embedded C language. Files in it are precompiled to the C
+# language in a fashion analogous to that used for lex and yacc.
+# They may also be compiled to C++ (and Java??)
+# The language consists of a set of statements which doing the embedding:
+# e.g. EXEC SQL CONNECT :access;
+# pro*c keywords are case-insensitive but usually expressed using [A-Z]*
+# ignorecase true is semi-appropriate but seems best left out.
+# This syntax description views pro*c as a layering on c.
+language pro*c
+extension .PC .pc
+keyword auto break case char const continue default delete defined do
+keyword double else enum extern far float friend for goto if int long
+keyword near register return short signed sizeof static struct switch
+keyword typedef union unsigned void volatile while
+comment //
+comment /* */
+preprocessor #
+prepquote < >
+function (
+string "
+character '
+startword _
+inword _
+# other allcaps final_t initialpunct
+# if ignorecase true applied to following keywords in current language, I could
+# model pro*c adequately! However, I think layering is better!
+keyword CLOSE COMMIT CONTINUE CURSOR DO EXEC FETCH FOUND HOLD_CURSOR
+keyword NO OPEN ORACA ORACLE RELEASE RELEASE_CURSOR
+keyword SQL SQLERROR SQLWARNING STOP WORK YES
+keyword BEGIN COMMIT DECLARE DISTINCT END INCLUDE INTO MAX MIN OF ROLLBACK ROWID
+keyword SECTION SELECT SET SYSDATE UPDATE VARCHAR VALUES WHERE
+keyword ACCESS ADD ALL ALTER AND ANY ARRAYLEN AS ASC AUDIT BETWEEN BY
+keyword CHAR CHECK CLUSTER COLUMN COMMENT COMPRESS CONNECT CREATE CURRENT
+keyword DATE DECIMAL DECODE DEFAULT DELETE DESC DISTINCT DROP
+keyword ELSE EXCLUSIVE EXISTS FILE FLOAT FOR FROM GRANT GROUP HAVING
+keyword IDENTIFIED IMMEDIATE IN INCREMENT INDEX INITIAL INSERT INTEGER INTERSECT
+keyword INTO IS
+keyword LEVEL LIKE LONG MAXEXTENTS MINUS MODE MODIFY
+keyword NVL NOAUDIT NOCOMPRESS NOT NOTFOUND NOWAIT NULL NUMBER
+keyword OF OFFLINE ON ONLINE OPTION OR ORDER PCTFREE PRIOR PRIVILEGES PUBLIC
+keyword RAW RENAME RESOURCE REVOKE ROW ROWID ROWLABEL ROWNUM ROWS
+keyword SELECT SESSION SET SHARE SIZE SMALLINT SQLBUF START SUCCESSFUL SYNONYM
+keyword SYSDATE
+keyword TABLE THEN TO TRIGGER
+keyword UID UNION UNIQUE UPDATE USER VALIDATE VALUES VARCHAR VARCHAR2 VIEW
+keyword WHENEVER WHERE WITH
+
+# VHDL: VHSIC Hardware Description Language, IEEE Std1076-1993
+# Contributed by Guoyong Huang <huanggy@inethp1.bidc.cn.net>
+language vhdl
+extension .vhd .vhdl
+keyword abs access after alias all and array assert attribute
+keyword begin block body buffer bus
+keyword case component constant disconnect downto
+keyword else elsif end exit file for function
+keyword generate generic group guarded if impure in inertial inout is
+keyword label library linkage literal loop map mod 
+keyword nand new next nor not null of on open or others out
+keyword port postponed procedure process pure
+keyword range record register reject rem report return rol ror
+keyword select severity signal shared sla sll sra srl subtype
+keyword then to transport type unaffected units until use variable
+keyword wait when while with xnor xor
+keyword => ** := /= >= <= <>
+font underlined entity architecture package configuration
+comment --
+function (
+string "
+startword `\<>
+inword _\
+other allcaps initialpunct
+strnewline empty
+ignorecase true
+
+#`rptgen' report generator
+language rptgen
+extension .rg
+startword !
+keyword from to backwards starting next previous
+anchor 1 !array !break !call !continue !else !endfunc !endif !endpipe
+anchor 1 !expect !fail !find !for !function !getenv !if !next !param
+anchor 1 !pipe !set !while
+font emphasized !array !break !call !continue !else !endfunc !endif !endpipe
+font emphasized !expect !fail !find !for !function !getenv !if !next !param
+font emphasized !pipe !set !while
+font fixed # $ @
+anchor 1 = !
+font bold =
+string ""
+comment !
+comment =
+
+# RPT
+language RPT
+extension .rpt
+keyword after amount and avg before begin binary bootm centered col column comb
+keyword count date desc detail else end float footer header hour if in input
+keyword ldate left length max margin min need newline no not numeric or page
+keyword pageno print report set separator skip sort sorted string substr then
+keyword time to today top total using where width
+comment /*
+function (
+string ' '
+character '
+inword _
+font e begin end
+
+# Miranda
+# Contributed by Stefan van den Oord <oord@cs.utwente.nl>
+# Note that ".m" is also the extension for Objective-C, so elvis will use the
+# Objective-C syntax instead of this one unless you disable Objective-C somehow
+language miranda
+extension .m
+keyword if otherwise char num bool where error take drop takewhile dropwhile
+keyword numval shownum foldl foldr hd tl init last True False
+startword $
+string "
+character '
+ignorecase false
+comment ||
+preprocessor %
+prepquote "
+function (
+font b [ ] + - * / # : . = <- & \/ <= >= < >
+
+
+# SQL
+# This is a combination of different SQL definitions which were contributed by
+# Lars Pehrsson <dsr_lpe@dansk-sygeplejeraad.dk> and Stefan van den Oord
+# <oord@cs.utwente.nl>.  Any keywords which weren't common to both definitions
+# have been moved to "font ephasized" lines.
+# SEE ALSO: the "pro*c" entry above (extension .PC .pc)
+language sql
+extension .sql .SQL
+#Common
+keyword access add all alter and any as asc begin between by char check
+keyword close cluster column commit connect constraint create current
+keyword cursor database date decimal default delete desc distinct drop
+keyword end exclusive execute exists float for from grant group having in
+keyword index insert integer into is like lock log max min mode modify no
+keyword not null on option or order privileges procedure public release
+keyword rename resource revoke rollback row schema select set share size
+keyword smallint synonym table to union unique update user values varchar
+keyword view where with work
+#PL/SQL only
+keyword allocate analyze archive arraylen audit binary_integer body
+keyword boolean comment compress concat constant continue controlfile
+keyword cost count deallocate declare decode disable do dual else elsif
+keyword exception exec exit explain false fetch file found function goto
+keyword hold_cursor identified if immediate include increment initcap
+keyword initial instr intersect length level link long loop lpad ltrim
+keyword maxextents minus noaudit nocompress notfound nowait number nvl of
+keyword offline online open open-for oraca oracle others out package
+keyword parallel pctfree plan prepare prior profile raise raw recover
+keyword release_cursor replace return role rowid rowlabel rownum rows
+keyword rowtype rpad rtrim savepoint section segment sequence session
+keyword snapshot sql sqlbuf sqlcode sqlerrm sqlerror sqlwarning start
+keyword statement stop storage substr successful sum sysdate system
+keyword tablespace then to_char to_date transaction translate trigger
+keyword true truncate type uid upper validate var varchar2 when whenever
+keyword while yes
+#Lars' SQL only
+font emphasized ansi authorization before buffered byte clustered
+font emphasized clustersize columns committed datetime dba delimiter
+font emphasized dirty disconnect distributions document escape extent
+font emphasized headings high indexes info inner interval isolation
+font emphasized listing load low matches medium money mounting next
+font emphasized optical optimization outer output page pipe read
+font emphasized references repeatable reserve resolution serial
+font emphasized smallfloat some stability statistics status tables temp
+font emphasized text timeout unload unlock wait without
+ignorecase true
+comment /* */
+comment #
+comment --
+string "
+character '
+function (
+startword _
+inword _
+
+# 4GL
+# Contributed by Lars Pehrsson <dsr_lpe@dansk-sygeplejeraad.dk>
+language 4gl
+extension .4gl .4j
+ignorecase true
+keyword and array attribute auto break by call case char clipped
+keyword close command const continue cursor database date day decimal
+keyword declare default define display div do double before after
+keyword else end execute exit fetch float for foreach hide show
+keyword form function goto if in initialize input is thru
+keyword begin work rollback commit whenever any error stop prompt true false
+keyword integer key let like long mdy mod month menu option name
+keyword not null of open or otherwise on message main globals
+keyword prepare record return returning smallint then to using  today time
+keyword when while window with year between next previous field output
+keyword program notfound hour minute year month day options clear help
+keyword file accept wrap comment line run without defaults at
+# report
+keyword print every row skip top page format last left bottom margin
+keyword first header length lineno pageno report finish start
+# sql
+keyword select from into where matches union exists update insert delete group
+keyword order desc asc set isolation dirty read lock table exclusive mode values
+keyword status having sum temp create
+comment { }
+comment #
+function (
+string "
+character '
+inword _ .

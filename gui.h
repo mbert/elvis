@@ -39,7 +39,7 @@ typedef struct gui_s
 	void	(*beep) P_((GUIWIN *gw));
 	BOOLEAN	(*msg) P_((GUIWIN *gw, MSGIMP imp, CHAR *text, int len));
 	void	(*scrollbar) P_((GUIWIN *gw, long top, long bottom, long nlines));
-	void	(*status) P_((GUIWIN *gw, CHAR *cmd, long line, long column, _CHAR_ learn, char *mode));
+	BOOLEAN	(*status) P_((GUIWIN *gw, CHAR *cmd, long line, long column, _CHAR_ learn, char *mode));
 	int	(*keylabel) P_((CHAR *given, int givenlen, CHAR **label, CHAR **raw));
 	BOOLEAN	(*clipopen) P_((BOOLEAN forwrite));
 	int	(*clipwrite) P_((CHAR *text, int len));
@@ -57,7 +57,7 @@ typedef struct gui_s
 
 
 
-#if defined(GUI_TERMCAP) || defined(GUI_OPEN)
+#if defined(GUI_TERMCAP) || defined(GUI_OPEN) || defined(GUI_VIO)
 /* The "termcap" and "open" user interfaces use the following OS-dependent
  * functions.  These functions must be defined in "osXXXX/tcaphelp.c" if
  * you're going to use "termcap" or "open".
@@ -76,6 +76,19 @@ extern BOOLEAN	ttypoll P_((BOOLEAN reset));
 extern RESULT	ttystop P_((void));
 extern GUIWIN	*ttywindow P_((int ttyrow, int ttycol, int *winrow, int *wincol));
 END_EXTERNC
+
+/* These can be used for accessing the values of the tty options. */
+extern struct ttygoptvals_s
+{
+	OPTVAL	term;		/* string - terminal type */
+	OPTVAL	ttyrows;	/* number - rows of screen */
+	OPTVAL	ttycolumns;	/* number - columns of screen */
+	OPTVAL	ttyunderline;	/* boolean - whether colors and underline mix */
+} ttygoptvals;
+#define o_term		ttygoptvals.term.value.string
+#define o_ttyrows	ttygoptvals.ttyrows.value.number
+#define o_ttycolumns	ttygoptvals.ttycolumns.value.number
+#define o_ttyunderline	ttygoptvals.ttyunderline.value.boolean
 
 # ifdef NEED_SPEED_T
 #  include <termcap.h>

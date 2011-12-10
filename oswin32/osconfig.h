@@ -12,11 +12,21 @@
 #define	GUI_OPEN	/* open-mode only, does nothing fancy */
 #endif
 
-/* The following control which display modes are available */
-#undef	DISPLAY_C	/* the old "c" mode */
-#define	DISPLAY_SYNTAX	/* the new generic "syntax" colorizer */
-#define	DISPLAY_MARKUP	/* the "html" and "man" modes */
+/* The following control which display modes, network protocols, and other
+ * features are available.  #define to enable, #undef to disable.
+ */
+#define	DISPLAY_SYNTAX	/* the generic "syntax" colorizer */
+#define	DISPLAY_MARKUP	/* the "html", "man", and "tex" modes */
 #define	DISPLAY_HEX	/* the "hex" display mode */
+#define	PROTOCOL_HTTP	/* the "http" network protocol */
+#define	PROTOCOL_FTP	/* the "ftp" network protocol */
+#define FEATURE_SHOWTAG	/* the "showtag" option */
+#define FEATURE_LPR	/* the ":lpr" command */
+#define	FEATURE_ALIAS	/* the ":alias" command */
+#define	FEATURE_MKEXRC	/* the ":mkexrc" command */
+#define FEATURE_COMPLETE /* filename completion */
+#undef	FEATURE_RAM	/* store edit buffers in RAM if "-f ram" */
+#define	FEATURE_LITRE	/* faster searches for literal strings */
 
 /* The following provide custom implementation of some common functions which
  * are either missing or poorly implemented on some systems.
@@ -27,6 +37,7 @@
 #if !defined(GUI_WIN32)
 #define NEED_TGETENT	/* uses tinytcap instead of termcap library */
 #endif
+#define NEED_CTYPE
 
 /* The following controls debugging features */
 /* (NDEBUG is handled by "e2.mak" - defined for WinRel, undef'ed for WinDebug */
@@ -51,6 +62,13 @@
 #define	TERM_VT52	/* DEC VT52 terminal */
 
 #if defined (GUI_WIN32)
-#define USE_CTL3D       /* 3D controls in dialog boxes */
+# define USE_CTL3D	/* 3D controls in dialog boxes */
 #endif
 
+#if defined (NEED_CTYPE)
+# define _INC_CTYPE	/* else <windows.h> will try to include its ctype */
+#endif
+
+#ifdef GUI_WIN32
+# define PORTEDBY	"Serge Pirotte"
+#endif

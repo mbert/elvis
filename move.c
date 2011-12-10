@@ -1,7 +1,7 @@
 /* move.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_move[] = "$Id: move.c,v 2.39 1996/09/10 16:51:38 steve Exp $";
+char id_move[] = "$Id: move.c,v 2.43 1997/10/05 17:26:01 steve Exp $";
 
 #include "elvis.h"
 
@@ -162,17 +162,30 @@ RESULT m_front(win, vinf)
  * The number is given in the "count" field; if no number is given, then either
  * move to the last line, show buffer statistics, or move to matching bracket,
  * respectively.
+ * 
+ * Support for #if/#else/#endif derived from Antony Bowesman's contributed code.
+ *  When a # is found the next two characters are matched.  If an 'if' is 
+ *  found then the search is set forwards.  If an 'en' is found the search
+ *  goes backwards.  if an 'el' (For else or elif) the search direction
+ *  proceeds in the opposite direction of the last direction used in else
+ *  match.
  */
 RESULT m_absolute(win, vinf)
 	WINDOW	win;	/* window where command was typed */
 	VIINFO	*vinf;	/* information about the command */
 {
 	BUFFER	buf = markbuffer(win->state->cursor);
-	CHAR	match;	/* the parenthesis we want (for <%> command) */
-	CHAR	nest = 0;/* the starting parenthesis */
-	CHAR	*cp;	/* used for scanning through text */
-	long	count;	/* nesting depth */
-	EXINFO	xinfb;	/* an ex command */
+	CHAR	prepchar;	/* preprocessor character, usually '#' */
+	CHAR	match;		/* the parenthesis we want (for <%> command) */
+	CHAR	nest = 0;	/* the starting parenthesis */
+	CHAR	*cp, *cp2;	/* used for scanning through text */
+	long	count;		/* nesting depth */
+	EXINFO	xinfb;		/* an ex command */
+	BOOLEAN	fwd;		/* forward search? (else backward) */
+#ifdef DISPLAY_SYNTAX
+ static	BOOLEAN	fwdelse;	/* last "else" move direction */
+	char	prepname[3];	/* first two chars of preprocessor directive */
+#endif
 
 	assert(vinf->command == 'G' || vinf->command == ELVCTRL('G') || vinf->command == '%');
 
@@ -216,11 +229,16 @@ RESULT m_absolute(win, vinf)
 	  case '%':
 		if (!vinf->count)
 		{
+#ifdef DISPLAY_SYNTAX
+			/* find the preprocessor character, if any */
+			prepchar = dmspreprocessor(win);
+#endif
+
 			/* search forward within line for one of "[](){}" */
 			for (match = '\0', scanalloc(&cp, win->state->cursor); !match;)
 			{
 				/* if hit end-of-line or end-of-buffer without
-				 * finding a parenthesis, then fail.
+				 * finding a matchable character, then fail.
 				 */
 				if (!cp || *cp == '\n')
 				{
@@ -228,23 +246,99 @@ RESULT m_absolute(win, vinf)
 					return RESULT_ERROR;
 				}
 
-				/* if parenthesis, great! else keep looking */
-				switch (*cp)
+				/* is this a matchable char? */
+				nest = *cp;
+#ifdef DISPLAY_SYNTAX
+				if (prepchar && nest == prepchar)
 				{
-				  case '[':	match = ']';	break;
-				  case ']':	match = '[';	break;
-				  case '(':	match = ')';	break;
-				  case ')':	match = '(';	break;
-				  case '{':	match = '}';	break;
-				  case '}':	match = '{';	break;
-				  default:	scannext(&cp);
+					/* PREPROCESSOR DIRECTIVE */
+
+					/* skip whitespace, get directive name*/
+					scandup(&cp2, &cp);
+					do
+					{
+						scannext(&cp2);
+					} while (cp2 && (*cp2 == ' ' || *cp2 == '\t'));
+					memset(prepname, 0, sizeof prepname);
+					if (cp2)
+					{
+						prepname[0] = tolower(*cp2);
+						scannext(&cp2);
+						if (cp2)
+							prepname[1] = tolower(*cp2);
+					}
+					scanfree(&cp2);
+
+					/* choose direction from name */
+					if (!strcmp(prepname, "if"))
+					{
+						fwd = fwdelse = True;
+						match = prepchar;
+					}
+					else if (!strcmp(prepname, "en"))
+					{
+						fwd = fwdelse = False;
+						match = prepchar;
+					}
+					else if (!strcmp(prepname, "el"))
+					{
+						fwd = fwdelse;
+						match = prepchar;
+					}
+					else
+					{
+						/* UNRECOGNIZED DIRECTIVE */
+						scannext(&cp);
+					}
+				}
+				else
+#endif /* defined(DISPLAY_SYNTAX) */
+				{
+					/* look in matchchar option... */
+					for (cp2 = o_matchchar, fwd = True;
+					     cp2 && *cp2 && *cp2 != nest;
+					     cp2++, fwd = (BOOLEAN)!fwd)
+					{
+					}
+					if (!cp2 || !*cp2)
+					{
+						/* NOT MATCHABLE */
+						scannext(&cp);
+						continue;
+					}
+
+					/* figure out what matching char is */
+					if (!fwd)
+						/* MATCH PREVIOUS IN LIST */
+						match = cp2[-1];
+					else if (cp2[1])
+						/* MATCH FOLLOWING IN LIST */
+						match = cp2[1];
+					else
+						/* MATCH SELF */
+						match = nest;
+
+					/* if nest=match, choose a direction */
+					if (nest == match)
+					{
+						scandup(&cp2, &cp);
+						for (fwd = True;
+						     cp2 && *cp2 != '\n';
+						     scannext(&cp2))
+						{
+							if (*cp2 == nest)
+								fwd = (BOOLEAN)!fwd;
+						}
+						scanfree(&cp2);
+					}
 				}
 			}
 			assert(cp != NULL);
-			nest = *cp;
+			if (prepchar != match)
+				prepchar = '\0';
 
 			/* search forward or backward for match */
-			if (match == '(' || match == '[' || match == '{')/*)]}*/
+			if (!fwd)
 			{
 				/* search backward */
 				for (count = 1; count > 0; )
@@ -256,10 +350,32 @@ RESULT m_absolute(win, vinf)
 					}
 
 					/* check the char */
+#ifdef DISPLAY_SYNTAX
+					if (prepchar && *cp == prepchar)
+					{
+						if ((prepname[0] == 'i' && prepname[1] == 'f')
+						  || (count == 1 && prepname[0] == 'e' && prepname[1] == 'l'))
+							count--;
+						else if (prepname[0] == 'e' && prepname[1] == 'n')
+							count++;
+					}
+					else
+#endif
 					if (*cp == match)
 						count--;
 					else if (*cp == nest)
 						count++;
+
+#ifdef DISPLAY_SYNTAX
+					/* for benefit of preprocessor, shift
+					 * non-whitespace chars into prepname[]
+					 */
+					if (!isspace(*cp))
+					{
+						prepname[1] = prepname[0];
+						prepname[0] = tolower(*cp);
+					}
+#endif
 				}
 			}
 			else
@@ -274,7 +390,35 @@ RESULT m_absolute(win, vinf)
 					}
 
 					/* check the char */
-					if (*cp == match)
+#ifdef DISPLAY_SYNTAX
+					if (prepchar && *cp == prepchar)
+					{
+						/* peek ahead for prepname */
+						scandup(&cp2, &cp);
+						do
+						{
+							scannext(&cp2);
+						} while (cp2 && (*cp2 == ' ' || *cp2 == '\t'));
+						memset(prepname, 0, sizeof prepname);
+						if (cp2)
+						{
+							prepname[0] = tolower(*cp2);
+							scannext(&cp2);
+							if (cp2)
+								prepname[1] = tolower(*cp2);
+						}
+						scanfree(&cp2);
+
+						/* check for nesting, etc */
+						if (prepname[0] == 'e'
+						 && (prepname[1] == 'n'
+						    || (count == 1 && prepname[1] == 'l')))
+							count--;
+						else if (prepname[0] == 'i' && prepname[1] == 'f')
+							count++;
+					}
+#endif /* defined(DISPLAY_SYNTAX) */
+					else if (*cp == match)
 						count--;
 					else if (*cp == nest)
 						count++;
@@ -800,10 +944,26 @@ RESULT	m_csearch(win, vinf)
 	static CHAR	prevcmd;	/* previous command, for <,> and <;> */
 	static CHAR	prevtarget;	/* previous target character */
 	CHAR		*cp;		/* used for scanning text */
+	long		front, end;	/* endpoints of the line */
+	long		offset;		/* offset of current char in line */
 
 	DEFAULT(1);
 
 	assert(strchr("fFtT,;", vinf->command));
+
+	/* Find the endpoints of this line.  Note that we need to be careful
+	 * about the end of the line, because we don't want to allow the
+	 * newline character to be deleted.
+	 */
+	front = markoffset(dispmove(win, 0, 0));
+	if (win->state->acton)
+	{
+		end = markoffset((*dmnormal.move)(win, win->state->cursor, 0, INFINITY, True));
+	}
+	else
+	{
+		end = markoffset((*win->md->move)(win, win->state->cursor, 0, INFINITY, True));
+	}
 
 	/* comma and semicolon recall the previous character search */
 	if (vinf->command == ';' || vinf->command == ',')
@@ -840,12 +1000,12 @@ RESULT	m_csearch(win, vinf)
 	}
 
 	/* Which way should we scan?  Forward or backward? */
+	offset = markoffset(win->state->cursor);
+	(void)scanalloc(&cp, win->state->cursor);
 	if (islower(vinf->command))
 	{
 		/* scan forward */
-		for (scanalloc(&cp, win->state->cursor);
-		     vinf->count > 0 && scannext(&cp) && *cp != '\n';
-		     )
+		while (vinf->count > 0 && scannext(&cp) && ++offset <= end)
 		{
 			if (*cp == vinf->key2)
 			{
@@ -856,9 +1016,7 @@ RESULT	m_csearch(win, vinf)
 	else
 	{
 		/* scan backward */
-		for (scanalloc(&cp, win->state->cursor);
-		     vinf->count > 0 && scanprev(&cp) && *cp != '\n';
-		     )
+		while (vinf->count > 0 && scanprev(&cp) && --offset >= front)
 		{
 			if (*cp == vinf->key2)
 			{
@@ -868,7 +1026,7 @@ RESULT	m_csearch(win, vinf)
 	}
 
 	/* if hit EOF or newline, then fail */
-	if (!cp || *cp == '\n')
+	if (!cp || offset < front || offset > end)
 	{
 		scanfree(&cp);
 		return RESULT_ERROR;

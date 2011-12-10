@@ -1,6 +1,6 @@
 /* oswin32/osprg.c */
 
-char id_osprg[] = "$Id: osprg.c,v 2.7 1996/08/15 02:35:22 steve Exp $";
+char id_osprg[] = "$Id: osprg.c,v 2.12 1998/12/05 19:30:58 steve Exp $";
 
 #include <windows.h>
 #include <wtypes.h>
@@ -705,7 +705,7 @@ void ElvisError(where)
 static BOOL classifyprog(prog)
 	char	*prog;	/* a program to check, possibly followed by args */
 {
-	char	*freethis;
+	char	*freethis = NULL;
 	char	*name;
 	char	*cp;
 	long	exetype;
@@ -756,6 +756,7 @@ TRACE(fprintf(tracelog, "classifyprog(\"%s\"), name=\"%s\"\n", prog, name));
 	/* check the file's type */
 	if (GetBinaryType(name, &exetype))
 	{
+TRACE(fprintf(tracelog, "GetBinaryType() succeeded, exetype=%d\n", exetype);)
 		if (exetype != SCS_32BIT_BINARY && exetype != SCS_WOW_BINARY)
 		{
 			supports_detach = FALSE;
@@ -763,14 +764,24 @@ TRACE(fprintf(tracelog, "classifyprog(\"%s\"), name=\"%s\"\n", prog, name));
 		if (exetype == SCS_32BIT_BINARY || exetype == SCS_POSIX_BINARY)
 		{
 			safefree(freethis);
-TRACE(fprintf(tracelog, "...classifyprog()returning True\n", prog, name));
+TRACE(fprintf(tracelog, "...classifyprog()returning True\n", prog, name);)
 			return True;
 		}
 	}
+TRACE(else fprintf(tracelog, "GetBinaryType() failed\n");)
+
+#ifndef GUI_WIN32
+	/* Windows95 apparently doesn't support GetBinaryType, but it *does*
+	 * support pipes.  Since GetBinaryType() failed, return True.
+	 */
+	safefree(freethis);
+	return True;
+#endif
 
 NotWin32:
-	safefree(freethis);
-TRACE(fprintf(tracelog, "...classifyprog()returning False\n", prog, name));
+	if (freethis != NULL)
+		safefree(freethis);
+TRACE(fprintf(tracelog, "...classifyprog()returning False\n", prog, name);)
 	return False;
 }
 
@@ -788,7 +799,7 @@ TRACE(fprintf(tracelog, "MaybeCreatePipe() using pipe\n"));
 		return TRUE;
 	}
 
-	/* create a temp file, and open a write write to it. */
+	/* create a temp file, and open a write fd to it. */
 	do
 	{
 		if (unique == 0)
@@ -799,7 +810,8 @@ TRACE(fprintf(tracelog, "MaybeCreatePipe() using pipe\n"));
 			unique++;
 		GetTempFileName(TMPDIR, "elv", unique, pipefname);
 		*w = CreateFile(pipefname, GENERIC_READ|GENERIC_WRITE,
-				FILE_SHARE_READ, &inherit, CREATE_NEW,
+				FILE_SHARE_READ|FILE_SHARE_WRITE, &inherit,
+				CREATE_NEW,
 				FILE_ATTRIBUTE_NORMAL|FILE_FLAG_SEQUENTIAL_SCAN,
 				INVALID_HANDLE_VALUE);
 	} while (*w == INVALID_HANDLE_VALUE
@@ -906,18 +918,11 @@ TRACE(fprintf(tracelog, "writefd = 0x%lx\n", (long)writefd);)
 	 * Win32 just does weird things with console-less programs, and I'm
 	 * tired of fighting it.
 	 */
-	if (detached)
-	{
-		start.wShowWindow = SW_MINIMIZE;
-		start.dwFlags |= STARTF_USESHOWWINDOW;
-	}
-	else
-	{
-		start.dwFlags &= ~STARTF_USESHOWWINDOW;
-	}
+	start.wShowWindow = SW_HIDE;
+	start.dwFlags |= STARTF_USESHOWWINDOW;
 #endif
 
-	/* run the command.  First try to run it wothout a shell.  If
+	/* run the command.  First try to run it without a shell.  If
 	 * that fails (probably because the command is built into the
 	 * shell) then try the same command with the shell.
 	 */
@@ -1046,7 +1051,7 @@ TRACE(fprintf(tracelog, "%s(%d) piper=0x%lx, pipew=0x%lx\n", __FILE__, __LINE__,
 		start.hStdError = pipew;
 
 		/* make the read end of the pipe non-inheritable */
-		if (!DuplicateHandle(GetCurrentProcess(), piper, GetCurrentProcess(), &handle, 0, FALSE, DUPLICATE_SAME_ACCESS))
+		if (!DuplicateHandle(GetCurrentProcess(), piper, GetCurrentProcess(), &handle, GENERIC_READ, FALSE, 0))
 		{
 			ElvisError("DuplicateHandle[2]");
 			CloseHandle(piper);
@@ -1057,7 +1062,7 @@ TRACE(fprintf(tracelog, "%s(%d) piper=0x%lx, pipew=0x%lx\n", __FILE__, __LINE__,
 		}
 TRACE(fprintf(tracelog, "%s(%d) piper=0x%lx (was 0x%lx)\n", __FILE__, __LINE__, (long)handle, (long)piper);)
 		CloseHandle(piper);
-		piper = handle;
+		readfd = piper = handle;
 
 		/* fork off the external program */
 		start.dwFlags = STARTF_USESTDHANDLES;
@@ -1071,7 +1076,6 @@ TRACE(fprintf(tracelog, "%s(%d) piper=0x%lx (was 0x%lx)\n", __FILE__, __LINE__, 
 			return False;
 		}
 
-		readfd = piper;
 		CloseHandle(pipew);
 	}
 	else /* no redirection */
@@ -1165,13 +1169,8 @@ TRACE(fprintf(tracelog, "prggo(), readfd=%x, writefd=%x\n", readfd, writefd));
 			else
 			{
 				/* don't redirect stdout/stderr */
-#ifdef GUI_WIN32
-				start.hStdOutput = start.hStdError =
-					INVALID_HANDLE_VALUE;
-#else
 				start.hStdOutput = GetStdHandle(STD_OUTPUT_HANDLE);
 				start.hStdError = GetStdHandle(STD_ERROR_HANDLE);
-#endif
 			}
 
 			/* start the process */
@@ -1234,9 +1233,12 @@ int prgread(buf, nbytes)
 	DWORD	nread;
 	int	i, j;
 
+TRACE(fprintf(tracelog, "prgread(buf, %d), readfd=%d\n", nbytes, readfd); fflush(tracelog);)
+
 	assert(readfd != INVALID_HANDLE_VALUE);
 	if (!ReadFile(readfd, buf, (DWORD)nbytes, &nread, NULL))
 	{
+TRACE(fprintf(tracelog, "prgread() returning -1\n"); fflush(tracelog);)
 		return -1;
 	}
 
@@ -1250,6 +1252,7 @@ int prgread(buf, nbytes)
 	}
 	nread = i;
 
+TRACE(fprintf(tracelog, "prgread() returning %d\n", nread); fflush(tracelog);)
 	return nread;
 }
 
@@ -1278,6 +1281,7 @@ int prgclose()
 	/* wait for the program to die */
 	if (pid != INVALID_HANDLE_VALUE)
 	{
+TRACE(fprintf(tracelog, "About to wait for program to die, pid=%d\n", pid); fflush(tracelog);)
 		(void)WaitForSingleObject(pid, INFINITE);
 		GetExitCodeProcess(pid, &status);
 		CloseHandle(pid);
@@ -1292,7 +1296,7 @@ int prgclose()
 	}
 	if (*pipefname)
 	{
-		(void)DeleteFile(tempfname);
+		(void)DeleteFile(pipefname);
 		*pipefname = '\0';
 	}
 

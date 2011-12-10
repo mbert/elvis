@@ -38,6 +38,7 @@
 
 
 #if USE_PROTOTYPES
+static int handlenamedclass(CHAR **textp, REG CHAR *bmap);
 static CHAR *makeclass(REG CHAR *text, REG CHAR *bmap);
 static int gettoken(CHAR **sptr, regexp *re);
 static unsigned calcsize(CHAR *text, MARK cursor);
@@ -73,9 +74,16 @@ static CHAR	*previous;	/* the previous regexp, used when null regexp is given */
 #define M_PLUS		264		/* internal code for \+ */
 #define M_QMARK		265		/* internal code for \? */
 #define M_RANGE		266		/* internal code for \{ */
-#define M_CLASS(n)	(267+(n))	/* internal code for [] */
-#define M_START(n)	(277+(n))	/* internal code for \( */
-#define M_END(n)	(287+(n))	/* internal code for \) */
+#define M_NUL		267		/* internal code for a NUL character */
+#define M_CLASS(n)	(268+(n))	/* internal code for [] */
+#define M_START(n)	(278+(n))	/* internal code for \( */
+#define M_END(n)	(288+(n))	/* internal code for \) */
+
+#define CLASS_DIGIT	1
+#define CLASS_UPPER	2
+#define CLASS_LOWER	4
+#define CLASS_ALPHA	(CLASS_UPPER|CLASS_LOWER)
+#define CLASS_ALNUM	(CLASS_UPPER|CLASS_LOWER|CLASS_DIGIT)
 
 /* These are used during compilation */
 static int	class_cnt;	/* used to assign class IDs */
@@ -90,12 +98,203 @@ jmp_buf	errorhandler;
 
 
 
+/* This function copies a regular expression into a dynamically allocated
+ * string.  The (CHAR*) that refp refers to will be incremented to point to
+ * the character after the closing delimiter, or to the newline or NUL if
+ * there is no closing delimiter.  It may also be set to NULL if it hits the
+ * end of the string/buffer being scanned.
+ *
+ * The calling function is responsible for calling safefree() on the string
+ * when it is no longer needed.
+ */
+CHAR *regbuild(delim, refp)
+	_CHAR_	delim;	/* the delimiter */
+	CHAR	**refp;	/* reference to a CHAR* already used with scanalloc() */
+{
+	CHAR	*retext;
+	BOOLEAN	inclass;
+	int	phase;	/* context within a bracketted character class */
+			/* 0: initially & after '-' of range: '-',']' literal */
+			/* 1: after end of range: '-' literal, ']' ends */
+			/* 2: normal: '-' denotes range, ']' ends */
+			/* 3: in named class w/ extra brackets: ']' ends name */
 
+	for (retext = NULL, inclass = False, phase = 0;
+	     *refp && **refp && **refp != '\n' && (inclass || **refp != delim);
+	     )
+	{
+		/* if not in a class, then '[' starts a class */
+		if (!inclass && **refp == '[' && o_magic)
+		{
+			inclass = True;
+			buildCHAR(&retext, '[');
+			if (scannext(refp) && **refp == '^')
+			{
+				buildCHAR(&retext, '^');
+				scannext(refp);
+			}
+			phase = 0;
+			continue;
+		}
+
+		/* if not in a class, then backslashes need special treatment */
+		if (!inclass && **refp == '\\')
+		{
+			/* move to next character, if any */
+			if (!scannext(refp) || !**refp || **refp == '\n')
+				continue;
+
+			/* if the backslashed character is a delimiter, then
+			 * add the delimiter without the backslash; else add
+			 * both the backslash and the character.
+			 */
+			if (**refp != delim)
+				buildCHAR(&retext, '\\');
+			buildCHAR(&retext, **refp);
+			scannext(refp);
+			continue;
+		}
+
+		/* otherwise add the character to the retext */
+		buildCHAR(&retext, **refp);
+
+		/* if in class, we need to update phase */
+		if (inclass)
+		{
+			if (**refp == '[' && scannext(refp))
+			{
+				if (**refp == ':')
+					phase = 3; /* next will be class name */
+				else if (phase == 0)
+					phase = 1; /* next will be after range*/
+				else
+					phase = 2; /* next will be normal */
+				continue;
+			}
+			else if (**refp == ']' && phase == 3)
+				phase = 1; /* next will be char after range */
+			else if (**refp == ']' && phase != 0)
+				inclass = False; /* END OF CHARACTER CLASS */
+			else if (**refp == '-' && phase == 2)
+				phase = 0; /* next will be end of range */
+			else if (phase == 0)
+				phase = 1; /* next will be char after range */
+			else if (phase != 3)
+				phase = 2; /* next will be normal character */
+		}
+
+		/* advance to next character */
+		scannext(refp);
+	}
+
+	/* if no characters, then return a dynamically allocated "" string */
+	if (!retext)
+		retext = (CHAR *)safealloc(1, sizeof(CHAR));
+
+	/* if we hit a closing delimiter, then move past it */
+	if (*refp && **refp == delim)
+		scannext(refp);
+
+	/* return the dynamic string */
+	return retext;
+}
+
+
+/* This is a utility function for makeclass. It is factored out as makeclas
+ * was becoming unwieldy. Returns True if a named class; False otherwise.
+ * Should possibly detect errors in such constructs as [...[:fred:]...]
+ */
+static int handlenamedclass(textp, bmap)
+	  CHAR        **textp;        /* character list (updates *textp) */
+      REG CHAR        *bmap;          /* bitmap of selected characters */
+{
+	static struct clastran {
+		char	cname[sizeof "xdigit:]"];
+		size_t	nsize;
+		int	include;
+		enum {NONE=0, INVERT=1, ASCII=2, PRINT=4, BLANK=8} flags;
+	} tran[] = {
+	    { "alnum:]",  sizeof "alnum:]"  - 1, ELVCT_ALNUM, NONE        },
+	    { "alpha:]",  sizeof "alpha:]"  - 1, ELVCT_ALPHA, NONE        },
+	    { "ascii:]",  sizeof "ascii:]"  - 1, 0          , ASCII       },
+	    { "blank:]",  sizeof "blank:]"  - 1, 0          , BLANK       },
+	    { "cntrl:]",  sizeof "cntrl:]"  - 1, ELVCT_CNTRL, NONE        },
+	    { "digit:]",  sizeof "digit:]"  - 1, ELVCT_DIGIT, NONE        },
+	    { "graph:]",  sizeof "graph:]"  - 1, ELVCT_GRAPH, PRINT       },
+	    { "lower:]",  sizeof "lower:]"  - 1, ELVCT_LOWER, NONE        },
+	    { "print:]",  sizeof "print:]"  - 1, ELVCT_CNTRL, INVERT|PRINT},
+	    { "punct:]",  sizeof "punct:]"  - 1, ELVCT_PUNCT, NONE        },
+	    { "space:]",  sizeof "space:]"  - 1, ELVCT_SPACE, NONE        },
+	    { "upper:]",  sizeof "upper:]"  - 1, ELVCT_UPPER, NONE        },
+	    { "xdigit:]", sizeof "xdigit:]" - 1, ELVCT_XDIGIT,NONE        },
+	};
+
+	struct clastran *sp;
+
+	REG CHAR        *text = *textp;
+	REG int         i, incl;
+
+	/* if obviously not a named class, then return False */
+	if (text[0] != '[' || text[1] != ':')
+		return False;
+
+	/* search for the class in tran[] */
+	for (sp = tran; sp < tran + QTY(tran); sp++)
+	{
+		if (CHARncmp(text+2, toCHAR(sp->cname), sp->nsize) == 0)
+		{
+			/* add the named class to the bitmap */
+			for (i = 0; bmap && i < 256; i++)
+			{
+				/* begin by checking the ctype macros */
+				incl = sp->include ? (sp->include & elvct_class[i]) : 1;
+				/* invert if necessary */
+				if (sp->flags & INVERT)
+					incl = !incl;
+
+				/* the BLANK, ASCII, and PRINT flags eliminate
+				 * some characters.
+				 */
+				if (((sp->flags & BLANK) && i != '\t' && i != ' ')
+				 || ((sp->flags & ASCII) && i >= 128))
+					incl = 0;
+				if (sp->flags & PRINT)
+				{
+					switch (o_nonascii)
+					{
+					  case 'a':	break;
+					  case 'n':
+					  	if (i >= 128)
+					  		incl = 0;
+					  	break;
+
+					  case 'm':
+					  case 's':
+						if (i >= 128 && i < 160)
+							incl = 0;
+						break;
+					}
+				}
+				if (incl)
+				{
+					bmap[i >> 3] |= 1 << (i & 7);
+				}
+			}
+
+			/* move past this named class */
+			*textp += sp->nsize + 2;
+			return True;
+		}
+	}
+
+	/* if we get here, then it was an unknown named class */
+	FAIL("unknown named character class");
+}
 
 /* This function builds a bitmap for a particular class.  "text" points
  * to the start of the class string, and "bmap" is a pointer to memory
  * which can be used to store the bitmap of the class.  If "bmap" is NULL,
- * then the class will be parsed but bitmap will be generated.
+ * then the class will be parsed but bitmap will not be generated.
  */
 static CHAR *makeclass(text, bmap)
 	REG CHAR	*text;	/* character list */
@@ -103,6 +302,7 @@ static CHAR *makeclass(text, bmap)
 {
 	REG int		i;
 	int		complement = 0;
+	BOOLEAN		first;
 
 
 	/* zero the bitmap */
@@ -119,7 +319,7 @@ static CHAR *makeclass(text, bmap)
 	}
 
 	/* add in the characters */
-	while (*text && *text != ']')
+	for (first = True; *text && (first || *text != ']'); first = False)
 	{
 		/* is this a span of characters? */
 		if (text[1] == '-' && text[2])
@@ -139,7 +339,7 @@ static CHAR *makeclass(text, bmap)
 			/* move past this span */
 			text += 3;
 		}
-		else
+		else if (!handlenamedclass(&text, bmap))
 		{
 			/* add this single character to the span */
 			i = *text++;
@@ -184,6 +384,7 @@ static int gettoken(sptr, re)
 	regexp	*re;	/* pointer to the regexp being built, or NULL */
 {
 	int	c;
+	CHAR	*subexpr;
 
 	c = **sptr;
 	if (!c)
@@ -238,6 +439,62 @@ static int gettoken(sptr, re)
 
 		  case '{':
 			return M_RANGE;
+
+		  case '0':
+			return M_NUL;
+
+		  case 'a':
+			return '\007';	/* BEL */
+
+		  case 'b':
+			return '\b';	/* BS */
+
+		  case 'e':
+			return '\033';	/* ESC */
+
+		  case 'f':
+			return '\f';	/* FF */
+
+		  case 'n':
+			FAIL("\\n doesn't work in regexp");
+
+		  case 'r':
+			return '\r';	/* CR */
+
+		  case 't':
+			return '\t';	/* TAB */
+
+		  case 'd':
+			subexpr = toCHAR("[[:digit:]]");
+			return gettoken(&subexpr, re);
+
+		  case 'D':
+			subexpr = toCHAR("[^[:digit:]]");
+			return gettoken(&subexpr, re);
+
+		  case 'p':
+			subexpr = toCHAR("[[:print:]]");
+			return gettoken(&subexpr, re);
+
+		  case 'P':
+			subexpr = toCHAR("[^[:print:]]");
+			return gettoken(&subexpr, re);
+
+		  case 's':
+			subexpr = toCHAR("[[:space:]]");
+			return gettoken(&subexpr, re);
+
+		  case 'S':
+			subexpr = toCHAR("[^[:space:]]");
+			return gettoken(&subexpr, re);
+
+		  case 'w':
+			subexpr = toCHAR("[[:alnum:]_]");
+			return gettoken(&subexpr, re);
+
+		  case 'W':
+			subexpr = toCHAR("[^[:alnum:]_]");
+			return gettoken(&subexpr, re);
 
 		  default:
 			return c;
@@ -424,7 +681,7 @@ regexp *regcomp(exp, cursor)
 		}
 		exp = previous;
 	}
-	else /* non-empty regexp given, so remember it */
+	else if (o_saveregexp) /* non-empty regexp given, so remember it */
 	{
 		if (previous)
 			safefree(previous);
@@ -482,7 +739,7 @@ regexp *regcomp(exp, cursor)
 			{
 				FAIL("closure operator follows nothing");
 			}
-			else if (IS_META(token) && token != M_ANY && !IS_CLASS(token))
+			else if (IS_META(token) && token != M_ANY && token != M_NUL && !IS_CLASS(token))
 			{
 				FAIL("closure operators can only follow a normal character or . or []");
 			}
@@ -497,6 +754,7 @@ regexp *regcomp(exp, cursor)
 				{
 					from = from * 10 + digit - '0';
 				}
+				/*{*/
 				if (digit == '}')
 				{
 					to = from;
@@ -515,9 +773,10 @@ regexp *regcomp(exp, cursor)
 						to = 255;
 					}
 				}
+				/*{*/
 				if (digit != '}')
 				{
-					FAIL("bad characters after \\{");
+					FAIL("bad characters after \\{"); /*}*/
 				}
 				else if (to < from || to == 0 || from >= 255)
 				{
@@ -563,7 +822,7 @@ regexp *regcomp(exp, cursor)
 			}
 			re->minlen++;
 		}
-		else if (token == M_ANY || IS_CLASS(token))
+		else if (token == M_ANY || IS_CLASS(token) || token == M_NUL)
 		{
 			/* . or [] is NOT argument of closure */
 			needfirst = 0;
@@ -608,6 +867,19 @@ regexp *regcomp(exp, cursor)
 		FAIL("not enough \\)s");
 	}
 
+#ifdef FEATURE_LITRE
+	/* Detect whether this is a literal regexp.  Literal regexps contain
+	 * no metacharacters except M_BEGIN(0) and M_END(0).
+	 */
+	for (scan = &re->program[2 + 32 * re->program[0]]; *scan != META; scan++)
+	{
+	}
+	if (GET_META(scan) == M_END(0))
+		re->literal = True;
+	else
+		re->literal = False;
+#endif
+
 #ifdef DEBUG
 	if ((int)(build - re->program) != calced)
 	{
@@ -619,6 +891,29 @@ regexp *regcomp(exp, cursor)
 	return re;
 }
 
+
+/* allocate a new copy of a regular expression */
+regexp *regdup(re)
+	regexp	*re;
+{
+	CHAR	*p;
+	int	i;
+	regexp	*newp;
+
+	/* count the size of the regular expression's program */
+	for (p = &re->program[1 + 32 * re->program[0]];
+	     GET_META(p) != M_END(0);
+	     p++)
+	{
+	}
+	i = (int)(p - re->program);
+
+	/* allocate memory */
+	i = sizeof(regexp) + i * sizeof re->program[0];
+	newp = safealloc(1, i);
+	memcpy(newp, re, i);
+	return newp;
+}
 
 
 /*---------------------------------------------------------------------------*/
@@ -644,6 +939,11 @@ static int match1(re, ch, token)
 	if (token == M_ANY)
 	{
 		return 0;
+	}
+	else if (token == M_NUL)
+	{
+		if (ch == '\0')
+			return 0;
 	}
 	else if (IS_CLASS(token))
 	{
@@ -760,7 +1060,7 @@ static int match(re, str, prog, here, bol)
 			}
 			break;
 
-		  default: /* literal, M_CLASS(n), or M_ANY */
+		  default: /* literal, M_CLASS(n), M_ANY, or M_NUL */
 		  	assert(there != NULL);
 			if (match1(re, *there, token) != 0)
 			{
@@ -858,17 +1158,40 @@ int regexec(re, str, bol)
 	CHAR	*prog;	/* the entry point of re->program */
 	int	len;	/* length of the string */
 	CHAR	*here;	/* pointer used for scanning text */
+#ifdef FEATURE_LITRE
+	int	right;	/* contiguous characters to right of str */
+	MARKBUF	m;
+#endif
 
 
 	/* find the remaining length of this line */
-	for (scanalloc(&prog, str), len = 0;
-	     prog && *prog != '\n';
-	     scannext(&prog), len++)
+	scanalloc(&prog, str);
+#ifdef FEATURE_LITRE
+	right = scanright(&prog);
+	for (len = 0; len < right && prog[len] != '\n'; len++)
+	{
+	}
+	if (len >= right)
+	{
+		scanseek(&prog, marktmp(m, markbuffer(str), markoffset(str) + len));
+		for (; prog && *prog != '\n'; scannext(&prog), len++)
+		{
+		}
+		re->nextlinep = (prog
+			? markoffset(scanmark(&prog)) + 1
+			: o_bufchars(markbuffer(str)));
+	}
+	else
+		re->nextlinep = markoffset(str) + len + 1;
+#else
+	for (len = 0; prog && *prog != '\n'; scannext(&prog), len++)
 	{
 	}
 	re->nextlinep = (prog
 		? markoffset(scanmark(&prog)) + 1
 		: o_bufchars(markbuffer(str)));
+#endif
+
 	scanfree(&prog);
 
 	/* if must start at the beginning of a line, and this isn't, then fail */
@@ -887,6 +1210,55 @@ int regexec(re, str, bol)
 
 	/* search for the regexp in the string */
 	scanalloc(&here, str);
+#ifdef FEATURE_LITRE
+	if (re->literal && re->bol && !o_ignorecase && right >= re->minlen)
+	{
+		/* must match exactly, right here, and we know we have enough
+		 * of this line for the entire match to be in contiguous memory.
+		 */
+		prog += 2;
+		if (CHARncmp(prog, here, re->minlen))
+		{
+			/* didn't match */
+			scanfree(&here);
+			return 0;
+		}
+
+		/* hey, it did match!  Remember the endpoints */
+		re->startp[0] = re->leavep = markoffset(str);
+		re->endp[0] = re->startp[0] + re->minlen;
+		re->buffer = markbuffer(str);
+		scanfree(&here);
+		return 1;
+	}
+	else if (re->literal && !o_ignorecase && right >= len)
+	{
+		/* The regexp must match exactly, anywhere before the end
+		 * of this line.  We know the entire line is in contiguous
+		 * memory, so we can use CHARncmp() to check for the string,
+		 * and we can use here++ instead of scannext(&here) to
+		 * increment the pointer in the for() statement.
+		 */
+		prog += 2;
+		for (; len >= re->minlen; len--, here++)
+		{
+			if (*prog == *here && !CHARncmp(prog, here, re->minlen))
+			{
+				/* Found a match!  Remember the endpoints */
+				re->startp[0] = re->leavep = markoffset(scanmark(&here));
+				re->endp[0] = re->startp[0] + re->minlen;
+				re->buffer = markbuffer(str);
+				scanfree(&here);
+				return 1;
+			}
+		}
+
+		/* didn't match */
+		scanfree(&here);
+		return 0;
+	}
+	else 
+#endif /* FEATURE_LITRE */
 	if (re->bol)
 	{
 		/* must occur at BOL */

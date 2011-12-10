@@ -1,34 +1,40 @@
-# Microsoft Visual C++ Generated NMAKE File, Format Version 2.00
+# Microsoft Developer Studio Generated NMAKE File, Format Version 40001
 # ** DO NOT EDIT **
 
 # TARGTYPE "Win32 (x86) Console Application" 0x0103
 
 !IF "$(CFG)" == ""
-CFG=Win32 Debug
-!MESSAGE No configuration specified.  Defaulting to Win32 Debug.
+CFG=elvis - Win32 Debug
+!MESSAGE No configuration specified.  Defaulting to elvis - Win32 Debug.
 !ENDIF 
 
-!IF "$(CFG)" != "Win32 Release" && "$(CFG)" != "Win32 Debug"
+!IF "$(CFG)" != "elvis - Win32 Release" && "$(CFG)" != "elvis - Win32 Debug"
 !MESSAGE Invalid configuration "$(CFG)" specified.
 !MESSAGE You can specify a configuration when running NMAKE on this makefile
 !MESSAGE by defining the macro CFG on the command line.  For example:
 !MESSAGE 
-!MESSAGE NMAKE /f "elvis.mak" CFG="Win32 Debug"
+!MESSAGE NMAKE /f "elvis.mak" CFG="elvis - Win32 Debug"
 !MESSAGE 
 !MESSAGE Possible choices for configuration are:
 !MESSAGE 
-!MESSAGE "Win32 Release" (based on "Win32 (x86) Console Application")
-!MESSAGE "Win32 Debug" (based on "Win32 (x86) Console Application")
+!MESSAGE "elvis - Win32 Release" (based on "Win32 (x86) Console Application")
+!MESSAGE "elvis - Win32 Debug" (based on "Win32 (x86) Console Application")
 !MESSAGE 
 !ERROR An invalid configuration is specified.
 !ENDIF 
 
+!IF "$(OS)" == "Windows_NT"
+NULL=
+!ELSE 
+NULL=nul
+!ENDIF 
 ################################################################################
 # Begin Project
+# PROP Target_Last_Scanned "elvis - Win32 Debug"
 CPP=cl.exe
 RSC=rc.exe
 
-!IF  "$(CFG)" == "Win32 Release"
+!IF  "$(CFG)" == "elvis - Win32 Release"
 
 # PROP BASE Use_MFC 0
 # PROP BASE Use_Debug_Libraries 0
@@ -41,155 +47,167 @@ RSC=rc.exe
 OUTDIR=.
 INTDIR=.\WinRel
 
-ALL : "elvis.exe" ".\WinRel\elvis.bsc"
+ALL : "$(OUTDIR)\elvis.exe"
 
-$(OUTDIR) : 
-    if not exist $(OUTDIR)/nul mkdir $(OUTDIR)
+CLEAN : 
+	-@erase ".\WinRel\elvis.exe"
+	-@erase ".\WinRel\vi.obj"
+	-@erase ".\WinRel\display.obj"
+	-@erase ".\WinRel\guitcap.obj"
+	-@erase ".\WinRel\need.obj"
+	-@erase ".\WinRel\tinytcap.obj"
+	-@erase ".\WinRel\draw.obj"
+	-@erase ".\WinRel\guicurs.obj"
+	-@erase ".\WinRel\cut.obj"
+	-@erase ".\WinRel\regexp.obj"
+	-@erase ".\WinRel\url.obj"
+	-@erase ".\WinRel\options.obj"
+	-@erase ".\WinRel\dmnormal.obj"
+	-@erase ".\WinRel\lpps.obj"
+	-@erase ".\WinRel\misc.obj"
+	-@erase ".\WinRel\lp.obj"
+	-@erase ".\WinRel\exmake.obj"
+	-@erase ".\WinRel\safe.obj"
+	-@erase ".\WinRel\ostext.obj"
+	-@erase ".\WinRel\dmsyntax.obj"
+	-@erase ".\WinRel\io.obj"
+	-@erase ".\WinRel\digraph.obj"
+	-@erase ".\WinRel\state.obj"
+	-@erase ".\WinRel\search.obj"
+	-@erase ".\WinRel\exedit.obj"
+	-@erase ".\WinRel\exsubst.obj"
+	-@erase ".\WinRel\input.obj"
+	-@erase ".\WinRel\dmmarkup.obj"
+	-@erase ".\WinRel\tcaphelp.obj"
+	-@erase ".\WinRel\move.obj"
+	-@erase ".\WinRel\tagsrch.obj"
+	-@erase ".\WinRel\ex.obj"
+	-@erase ".\WinRel\regsub.obj"
+	-@erase ".\WinRel\operator.obj"
+	-@erase ".\WinRel\osnet.obj"
+	-@erase ".\WinRel\http.obj"
+	-@erase ".\WinRel\more.obj"
+	-@erase ".\WinRel\map.obj"
+	-@erase ".\WinRel\gui.obj"
+	-@erase ".\WinRel\lowbuf.obj"
+	-@erase ".\WinRel\vicmd.obj"
+	-@erase ".\WinRel\buffer.obj"
+	-@erase ".\WinRel\tagelvis.obj"
+	-@erase ".\WinRel\exaction.obj"
+	-@erase ".\WinRel\main.obj"
+	-@erase ".\WinRel\event.obj"
+	-@erase ".\WinRel\lpovrtyp.obj"
+	-@erase ".\WinRel\calc.obj"
+	-@erase ".\WinRel\osprg.obj"
+	-@erase ".\WinRel\window.obj"
+	-@erase ".\WinRel\scan.obj"
+	-@erase ".\WinRel\tag.obj"
+	-@erase ".\WinRel\session.obj"
+	-@erase ".\WinRel\optglob.obj"
+	-@erase ".\WinRel\guiopen.obj"
+	-@erase ".\WinRel\mark.obj"
+	-@erase ".\WinRel\lpescape.obj"
+	-@erase ".\WinRel\osblock.obj"
+	-@erase ".\WinRel\osdir.obj"
+	-@erase ".\WinRel\message.obj"
+	-@erase ".\WinRel\dmhex.obj"
+	-@erase ".\WinRel\exconfig.obj"
+	-@erase ".\WinRel\ftp.obj"
 
-# ADD BASE CPP /nologo /ML /W3 /GX /YX /O2 /D "WIN32" /D "NDEBUG" /D "_CONSOLE" /FR /c
-# ADD CPP /nologo /ML /W1 /GX /YX /O2 /I "oswin32" /I "." /D "WIN32" /D "NDEBUG" /D "_CONSOLE" /FR /c
-CPP_PROJ=/nologo /ML /W1 /GX /YX /O2 /I "oswin32" /I "." /D "WIN32" /D "NDEBUG"\
- /D "_CONSOLE" /FR$(INTDIR)/ /Fp$(OUTDIR)/"elvis.pch" /Fo$(INTDIR)/ /c 
+"$(OUTDIR)" :
+    if not exist "$(OUTDIR)/$(NULL)" mkdir "$(OUTDIR)"
+
+# ADD BASE CPP /nologo /W3 /GX /O2 /D "WIN32" /D "NDEBUG" /D "_CONSOLE" /FR /YX /c
+# ADD CPP /nologo /GX /O2 /I "oswin32" /I "." /D "WIN32" /D "NDEBUG" /D "_CONSOLE" /YX /c
+# SUBTRACT CPP /Fr
+CPP_PROJ=/nologo /ML /GX /O2 /I "oswin32" /I "." /D "WIN32" /D "NDEBUG" /D\
+ "_CONSOLE" /Fp"$(INTDIR)/elvis.pch" /YX /Fo"$(INTDIR)/" /c 
 CPP_OBJS=.\WinRel/
+CPP_SBRS=
 # ADD BASE RSC /l 0x409 /d "NDEBUG"
 # ADD RSC /l 0x409 /d "NDEBUG"
 BSC32=bscmake.exe
 # ADD BASE BSC32 /nologo
 # ADD BSC32 /nologo
-BSC32_FLAGS=/nologo /o$(OUTDIR)/"elvis.bsc" 
-BSC32_SBRS= \
-	".\WinRel\move.sbr" \
-	".\WinRel\search.sbr" \
-	".\WinRel\lp.sbr" \
-	".\WinRel\guitcap.sbr" \
-	".\WinRel\display.sbr" \
-	".\WinRel\more.sbr" \
-	".\WinRel\digraph.sbr" \
-	".\WinRel\state.sbr" \
-	".\WinRel\osprg.sbr" \
-	".\WinRel\guiopen.sbr" \
-	".\WinRel\tcaphelp.sbr" \
-	".\WinRel\gui.sbr" \
-	".\WinRel\vicmd.sbr" \
-	".\WinRel\misc.sbr" \
-	".\WinRel\operator.sbr" \
-	".\WinRel\exaction.sbr" \
-	".\WinRel\regexp.sbr" \
-	".\WinRel\lpescape.sbr" \
-	".\WinRel\input.sbr" \
-	".\WinRel\dmnormal.sbr" \
-	".\WinRel\dmsyntax.sbr" \
-	".\WinRel\options.sbr" \
-	".\WinRel\calc.sbr" \
-	".\WinRel\ostext.sbr" \
-	".\WinRel\vi.sbr" \
-	".\WinRel\need.sbr" \
-	".\WinRel\window.sbr" \
-	".\WinRel\io.sbr" \
-	".\WinRel\osdir.sbr" \
-	".\WinRel\safe.sbr" \
-	".\WinRel\regsub.sbr" \
-	".\WinRel\ex.sbr" \
-	".\WinRel\buffer.sbr" \
-	".\WinRel\event.sbr" \
-	".\WinRel\session.sbr" \
-	".\WinRel\guicurs.sbr" \
-	".\WinRel\dmmarkup.sbr" \
-	".\WinRel\mark.sbr" \
-	".\WinRel\optglob.sbr" \
-	".\WinRel\lpps.sbr" \
-	".\WinRel\guix11.sbr" \
-	".\WinRel\message.sbr" \
-	".\WinRel\dmhex.sbr" \
-	".\WinRel\cut.sbr" \
-	".\WinRel\exconfig.sbr" \
-	".\WinRel\exmake.sbr" \
-	".\WinRel\tinytcap.sbr" \
-	".\WinRel\lpovrtyp.sbr" \
-	".\WinRel\main.sbr" \
-	".\WinRel\exedit.sbr" \
-	".\WinRel\lowbuf.sbr" \
-	".\WinRel\draw.sbr" \
-	".\WinRel\scan.sbr" \
-	".\WinRel\map.sbr" \
-	".\WinRel\osblock.sbr"
-
-".\WinRel\elvis.bsc" : $(OUTDIR)  $(BSC32_SBRS)
-    $(BSC32) @<<
-  $(BSC32_FLAGS) $(BSC32_SBRS)
-<<
-
+BSC32_FLAGS=/nologo /o"$(OUTDIR)/elvis.bsc" 
+BSC32_SBRS=
 LINK32=link.exe
-# ADD BASE LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /NOLOGO /SUBSYSTEM:console /MACHINE:I386
-# ADD LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /NOLOGO /SUBSYSTEM:console /MACHINE:I386
-LINK32_FLAGS=kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib\
- advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib\
- odbccp32.lib /NOLOGO /SUBSYSTEM:console /INCREMENTAL:no\
- /PDB:$(OUTDIR)/"elvis.pdb" /MACHINE:I386 /OUT:$(OUTDIR)/"elvis.exe" 
-DEF_FILE=
+# ADD BASE LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib wsock32.lib /nologo /subsystem:console /machine:I386
+# ADD LINK32 wsock32.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /subsystem:console /machine:I386
+LINK32_FLAGS=wsock32.lib kernel32.lib user32.lib gdi32.lib winspool.lib\
+ comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib\
+ odbc32.lib odbccp32.lib /nologo /subsystem:console /incremental:no\
+ /pdb:"$(OUTDIR)/elvis.pdb" /machine:I386 /out:"$(OUTDIR)/elvis.exe" 
 LINK32_OBJS= \
-	".\WinRel\move.obj" \
-	".\WinRel\search.obj" \
-	".\WinRel\lp.obj" \
-	".\WinRel\guitcap.obj" \
-	".\WinRel\display.obj" \
-	".\WinRel\more.obj" \
-	".\WinRel\digraph.obj" \
-	".\WinRel\state.obj" \
-	".\WinRel\osprg.obj" \
-	".\WinRel\guiopen.obj" \
-	".\WinRel\tcaphelp.obj" \
-	".\WinRel\gui.obj" \
-	".\WinRel\vicmd.obj" \
-	".\WinRel\misc.obj" \
-	".\WinRel\operator.obj" \
-	".\WinRel\exaction.obj" \
-	".\WinRel\regexp.obj" \
-	".\WinRel\lpescape.obj" \
-	".\WinRel\input.obj" \
-	".\WinRel\dmnormal.obj" \
-	".\WinRel\dmsyntax.obj" \
-	".\WinRel\options.obj" \
-	".\WinRel\calc.obj" \
-	".\WinRel\ostext.obj" \
-	".\WinRel\vi.obj" \
-	".\WinRel\need.obj" \
-	".\WinRel\window.obj" \
-	".\WinRel\io.obj" \
-	".\WinRel\osdir.obj" \
-	".\WinRel\safe.obj" \
-	".\WinRel\regsub.obj" \
-	".\WinRel\ex.obj" \
-	".\WinRel\buffer.obj" \
-	".\WinRel\event.obj" \
-	".\WinRel\session.obj" \
-	".\WinRel\guicurs.obj" \
-	".\WinRel\dmmarkup.obj" \
-	".\WinRel\mark.obj" \
-	".\WinRel\optglob.obj" \
-	".\WinRel\lpps.obj" \
-	".\WinRel\guix11.obj" \
-	".\WinRel\message.obj" \
-	".\WinRel\dmhex.obj" \
-	".\WinRel\cut.obj" \
-	".\WinRel\exconfig.obj" \
-	".\WinRel\exmake.obj" \
-	".\WinRel\tinytcap.obj" \
-	".\WinRel\lpovrtyp.obj" \
-	".\WinRel\main.obj" \
-	".\WinRel\exedit.obj" \
-	".\WinRel\lowbuf.obj" \
-	".\WinRel\draw.obj" \
-	".\WinRel\scan.obj" \
-	".\WinRel\map.obj" \
-	".\WinRel\osblock.obj"
+	"$(INTDIR)/vi.obj" \
+	"$(INTDIR)/display.obj" \
+	"$(INTDIR)/guitcap.obj" \
+	"$(INTDIR)/need.obj" \
+	"$(INTDIR)/tinytcap.obj" \
+	"$(INTDIR)/draw.obj" \
+	"$(INTDIR)/guicurs.obj" \
+	"$(INTDIR)/cut.obj" \
+	"$(INTDIR)/regexp.obj" \
+	"$(INTDIR)/url.obj" \
+	"$(INTDIR)/options.obj" \
+	"$(INTDIR)/dmnormal.obj" \
+	"$(INTDIR)/lpps.obj" \
+	"$(INTDIR)/misc.obj" \
+	"$(INTDIR)/lp.obj" \
+	"$(INTDIR)/exmake.obj" \
+	"$(INTDIR)/safe.obj" \
+	"$(INTDIR)/ostext.obj" \
+	"$(INTDIR)/dmsyntax.obj" \
+	"$(INTDIR)/io.obj" \
+	"$(INTDIR)/digraph.obj" \
+	"$(INTDIR)/state.obj" \
+	"$(INTDIR)/search.obj" \
+	"$(INTDIR)/exedit.obj" \
+	"$(INTDIR)/exsubst.obj" \
+	"$(INTDIR)/input.obj" \
+	"$(INTDIR)/dmmarkup.obj" \
+	"$(INTDIR)/tcaphelp.obj" \
+	"$(INTDIR)/move.obj" \
+	"$(INTDIR)/tagsrch.obj" \
+	"$(INTDIR)/ex.obj" \
+	"$(INTDIR)/regsub.obj" \
+	"$(INTDIR)/operator.obj" \
+	"$(INTDIR)/osnet.obj" \
+	"$(INTDIR)/http.obj" \
+	"$(INTDIR)/more.obj" \
+	"$(INTDIR)/map.obj" \
+	"$(INTDIR)/gui.obj" \
+	"$(INTDIR)/lowbuf.obj" \
+	"$(INTDIR)/vicmd.obj" \
+	"$(INTDIR)/buffer.obj" \
+	"$(INTDIR)/tagelvis.obj" \
+	"$(INTDIR)/exaction.obj" \
+	"$(INTDIR)/main.obj" \
+	"$(INTDIR)/event.obj" \
+	"$(INTDIR)/lpovrtyp.obj" \
+	"$(INTDIR)/calc.obj" \
+	"$(INTDIR)/osprg.obj" \
+	"$(INTDIR)/window.obj" \
+	"$(INTDIR)/scan.obj" \
+	"$(INTDIR)/tag.obj" \
+	"$(INTDIR)/session.obj" \
+	"$(INTDIR)/optglob.obj" \
+	"$(INTDIR)/guiopen.obj" \
+	"$(INTDIR)/mark.obj" \
+	"$(INTDIR)/lpescape.obj" \
+	"$(INTDIR)/osblock.obj" \
+	"$(INTDIR)/osdir.obj" \
+	"$(INTDIR)/message.obj" \
+	"$(INTDIR)/dmhex.obj" \
+	"$(INTDIR)/exconfig.obj" \
+	"$(INTDIR)/ftp.obj"
 
-"elvis.exe" : $(OUTDIR)  $(DEF_FILE) $(LINK32_OBJS)
+"$(OUTDIR)\elvis.exe" : "$(OUTDIR)" $(DEF_FILE) $(LINK32_OBJS)
     $(LINK32) @<<
   $(LINK32_FLAGS) $(LINK32_OBJS)
 <<
 
-!ELSEIF  "$(CFG)" == "Win32 Debug"
+!ELSEIF  "$(CFG)" == "elvis - Win32 Debug"
 
 # PROP BASE Use_MFC 0
 # PROP BASE Use_Debug_Libraries 1
@@ -199,154 +217,170 @@ LINK32_OBJS= \
 # PROP Use_Debug_Libraries 1
 # PROP Output_Dir "WinDebug"
 # PROP Intermediate_Dir "WinDebug"
-OUTDIR=.\WinDebug
+OUTDIR=.
 INTDIR=.\WinDebug
 
-ALL : ".\WinDebug\elvis.exe" ".\WinDebug\elvis.bsc"
+ALL : "$(OUTDIR)\elvis.exe"
 
-$(OUTDIR) : 
-    if not exist $(OUTDIR)/nul mkdir $(OUTDIR)
+CLEAN : 
+	-@erase ".\WinDebug\vc40.pdb"
+	-@erase ".\WinDebug\vc40.idb"
+	-@erase ".\WinDebug\elvis.exe"
+	-@erase ".\WinDebug\dmmarkup.obj"
+	-@erase ".\WinDebug\tcaphelp.obj"
+	-@erase ".\WinDebug\message.obj"
+	-@erase ".\WinDebug\operator.obj"
+	-@erase ".\WinDebug\lowbuf.obj"
+	-@erase ".\WinDebug\buffer.obj"
+	-@erase ".\WinDebug\event.obj"
+	-@erase ".\WinDebug\display.obj"
+	-@erase ".\WinDebug\need.obj"
+	-@erase ".\WinDebug\guitcap.obj"
+	-@erase ".\WinDebug\gui.obj"
+	-@erase ".\WinDebug\draw.obj"
+	-@erase ".\WinDebug\window.obj"
+	-@erase ".\WinDebug\state.obj"
+	-@erase ".\WinDebug\guicurs.obj"
+	-@erase ".\WinDebug\vi.obj"
+	-@erase ".\WinDebug\main.obj"
+	-@erase ".\WinDebug\scan.obj"
+	-@erase ".\WinDebug\options.obj"
+	-@erase ".\WinDebug\cut.obj"
+	-@erase ".\WinDebug\lpps.obj"
+	-@erase ".\WinDebug\tagelvis.obj"
+	-@erase ".\WinDebug\exmake.obj"
+	-@erase ".\WinDebug\exaction.obj"
+	-@erase ".\WinDebug\lpovrtyp.obj"
+	-@erase ".\WinDebug\misc.obj"
+	-@erase ".\WinDebug\osnet.obj"
+	-@erase ".\WinDebug\guiopen.obj"
+	-@erase ".\WinDebug\safe.obj"
+	-@erase ".\WinDebug\digraph.obj"
+	-@erase ".\WinDebug\vicmd.obj"
+	-@erase ".\WinDebug\lpescape.obj"
+	-@erase ".\WinDebug\lp.obj"
+	-@erase ".\WinDebug\move.obj"
+	-@erase ".\WinDebug\io.obj"
+	-@erase ".\WinDebug\exconfig.obj"
+	-@erase ".\WinDebug\tagsrch.obj"
+	-@erase ".\WinDebug\osprg.obj"
+	-@erase ".\WinDebug\regexp.obj"
+	-@erase ".\WinDebug\http.obj"
+	-@erase ".\WinDebug\more.obj"
+	-@erase ".\WinDebug\ex.obj"
+	-@erase ".\WinDebug\tinytcap.obj"
+	-@erase ".\WinDebug\osdir.obj"
+	-@erase ".\WinDebug\map.obj"
+	-@erase ".\WinDebug\url.obj"
+	-@erase ".\WinDebug\ostext.obj"
+	-@erase ".\WinDebug\dmnormal.obj"
+	-@erase ".\WinDebug\dmhex.obj"
+	-@erase ".\WinDebug\calc.obj"
+	-@erase ".\WinDebug\input.obj"
+	-@erase ".\WinDebug\search.obj"
+	-@erase ".\WinDebug\exedit.obj"
+	-@erase ".\WinDebug\exsubst.obj"
+	-@erase ".\WinDebug\session.obj"
+	-@erase ".\WinDebug\optglob.obj"
+	-@erase ".\WinDebug\tag.obj"
+	-@erase ".\WinDebug\mark.obj"
+	-@erase ".\WinDebug\regsub.obj"
+	-@erase ".\WinDebug\dmsyntax.obj"
+	-@erase ".\WinDebug\osblock.obj"
+	-@erase ".\WinDebug\ftp.obj"
+	-@erase ".\WinDebug\elvis.ilk"
+	-@erase ".\WinDebug\elvis.pdb"
 
-# ADD BASE CPP /nologo /ML /W3 /GX /Zi /YX /Od /D "WIN32" /D "_DEBUG" /D "_CONSOLE" /FR /c
-# ADD CPP /nologo /ML /W3 /GX /Zi /YX /Od /I "oswin32" /I "." /D "WIN32" /D "_DEBUG" /D "_CONSOLE" /FR /c
-CPP_PROJ=/nologo /ML /W3 /GX /Zi /YX /Od /I "oswin32" /I "." /D "WIN32" /D\
- "_DEBUG" /D "_CONSOLE" /FR$(INTDIR)/ /Fp$(OUTDIR)/"elvis.pch" /Fo$(INTDIR)/\
- /Fd$(OUTDIR)/"elvis.pdb" /c 
+"$(OUTDIR)" :
+    if not exist "$(OUTDIR)/$(NULL)" mkdir "$(OUTDIR)"
+
+# ADD BASE CPP /nologo /W3 /GX /Zi /Od /D "WIN32" /D "_DEBUG" /D "_CONSOLE" /FR /YX /c
+# ADD CPP /nologo /W3 /Gm /GX /Zi /Od /I "oswin32" /I "." /D "WIN32" /D "_DEBUG" /D "_CONSOLE" /YX /c
+# SUBTRACT CPP /Fr
+CPP_PROJ=/nologo /MLd /W3 /Gm /GX /Zi /Od /I "oswin32" /I "." /D "WIN32" /D\
+ "_DEBUG" /D "_CONSOLE" /Fp"$(INTDIR)/elvis.pch" /YX /Fo"$(INTDIR)/"\
+ /Fd"$(INTDIR)/" /c 
 CPP_OBJS=.\WinDebug/
+CPP_SBRS=
 # ADD BASE RSC /l 0x409 /d "_DEBUG"
 # ADD RSC /l 0x409 /d "_DEBUG"
 BSC32=bscmake.exe
 # ADD BASE BSC32 /nologo
 # ADD BSC32 /nologo
-BSC32_FLAGS=/nologo /o$(OUTDIR)/"elvis.bsc" 
-BSC32_SBRS= \
-	".\WinDebug\move.sbr" \
-	".\WinDebug\search.sbr" \
-	".\WinDebug\lp.sbr" \
-	".\WinDebug\guitcap.sbr" \
-	".\WinDebug\display.sbr" \
-	".\WinDebug\more.sbr" \
-	".\WinDebug\digraph.sbr" \
-	".\WinDebug\state.sbr" \
-	".\WinDebug\osprg.sbr" \
-	".\WinDebug\guiopen.sbr" \
-	".\WinDebug\tcaphelp.sbr" \
-	".\WinDebug\gui.sbr" \
-	".\WinDebug\vicmd.sbr" \
-	".\WinDebug\misc.sbr" \
-	".\WinDebug\operator.sbr" \
-	".\WinDebug\exaction.sbr" \
-	".\WinDebug\regexp.sbr" \
-	".\WinDebug\lpescape.sbr" \
-	".\WinDebug\input.sbr" \
-	".\WinDebug\dmnormal.sbr" \
-	".\WinDebug\dmsyntax.sbr" \
-	".\WinDebug\options.sbr" \
-	".\WinDebug\calc.sbr" \
-	".\WinDebug\ostext.sbr" \
-	".\WinDebug\vi.sbr" \
-	".\WinDebug\need.sbr" \
-	".\WinDebug\window.sbr" \
-	".\WinDebug\io.sbr" \
-	".\WinDebug\osdir.sbr" \
-	".\WinDebug\safe.sbr" \
-	".\WinDebug\regsub.sbr" \
-	".\WinDebug\ex.sbr" \
-	".\WinDebug\buffer.sbr" \
-	".\WinDebug\event.sbr" \
-	".\WinDebug\session.sbr" \
-	".\WinDebug\guicurs.sbr" \
-	".\WinDebug\dmmarkup.sbr" \
-	".\WinDebug\mark.sbr" \
-	".\WinDebug\optglob.sbr" \
-	".\WinDebug\lpps.sbr" \
-	".\WinDebug\guix11.sbr" \
-	".\WinDebug\message.sbr" \
-	".\WinDebug\dmhex.sbr" \
-	".\WinDebug\cut.sbr" \
-	".\WinDebug\exconfig.sbr" \
-	".\WinDebug\exmake.sbr" \
-	".\WinDebug\tinytcap.sbr" \
-	".\WinDebug\lpovrtyp.sbr" \
-	".\WinDebug\main.sbr" \
-	".\WinDebug\exedit.sbr" \
-	".\WinDebug\lowbuf.sbr" \
-	".\WinDebug\draw.sbr" \
-	".\WinDebug\scan.sbr" \
-	".\WinDebug\map.sbr" \
-	".\WinDebug\osblock.sbr"
-
-".\WinDebug\elvis.bsc" : $(OUTDIR)  $(BSC32_SBRS)
-    $(BSC32) @<<
-  $(BSC32_FLAGS) $(BSC32_SBRS)
-<<
-
+BSC32_FLAGS=/nologo /o"$(OUTDIR)/elvis.bsc" 
+BSC32_SBRS=
 LINK32=link.exe
-# ADD BASE LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /NOLOGO /SUBSYSTEM:console /DEBUG /MACHINE:I386
-# ADD LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /NOLOGO /SUBSYSTEM:console /DEBUG /MACHINE:I386
-LINK32_FLAGS=kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib\
- advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib\
- odbccp32.lib /NOLOGO /SUBSYSTEM:console /INCREMENTAL:yes\
- /PDB:$(OUTDIR)/"elvis.pdb" /DEBUG /MACHINE:I386 /OUT:$(OUTDIR)/"elvis.exe" 
-DEF_FILE=
+# ADD BASE LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib wsock32.lib /nologo /subsystem:console /debug /machine:I386
+# ADD LINK32 wsock32.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /subsystem:console /debug /machine:I386
+LINK32_FLAGS=wsock32.lib kernel32.lib user32.lib gdi32.lib winspool.lib\
+ comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib\
+ odbc32.lib odbccp32.lib /nologo /subsystem:console /incremental:yes\
+ /pdb:"$(OUTDIR)/elvis.pdb" /debug /machine:I386 /out:"$(OUTDIR)/elvis.exe" 
 LINK32_OBJS= \
-	".\WinDebug\move.obj" \
-	".\WinDebug\search.obj" \
-	".\WinDebug\lp.obj" \
-	".\WinDebug\guitcap.obj" \
-	".\WinDebug\display.obj" \
-	".\WinDebug\more.obj" \
-	".\WinDebug\digraph.obj" \
-	".\WinDebug\state.obj" \
-	".\WinDebug\osprg.obj" \
-	".\WinDebug\guiopen.obj" \
-	".\WinDebug\tcaphelp.obj" \
-	".\WinDebug\gui.obj" \
-	".\WinDebug\vicmd.obj" \
-	".\WinDebug\misc.obj" \
-	".\WinDebug\operator.obj" \
-	".\WinDebug\exaction.obj" \
-	".\WinDebug\regexp.obj" \
-	".\WinDebug\lpescape.obj" \
-	".\WinDebug\input.obj" \
-	".\WinDebug\dmnormal.obj" \
-	".\WinDebug\dmsyntax.obj" \
-	".\WinDebug\options.obj" \
-	".\WinDebug\calc.obj" \
-	".\WinDebug\ostext.obj" \
-	".\WinDebug\vi.obj" \
-	".\WinDebug\need.obj" \
-	".\WinDebug\window.obj" \
-	".\WinDebug\io.obj" \
-	".\WinDebug\osdir.obj" \
-	".\WinDebug\safe.obj" \
-	".\WinDebug\regsub.obj" \
-	".\WinDebug\ex.obj" \
-	".\WinDebug\buffer.obj" \
-	".\WinDebug\event.obj" \
-	".\WinDebug\session.obj" \
-	".\WinDebug\guicurs.obj" \
-	".\WinDebug\dmmarkup.obj" \
-	".\WinDebug\mark.obj" \
-	".\WinDebug\optglob.obj" \
-	".\WinDebug\lpps.obj" \
-	".\WinDebug\guix11.obj" \
-	".\WinDebug\message.obj" \
-	".\WinDebug\dmhex.obj" \
-	".\WinDebug\cut.obj" \
-	".\WinDebug\exconfig.obj" \
-	".\WinDebug\exmake.obj" \
-	".\WinDebug\tinytcap.obj" \
-	".\WinDebug\lpovrtyp.obj" \
-	".\WinDebug\main.obj" \
-	".\WinDebug\exedit.obj" \
-	".\WinDebug\lowbuf.obj" \
-	".\WinDebug\draw.obj" \
-	".\WinDebug\scan.obj" \
-	".\WinDebug\map.obj" \
-	".\WinDebug\osblock.obj"
+	"$(INTDIR)/dmmarkup.obj" \
+	"$(INTDIR)/tcaphelp.obj" \
+	"$(INTDIR)/message.obj" \
+	"$(INTDIR)/operator.obj" \
+	"$(INTDIR)/lowbuf.obj" \
+	"$(INTDIR)/buffer.obj" \
+	"$(INTDIR)/event.obj" \
+	"$(INTDIR)/display.obj" \
+	"$(INTDIR)/need.obj" \
+	"$(INTDIR)/guitcap.obj" \
+	"$(INTDIR)/gui.obj" \
+	"$(INTDIR)/draw.obj" \
+	"$(INTDIR)/window.obj" \
+	"$(INTDIR)/state.obj" \
+	"$(INTDIR)/guicurs.obj" \
+	"$(INTDIR)/vi.obj" \
+	"$(INTDIR)/main.obj" \
+	"$(INTDIR)/scan.obj" \
+	"$(INTDIR)/options.obj" \
+	"$(INTDIR)/cut.obj" \
+	"$(INTDIR)/lpps.obj" \
+	"$(INTDIR)/tagelvis.obj" \
+	"$(INTDIR)/exmake.obj" \
+	"$(INTDIR)/exaction.obj" \
+	"$(INTDIR)/lpovrtyp.obj" \
+	"$(INTDIR)/misc.obj" \
+	"$(INTDIR)/osnet.obj" \
+	"$(INTDIR)/guiopen.obj" \
+	"$(INTDIR)/safe.obj" \
+	"$(INTDIR)/digraph.obj" \
+	"$(INTDIR)/vicmd.obj" \
+	"$(INTDIR)/lpescape.obj" \
+	"$(INTDIR)/lp.obj" \
+	"$(INTDIR)/move.obj" \
+	"$(INTDIR)/io.obj" \
+	"$(INTDIR)/exconfig.obj" \
+	"$(INTDIR)/tagsrch.obj" \
+	"$(INTDIR)/osprg.obj" \
+	"$(INTDIR)/regexp.obj" \
+	"$(INTDIR)/http.obj" \
+	"$(INTDIR)/more.obj" \
+	"$(INTDIR)/ex.obj" \
+	"$(INTDIR)/tinytcap.obj" \
+	"$(INTDIR)/osdir.obj" \
+	"$(INTDIR)/map.obj" \
+	"$(INTDIR)/url.obj" \
+	"$(INTDIR)/ostext.obj" \
+	"$(INTDIR)/dmnormal.obj" \
+	"$(INTDIR)/dmhex.obj" \
+	"$(INTDIR)/calc.obj" \
+	"$(INTDIR)/input.obj" \
+	"$(INTDIR)/search.obj" \
+	"$(INTDIR)/exedit.obj" \
+	"$(INTDIR)/exsubst.obj" \
+	"$(INTDIR)/session.obj" \
+	"$(INTDIR)/optglob.obj" \
+	"$(INTDIR)/tag.obj" \
+	"$(INTDIR)/mark.obj" \
+	"$(INTDIR)/regsub.obj" \
+	"$(INTDIR)/dmsyntax.obj" \
+	"$(INTDIR)/osblock.obj" \
+	"$(INTDIR)/ftp.obj"
 
-".\WinDebug\elvis.exe" : $(OUTDIR)  $(DEF_FILE) $(LINK32_OBJS)
+"$(OUTDIR)\elvis.exe" : "$(OUTDIR)" $(DEF_FILE) $(LINK32_OBJS)
     $(LINK32) @<<
   $(LINK32_FLAGS) $(LINK32_OBJS)
 <<
@@ -362,899 +396,3572 @@ LINK32_OBJS= \
 .cxx{$(CPP_OBJS)}.obj:
    $(CPP) $(CPP_PROJ) $<  
 
+.c{$(CPP_SBRS)}.sbr:
+   $(CPP) $(CPP_PROJ) $<  
+
+.cpp{$(CPP_SBRS)}.sbr:
+   $(CPP) $(CPP_PROJ) $<  
+
+.cxx{$(CPP_SBRS)}.sbr:
+   $(CPP) $(CPP_PROJ) $<  
+
 ################################################################################
-# Begin Group "Source Files"
+# Begin Target
+
+# Name "elvis - Win32 Release"
+# Name "elvis - Win32 Debug"
+
+!IF  "$(CFG)" == "elvis - Win32 Release"
+
+!ELSEIF  "$(CFG)" == "elvis - Win32 Debug"
+
+!ENDIF 
 
 ################################################################################
 # Begin Source File
 
 SOURCE=.\move.c
+DEP_CPP_MOVE_=\
+	".\elvis.h"\
+	".\config.h"\
+	".\elvctype.h"\
+	".\version.h"\
+	".\oswin32\osdef.h"\
+	".\safe.h"\
+	".\options.h"\
+	".\optglob.h"\
+	".\session.h"\
+	".\lowbuf.h"\
+	".\message.h"\
+	".\buffer.h"\
+	".\mark.h"\
+	".\buffer2.h"\
+	".\options2.h"\
+	".\scan.h"\
+	".\opsys.h"\
+	".\map.h"\
+	".\gui.h"\
+	".\display.h"\
+	".\draw.h"\
+	".\state.h"\
+	".\window.h"\
+	".\gui2.h"\
+	".\display2.h"\
+	".\draw2.h"\
+	".\state2.h"\
+	".\event.h"\
+	".\input.h"\
+	".\vi.h"\
+	".\regexp.h"\
+	".\ex.h"\
+	".\move.h"\
+	".\vicmd.h"\
+	".\operator.h"\
+	".\cut.h"\
+	".\elvisio.h"\
+	".\lp.h"\
+	".\calc.h"\
+	".\more.h"\
+	".\digraph.h"\
+	".\tag.h"\
+	".\tagsrch.h"\
+	".\tagelvis.h"\
+	".\need.h"\
+	".\misc.h"\
+	
 
-!IF  "$(CFG)" == "Win32 Release"
+"$(INTDIR)\move.obj" : $(SOURCE) $(DEP_CPP_MOVE_) "$(INTDIR)"
 
-".\WinRel\move.obj" :  $(SOURCE)  $(INTDIR)
-
-!ELSEIF  "$(CFG)" == "Win32 Debug"
-
-".\WinDebug\move.obj" :  $(SOURCE)  $(INTDIR)
-
-!ENDIF 
 
 # End Source File
 ################################################################################
 # Begin Source File
 
 SOURCE=.\search.c
+DEP_CPP_SEARC=\
+	".\elvis.h"\
+	".\config.h"\
+	".\elvctype.h"\
+	".\version.h"\
+	".\oswin32\osdef.h"\
+	".\safe.h"\
+	".\options.h"\
+	".\optglob.h"\
+	".\session.h"\
+	".\lowbuf.h"\
+	".\message.h"\
+	".\buffer.h"\
+	".\mark.h"\
+	".\buffer2.h"\
+	".\options2.h"\
+	".\scan.h"\
+	".\opsys.h"\
+	".\map.h"\
+	".\gui.h"\
+	".\display.h"\
+	".\draw.h"\
+	".\state.h"\
+	".\window.h"\
+	".\gui2.h"\
+	".\display2.h"\
+	".\draw2.h"\
+	".\state2.h"\
+	".\event.h"\
+	".\input.h"\
+	".\vi.h"\
+	".\regexp.h"\
+	".\ex.h"\
+	".\move.h"\
+	".\vicmd.h"\
+	".\operator.h"\
+	".\cut.h"\
+	".\elvisio.h"\
+	".\lp.h"\
+	".\calc.h"\
+	".\more.h"\
+	".\digraph.h"\
+	".\tag.h"\
+	".\tagsrch.h"\
+	".\tagelvis.h"\
+	".\need.h"\
+	".\misc.h"\
+	
 
-!IF  "$(CFG)" == "Win32 Release"
+"$(INTDIR)\search.obj" : $(SOURCE) $(DEP_CPP_SEARC) "$(INTDIR)"
 
-".\WinRel\search.obj" :  $(SOURCE)  $(INTDIR)
-
-!ELSEIF  "$(CFG)" == "Win32 Debug"
-
-".\WinDebug\search.obj" :  $(SOURCE)  $(INTDIR)
-
-!ENDIF 
 
 # End Source File
 ################################################################################
 # Begin Source File
 
 SOURCE=.\lp.c
+DEP_CPP_LP_C4=\
+	".\elvis.h"\
+	".\config.h"\
+	".\elvctype.h"\
+	".\version.h"\
+	".\oswin32\osdef.h"\
+	".\safe.h"\
+	".\options.h"\
+	".\optglob.h"\
+	".\session.h"\
+	".\lowbuf.h"\
+	".\message.h"\
+	".\buffer.h"\
+	".\mark.h"\
+	".\buffer2.h"\
+	".\options2.h"\
+	".\scan.h"\
+	".\opsys.h"\
+	".\map.h"\
+	".\gui.h"\
+	".\display.h"\
+	".\draw.h"\
+	".\state.h"\
+	".\window.h"\
+	".\gui2.h"\
+	".\display2.h"\
+	".\draw2.h"\
+	".\state2.h"\
+	".\event.h"\
+	".\input.h"\
+	".\vi.h"\
+	".\regexp.h"\
+	".\ex.h"\
+	".\move.h"\
+	".\vicmd.h"\
+	".\operator.h"\
+	".\cut.h"\
+	".\elvisio.h"\
+	".\lp.h"\
+	".\calc.h"\
+	".\more.h"\
+	".\digraph.h"\
+	".\tag.h"\
+	".\tagsrch.h"\
+	".\tagelvis.h"\
+	".\need.h"\
+	".\misc.h"\
+	
 
-!IF  "$(CFG)" == "Win32 Release"
+"$(INTDIR)\lp.obj" : $(SOURCE) $(DEP_CPP_LP_C4) "$(INTDIR)"
 
-".\WinRel\lp.obj" :  $(SOURCE)  $(INTDIR)
-
-!ELSEIF  "$(CFG)" == "Win32 Debug"
-
-".\WinDebug\lp.obj" :  $(SOURCE)  $(INTDIR)
-
-!ENDIF 
 
 # End Source File
 ################################################################################
 # Begin Source File
 
 SOURCE=.\guitcap.c
+DEP_CPP_GUITC=\
+	".\elvis.h"\
+	".\config.h"\
+	".\elvctype.h"\
+	".\version.h"\
+	".\oswin32\osdef.h"\
+	".\safe.h"\
+	".\options.h"\
+	".\optglob.h"\
+	".\session.h"\
+	".\lowbuf.h"\
+	".\message.h"\
+	".\buffer.h"\
+	".\mark.h"\
+	".\buffer2.h"\
+	".\options2.h"\
+	".\scan.h"\
+	".\opsys.h"\
+	".\map.h"\
+	".\gui.h"\
+	".\display.h"\
+	".\draw.h"\
+	".\state.h"\
+	".\window.h"\
+	".\gui2.h"\
+	".\display2.h"\
+	".\draw2.h"\
+	".\state2.h"\
+	".\event.h"\
+	".\input.h"\
+	".\vi.h"\
+	".\regexp.h"\
+	".\ex.h"\
+	".\move.h"\
+	".\vicmd.h"\
+	".\operator.h"\
+	".\cut.h"\
+	".\elvisio.h"\
+	".\lp.h"\
+	".\calc.h"\
+	".\more.h"\
+	".\digraph.h"\
+	".\tag.h"\
+	".\tagsrch.h"\
+	".\tagelvis.h"\
+	".\need.h"\
+	".\misc.h"\
+	
 
-!IF  "$(CFG)" == "Win32 Release"
+"$(INTDIR)\guitcap.obj" : $(SOURCE) $(DEP_CPP_GUITC) "$(INTDIR)"
 
-".\WinRel\guitcap.obj" :  $(SOURCE)  $(INTDIR)
-
-!ELSEIF  "$(CFG)" == "Win32 Debug"
-
-".\WinDebug\guitcap.obj" :  $(SOURCE)  $(INTDIR)
-
-!ENDIF 
 
 # End Source File
 ################################################################################
 # Begin Source File
 
 SOURCE=.\display.c
+DEP_CPP_DISPL=\
+	".\elvis.h"\
+	".\config.h"\
+	".\elvctype.h"\
+	".\version.h"\
+	".\oswin32\osdef.h"\
+	".\safe.h"\
+	".\options.h"\
+	".\optglob.h"\
+	".\session.h"\
+	".\lowbuf.h"\
+	".\message.h"\
+	".\buffer.h"\
+	".\mark.h"\
+	".\buffer2.h"\
+	".\options2.h"\
+	".\scan.h"\
+	".\opsys.h"\
+	".\map.h"\
+	".\gui.h"\
+	".\display.h"\
+	".\draw.h"\
+	".\state.h"\
+	".\window.h"\
+	".\gui2.h"\
+	".\display2.h"\
+	".\draw2.h"\
+	".\state2.h"\
+	".\event.h"\
+	".\input.h"\
+	".\vi.h"\
+	".\regexp.h"\
+	".\ex.h"\
+	".\move.h"\
+	".\vicmd.h"\
+	".\operator.h"\
+	".\cut.h"\
+	".\elvisio.h"\
+	".\lp.h"\
+	".\calc.h"\
+	".\more.h"\
+	".\digraph.h"\
+	".\tag.h"\
+	".\tagsrch.h"\
+	".\tagelvis.h"\
+	".\need.h"\
+	".\misc.h"\
+	
 
-!IF  "$(CFG)" == "Win32 Release"
+"$(INTDIR)\display.obj" : $(SOURCE) $(DEP_CPP_DISPL) "$(INTDIR)"
 
-".\WinRel\display.obj" :  $(SOURCE)  $(INTDIR)
-
-!ELSEIF  "$(CFG)" == "Win32 Debug"
-
-".\WinDebug\display.obj" :  $(SOURCE)  $(INTDIR)
-
-!ENDIF 
 
 # End Source File
 ################################################################################
 # Begin Source File
 
 SOURCE=.\more.c
+DEP_CPP_MORE_=\
+	".\elvis.h"\
+	".\config.h"\
+	".\elvctype.h"\
+	".\version.h"\
+	".\oswin32\osdef.h"\
+	".\safe.h"\
+	".\options.h"\
+	".\optglob.h"\
+	".\session.h"\
+	".\lowbuf.h"\
+	".\message.h"\
+	".\buffer.h"\
+	".\mark.h"\
+	".\buffer2.h"\
+	".\options2.h"\
+	".\scan.h"\
+	".\opsys.h"\
+	".\map.h"\
+	".\gui.h"\
+	".\display.h"\
+	".\draw.h"\
+	".\state.h"\
+	".\window.h"\
+	".\gui2.h"\
+	".\display2.h"\
+	".\draw2.h"\
+	".\state2.h"\
+	".\event.h"\
+	".\input.h"\
+	".\vi.h"\
+	".\regexp.h"\
+	".\ex.h"\
+	".\move.h"\
+	".\vicmd.h"\
+	".\operator.h"\
+	".\cut.h"\
+	".\elvisio.h"\
+	".\lp.h"\
+	".\calc.h"\
+	".\more.h"\
+	".\digraph.h"\
+	".\tag.h"\
+	".\tagsrch.h"\
+	".\tagelvis.h"\
+	".\need.h"\
+	".\misc.h"\
+	
 
-!IF  "$(CFG)" == "Win32 Release"
+"$(INTDIR)\more.obj" : $(SOURCE) $(DEP_CPP_MORE_) "$(INTDIR)"
 
-".\WinRel\more.obj" :  $(SOURCE)  $(INTDIR)
-
-!ELSEIF  "$(CFG)" == "Win32 Debug"
-
-".\WinDebug\more.obj" :  $(SOURCE)  $(INTDIR)
-
-!ENDIF 
 
 # End Source File
 ################################################################################
 # Begin Source File
 
 SOURCE=.\digraph.c
+DEP_CPP_DIGRA=\
+	".\elvis.h"\
+	".\config.h"\
+	".\elvctype.h"\
+	".\version.h"\
+	".\oswin32\osdef.h"\
+	".\safe.h"\
+	".\options.h"\
+	".\optglob.h"\
+	".\session.h"\
+	".\lowbuf.h"\
+	".\message.h"\
+	".\buffer.h"\
+	".\mark.h"\
+	".\buffer2.h"\
+	".\options2.h"\
+	".\scan.h"\
+	".\opsys.h"\
+	".\map.h"\
+	".\gui.h"\
+	".\display.h"\
+	".\draw.h"\
+	".\state.h"\
+	".\window.h"\
+	".\gui2.h"\
+	".\display2.h"\
+	".\draw2.h"\
+	".\state2.h"\
+	".\event.h"\
+	".\input.h"\
+	".\vi.h"\
+	".\regexp.h"\
+	".\ex.h"\
+	".\move.h"\
+	".\vicmd.h"\
+	".\operator.h"\
+	".\cut.h"\
+	".\elvisio.h"\
+	".\lp.h"\
+	".\calc.h"\
+	".\more.h"\
+	".\digraph.h"\
+	".\tag.h"\
+	".\tagsrch.h"\
+	".\tagelvis.h"\
+	".\need.h"\
+	".\misc.h"\
+	
 
-!IF  "$(CFG)" == "Win32 Release"
+"$(INTDIR)\digraph.obj" : $(SOURCE) $(DEP_CPP_DIGRA) "$(INTDIR)"
 
-".\WinRel\digraph.obj" :  $(SOURCE)  $(INTDIR)
-
-!ELSEIF  "$(CFG)" == "Win32 Debug"
-
-".\WinDebug\digraph.obj" :  $(SOURCE)  $(INTDIR)
-
-!ENDIF 
 
 # End Source File
 ################################################################################
 # Begin Source File
 
 SOURCE=.\state.c
+DEP_CPP_STATE=\
+	".\elvis.h"\
+	".\config.h"\
+	".\elvctype.h"\
+	".\version.h"\
+	".\oswin32\osdef.h"\
+	".\safe.h"\
+	".\options.h"\
+	".\optglob.h"\
+	".\session.h"\
+	".\lowbuf.h"\
+	".\message.h"\
+	".\buffer.h"\
+	".\mark.h"\
+	".\buffer2.h"\
+	".\options2.h"\
+	".\scan.h"\
+	".\opsys.h"\
+	".\map.h"\
+	".\gui.h"\
+	".\display.h"\
+	".\draw.h"\
+	".\state.h"\
+	".\window.h"\
+	".\gui2.h"\
+	".\display2.h"\
+	".\draw2.h"\
+	".\state2.h"\
+	".\event.h"\
+	".\input.h"\
+	".\vi.h"\
+	".\regexp.h"\
+	".\ex.h"\
+	".\move.h"\
+	".\vicmd.h"\
+	".\operator.h"\
+	".\cut.h"\
+	".\elvisio.h"\
+	".\lp.h"\
+	".\calc.h"\
+	".\more.h"\
+	".\digraph.h"\
+	".\tag.h"\
+	".\tagsrch.h"\
+	".\tagelvis.h"\
+	".\need.h"\
+	".\misc.h"\
+	
 
-!IF  "$(CFG)" == "Win32 Release"
+"$(INTDIR)\state.obj" : $(SOURCE) $(DEP_CPP_STATE) "$(INTDIR)"
 
-".\WinRel\state.obj" :  $(SOURCE)  $(INTDIR)
-
-!ELSEIF  "$(CFG)" == "Win32 Debug"
-
-".\WinDebug\state.obj" :  $(SOURCE)  $(INTDIR)
-
-!ENDIF 
 
 # End Source File
 ################################################################################
 # Begin Source File
 
 SOURCE=.\oswin32\osprg.c
+DEP_CPP_OSPRG=\
+	".\elvis.h"\
+	".\config.h"\
+	".\elvctype.h"\
+	".\version.h"\
+	".\oswin32\osdef.h"\
+	".\safe.h"\
+	".\options.h"\
+	".\optglob.h"\
+	".\session.h"\
+	".\lowbuf.h"\
+	".\message.h"\
+	".\buffer.h"\
+	".\mark.h"\
+	".\buffer2.h"\
+	".\options2.h"\
+	".\scan.h"\
+	".\opsys.h"\
+	".\map.h"\
+	".\gui.h"\
+	".\display.h"\
+	".\draw.h"\
+	".\state.h"\
+	".\window.h"\
+	".\gui2.h"\
+	".\display2.h"\
+	".\draw2.h"\
+	".\state2.h"\
+	".\event.h"\
+	".\input.h"\
+	".\vi.h"\
+	".\regexp.h"\
+	".\ex.h"\
+	".\move.h"\
+	".\vicmd.h"\
+	".\operator.h"\
+	".\cut.h"\
+	".\elvisio.h"\
+	".\lp.h"\
+	".\calc.h"\
+	".\more.h"\
+	".\digraph.h"\
+	".\tag.h"\
+	".\tagsrch.h"\
+	".\tagelvis.h"\
+	".\need.h"\
+	".\misc.h"\
+	
 
-!IF  "$(CFG)" == "Win32 Release"
+"$(INTDIR)\osprg.obj" : $(SOURCE) $(DEP_CPP_OSPRG) "$(INTDIR)"
+   $(CPP) $(CPP_PROJ) $(SOURCE)
 
-".\WinRel\osprg.obj" :  $(SOURCE)  $(INTDIR)
-   $(CPP) $(CPP_PROJ)  $(SOURCE) 
-
-!ELSEIF  "$(CFG)" == "Win32 Debug"
-
-".\WinDebug\osprg.obj" :  $(SOURCE)  $(INTDIR)
-   $(CPP) $(CPP_PROJ)  $(SOURCE) 
-
-!ENDIF 
 
 # End Source File
 ################################################################################
 # Begin Source File
 
 SOURCE=.\guiopen.c
+DEP_CPP_GUIOP=\
+	".\elvis.h"\
+	".\config.h"\
+	".\elvctype.h"\
+	".\version.h"\
+	".\oswin32\osdef.h"\
+	".\safe.h"\
+	".\options.h"\
+	".\optglob.h"\
+	".\session.h"\
+	".\lowbuf.h"\
+	".\message.h"\
+	".\buffer.h"\
+	".\mark.h"\
+	".\buffer2.h"\
+	".\options2.h"\
+	".\scan.h"\
+	".\opsys.h"\
+	".\map.h"\
+	".\gui.h"\
+	".\display.h"\
+	".\draw.h"\
+	".\state.h"\
+	".\window.h"\
+	".\gui2.h"\
+	".\display2.h"\
+	".\draw2.h"\
+	".\state2.h"\
+	".\event.h"\
+	".\input.h"\
+	".\vi.h"\
+	".\regexp.h"\
+	".\ex.h"\
+	".\move.h"\
+	".\vicmd.h"\
+	".\operator.h"\
+	".\cut.h"\
+	".\elvisio.h"\
+	".\lp.h"\
+	".\calc.h"\
+	".\more.h"\
+	".\digraph.h"\
+	".\tag.h"\
+	".\tagsrch.h"\
+	".\tagelvis.h"\
+	".\need.h"\
+	".\misc.h"\
+	
 
-!IF  "$(CFG)" == "Win32 Release"
+"$(INTDIR)\guiopen.obj" : $(SOURCE) $(DEP_CPP_GUIOP) "$(INTDIR)"
 
-".\WinRel\guiopen.obj" :  $(SOURCE)  $(INTDIR)
-
-!ELSEIF  "$(CFG)" == "Win32 Debug"
-
-".\WinDebug\guiopen.obj" :  $(SOURCE)  $(INTDIR)
-
-!ENDIF 
 
 # End Source File
 ################################################################################
 # Begin Source File
 
 SOURCE=.\oswin32\tcaphelp.c
+DEP_CPP_TCAPH=\
+	".\elvis.h"\
+	".\config.h"\
+	".\elvctype.h"\
+	".\version.h"\
+	".\oswin32\osdef.h"\
+	".\safe.h"\
+	".\options.h"\
+	".\optglob.h"\
+	".\session.h"\
+	".\lowbuf.h"\
+	".\message.h"\
+	".\buffer.h"\
+	".\mark.h"\
+	".\buffer2.h"\
+	".\options2.h"\
+	".\scan.h"\
+	".\opsys.h"\
+	".\map.h"\
+	".\gui.h"\
+	".\display.h"\
+	".\draw.h"\
+	".\state.h"\
+	".\window.h"\
+	".\gui2.h"\
+	".\display2.h"\
+	".\draw2.h"\
+	".\state2.h"\
+	".\event.h"\
+	".\input.h"\
+	".\vi.h"\
+	".\regexp.h"\
+	".\ex.h"\
+	".\move.h"\
+	".\vicmd.h"\
+	".\operator.h"\
+	".\cut.h"\
+	".\elvisio.h"\
+	".\lp.h"\
+	".\calc.h"\
+	".\more.h"\
+	".\digraph.h"\
+	".\tag.h"\
+	".\tagsrch.h"\
+	".\tagelvis.h"\
+	".\need.h"\
+	".\misc.h"\
+	
 
-!IF  "$(CFG)" == "Win32 Release"
+"$(INTDIR)\tcaphelp.obj" : $(SOURCE) $(DEP_CPP_TCAPH) "$(INTDIR)"
+   $(CPP) $(CPP_PROJ) $(SOURCE)
 
-".\WinRel\tcaphelp.obj" :  $(SOURCE)  $(INTDIR)
-   $(CPP) $(CPP_PROJ)  $(SOURCE) 
-
-!ELSEIF  "$(CFG)" == "Win32 Debug"
-
-".\WinDebug\tcaphelp.obj" :  $(SOURCE)  $(INTDIR)
-   $(CPP) $(CPP_PROJ)  $(SOURCE) 
-
-!ENDIF 
 
 # End Source File
 ################################################################################
 # Begin Source File
 
 SOURCE=.\gui.c
+DEP_CPP_GUI_C=\
+	".\elvis.h"\
+	".\config.h"\
+	".\elvctype.h"\
+	".\version.h"\
+	".\oswin32\osdef.h"\
+	".\safe.h"\
+	".\options.h"\
+	".\optglob.h"\
+	".\session.h"\
+	".\lowbuf.h"\
+	".\message.h"\
+	".\buffer.h"\
+	".\mark.h"\
+	".\buffer2.h"\
+	".\options2.h"\
+	".\scan.h"\
+	".\opsys.h"\
+	".\map.h"\
+	".\gui.h"\
+	".\display.h"\
+	".\draw.h"\
+	".\state.h"\
+	".\window.h"\
+	".\gui2.h"\
+	".\display2.h"\
+	".\draw2.h"\
+	".\state2.h"\
+	".\event.h"\
+	".\input.h"\
+	".\vi.h"\
+	".\regexp.h"\
+	".\ex.h"\
+	".\move.h"\
+	".\vicmd.h"\
+	".\operator.h"\
+	".\cut.h"\
+	".\elvisio.h"\
+	".\lp.h"\
+	".\calc.h"\
+	".\more.h"\
+	".\digraph.h"\
+	".\tag.h"\
+	".\tagsrch.h"\
+	".\tagelvis.h"\
+	".\need.h"\
+	".\misc.h"\
+	
 
-!IF  "$(CFG)" == "Win32 Release"
+"$(INTDIR)\gui.obj" : $(SOURCE) $(DEP_CPP_GUI_C) "$(INTDIR)"
 
-".\WinRel\gui.obj" :  $(SOURCE)  $(INTDIR)
-
-!ELSEIF  "$(CFG)" == "Win32 Debug"
-
-".\WinDebug\gui.obj" :  $(SOURCE)  $(INTDIR)
-
-!ENDIF 
 
 # End Source File
 ################################################################################
 # Begin Source File
 
 SOURCE=.\vicmd.c
+DEP_CPP_VICMD=\
+	".\elvis.h"\
+	".\config.h"\
+	".\elvctype.h"\
+	".\version.h"\
+	".\oswin32\osdef.h"\
+	".\safe.h"\
+	".\options.h"\
+	".\optglob.h"\
+	".\session.h"\
+	".\lowbuf.h"\
+	".\message.h"\
+	".\buffer.h"\
+	".\mark.h"\
+	".\buffer2.h"\
+	".\options2.h"\
+	".\scan.h"\
+	".\opsys.h"\
+	".\map.h"\
+	".\gui.h"\
+	".\display.h"\
+	".\draw.h"\
+	".\state.h"\
+	".\window.h"\
+	".\gui2.h"\
+	".\display2.h"\
+	".\draw2.h"\
+	".\state2.h"\
+	".\event.h"\
+	".\input.h"\
+	".\vi.h"\
+	".\regexp.h"\
+	".\ex.h"\
+	".\move.h"\
+	".\vicmd.h"\
+	".\operator.h"\
+	".\cut.h"\
+	".\elvisio.h"\
+	".\lp.h"\
+	".\calc.h"\
+	".\more.h"\
+	".\digraph.h"\
+	".\tag.h"\
+	".\tagsrch.h"\
+	".\tagelvis.h"\
+	".\need.h"\
+	".\misc.h"\
+	
 
-!IF  "$(CFG)" == "Win32 Release"
+"$(INTDIR)\vicmd.obj" : $(SOURCE) $(DEP_CPP_VICMD) "$(INTDIR)"
 
-".\WinRel\vicmd.obj" :  $(SOURCE)  $(INTDIR)
-
-!ELSEIF  "$(CFG)" == "Win32 Debug"
-
-".\WinDebug\vicmd.obj" :  $(SOURCE)  $(INTDIR)
-
-!ENDIF 
 
 # End Source File
 ################################################################################
 # Begin Source File
 
 SOURCE=.\misc.c
+DEP_CPP_MISC_=\
+	".\elvis.h"\
+	".\config.h"\
+	".\elvctype.h"\
+	".\version.h"\
+	".\oswin32\osdef.h"\
+	".\safe.h"\
+	".\options.h"\
+	".\optglob.h"\
+	".\session.h"\
+	".\lowbuf.h"\
+	".\message.h"\
+	".\buffer.h"\
+	".\mark.h"\
+	".\buffer2.h"\
+	".\options2.h"\
+	".\scan.h"\
+	".\opsys.h"\
+	".\map.h"\
+	".\gui.h"\
+	".\display.h"\
+	".\draw.h"\
+	".\state.h"\
+	".\window.h"\
+	".\gui2.h"\
+	".\display2.h"\
+	".\draw2.h"\
+	".\state2.h"\
+	".\event.h"\
+	".\input.h"\
+	".\vi.h"\
+	".\regexp.h"\
+	".\ex.h"\
+	".\move.h"\
+	".\vicmd.h"\
+	".\operator.h"\
+	".\cut.h"\
+	".\elvisio.h"\
+	".\lp.h"\
+	".\calc.h"\
+	".\more.h"\
+	".\digraph.h"\
+	".\tag.h"\
+	".\tagsrch.h"\
+	".\tagelvis.h"\
+	".\need.h"\
+	".\misc.h"\
+	
 
-!IF  "$(CFG)" == "Win32 Release"
+"$(INTDIR)\misc.obj" : $(SOURCE) $(DEP_CPP_MISC_) "$(INTDIR)"
 
-".\WinRel\misc.obj" :  $(SOURCE)  $(INTDIR)
-
-!ELSEIF  "$(CFG)" == "Win32 Debug"
-
-".\WinDebug\misc.obj" :  $(SOURCE)  $(INTDIR)
-
-!ENDIF 
 
 # End Source File
 ################################################################################
 # Begin Source File
 
 SOURCE=.\operator.c
+DEP_CPP_OPERA=\
+	".\elvis.h"\
+	".\config.h"\
+	".\elvctype.h"\
+	".\version.h"\
+	".\oswin32\osdef.h"\
+	".\safe.h"\
+	".\options.h"\
+	".\optglob.h"\
+	".\session.h"\
+	".\lowbuf.h"\
+	".\message.h"\
+	".\buffer.h"\
+	".\mark.h"\
+	".\buffer2.h"\
+	".\options2.h"\
+	".\scan.h"\
+	".\opsys.h"\
+	".\map.h"\
+	".\gui.h"\
+	".\display.h"\
+	".\draw.h"\
+	".\state.h"\
+	".\window.h"\
+	".\gui2.h"\
+	".\display2.h"\
+	".\draw2.h"\
+	".\state2.h"\
+	".\event.h"\
+	".\input.h"\
+	".\vi.h"\
+	".\regexp.h"\
+	".\ex.h"\
+	".\move.h"\
+	".\vicmd.h"\
+	".\operator.h"\
+	".\cut.h"\
+	".\elvisio.h"\
+	".\lp.h"\
+	".\calc.h"\
+	".\more.h"\
+	".\digraph.h"\
+	".\tag.h"\
+	".\tagsrch.h"\
+	".\tagelvis.h"\
+	".\need.h"\
+	".\misc.h"\
+	
 
-!IF  "$(CFG)" == "Win32 Release"
+"$(INTDIR)\operator.obj" : $(SOURCE) $(DEP_CPP_OPERA) "$(INTDIR)"
 
-".\WinRel\operator.obj" :  $(SOURCE)  $(INTDIR)
-
-!ELSEIF  "$(CFG)" == "Win32 Debug"
-
-".\WinDebug\operator.obj" :  $(SOURCE)  $(INTDIR)
-
-!ENDIF 
 
 # End Source File
 ################################################################################
 # Begin Source File
 
 SOURCE=.\exaction.c
+DEP_CPP_EXACT=\
+	".\elvis.h"\
+	".\config.h"\
+	".\elvctype.h"\
+	".\version.h"\
+	".\oswin32\osdef.h"\
+	".\safe.h"\
+	".\options.h"\
+	".\optglob.h"\
+	".\session.h"\
+	".\lowbuf.h"\
+	".\message.h"\
+	".\buffer.h"\
+	".\mark.h"\
+	".\buffer2.h"\
+	".\options2.h"\
+	".\scan.h"\
+	".\opsys.h"\
+	".\map.h"\
+	".\gui.h"\
+	".\display.h"\
+	".\draw.h"\
+	".\state.h"\
+	".\window.h"\
+	".\gui2.h"\
+	".\display2.h"\
+	".\draw2.h"\
+	".\state2.h"\
+	".\event.h"\
+	".\input.h"\
+	".\vi.h"\
+	".\regexp.h"\
+	".\ex.h"\
+	".\move.h"\
+	".\vicmd.h"\
+	".\operator.h"\
+	".\cut.h"\
+	".\elvisio.h"\
+	".\lp.h"\
+	".\calc.h"\
+	".\more.h"\
+	".\digraph.h"\
+	".\tag.h"\
+	".\tagsrch.h"\
+	".\tagelvis.h"\
+	".\need.h"\
+	".\misc.h"\
+	
 
-!IF  "$(CFG)" == "Win32 Release"
+"$(INTDIR)\exaction.obj" : $(SOURCE) $(DEP_CPP_EXACT) "$(INTDIR)"
 
-".\WinRel\exaction.obj" :  $(SOURCE)  $(INTDIR)
-
-!ELSEIF  "$(CFG)" == "Win32 Debug"
-
-".\WinDebug\exaction.obj" :  $(SOURCE)  $(INTDIR)
-
-!ENDIF 
 
 # End Source File
 ################################################################################
 # Begin Source File
 
 SOURCE=.\regexp.c
+DEP_CPP_REGEX=\
+	".\elvis.h"\
+	".\config.h"\
+	".\elvctype.h"\
+	".\version.h"\
+	".\oswin32\osdef.h"\
+	".\safe.h"\
+	".\options.h"\
+	".\optglob.h"\
+	".\session.h"\
+	".\lowbuf.h"\
+	".\message.h"\
+	".\buffer.h"\
+	".\mark.h"\
+	".\buffer2.h"\
+	".\options2.h"\
+	".\scan.h"\
+	".\opsys.h"\
+	".\map.h"\
+	".\gui.h"\
+	".\display.h"\
+	".\draw.h"\
+	".\state.h"\
+	".\window.h"\
+	".\gui2.h"\
+	".\display2.h"\
+	".\draw2.h"\
+	".\state2.h"\
+	".\event.h"\
+	".\input.h"\
+	".\vi.h"\
+	".\regexp.h"\
+	".\ex.h"\
+	".\move.h"\
+	".\vicmd.h"\
+	".\operator.h"\
+	".\cut.h"\
+	".\elvisio.h"\
+	".\lp.h"\
+	".\calc.h"\
+	".\more.h"\
+	".\digraph.h"\
+	".\tag.h"\
+	".\tagsrch.h"\
+	".\tagelvis.h"\
+	".\need.h"\
+	".\misc.h"\
+	
 
-!IF  "$(CFG)" == "Win32 Release"
+"$(INTDIR)\regexp.obj" : $(SOURCE) $(DEP_CPP_REGEX) "$(INTDIR)"
 
-".\WinRel\regexp.obj" :  $(SOURCE)  $(INTDIR)
-
-!ELSEIF  "$(CFG)" == "Win32 Debug"
-
-".\WinDebug\regexp.obj" :  $(SOURCE)  $(INTDIR)
-
-!ENDIF 
 
 # End Source File
 ################################################################################
 # Begin Source File
 
 SOURCE=.\lpescape.c
+DEP_CPP_LPESC=\
+	".\elvis.h"\
+	".\config.h"\
+	".\elvctype.h"\
+	".\version.h"\
+	".\oswin32\osdef.h"\
+	".\safe.h"\
+	".\options.h"\
+	".\optglob.h"\
+	".\session.h"\
+	".\lowbuf.h"\
+	".\message.h"\
+	".\buffer.h"\
+	".\mark.h"\
+	".\buffer2.h"\
+	".\options2.h"\
+	".\scan.h"\
+	".\opsys.h"\
+	".\map.h"\
+	".\gui.h"\
+	".\display.h"\
+	".\draw.h"\
+	".\state.h"\
+	".\window.h"\
+	".\gui2.h"\
+	".\display2.h"\
+	".\draw2.h"\
+	".\state2.h"\
+	".\event.h"\
+	".\input.h"\
+	".\vi.h"\
+	".\regexp.h"\
+	".\ex.h"\
+	".\move.h"\
+	".\vicmd.h"\
+	".\operator.h"\
+	".\cut.h"\
+	".\elvisio.h"\
+	".\lp.h"\
+	".\calc.h"\
+	".\more.h"\
+	".\digraph.h"\
+	".\tag.h"\
+	".\tagsrch.h"\
+	".\tagelvis.h"\
+	".\need.h"\
+	".\misc.h"\
+	
 
-!IF  "$(CFG)" == "Win32 Release"
+"$(INTDIR)\lpescape.obj" : $(SOURCE) $(DEP_CPP_LPESC) "$(INTDIR)"
 
-".\WinRel\lpescape.obj" :  $(SOURCE)  $(INTDIR)
-
-!ELSEIF  "$(CFG)" == "Win32 Debug"
-
-".\WinDebug\lpescape.obj" :  $(SOURCE)  $(INTDIR)
-
-!ENDIF 
 
 # End Source File
 ################################################################################
 # Begin Source File
 
 SOURCE=.\input.c
+DEP_CPP_INPUT=\
+	".\elvis.h"\
+	".\config.h"\
+	".\elvctype.h"\
+	".\version.h"\
+	".\oswin32\osdef.h"\
+	".\safe.h"\
+	".\options.h"\
+	".\optglob.h"\
+	".\session.h"\
+	".\lowbuf.h"\
+	".\message.h"\
+	".\buffer.h"\
+	".\mark.h"\
+	".\buffer2.h"\
+	".\options2.h"\
+	".\scan.h"\
+	".\opsys.h"\
+	".\map.h"\
+	".\gui.h"\
+	".\display.h"\
+	".\draw.h"\
+	".\state.h"\
+	".\window.h"\
+	".\gui2.h"\
+	".\display2.h"\
+	".\draw2.h"\
+	".\state2.h"\
+	".\event.h"\
+	".\input.h"\
+	".\vi.h"\
+	".\regexp.h"\
+	".\ex.h"\
+	".\move.h"\
+	".\vicmd.h"\
+	".\operator.h"\
+	".\cut.h"\
+	".\elvisio.h"\
+	".\lp.h"\
+	".\calc.h"\
+	".\more.h"\
+	".\digraph.h"\
+	".\tag.h"\
+	".\tagsrch.h"\
+	".\tagelvis.h"\
+	".\need.h"\
+	".\misc.h"\
+	
 
-!IF  "$(CFG)" == "Win32 Release"
+"$(INTDIR)\input.obj" : $(SOURCE) $(DEP_CPP_INPUT) "$(INTDIR)"
 
-".\WinRel\input.obj" :  $(SOURCE)  $(INTDIR)
-
-!ELSEIF  "$(CFG)" == "Win32 Debug"
-
-".\WinDebug\input.obj" :  $(SOURCE)  $(INTDIR)
-
-!ENDIF 
 
 # End Source File
 ################################################################################
 # Begin Source File
 
 SOURCE=.\dmnormal.c
+DEP_CPP_DMNOR=\
+	".\elvis.h"\
+	".\config.h"\
+	".\elvctype.h"\
+	".\version.h"\
+	".\oswin32\osdef.h"\
+	".\safe.h"\
+	".\options.h"\
+	".\optglob.h"\
+	".\session.h"\
+	".\lowbuf.h"\
+	".\message.h"\
+	".\buffer.h"\
+	".\mark.h"\
+	".\buffer2.h"\
+	".\options2.h"\
+	".\scan.h"\
+	".\opsys.h"\
+	".\map.h"\
+	".\gui.h"\
+	".\display.h"\
+	".\draw.h"\
+	".\state.h"\
+	".\window.h"\
+	".\gui2.h"\
+	".\display2.h"\
+	".\draw2.h"\
+	".\state2.h"\
+	".\event.h"\
+	".\input.h"\
+	".\vi.h"\
+	".\regexp.h"\
+	".\ex.h"\
+	".\move.h"\
+	".\vicmd.h"\
+	".\operator.h"\
+	".\cut.h"\
+	".\elvisio.h"\
+	".\lp.h"\
+	".\calc.h"\
+	".\more.h"\
+	".\digraph.h"\
+	".\tag.h"\
+	".\tagsrch.h"\
+	".\tagelvis.h"\
+	".\need.h"\
+	".\misc.h"\
+	
 
-!IF  "$(CFG)" == "Win32 Release"
+"$(INTDIR)\dmnormal.obj" : $(SOURCE) $(DEP_CPP_DMNOR) "$(INTDIR)"
 
-".\WinRel\dmnormal.obj" :  $(SOURCE)  $(INTDIR)
-
-!ELSEIF  "$(CFG)" == "Win32 Debug"
-
-".\WinDebug\dmnormal.obj" :  $(SOURCE)  $(INTDIR)
-
-!ENDIF 
 
 # End Source File
 ################################################################################
 # Begin Source File
 
 SOURCE=.\dmsyntax.c
+DEP_CPP_DMSYN=\
+	".\elvis.h"\
+	".\config.h"\
+	".\elvctype.h"\
+	".\version.h"\
+	".\oswin32\osdef.h"\
+	".\safe.h"\
+	".\options.h"\
+	".\optglob.h"\
+	".\session.h"\
+	".\lowbuf.h"\
+	".\message.h"\
+	".\buffer.h"\
+	".\mark.h"\
+	".\buffer2.h"\
+	".\options2.h"\
+	".\scan.h"\
+	".\opsys.h"\
+	".\map.h"\
+	".\gui.h"\
+	".\display.h"\
+	".\draw.h"\
+	".\state.h"\
+	".\window.h"\
+	".\gui2.h"\
+	".\display2.h"\
+	".\draw2.h"\
+	".\state2.h"\
+	".\event.h"\
+	".\input.h"\
+	".\vi.h"\
+	".\regexp.h"\
+	".\ex.h"\
+	".\move.h"\
+	".\vicmd.h"\
+	".\operator.h"\
+	".\cut.h"\
+	".\elvisio.h"\
+	".\lp.h"\
+	".\calc.h"\
+	".\more.h"\
+	".\digraph.h"\
+	".\tag.h"\
+	".\tagsrch.h"\
+	".\tagelvis.h"\
+	".\need.h"\
+	".\misc.h"\
+	
 
-!IF  "$(CFG)" == "Win32 Release"
+"$(INTDIR)\dmsyntax.obj" : $(SOURCE) $(DEP_CPP_DMSYN) "$(INTDIR)"
 
-".\WinRel\dmsyntax.obj" :  $(SOURCE)  $(INTDIR)
-
-!ELSEIF  "$(CFG)" == "Win32 Debug"
-
-".\WinDebug\dmsyntax.obj" :  $(SOURCE)  $(INTDIR)
-
-!ENDIF 
 
 # End Source File
 ################################################################################
 # Begin Source File
 
 SOURCE=.\options.c
+DEP_CPP_OPTIO=\
+	".\elvis.h"\
+	".\config.h"\
+	".\elvctype.h"\
+	".\version.h"\
+	".\oswin32\osdef.h"\
+	".\safe.h"\
+	".\options.h"\
+	".\optglob.h"\
+	".\session.h"\
+	".\lowbuf.h"\
+	".\message.h"\
+	".\buffer.h"\
+	".\mark.h"\
+	".\buffer2.h"\
+	".\options2.h"\
+	".\scan.h"\
+	".\opsys.h"\
+	".\map.h"\
+	".\gui.h"\
+	".\display.h"\
+	".\draw.h"\
+	".\state.h"\
+	".\window.h"\
+	".\gui2.h"\
+	".\display2.h"\
+	".\draw2.h"\
+	".\state2.h"\
+	".\event.h"\
+	".\input.h"\
+	".\vi.h"\
+	".\regexp.h"\
+	".\ex.h"\
+	".\move.h"\
+	".\vicmd.h"\
+	".\operator.h"\
+	".\cut.h"\
+	".\elvisio.h"\
+	".\lp.h"\
+	".\calc.h"\
+	".\more.h"\
+	".\digraph.h"\
+	".\tag.h"\
+	".\tagsrch.h"\
+	".\tagelvis.h"\
+	".\need.h"\
+	".\misc.h"\
+	
 
-!IF  "$(CFG)" == "Win32 Release"
+"$(INTDIR)\options.obj" : $(SOURCE) $(DEP_CPP_OPTIO) "$(INTDIR)"
 
-".\WinRel\options.obj" :  $(SOURCE)  $(INTDIR)
-
-!ELSEIF  "$(CFG)" == "Win32 Debug"
-
-".\WinDebug\options.obj" :  $(SOURCE)  $(INTDIR)
-
-!ENDIF 
 
 # End Source File
 ################################################################################
 # Begin Source File
 
 SOURCE=.\calc.c
+DEP_CPP_CALC_=\
+	".\elvis.h"\
+	".\config.h"\
+	".\elvctype.h"\
+	".\version.h"\
+	".\oswin32\osdef.h"\
+	".\safe.h"\
+	".\options.h"\
+	".\optglob.h"\
+	".\session.h"\
+	".\lowbuf.h"\
+	".\message.h"\
+	".\buffer.h"\
+	".\mark.h"\
+	".\buffer2.h"\
+	".\options2.h"\
+	".\scan.h"\
+	".\opsys.h"\
+	".\map.h"\
+	".\gui.h"\
+	".\display.h"\
+	".\draw.h"\
+	".\state.h"\
+	".\window.h"\
+	".\gui2.h"\
+	".\display2.h"\
+	".\draw2.h"\
+	".\state2.h"\
+	".\event.h"\
+	".\input.h"\
+	".\vi.h"\
+	".\regexp.h"\
+	".\ex.h"\
+	".\move.h"\
+	".\vicmd.h"\
+	".\operator.h"\
+	".\cut.h"\
+	".\elvisio.h"\
+	".\lp.h"\
+	".\calc.h"\
+	".\more.h"\
+	".\digraph.h"\
+	".\tag.h"\
+	".\tagsrch.h"\
+	".\tagelvis.h"\
+	".\need.h"\
+	".\misc.h"\
+	
 
-!IF  "$(CFG)" == "Win32 Release"
+"$(INTDIR)\calc.obj" : $(SOURCE) $(DEP_CPP_CALC_) "$(INTDIR)"
 
-".\WinRel\calc.obj" :  $(SOURCE)  $(INTDIR)
-
-!ELSEIF  "$(CFG)" == "Win32 Debug"
-
-".\WinDebug\calc.obj" :  $(SOURCE)  $(INTDIR)
-
-!ENDIF 
 
 # End Source File
 ################################################################################
 # Begin Source File
 
 SOURCE=.\oswin32\ostext.c
+DEP_CPP_OSTEX=\
+	".\elvis.h"\
+	{$(INCLUDE)}"\sys\Types.h"\
+	".\config.h"\
+	".\elvctype.h"\
+	".\version.h"\
+	".\oswin32\osdef.h"\
+	".\safe.h"\
+	".\options.h"\
+	".\optglob.h"\
+	".\session.h"\
+	".\lowbuf.h"\
+	".\message.h"\
+	".\buffer.h"\
+	".\mark.h"\
+	".\buffer2.h"\
+	".\options2.h"\
+	".\scan.h"\
+	".\opsys.h"\
+	".\map.h"\
+	".\gui.h"\
+	".\display.h"\
+	".\draw.h"\
+	".\state.h"\
+	".\window.h"\
+	".\gui2.h"\
+	".\display2.h"\
+	".\draw2.h"\
+	".\state2.h"\
+	".\event.h"\
+	".\input.h"\
+	".\vi.h"\
+	".\regexp.h"\
+	".\ex.h"\
+	".\move.h"\
+	".\vicmd.h"\
+	".\operator.h"\
+	".\cut.h"\
+	".\elvisio.h"\
+	".\lp.h"\
+	".\calc.h"\
+	".\more.h"\
+	".\digraph.h"\
+	".\tag.h"\
+	".\tagsrch.h"\
+	".\tagelvis.h"\
+	".\need.h"\
+	".\misc.h"\
+	
 
-!IF  "$(CFG)" == "Win32 Release"
+"$(INTDIR)\ostext.obj" : $(SOURCE) $(DEP_CPP_OSTEX) "$(INTDIR)"
+   $(CPP) $(CPP_PROJ) $(SOURCE)
 
-".\WinRel\ostext.obj" :  $(SOURCE)  $(INTDIR)
-   $(CPP) $(CPP_PROJ)  $(SOURCE) 
-
-!ELSEIF  "$(CFG)" == "Win32 Debug"
-
-".\WinDebug\ostext.obj" :  $(SOURCE)  $(INTDIR)
-   $(CPP) $(CPP_PROJ)  $(SOURCE) 
-
-!ENDIF 
 
 # End Source File
 ################################################################################
 # Begin Source File
 
 SOURCE=.\vi.c
+DEP_CPP_VI_C30=\
+	".\elvis.h"\
+	".\config.h"\
+	".\elvctype.h"\
+	".\version.h"\
+	".\oswin32\osdef.h"\
+	".\safe.h"\
+	".\options.h"\
+	".\optglob.h"\
+	".\session.h"\
+	".\lowbuf.h"\
+	".\message.h"\
+	".\buffer.h"\
+	".\mark.h"\
+	".\buffer2.h"\
+	".\options2.h"\
+	".\scan.h"\
+	".\opsys.h"\
+	".\map.h"\
+	".\gui.h"\
+	".\display.h"\
+	".\draw.h"\
+	".\state.h"\
+	".\window.h"\
+	".\gui2.h"\
+	".\display2.h"\
+	".\draw2.h"\
+	".\state2.h"\
+	".\event.h"\
+	".\input.h"\
+	".\vi.h"\
+	".\regexp.h"\
+	".\ex.h"\
+	".\move.h"\
+	".\vicmd.h"\
+	".\operator.h"\
+	".\cut.h"\
+	".\elvisio.h"\
+	".\lp.h"\
+	".\calc.h"\
+	".\more.h"\
+	".\digraph.h"\
+	".\tag.h"\
+	".\tagsrch.h"\
+	".\tagelvis.h"\
+	".\need.h"\
+	".\misc.h"\
+	
 
-!IF  "$(CFG)" == "Win32 Release"
+"$(INTDIR)\vi.obj" : $(SOURCE) $(DEP_CPP_VI_C30) "$(INTDIR)"
 
-".\WinRel\vi.obj" :  $(SOURCE)  $(INTDIR)
-
-!ELSEIF  "$(CFG)" == "Win32 Debug"
-
-".\WinDebug\vi.obj" :  $(SOURCE)  $(INTDIR)
-
-!ENDIF 
 
 # End Source File
 ################################################################################
 # Begin Source File
 
 SOURCE=.\need.c
+DEP_CPP_NEED_=\
+	".\elvis.h"\
+	".\config.h"\
+	".\elvctype.h"\
+	".\version.h"\
+	".\oswin32\osdef.h"\
+	".\safe.h"\
+	".\options.h"\
+	".\optglob.h"\
+	".\session.h"\
+	".\lowbuf.h"\
+	".\message.h"\
+	".\buffer.h"\
+	".\mark.h"\
+	".\buffer2.h"\
+	".\options2.h"\
+	".\scan.h"\
+	".\opsys.h"\
+	".\map.h"\
+	".\gui.h"\
+	".\display.h"\
+	".\draw.h"\
+	".\state.h"\
+	".\window.h"\
+	".\gui2.h"\
+	".\display2.h"\
+	".\draw2.h"\
+	".\state2.h"\
+	".\event.h"\
+	".\input.h"\
+	".\vi.h"\
+	".\regexp.h"\
+	".\ex.h"\
+	".\move.h"\
+	".\vicmd.h"\
+	".\operator.h"\
+	".\cut.h"\
+	".\elvisio.h"\
+	".\lp.h"\
+	".\calc.h"\
+	".\more.h"\
+	".\digraph.h"\
+	".\tag.h"\
+	".\tagsrch.h"\
+	".\tagelvis.h"\
+	".\need.h"\
+	".\misc.h"\
+	
 
-!IF  "$(CFG)" == "Win32 Release"
+"$(INTDIR)\need.obj" : $(SOURCE) $(DEP_CPP_NEED_) "$(INTDIR)"
 
-".\WinRel\need.obj" :  $(SOURCE)  $(INTDIR)
-
-!ELSEIF  "$(CFG)" == "Win32 Debug"
-
-".\WinDebug\need.obj" :  $(SOURCE)  $(INTDIR)
-
-!ENDIF 
 
 # End Source File
 ################################################################################
 # Begin Source File
 
 SOURCE=.\window.c
+DEP_CPP_WINDO=\
+	".\elvis.h"\
+	".\config.h"\
+	".\elvctype.h"\
+	".\version.h"\
+	".\oswin32\osdef.h"\
+	".\safe.h"\
+	".\options.h"\
+	".\optglob.h"\
+	".\session.h"\
+	".\lowbuf.h"\
+	".\message.h"\
+	".\buffer.h"\
+	".\mark.h"\
+	".\buffer2.h"\
+	".\options2.h"\
+	".\scan.h"\
+	".\opsys.h"\
+	".\map.h"\
+	".\gui.h"\
+	".\display.h"\
+	".\draw.h"\
+	".\state.h"\
+	".\window.h"\
+	".\gui2.h"\
+	".\display2.h"\
+	".\draw2.h"\
+	".\state2.h"\
+	".\event.h"\
+	".\input.h"\
+	".\vi.h"\
+	".\regexp.h"\
+	".\ex.h"\
+	".\move.h"\
+	".\vicmd.h"\
+	".\operator.h"\
+	".\cut.h"\
+	".\elvisio.h"\
+	".\lp.h"\
+	".\calc.h"\
+	".\more.h"\
+	".\digraph.h"\
+	".\tag.h"\
+	".\tagsrch.h"\
+	".\tagelvis.h"\
+	".\need.h"\
+	".\misc.h"\
+	
 
-!IF  "$(CFG)" == "Win32 Release"
+"$(INTDIR)\window.obj" : $(SOURCE) $(DEP_CPP_WINDO) "$(INTDIR)"
 
-".\WinRel\window.obj" :  $(SOURCE)  $(INTDIR)
-
-!ELSEIF  "$(CFG)" == "Win32 Debug"
-
-".\WinDebug\window.obj" :  $(SOURCE)  $(INTDIR)
-
-!ENDIF 
 
 # End Source File
 ################################################################################
 # Begin Source File
 
 SOURCE=.\io.c
+DEP_CPP_IO_C36=\
+	".\elvis.h"\
+	".\config.h"\
+	".\elvctype.h"\
+	".\version.h"\
+	".\oswin32\osdef.h"\
+	".\safe.h"\
+	".\options.h"\
+	".\optglob.h"\
+	".\session.h"\
+	".\lowbuf.h"\
+	".\message.h"\
+	".\buffer.h"\
+	".\mark.h"\
+	".\buffer2.h"\
+	".\options2.h"\
+	".\scan.h"\
+	".\opsys.h"\
+	".\map.h"\
+	".\gui.h"\
+	".\display.h"\
+	".\draw.h"\
+	".\state.h"\
+	".\window.h"\
+	".\gui2.h"\
+	".\display2.h"\
+	".\draw2.h"\
+	".\state2.h"\
+	".\event.h"\
+	".\input.h"\
+	".\vi.h"\
+	".\regexp.h"\
+	".\ex.h"\
+	".\move.h"\
+	".\vicmd.h"\
+	".\operator.h"\
+	".\cut.h"\
+	".\elvisio.h"\
+	".\lp.h"\
+	".\calc.h"\
+	".\more.h"\
+	".\digraph.h"\
+	".\tag.h"\
+	".\tagsrch.h"\
+	".\tagelvis.h"\
+	".\need.h"\
+	".\misc.h"\
+	
 
-!IF  "$(CFG)" == "Win32 Release"
+"$(INTDIR)\io.obj" : $(SOURCE) $(DEP_CPP_IO_C36) "$(INTDIR)"
 
-".\WinRel\io.obj" :  $(SOURCE)  $(INTDIR)
-
-!ELSEIF  "$(CFG)" == "Win32 Debug"
-
-".\WinDebug\io.obj" :  $(SOURCE)  $(INTDIR)
-
-!ENDIF 
 
 # End Source File
 ################################################################################
 # Begin Source File
 
 SOURCE=.\oswin32\osdir.c
+DEP_CPP_OSDIR=\
+	".\elvis.h"\
+	{$(INCLUDE)}"\sys\Types.h"\
+	{$(INCLUDE)}"\sys\Stat.h"\
+	".\config.h"\
+	".\elvctype.h"\
+	".\version.h"\
+	".\oswin32\osdef.h"\
+	".\safe.h"\
+	".\options.h"\
+	".\optglob.h"\
+	".\session.h"\
+	".\lowbuf.h"\
+	".\message.h"\
+	".\buffer.h"\
+	".\mark.h"\
+	".\buffer2.h"\
+	".\options2.h"\
+	".\scan.h"\
+	".\opsys.h"\
+	".\map.h"\
+	".\gui.h"\
+	".\display.h"\
+	".\draw.h"\
+	".\state.h"\
+	".\window.h"\
+	".\gui2.h"\
+	".\display2.h"\
+	".\draw2.h"\
+	".\state2.h"\
+	".\event.h"\
+	".\input.h"\
+	".\vi.h"\
+	".\regexp.h"\
+	".\ex.h"\
+	".\move.h"\
+	".\vicmd.h"\
+	".\operator.h"\
+	".\cut.h"\
+	".\elvisio.h"\
+	".\lp.h"\
+	".\calc.h"\
+	".\more.h"\
+	".\digraph.h"\
+	".\tag.h"\
+	".\tagsrch.h"\
+	".\tagelvis.h"\
+	".\need.h"\
+	".\misc.h"\
+	
 
-!IF  "$(CFG)" == "Win32 Release"
+"$(INTDIR)\osdir.obj" : $(SOURCE) $(DEP_CPP_OSDIR) "$(INTDIR)"
+   $(CPP) $(CPP_PROJ) $(SOURCE)
 
-".\WinRel\osdir.obj" :  $(SOURCE)  $(INTDIR)
-   $(CPP) $(CPP_PROJ)  $(SOURCE) 
-
-!ELSEIF  "$(CFG)" == "Win32 Debug"
-
-".\WinDebug\osdir.obj" :  $(SOURCE)  $(INTDIR)
-   $(CPP) $(CPP_PROJ)  $(SOURCE) 
-
-!ENDIF 
 
 # End Source File
 ################################################################################
 # Begin Source File
 
 SOURCE=.\safe.c
+DEP_CPP_SAFE_=\
+	".\elvis.h"\
+	".\config.h"\
+	".\elvctype.h"\
+	".\version.h"\
+	".\oswin32\osdef.h"\
+	".\safe.h"\
+	".\options.h"\
+	".\optglob.h"\
+	".\session.h"\
+	".\lowbuf.h"\
+	".\message.h"\
+	".\buffer.h"\
+	".\mark.h"\
+	".\buffer2.h"\
+	".\options2.h"\
+	".\scan.h"\
+	".\opsys.h"\
+	".\map.h"\
+	".\gui.h"\
+	".\display.h"\
+	".\draw.h"\
+	".\state.h"\
+	".\window.h"\
+	".\gui2.h"\
+	".\display2.h"\
+	".\draw2.h"\
+	".\state2.h"\
+	".\event.h"\
+	".\input.h"\
+	".\vi.h"\
+	".\regexp.h"\
+	".\ex.h"\
+	".\move.h"\
+	".\vicmd.h"\
+	".\operator.h"\
+	".\cut.h"\
+	".\elvisio.h"\
+	".\lp.h"\
+	".\calc.h"\
+	".\more.h"\
+	".\digraph.h"\
+	".\tag.h"\
+	".\tagsrch.h"\
+	".\tagelvis.h"\
+	".\need.h"\
+	".\misc.h"\
+	
 
-!IF  "$(CFG)" == "Win32 Release"
+"$(INTDIR)\safe.obj" : $(SOURCE) $(DEP_CPP_SAFE_) "$(INTDIR)"
 
-".\WinRel\safe.obj" :  $(SOURCE)  $(INTDIR)
-
-!ELSEIF  "$(CFG)" == "Win32 Debug"
-
-".\WinDebug\safe.obj" :  $(SOURCE)  $(INTDIR)
-
-!ENDIF 
 
 # End Source File
 ################################################################################
 # Begin Source File
 
 SOURCE=.\regsub.c
+DEP_CPP_REGSU=\
+	".\elvis.h"\
+	".\config.h"\
+	".\elvctype.h"\
+	".\version.h"\
+	".\oswin32\osdef.h"\
+	".\safe.h"\
+	".\options.h"\
+	".\optglob.h"\
+	".\session.h"\
+	".\lowbuf.h"\
+	".\message.h"\
+	".\buffer.h"\
+	".\mark.h"\
+	".\buffer2.h"\
+	".\options2.h"\
+	".\scan.h"\
+	".\opsys.h"\
+	".\map.h"\
+	".\gui.h"\
+	".\display.h"\
+	".\draw.h"\
+	".\state.h"\
+	".\window.h"\
+	".\gui2.h"\
+	".\display2.h"\
+	".\draw2.h"\
+	".\state2.h"\
+	".\event.h"\
+	".\input.h"\
+	".\vi.h"\
+	".\regexp.h"\
+	".\ex.h"\
+	".\move.h"\
+	".\vicmd.h"\
+	".\operator.h"\
+	".\cut.h"\
+	".\elvisio.h"\
+	".\lp.h"\
+	".\calc.h"\
+	".\more.h"\
+	".\digraph.h"\
+	".\tag.h"\
+	".\tagsrch.h"\
+	".\tagelvis.h"\
+	".\need.h"\
+	".\misc.h"\
+	
 
-!IF  "$(CFG)" == "Win32 Release"
+"$(INTDIR)\regsub.obj" : $(SOURCE) $(DEP_CPP_REGSU) "$(INTDIR)"
 
-".\WinRel\regsub.obj" :  $(SOURCE)  $(INTDIR)
-
-!ELSEIF  "$(CFG)" == "Win32 Debug"
-
-".\WinDebug\regsub.obj" :  $(SOURCE)  $(INTDIR)
-
-!ENDIF 
 
 # End Source File
 ################################################################################
 # Begin Source File
 
 SOURCE=.\ex.c
+DEP_CPP_EX_C3e=\
+	".\elvis.h"\
+	".\config.h"\
+	".\elvctype.h"\
+	".\version.h"\
+	".\oswin32\osdef.h"\
+	".\safe.h"\
+	".\options.h"\
+	".\optglob.h"\
+	".\session.h"\
+	".\lowbuf.h"\
+	".\message.h"\
+	".\buffer.h"\
+	".\mark.h"\
+	".\buffer2.h"\
+	".\options2.h"\
+	".\scan.h"\
+	".\opsys.h"\
+	".\map.h"\
+	".\gui.h"\
+	".\display.h"\
+	".\draw.h"\
+	".\state.h"\
+	".\window.h"\
+	".\gui2.h"\
+	".\display2.h"\
+	".\draw2.h"\
+	".\state2.h"\
+	".\event.h"\
+	".\input.h"\
+	".\vi.h"\
+	".\regexp.h"\
+	".\ex.h"\
+	".\move.h"\
+	".\vicmd.h"\
+	".\operator.h"\
+	".\cut.h"\
+	".\elvisio.h"\
+	".\lp.h"\
+	".\calc.h"\
+	".\more.h"\
+	".\digraph.h"\
+	".\tag.h"\
+	".\tagsrch.h"\
+	".\tagelvis.h"\
+	".\need.h"\
+	".\misc.h"\
+	
 
-!IF  "$(CFG)" == "Win32 Release"
+"$(INTDIR)\ex.obj" : $(SOURCE) $(DEP_CPP_EX_C3e) "$(INTDIR)"
 
-".\WinRel\ex.obj" :  $(SOURCE)  $(INTDIR)
-
-!ELSEIF  "$(CFG)" == "Win32 Debug"
-
-".\WinDebug\ex.obj" :  $(SOURCE)  $(INTDIR)
-
-!ENDIF 
 
 # End Source File
 ################################################################################
 # Begin Source File
 
 SOURCE=.\buffer.c
+DEP_CPP_BUFFE=\
+	".\elvis.h"\
+	".\config.h"\
+	".\elvctype.h"\
+	".\version.h"\
+	".\oswin32\osdef.h"\
+	".\safe.h"\
+	".\options.h"\
+	".\optglob.h"\
+	".\session.h"\
+	".\lowbuf.h"\
+	".\message.h"\
+	".\buffer.h"\
+	".\mark.h"\
+	".\buffer2.h"\
+	".\options2.h"\
+	".\scan.h"\
+	".\opsys.h"\
+	".\map.h"\
+	".\gui.h"\
+	".\display.h"\
+	".\draw.h"\
+	".\state.h"\
+	".\window.h"\
+	".\gui2.h"\
+	".\display2.h"\
+	".\draw2.h"\
+	".\state2.h"\
+	".\event.h"\
+	".\input.h"\
+	".\vi.h"\
+	".\regexp.h"\
+	".\ex.h"\
+	".\move.h"\
+	".\vicmd.h"\
+	".\operator.h"\
+	".\cut.h"\
+	".\elvisio.h"\
+	".\lp.h"\
+	".\calc.h"\
+	".\more.h"\
+	".\digraph.h"\
+	".\tag.h"\
+	".\tagsrch.h"\
+	".\tagelvis.h"\
+	".\need.h"\
+	".\misc.h"\
+	
 
-!IF  "$(CFG)" == "Win32 Release"
+"$(INTDIR)\buffer.obj" : $(SOURCE) $(DEP_CPP_BUFFE) "$(INTDIR)"
 
-".\WinRel\buffer.obj" :  $(SOURCE)  $(INTDIR)
-
-!ELSEIF  "$(CFG)" == "Win32 Debug"
-
-".\WinDebug\buffer.obj" :  $(SOURCE)  $(INTDIR)
-
-!ENDIF 
 
 # End Source File
 ################################################################################
 # Begin Source File
 
 SOURCE=.\event.c
+DEP_CPP_EVENT=\
+	".\elvis.h"\
+	".\config.h"\
+	".\elvctype.h"\
+	".\version.h"\
+	".\oswin32\osdef.h"\
+	".\safe.h"\
+	".\options.h"\
+	".\optglob.h"\
+	".\session.h"\
+	".\lowbuf.h"\
+	".\message.h"\
+	".\buffer.h"\
+	".\mark.h"\
+	".\buffer2.h"\
+	".\options2.h"\
+	".\scan.h"\
+	".\opsys.h"\
+	".\map.h"\
+	".\gui.h"\
+	".\display.h"\
+	".\draw.h"\
+	".\state.h"\
+	".\window.h"\
+	".\gui2.h"\
+	".\display2.h"\
+	".\draw2.h"\
+	".\state2.h"\
+	".\event.h"\
+	".\input.h"\
+	".\vi.h"\
+	".\regexp.h"\
+	".\ex.h"\
+	".\move.h"\
+	".\vicmd.h"\
+	".\operator.h"\
+	".\cut.h"\
+	".\elvisio.h"\
+	".\lp.h"\
+	".\calc.h"\
+	".\more.h"\
+	".\digraph.h"\
+	".\tag.h"\
+	".\tagsrch.h"\
+	".\tagelvis.h"\
+	".\need.h"\
+	".\misc.h"\
+	
 
-!IF  "$(CFG)" == "Win32 Release"
+"$(INTDIR)\event.obj" : $(SOURCE) $(DEP_CPP_EVENT) "$(INTDIR)"
 
-".\WinRel\event.obj" :  $(SOURCE)  $(INTDIR)
-
-!ELSEIF  "$(CFG)" == "Win32 Debug"
-
-".\WinDebug\event.obj" :  $(SOURCE)  $(INTDIR)
-
-!ENDIF 
 
 # End Source File
 ################################################################################
 # Begin Source File
 
 SOURCE=.\session.c
+DEP_CPP_SESSI=\
+	".\elvis.h"\
+	".\config.h"\
+	".\elvctype.h"\
+	".\version.h"\
+	".\oswin32\osdef.h"\
+	".\safe.h"\
+	".\options.h"\
+	".\optglob.h"\
+	".\session.h"\
+	".\lowbuf.h"\
+	".\message.h"\
+	".\buffer.h"\
+	".\mark.h"\
+	".\buffer2.h"\
+	".\options2.h"\
+	".\scan.h"\
+	".\opsys.h"\
+	".\map.h"\
+	".\gui.h"\
+	".\display.h"\
+	".\draw.h"\
+	".\state.h"\
+	".\window.h"\
+	".\gui2.h"\
+	".\display2.h"\
+	".\draw2.h"\
+	".\state2.h"\
+	".\event.h"\
+	".\input.h"\
+	".\vi.h"\
+	".\regexp.h"\
+	".\ex.h"\
+	".\move.h"\
+	".\vicmd.h"\
+	".\operator.h"\
+	".\cut.h"\
+	".\elvisio.h"\
+	".\lp.h"\
+	".\calc.h"\
+	".\more.h"\
+	".\digraph.h"\
+	".\tag.h"\
+	".\tagsrch.h"\
+	".\tagelvis.h"\
+	".\need.h"\
+	".\misc.h"\
+	
 
-!IF  "$(CFG)" == "Win32 Release"
+"$(INTDIR)\session.obj" : $(SOURCE) $(DEP_CPP_SESSI) "$(INTDIR)"
 
-".\WinRel\session.obj" :  $(SOURCE)  $(INTDIR)
-
-!ELSEIF  "$(CFG)" == "Win32 Debug"
-
-".\WinDebug\session.obj" :  $(SOURCE)  $(INTDIR)
-
-!ENDIF 
 
 # End Source File
 ################################################################################
 # Begin Source File
 
 SOURCE=.\guicurs.c
+DEP_CPP_GUICU=\
+	".\elvis.h"\
+	".\config.h"\
+	".\elvctype.h"\
+	".\version.h"\
+	".\oswin32\osdef.h"\
+	".\safe.h"\
+	".\options.h"\
+	".\optglob.h"\
+	".\session.h"\
+	".\lowbuf.h"\
+	".\message.h"\
+	".\buffer.h"\
+	".\mark.h"\
+	".\buffer2.h"\
+	".\options2.h"\
+	".\scan.h"\
+	".\opsys.h"\
+	".\map.h"\
+	".\gui.h"\
+	".\display.h"\
+	".\draw.h"\
+	".\state.h"\
+	".\window.h"\
+	".\gui2.h"\
+	".\display2.h"\
+	".\draw2.h"\
+	".\state2.h"\
+	".\event.h"\
+	".\input.h"\
+	".\vi.h"\
+	".\regexp.h"\
+	".\ex.h"\
+	".\move.h"\
+	".\vicmd.h"\
+	".\operator.h"\
+	".\cut.h"\
+	".\elvisio.h"\
+	".\lp.h"\
+	".\calc.h"\
+	".\more.h"\
+	".\digraph.h"\
+	".\tag.h"\
+	".\tagsrch.h"\
+	".\tagelvis.h"\
+	".\need.h"\
+	".\misc.h"\
+	
 
-!IF  "$(CFG)" == "Win32 Release"
+"$(INTDIR)\guicurs.obj" : $(SOURCE) $(DEP_CPP_GUICU) "$(INTDIR)"
 
-".\WinRel\guicurs.obj" :  $(SOURCE)  $(INTDIR)
-
-!ELSEIF  "$(CFG)" == "Win32 Debug"
-
-".\WinDebug\guicurs.obj" :  $(SOURCE)  $(INTDIR)
-
-!ENDIF 
 
 # End Source File
 ################################################################################
 # Begin Source File
 
 SOURCE=.\dmmarkup.c
+DEP_CPP_DMMAR=\
+	".\elvis.h"\
+	".\config.h"\
+	".\elvctype.h"\
+	".\version.h"\
+	".\oswin32\osdef.h"\
+	".\safe.h"\
+	".\options.h"\
+	".\optglob.h"\
+	".\session.h"\
+	".\lowbuf.h"\
+	".\message.h"\
+	".\buffer.h"\
+	".\mark.h"\
+	".\buffer2.h"\
+	".\options2.h"\
+	".\scan.h"\
+	".\opsys.h"\
+	".\map.h"\
+	".\gui.h"\
+	".\display.h"\
+	".\draw.h"\
+	".\state.h"\
+	".\window.h"\
+	".\gui2.h"\
+	".\display2.h"\
+	".\draw2.h"\
+	".\state2.h"\
+	".\event.h"\
+	".\input.h"\
+	".\vi.h"\
+	".\regexp.h"\
+	".\ex.h"\
+	".\move.h"\
+	".\vicmd.h"\
+	".\operator.h"\
+	".\cut.h"\
+	".\elvisio.h"\
+	".\lp.h"\
+	".\calc.h"\
+	".\more.h"\
+	".\digraph.h"\
+	".\tag.h"\
+	".\tagsrch.h"\
+	".\tagelvis.h"\
+	".\need.h"\
+	".\misc.h"\
+	
 
-!IF  "$(CFG)" == "Win32 Release"
+"$(INTDIR)\dmmarkup.obj" : $(SOURCE) $(DEP_CPP_DMMAR) "$(INTDIR)"
 
-".\WinRel\dmmarkup.obj" :  $(SOURCE)  $(INTDIR)
-
-!ELSEIF  "$(CFG)" == "Win32 Debug"
-
-".\WinDebug\dmmarkup.obj" :  $(SOURCE)  $(INTDIR)
-
-!ENDIF 
 
 # End Source File
 ################################################################################
 # Begin Source File
 
 SOURCE=.\mark.c
+DEP_CPP_MARK_=\
+	".\elvis.h"\
+	".\config.h"\
+	".\elvctype.h"\
+	".\version.h"\
+	".\oswin32\osdef.h"\
+	".\safe.h"\
+	".\options.h"\
+	".\optglob.h"\
+	".\session.h"\
+	".\lowbuf.h"\
+	".\message.h"\
+	".\buffer.h"\
+	".\mark.h"\
+	".\buffer2.h"\
+	".\options2.h"\
+	".\scan.h"\
+	".\opsys.h"\
+	".\map.h"\
+	".\gui.h"\
+	".\display.h"\
+	".\draw.h"\
+	".\state.h"\
+	".\window.h"\
+	".\gui2.h"\
+	".\display2.h"\
+	".\draw2.h"\
+	".\state2.h"\
+	".\event.h"\
+	".\input.h"\
+	".\vi.h"\
+	".\regexp.h"\
+	".\ex.h"\
+	".\move.h"\
+	".\vicmd.h"\
+	".\operator.h"\
+	".\cut.h"\
+	".\elvisio.h"\
+	".\lp.h"\
+	".\calc.h"\
+	".\more.h"\
+	".\digraph.h"\
+	".\tag.h"\
+	".\tagsrch.h"\
+	".\tagelvis.h"\
+	".\need.h"\
+	".\misc.h"\
+	
 
-!IF  "$(CFG)" == "Win32 Release"
+"$(INTDIR)\mark.obj" : $(SOURCE) $(DEP_CPP_MARK_) "$(INTDIR)"
 
-".\WinRel\mark.obj" :  $(SOURCE)  $(INTDIR)
-
-!ELSEIF  "$(CFG)" == "Win32 Debug"
-
-".\WinDebug\mark.obj" :  $(SOURCE)  $(INTDIR)
-
-!ENDIF 
 
 # End Source File
 ################################################################################
 # Begin Source File
 
 SOURCE=.\optglob.c
+DEP_CPP_OPTGL=\
+	".\elvis.h"\
+	".\config.h"\
+	".\elvctype.h"\
+	".\version.h"\
+	".\oswin32\osdef.h"\
+	".\safe.h"\
+	".\options.h"\
+	".\optglob.h"\
+	".\session.h"\
+	".\lowbuf.h"\
+	".\message.h"\
+	".\buffer.h"\
+	".\mark.h"\
+	".\buffer2.h"\
+	".\options2.h"\
+	".\scan.h"\
+	".\opsys.h"\
+	".\map.h"\
+	".\gui.h"\
+	".\display.h"\
+	".\draw.h"\
+	".\state.h"\
+	".\window.h"\
+	".\gui2.h"\
+	".\display2.h"\
+	".\draw2.h"\
+	".\state2.h"\
+	".\event.h"\
+	".\input.h"\
+	".\vi.h"\
+	".\regexp.h"\
+	".\ex.h"\
+	".\move.h"\
+	".\vicmd.h"\
+	".\operator.h"\
+	".\cut.h"\
+	".\elvisio.h"\
+	".\lp.h"\
+	".\calc.h"\
+	".\more.h"\
+	".\digraph.h"\
+	".\tag.h"\
+	".\tagsrch.h"\
+	".\tagelvis.h"\
+	".\need.h"\
+	".\misc.h"\
+	
 
-!IF  "$(CFG)" == "Win32 Release"
+"$(INTDIR)\optglob.obj" : $(SOURCE) $(DEP_CPP_OPTGL) "$(INTDIR)"
 
-".\WinRel\optglob.obj" :  $(SOURCE)  $(INTDIR)
-
-!ELSEIF  "$(CFG)" == "Win32 Debug"
-
-".\WinDebug\optglob.obj" :  $(SOURCE)  $(INTDIR)
-
-!ENDIF 
 
 # End Source File
 ################################################################################
 # Begin Source File
 
 SOURCE=.\lpps.c
+DEP_CPP_LPPS_=\
+	".\elvis.h"\
+	".\config.h"\
+	".\elvctype.h"\
+	".\version.h"\
+	".\oswin32\osdef.h"\
+	".\safe.h"\
+	".\options.h"\
+	".\optglob.h"\
+	".\session.h"\
+	".\lowbuf.h"\
+	".\message.h"\
+	".\buffer.h"\
+	".\mark.h"\
+	".\buffer2.h"\
+	".\options2.h"\
+	".\scan.h"\
+	".\opsys.h"\
+	".\map.h"\
+	".\gui.h"\
+	".\display.h"\
+	".\draw.h"\
+	".\state.h"\
+	".\window.h"\
+	".\gui2.h"\
+	".\display2.h"\
+	".\draw2.h"\
+	".\state2.h"\
+	".\event.h"\
+	".\input.h"\
+	".\vi.h"\
+	".\regexp.h"\
+	".\ex.h"\
+	".\move.h"\
+	".\vicmd.h"\
+	".\operator.h"\
+	".\cut.h"\
+	".\elvisio.h"\
+	".\lp.h"\
+	".\calc.h"\
+	".\more.h"\
+	".\digraph.h"\
+	".\tag.h"\
+	".\tagsrch.h"\
+	".\tagelvis.h"\
+	".\need.h"\
+	".\misc.h"\
+	
 
-!IF  "$(CFG)" == "Win32 Release"
+"$(INTDIR)\lpps.obj" : $(SOURCE) $(DEP_CPP_LPPS_) "$(INTDIR)"
 
-".\WinRel\lpps.obj" :  $(SOURCE)  $(INTDIR)
-
-!ELSEIF  "$(CFG)" == "Win32 Debug"
-
-".\WinDebug\lpps.obj" :  $(SOURCE)  $(INTDIR)
-
-!ENDIF 
-
-# End Source File
-################################################################################
-# Begin Source File
-
-SOURCE=.\guix11.c
-
-!IF  "$(CFG)" == "Win32 Release"
-
-".\WinRel\guix11.obj" :  $(SOURCE)  $(INTDIR)
-
-!ELSEIF  "$(CFG)" == "Win32 Debug"
-
-".\WinDebug\guix11.obj" :  $(SOURCE)  $(INTDIR)
-
-!ENDIF 
 
 # End Source File
 ################################################################################
 # Begin Source File
 
 SOURCE=.\message.c
+DEP_CPP_MESSA=\
+	".\elvis.h"\
+	".\config.h"\
+	".\elvctype.h"\
+	".\version.h"\
+	".\oswin32\osdef.h"\
+	".\safe.h"\
+	".\options.h"\
+	".\optglob.h"\
+	".\session.h"\
+	".\lowbuf.h"\
+	".\message.h"\
+	".\buffer.h"\
+	".\mark.h"\
+	".\buffer2.h"\
+	".\options2.h"\
+	".\scan.h"\
+	".\opsys.h"\
+	".\map.h"\
+	".\gui.h"\
+	".\display.h"\
+	".\draw.h"\
+	".\state.h"\
+	".\window.h"\
+	".\gui2.h"\
+	".\display2.h"\
+	".\draw2.h"\
+	".\state2.h"\
+	".\event.h"\
+	".\input.h"\
+	".\vi.h"\
+	".\regexp.h"\
+	".\ex.h"\
+	".\move.h"\
+	".\vicmd.h"\
+	".\operator.h"\
+	".\cut.h"\
+	".\elvisio.h"\
+	".\lp.h"\
+	".\calc.h"\
+	".\more.h"\
+	".\digraph.h"\
+	".\tag.h"\
+	".\tagsrch.h"\
+	".\tagelvis.h"\
+	".\need.h"\
+	".\misc.h"\
+	
 
-!IF  "$(CFG)" == "Win32 Release"
+"$(INTDIR)\message.obj" : $(SOURCE) $(DEP_CPP_MESSA) "$(INTDIR)"
 
-".\WinRel\message.obj" :  $(SOURCE)  $(INTDIR)
-
-!ELSEIF  "$(CFG)" == "Win32 Debug"
-
-".\WinDebug\message.obj" :  $(SOURCE)  $(INTDIR)
-
-!ENDIF 
 
 # End Source File
 ################################################################################
 # Begin Source File
 
 SOURCE=.\dmhex.c
+DEP_CPP_DMHEX=\
+	".\elvis.h"\
+	".\config.h"\
+	".\elvctype.h"\
+	".\version.h"\
+	".\oswin32\osdef.h"\
+	".\safe.h"\
+	".\options.h"\
+	".\optglob.h"\
+	".\session.h"\
+	".\lowbuf.h"\
+	".\message.h"\
+	".\buffer.h"\
+	".\mark.h"\
+	".\buffer2.h"\
+	".\options2.h"\
+	".\scan.h"\
+	".\opsys.h"\
+	".\map.h"\
+	".\gui.h"\
+	".\display.h"\
+	".\draw.h"\
+	".\state.h"\
+	".\window.h"\
+	".\gui2.h"\
+	".\display2.h"\
+	".\draw2.h"\
+	".\state2.h"\
+	".\event.h"\
+	".\input.h"\
+	".\vi.h"\
+	".\regexp.h"\
+	".\ex.h"\
+	".\move.h"\
+	".\vicmd.h"\
+	".\operator.h"\
+	".\cut.h"\
+	".\elvisio.h"\
+	".\lp.h"\
+	".\calc.h"\
+	".\more.h"\
+	".\digraph.h"\
+	".\tag.h"\
+	".\tagsrch.h"\
+	".\tagelvis.h"\
+	".\need.h"\
+	".\misc.h"\
+	
 
-!IF  "$(CFG)" == "Win32 Release"
+"$(INTDIR)\dmhex.obj" : $(SOURCE) $(DEP_CPP_DMHEX) "$(INTDIR)"
 
-".\WinRel\dmhex.obj" :  $(SOURCE)  $(INTDIR)
-
-!ELSEIF  "$(CFG)" == "Win32 Debug"
-
-".\WinDebug\dmhex.obj" :  $(SOURCE)  $(INTDIR)
-
-!ENDIF 
 
 # End Source File
 ################################################################################
 # Begin Source File
 
 SOURCE=.\cut.c
+DEP_CPP_CUT_C=\
+	".\elvis.h"\
+	".\config.h"\
+	".\elvctype.h"\
+	".\version.h"\
+	".\oswin32\osdef.h"\
+	".\safe.h"\
+	".\options.h"\
+	".\optglob.h"\
+	".\session.h"\
+	".\lowbuf.h"\
+	".\message.h"\
+	".\buffer.h"\
+	".\mark.h"\
+	".\buffer2.h"\
+	".\options2.h"\
+	".\scan.h"\
+	".\opsys.h"\
+	".\map.h"\
+	".\gui.h"\
+	".\display.h"\
+	".\draw.h"\
+	".\state.h"\
+	".\window.h"\
+	".\gui2.h"\
+	".\display2.h"\
+	".\draw2.h"\
+	".\state2.h"\
+	".\event.h"\
+	".\input.h"\
+	".\vi.h"\
+	".\regexp.h"\
+	".\ex.h"\
+	".\move.h"\
+	".\vicmd.h"\
+	".\operator.h"\
+	".\cut.h"\
+	".\elvisio.h"\
+	".\lp.h"\
+	".\calc.h"\
+	".\more.h"\
+	".\digraph.h"\
+	".\tag.h"\
+	".\tagsrch.h"\
+	".\tagelvis.h"\
+	".\need.h"\
+	".\misc.h"\
+	
 
-!IF  "$(CFG)" == "Win32 Release"
+"$(INTDIR)\cut.obj" : $(SOURCE) $(DEP_CPP_CUT_C) "$(INTDIR)"
 
-".\WinRel\cut.obj" :  $(SOURCE)  $(INTDIR)
-
-!ELSEIF  "$(CFG)" == "Win32 Debug"
-
-".\WinDebug\cut.obj" :  $(SOURCE)  $(INTDIR)
-
-!ENDIF 
 
 # End Source File
 ################################################################################
 # Begin Source File
 
 SOURCE=.\exconfig.c
+DEP_CPP_EXCON=\
+	".\elvis.h"\
+	".\config.h"\
+	".\elvctype.h"\
+	".\version.h"\
+	".\oswin32\osdef.h"\
+	".\safe.h"\
+	".\options.h"\
+	".\optglob.h"\
+	".\session.h"\
+	".\lowbuf.h"\
+	".\message.h"\
+	".\buffer.h"\
+	".\mark.h"\
+	".\buffer2.h"\
+	".\options2.h"\
+	".\scan.h"\
+	".\opsys.h"\
+	".\map.h"\
+	".\gui.h"\
+	".\display.h"\
+	".\draw.h"\
+	".\state.h"\
+	".\window.h"\
+	".\gui2.h"\
+	".\display2.h"\
+	".\draw2.h"\
+	".\state2.h"\
+	".\event.h"\
+	".\input.h"\
+	".\vi.h"\
+	".\regexp.h"\
+	".\ex.h"\
+	".\move.h"\
+	".\vicmd.h"\
+	".\operator.h"\
+	".\cut.h"\
+	".\elvisio.h"\
+	".\lp.h"\
+	".\calc.h"\
+	".\more.h"\
+	".\digraph.h"\
+	".\tag.h"\
+	".\tagsrch.h"\
+	".\tagelvis.h"\
+	".\need.h"\
+	".\misc.h"\
+	
 
-!IF  "$(CFG)" == "Win32 Release"
+"$(INTDIR)\exconfig.obj" : $(SOURCE) $(DEP_CPP_EXCON) "$(INTDIR)"
 
-".\WinRel\exconfig.obj" :  $(SOURCE)  $(INTDIR)
-
-!ELSEIF  "$(CFG)" == "Win32 Debug"
-
-".\WinDebug\exconfig.obj" :  $(SOURCE)  $(INTDIR)
-
-!ENDIF 
 
 # End Source File
 ################################################################################
 # Begin Source File
 
 SOURCE=.\exmake.c
+DEP_CPP_EXMAK=\
+	".\elvis.h"\
+	".\config.h"\
+	".\elvctype.h"\
+	".\version.h"\
+	".\oswin32\osdef.h"\
+	".\safe.h"\
+	".\options.h"\
+	".\optglob.h"\
+	".\session.h"\
+	".\lowbuf.h"\
+	".\message.h"\
+	".\buffer.h"\
+	".\mark.h"\
+	".\buffer2.h"\
+	".\options2.h"\
+	".\scan.h"\
+	".\opsys.h"\
+	".\map.h"\
+	".\gui.h"\
+	".\display.h"\
+	".\draw.h"\
+	".\state.h"\
+	".\window.h"\
+	".\gui2.h"\
+	".\display2.h"\
+	".\draw2.h"\
+	".\state2.h"\
+	".\event.h"\
+	".\input.h"\
+	".\vi.h"\
+	".\regexp.h"\
+	".\ex.h"\
+	".\move.h"\
+	".\vicmd.h"\
+	".\operator.h"\
+	".\cut.h"\
+	".\elvisio.h"\
+	".\lp.h"\
+	".\calc.h"\
+	".\more.h"\
+	".\digraph.h"\
+	".\tag.h"\
+	".\tagsrch.h"\
+	".\tagelvis.h"\
+	".\need.h"\
+	".\misc.h"\
+	
 
-!IF  "$(CFG)" == "Win32 Release"
+"$(INTDIR)\exmake.obj" : $(SOURCE) $(DEP_CPP_EXMAK) "$(INTDIR)"
 
-".\WinRel\exmake.obj" :  $(SOURCE)  $(INTDIR)
-
-!ELSEIF  "$(CFG)" == "Win32 Debug"
-
-".\WinDebug\exmake.obj" :  $(SOURCE)  $(INTDIR)
-
-!ENDIF 
 
 # End Source File
 ################################################################################
 # Begin Source File
 
 SOURCE=.\tinytcap.c
+DEP_CPP_TINYT=\
+	".\elvis.h"\
+	".\config.h"\
+	".\elvctype.h"\
+	".\version.h"\
+	".\oswin32\osdef.h"\
+	".\safe.h"\
+	".\options.h"\
+	".\optglob.h"\
+	".\session.h"\
+	".\lowbuf.h"\
+	".\message.h"\
+	".\buffer.h"\
+	".\mark.h"\
+	".\buffer2.h"\
+	".\options2.h"\
+	".\scan.h"\
+	".\opsys.h"\
+	".\map.h"\
+	".\gui.h"\
+	".\display.h"\
+	".\draw.h"\
+	".\state.h"\
+	".\window.h"\
+	".\gui2.h"\
+	".\display2.h"\
+	".\draw2.h"\
+	".\state2.h"\
+	".\event.h"\
+	".\input.h"\
+	".\vi.h"\
+	".\regexp.h"\
+	".\ex.h"\
+	".\move.h"\
+	".\vicmd.h"\
+	".\operator.h"\
+	".\cut.h"\
+	".\elvisio.h"\
+	".\lp.h"\
+	".\calc.h"\
+	".\more.h"\
+	".\digraph.h"\
+	".\tag.h"\
+	".\tagsrch.h"\
+	".\tagelvis.h"\
+	".\need.h"\
+	".\misc.h"\
+	
 
-!IF  "$(CFG)" == "Win32 Release"
+"$(INTDIR)\tinytcap.obj" : $(SOURCE) $(DEP_CPP_TINYT) "$(INTDIR)"
 
-".\WinRel\tinytcap.obj" :  $(SOURCE)  $(INTDIR)
-
-!ELSEIF  "$(CFG)" == "Win32 Debug"
-
-".\WinDebug\tinytcap.obj" :  $(SOURCE)  $(INTDIR)
-
-!ENDIF 
 
 # End Source File
 ################################################################################
 # Begin Source File
 
 SOURCE=.\lpovrtyp.c
+DEP_CPP_LPOVR=\
+	".\elvis.h"\
+	".\config.h"\
+	".\elvctype.h"\
+	".\version.h"\
+	".\oswin32\osdef.h"\
+	".\safe.h"\
+	".\options.h"\
+	".\optglob.h"\
+	".\session.h"\
+	".\lowbuf.h"\
+	".\message.h"\
+	".\buffer.h"\
+	".\mark.h"\
+	".\buffer2.h"\
+	".\options2.h"\
+	".\scan.h"\
+	".\opsys.h"\
+	".\map.h"\
+	".\gui.h"\
+	".\display.h"\
+	".\draw.h"\
+	".\state.h"\
+	".\window.h"\
+	".\gui2.h"\
+	".\display2.h"\
+	".\draw2.h"\
+	".\state2.h"\
+	".\event.h"\
+	".\input.h"\
+	".\vi.h"\
+	".\regexp.h"\
+	".\ex.h"\
+	".\move.h"\
+	".\vicmd.h"\
+	".\operator.h"\
+	".\cut.h"\
+	".\elvisio.h"\
+	".\lp.h"\
+	".\calc.h"\
+	".\more.h"\
+	".\digraph.h"\
+	".\tag.h"\
+	".\tagsrch.h"\
+	".\tagelvis.h"\
+	".\need.h"\
+	".\misc.h"\
+	
 
-!IF  "$(CFG)" == "Win32 Release"
+"$(INTDIR)\lpovrtyp.obj" : $(SOURCE) $(DEP_CPP_LPOVR) "$(INTDIR)"
 
-".\WinRel\lpovrtyp.obj" :  $(SOURCE)  $(INTDIR)
-
-!ELSEIF  "$(CFG)" == "Win32 Debug"
-
-".\WinDebug\lpovrtyp.obj" :  $(SOURCE)  $(INTDIR)
-
-!ENDIF 
 
 # End Source File
 ################################################################################
 # Begin Source File
 
 SOURCE=.\main.c
+DEP_CPP_MAIN_=\
+	".\elvis.h"\
+	".\config.h"\
+	".\elvctype.h"\
+	".\version.h"\
+	".\oswin32\osdef.h"\
+	".\safe.h"\
+	".\options.h"\
+	".\optglob.h"\
+	".\session.h"\
+	".\lowbuf.h"\
+	".\message.h"\
+	".\buffer.h"\
+	".\mark.h"\
+	".\buffer2.h"\
+	".\options2.h"\
+	".\scan.h"\
+	".\opsys.h"\
+	".\map.h"\
+	".\gui.h"\
+	".\display.h"\
+	".\draw.h"\
+	".\state.h"\
+	".\window.h"\
+	".\gui2.h"\
+	".\display2.h"\
+	".\draw2.h"\
+	".\state2.h"\
+	".\event.h"\
+	".\input.h"\
+	".\vi.h"\
+	".\regexp.h"\
+	".\ex.h"\
+	".\move.h"\
+	".\vicmd.h"\
+	".\operator.h"\
+	".\cut.h"\
+	".\elvisio.h"\
+	".\lp.h"\
+	".\calc.h"\
+	".\more.h"\
+	".\digraph.h"\
+	".\tag.h"\
+	".\tagsrch.h"\
+	".\tagelvis.h"\
+	".\need.h"\
+	".\misc.h"\
+	
 
-!IF  "$(CFG)" == "Win32 Release"
+"$(INTDIR)\main.obj" : $(SOURCE) $(DEP_CPP_MAIN_) "$(INTDIR)"
 
-".\WinRel\main.obj" :  $(SOURCE)  $(INTDIR)
-
-!ELSEIF  "$(CFG)" == "Win32 Debug"
-
-".\WinDebug\main.obj" :  $(SOURCE)  $(INTDIR)
-
-!ENDIF 
 
 # End Source File
 ################################################################################
 # Begin Source File
 
 SOURCE=.\exedit.c
+DEP_CPP_EXEDI=\
+	".\elvis.h"\
+	".\config.h"\
+	".\elvctype.h"\
+	".\version.h"\
+	".\oswin32\osdef.h"\
+	".\safe.h"\
+	".\options.h"\
+	".\optglob.h"\
+	".\session.h"\
+	".\lowbuf.h"\
+	".\message.h"\
+	".\buffer.h"\
+	".\mark.h"\
+	".\buffer2.h"\
+	".\options2.h"\
+	".\scan.h"\
+	".\opsys.h"\
+	".\map.h"\
+	".\gui.h"\
+	".\display.h"\
+	".\draw.h"\
+	".\state.h"\
+	".\window.h"\
+	".\gui2.h"\
+	".\display2.h"\
+	".\draw2.h"\
+	".\state2.h"\
+	".\event.h"\
+	".\input.h"\
+	".\vi.h"\
+	".\regexp.h"\
+	".\ex.h"\
+	".\move.h"\
+	".\vicmd.h"\
+	".\operator.h"\
+	".\cut.h"\
+	".\elvisio.h"\
+	".\lp.h"\
+	".\calc.h"\
+	".\more.h"\
+	".\digraph.h"\
+	".\tag.h"\
+	".\tagsrch.h"\
+	".\tagelvis.h"\
+	".\need.h"\
+	".\misc.h"\
+	
 
-!IF  "$(CFG)" == "Win32 Release"
+"$(INTDIR)\exedit.obj" : $(SOURCE) $(DEP_CPP_EXEDI) "$(INTDIR)"
 
-".\WinRel\exedit.obj" :  $(SOURCE)  $(INTDIR)
-
-!ELSEIF  "$(CFG)" == "Win32 Debug"
-
-".\WinDebug\exedit.obj" :  $(SOURCE)  $(INTDIR)
-
-!ENDIF 
 
 # End Source File
 ################################################################################
 # Begin Source File
 
+SOURCE=.\exsusbt.c
+DEP_CPP_EXEDI=\
+	".\elvis.h"\
+	".\config.h"\
+	".\elvctype.h"\
+	".\version.h"\
+	".\oswin32\osdef.h"\
+	".\safe.h"\
+	".\options.h"\
+	".\optglob.h"\
+	".\session.h"\
+	".\lowbuf.h"\
+	".\message.h"\
+	".\buffer.h"\
+	".\mark.h"\
+	".\buffer2.h"\
+	".\options2.h"\
+	".\scan.h"\
+	".\opsys.h"\
+	".\map.h"\
+	".\gui.h"\
+	".\display.h"\
+	".\draw.h"\
+	".\state.h"\
+	".\window.h"\
+	".\gui2.h"\
+	".\display2.h"\
+	".\draw2.h"\
+	".\state2.h"\
+	".\event.h"\
+	".\input.h"\
+	".\vi.h"\
+	".\regexp.h"\
+	".\ex.h"\
+	".\move.h"\
+	".\vicmd.h"\
+	".\operator.h"\
+	".\cut.h"\
+	".\elvisio.h"\
+	".\lp.h"\
+	".\calc.h"\
+	".\more.h"\
+	".\digraph.h"\
+	".\tag.h"\
+	".\tagsrch.h"\
+	".\tagelvis.h"\
+	".\need.h"\
+	".\misc.h"\
+	
+
+"$(INTDIR)\exsusbt.obj" : $(SOURCE) $(DEP_CPP_EXEDI) "$(INTDIR)"
+
+
+# End Source File
+################################################################################
+################################################################################
+# Begin Source File
+
 SOURCE=.\lowbuf.c
+DEP_CPP_LOWBU=\
+	".\elvis.h"\
+	".\config.h"\
+	".\elvctype.h"\
+	".\version.h"\
+	".\oswin32\osdef.h"\
+	".\safe.h"\
+	".\options.h"\
+	".\optglob.h"\
+	".\session.h"\
+	".\lowbuf.h"\
+	".\message.h"\
+	".\buffer.h"\
+	".\mark.h"\
+	".\buffer2.h"\
+	".\options2.h"\
+	".\scan.h"\
+	".\opsys.h"\
+	".\map.h"\
+	".\gui.h"\
+	".\display.h"\
+	".\draw.h"\
+	".\state.h"\
+	".\window.h"\
+	".\gui2.h"\
+	".\display2.h"\
+	".\draw2.h"\
+	".\state2.h"\
+	".\event.h"\
+	".\input.h"\
+	".\vi.h"\
+	".\regexp.h"\
+	".\ex.h"\
+	".\move.h"\
+	".\vicmd.h"\
+	".\operator.h"\
+	".\cut.h"\
+	".\elvisio.h"\
+	".\lp.h"\
+	".\calc.h"\
+	".\more.h"\
+	".\digraph.h"\
+	".\tag.h"\
+	".\tagsrch.h"\
+	".\tagelvis.h"\
+	".\need.h"\
+	".\misc.h"\
+	
 
-!IF  "$(CFG)" == "Win32 Release"
+"$(INTDIR)\lowbuf.obj" : $(SOURCE) $(DEP_CPP_LOWBU) "$(INTDIR)"
 
-".\WinRel\lowbuf.obj" :  $(SOURCE)  $(INTDIR)
-
-!ELSEIF  "$(CFG)" == "Win32 Debug"
-
-".\WinDebug\lowbuf.obj" :  $(SOURCE)  $(INTDIR)
-
-!ENDIF 
 
 # End Source File
 ################################################################################
 # Begin Source File
 
 SOURCE=.\draw.c
+DEP_CPP_DRAW_=\
+	".\elvis.h"\
+	".\config.h"\
+	".\elvctype.h"\
+	".\version.h"\
+	".\oswin32\osdef.h"\
+	".\safe.h"\
+	".\options.h"\
+	".\optglob.h"\
+	".\session.h"\
+	".\lowbuf.h"\
+	".\message.h"\
+	".\buffer.h"\
+	".\mark.h"\
+	".\buffer2.h"\
+	".\options2.h"\
+	".\scan.h"\
+	".\opsys.h"\
+	".\map.h"\
+	".\gui.h"\
+	".\display.h"\
+	".\draw.h"\
+	".\state.h"\
+	".\window.h"\
+	".\gui2.h"\
+	".\display2.h"\
+	".\draw2.h"\
+	".\state2.h"\
+	".\event.h"\
+	".\input.h"\
+	".\vi.h"\
+	".\regexp.h"\
+	".\ex.h"\
+	".\move.h"\
+	".\vicmd.h"\
+	".\operator.h"\
+	".\cut.h"\
+	".\elvisio.h"\
+	".\lp.h"\
+	".\calc.h"\
+	".\more.h"\
+	".\digraph.h"\
+	".\tag.h"\
+	".\tagsrch.h"\
+	".\tagelvis.h"\
+	".\need.h"\
+	".\misc.h"\
+	
 
-!IF  "$(CFG)" == "Win32 Release"
+"$(INTDIR)\draw.obj" : $(SOURCE) $(DEP_CPP_DRAW_) "$(INTDIR)"
 
-".\WinRel\draw.obj" :  $(SOURCE)  $(INTDIR)
-
-!ELSEIF  "$(CFG)" == "Win32 Debug"
-
-".\WinDebug\draw.obj" :  $(SOURCE)  $(INTDIR)
-
-!ENDIF 
 
 # End Source File
 ################################################################################
 # Begin Source File
 
 SOURCE=.\scan.c
+DEP_CPP_SCAN_=\
+	".\elvis.h"\
+	".\config.h"\
+	".\elvctype.h"\
+	".\version.h"\
+	".\oswin32\osdef.h"\
+	".\safe.h"\
+	".\options.h"\
+	".\optglob.h"\
+	".\session.h"\
+	".\lowbuf.h"\
+	".\message.h"\
+	".\buffer.h"\
+	".\mark.h"\
+	".\buffer2.h"\
+	".\options2.h"\
+	".\scan.h"\
+	".\opsys.h"\
+	".\map.h"\
+	".\gui.h"\
+	".\display.h"\
+	".\draw.h"\
+	".\state.h"\
+	".\window.h"\
+	".\gui2.h"\
+	".\display2.h"\
+	".\draw2.h"\
+	".\state2.h"\
+	".\event.h"\
+	".\input.h"\
+	".\vi.h"\
+	".\regexp.h"\
+	".\ex.h"\
+	".\move.h"\
+	".\vicmd.h"\
+	".\operator.h"\
+	".\cut.h"\
+	".\elvisio.h"\
+	".\lp.h"\
+	".\calc.h"\
+	".\more.h"\
+	".\digraph.h"\
+	".\tag.h"\
+	".\tagsrch.h"\
+	".\tagelvis.h"\
+	".\need.h"\
+	".\misc.h"\
+	
 
-!IF  "$(CFG)" == "Win32 Release"
+"$(INTDIR)\scan.obj" : $(SOURCE) $(DEP_CPP_SCAN_) "$(INTDIR)"
 
-".\WinRel\scan.obj" :  $(SOURCE)  $(INTDIR)
-
-!ELSEIF  "$(CFG)" == "Win32 Debug"
-
-".\WinDebug\scan.obj" :  $(SOURCE)  $(INTDIR)
-
-!ENDIF 
 
 # End Source File
 ################################################################################
 # Begin Source File
 
 SOURCE=.\map.c
+DEP_CPP_MAP_C=\
+	".\elvis.h"\
+	".\config.h"\
+	".\elvctype.h"\
+	".\version.h"\
+	".\oswin32\osdef.h"\
+	".\safe.h"\
+	".\options.h"\
+	".\optglob.h"\
+	".\session.h"\
+	".\lowbuf.h"\
+	".\message.h"\
+	".\buffer.h"\
+	".\mark.h"\
+	".\buffer2.h"\
+	".\options2.h"\
+	".\scan.h"\
+	".\opsys.h"\
+	".\map.h"\
+	".\gui.h"\
+	".\display.h"\
+	".\draw.h"\
+	".\state.h"\
+	".\window.h"\
+	".\gui2.h"\
+	".\display2.h"\
+	".\draw2.h"\
+	".\state2.h"\
+	".\event.h"\
+	".\input.h"\
+	".\vi.h"\
+	".\regexp.h"\
+	".\ex.h"\
+	".\move.h"\
+	".\vicmd.h"\
+	".\operator.h"\
+	".\cut.h"\
+	".\elvisio.h"\
+	".\lp.h"\
+	".\calc.h"\
+	".\more.h"\
+	".\digraph.h"\
+	".\tag.h"\
+	".\tagsrch.h"\
+	".\tagelvis.h"\
+	".\need.h"\
+	".\misc.h"\
+	
 
-!IF  "$(CFG)" == "Win32 Release"
+"$(INTDIR)\map.obj" : $(SOURCE) $(DEP_CPP_MAP_C) "$(INTDIR)"
 
-".\WinRel\map.obj" :  $(SOURCE)  $(INTDIR)
-
-!ELSEIF  "$(CFG)" == "Win32 Debug"
-
-".\WinDebug\map.obj" :  $(SOURCE)  $(INTDIR)
-
-!ENDIF 
 
 # End Source File
 ################################################################################
 # Begin Source File
 
 SOURCE=.\oswin32\osblock.c
+DEP_CPP_OSBLO=\
+	{$(INCLUDE)}"\sys\Types.h"\
+	".\elvis.h"\
+	".\config.h"\
+	".\elvctype.h"\
+	".\version.h"\
+	".\oswin32\osdef.h"\
+	".\safe.h"\
+	".\options.h"\
+	".\optglob.h"\
+	".\session.h"\
+	".\lowbuf.h"\
+	".\message.h"\
+	".\buffer.h"\
+	".\mark.h"\
+	".\buffer2.h"\
+	".\options2.h"\
+	".\scan.h"\
+	".\opsys.h"\
+	".\map.h"\
+	".\gui.h"\
+	".\display.h"\
+	".\draw.h"\
+	".\state.h"\
+	".\window.h"\
+	".\gui2.h"\
+	".\display2.h"\
+	".\draw2.h"\
+	".\state2.h"\
+	".\event.h"\
+	".\input.h"\
+	".\vi.h"\
+	".\regexp.h"\
+	".\ex.h"\
+	".\move.h"\
+	".\vicmd.h"\
+	".\operator.h"\
+	".\cut.h"\
+	".\elvisio.h"\
+	".\lp.h"\
+	".\calc.h"\
+	".\more.h"\
+	".\digraph.h"\
+	".\tag.h"\
+	".\tagsrch.h"\
+	".\tagelvis.h"\
+	".\need.h"\
+	".\misc.h"\
+	
 
-!IF  "$(CFG)" == "Win32 Release"
+"$(INTDIR)\osblock.obj" : $(SOURCE) $(DEP_CPP_OSBLO) "$(INTDIR)"
+   $(CPP) $(CPP_PROJ) $(SOURCE)
 
-".\WinRel\osblock.obj" :  $(SOURCE)  $(INTDIR)
-   $(CPP) $(CPP_PROJ)  $(SOURCE) 
-
-!ELSEIF  "$(CFG)" == "Win32 Debug"
-
-".\WinDebug\osblock.obj" :  $(SOURCE)  $(INTDIR)
-   $(CPP) $(CPP_PROJ)  $(SOURCE) 
-
-!ENDIF 
 
 # End Source File
-# End Group
+################################################################################
+# Begin Source File
+
+SOURCE=.\tagsrch.c
+DEP_CPP_TAGSR=\
+	".\elvis.h"\
+	".\config.h"\
+	".\elvctype.h"\
+	".\version.h"\
+	".\oswin32\osdef.h"\
+	".\safe.h"\
+	".\options.h"\
+	".\optglob.h"\
+	".\session.h"\
+	".\lowbuf.h"\
+	".\message.h"\
+	".\buffer.h"\
+	".\mark.h"\
+	".\buffer2.h"\
+	".\options2.h"\
+	".\scan.h"\
+	".\opsys.h"\
+	".\map.h"\
+	".\gui.h"\
+	".\display.h"\
+	".\draw.h"\
+	".\state.h"\
+	".\window.h"\
+	".\gui2.h"\
+	".\display2.h"\
+	".\draw2.h"\
+	".\state2.h"\
+	".\event.h"\
+	".\input.h"\
+	".\vi.h"\
+	".\regexp.h"\
+	".\ex.h"\
+	".\move.h"\
+	".\vicmd.h"\
+	".\operator.h"\
+	".\cut.h"\
+	".\elvisio.h"\
+	".\lp.h"\
+	".\calc.h"\
+	".\more.h"\
+	".\digraph.h"\
+	".\tag.h"\
+	".\tagsrch.h"\
+	".\tagelvis.h"\
+	".\need.h"\
+	".\misc.h"\
+	
+
+"$(INTDIR)\tagsrch.obj" : $(SOURCE) $(DEP_CPP_TAGSR) "$(INTDIR)"
+
+
+# End Source File
+################################################################################
+# Begin Source File
+
+SOURCE=.\tag.c
+DEP_CPP_TAG_C=\
+	".\elvis.h"\
+	".\config.h"\
+	".\elvctype.h"\
+	".\version.h"\
+	".\oswin32\osdef.h"\
+	".\safe.h"\
+	".\options.h"\
+	".\optglob.h"\
+	".\session.h"\
+	".\lowbuf.h"\
+	".\message.h"\
+	".\buffer.h"\
+	".\mark.h"\
+	".\buffer2.h"\
+	".\options2.h"\
+	".\scan.h"\
+	".\opsys.h"\
+	".\map.h"\
+	".\gui.h"\
+	".\display.h"\
+	".\draw.h"\
+	".\state.h"\
+	".\window.h"\
+	".\gui2.h"\
+	".\display2.h"\
+	".\draw2.h"\
+	".\state2.h"\
+	".\event.h"\
+	".\input.h"\
+	".\vi.h"\
+	".\regexp.h"\
+	".\ex.h"\
+	".\move.h"\
+	".\vicmd.h"\
+	".\operator.h"\
+	".\cut.h"\
+	".\elvisio.h"\
+	".\lp.h"\
+	".\calc.h"\
+	".\more.h"\
+	".\digraph.h"\
+	".\tag.h"\
+	".\tagsrch.h"\
+	".\tagelvis.h"\
+	".\need.h"\
+	".\misc.h"\
+	
+
+"$(INTDIR)\tag.obj" : $(SOURCE) $(DEP_CPP_TAG_C) "$(INTDIR)"
+
+
+# End Source File
+################################################################################
+# Begin Source File
+
+SOURCE=.\tagelvis.c
+DEP_CPP_TAGEL=\
+	".\elvis.h"\
+	".\config.h"\
+	".\elvctype.h"\
+	".\version.h"\
+	".\oswin32\osdef.h"\
+	".\safe.h"\
+	".\options.h"\
+	".\optglob.h"\
+	".\session.h"\
+	".\lowbuf.h"\
+	".\message.h"\
+	".\buffer.h"\
+	".\mark.h"\
+	".\buffer2.h"\
+	".\options2.h"\
+	".\scan.h"\
+	".\opsys.h"\
+	".\map.h"\
+	".\gui.h"\
+	".\display.h"\
+	".\draw.h"\
+	".\state.h"\
+	".\window.h"\
+	".\gui2.h"\
+	".\display2.h"\
+	".\draw2.h"\
+	".\state2.h"\
+	".\event.h"\
+	".\input.h"\
+	".\vi.h"\
+	".\regexp.h"\
+	".\ex.h"\
+	".\move.h"\
+	".\vicmd.h"\
+	".\operator.h"\
+	".\cut.h"\
+	".\elvisio.h"\
+	".\lp.h"\
+	".\calc.h"\
+	".\more.h"\
+	".\digraph.h"\
+	".\tag.h"\
+	".\tagsrch.h"\
+	".\tagelvis.h"\
+	".\need.h"\
+	".\misc.h"\
+	
+
+"$(INTDIR)\tagelvis.obj" : $(SOURCE) $(DEP_CPP_TAGEL) "$(INTDIR)"
+
+
+# End Source File
+################################################################################
+# Begin Source File
+
+SOURCE=.\oswin32\osnet.c
+DEP_CPP_OSNET=\
+	".\elvis.h"\
+	".\config.h"\
+	".\elvctype.h"\
+	".\version.h"\
+	".\oswin32\osdef.h"\
+	".\safe.h"\
+	".\options.h"\
+	".\optglob.h"\
+	".\session.h"\
+	".\lowbuf.h"\
+	".\message.h"\
+	".\buffer.h"\
+	".\mark.h"\
+	".\buffer2.h"\
+	".\options2.h"\
+	".\scan.h"\
+	".\opsys.h"\
+	".\map.h"\
+	".\gui.h"\
+	".\display.h"\
+	".\draw.h"\
+	".\state.h"\
+	".\window.h"\
+	".\gui2.h"\
+	".\display2.h"\
+	".\draw2.h"\
+	".\state2.h"\
+	".\event.h"\
+	".\input.h"\
+	".\vi.h"\
+	".\regexp.h"\
+	".\ex.h"\
+	".\move.h"\
+	".\vicmd.h"\
+	".\operator.h"\
+	".\cut.h"\
+	".\elvisio.h"\
+	".\lp.h"\
+	".\calc.h"\
+	".\more.h"\
+	".\digraph.h"\
+	".\tag.h"\
+	".\tagsrch.h"\
+	".\tagelvis.h"\
+	".\need.h"\
+	".\misc.h"\
+	
+
+"$(INTDIR)\osnet.obj" : $(SOURCE) $(DEP_CPP_OSNET) "$(INTDIR)"
+   $(CPP) $(CPP_PROJ) $(SOURCE)
+
+
+# End Source File
+################################################################################
+# Begin Source File
+
+SOURCE=.\url.c
+DEP_CPP_URL_C=\
+	".\elvis.h"\
+	".\config.h"\
+	".\elvctype.h"\
+	".\version.h"\
+	".\oswin32\osdef.h"\
+	".\safe.h"\
+	".\options.h"\
+	".\optglob.h"\
+	".\session.h"\
+	".\lowbuf.h"\
+	".\message.h"\
+	".\buffer.h"\
+	".\mark.h"\
+	".\buffer2.h"\
+	".\options2.h"\
+	".\scan.h"\
+	".\opsys.h"\
+	".\map.h"\
+	".\gui.h"\
+	".\display.h"\
+	".\draw.h"\
+	".\state.h"\
+	".\window.h"\
+	".\gui2.h"\
+	".\display2.h"\
+	".\draw2.h"\
+	".\state2.h"\
+	".\event.h"\
+	".\input.h"\
+	".\vi.h"\
+	".\regexp.h"\
+	".\ex.h"\
+	".\move.h"\
+	".\vicmd.h"\
+	".\operator.h"\
+	".\cut.h"\
+	".\elvisio.h"\
+	".\lp.h"\
+	".\calc.h"\
+	".\more.h"\
+	".\digraph.h"\
+	".\tag.h"\
+	".\tagsrch.h"\
+	".\tagelvis.h"\
+	".\need.h"\
+	".\misc.h"\
+	
+
+"$(INTDIR)\url.obj" : $(SOURCE) $(DEP_CPP_URL_C) "$(INTDIR)"
+
+
+# End Source File
+################################################################################
+# Begin Source File
+
+SOURCE=.\http.c
+DEP_CPP_HTTP_=\
+	".\elvis.h"\
+	".\config.h"\
+	".\elvctype.h"\
+	".\version.h"\
+	".\oswin32\osdef.h"\
+	".\safe.h"\
+	".\options.h"\
+	".\optglob.h"\
+	".\session.h"\
+	".\lowbuf.h"\
+	".\message.h"\
+	".\buffer.h"\
+	".\mark.h"\
+	".\buffer2.h"\
+	".\options2.h"\
+	".\scan.h"\
+	".\opsys.h"\
+	".\map.h"\
+	".\gui.h"\
+	".\display.h"\
+	".\draw.h"\
+	".\state.h"\
+	".\window.h"\
+	".\gui2.h"\
+	".\display2.h"\
+	".\draw2.h"\
+	".\state2.h"\
+	".\event.h"\
+	".\input.h"\
+	".\vi.h"\
+	".\regexp.h"\
+	".\ex.h"\
+	".\move.h"\
+	".\vicmd.h"\
+	".\operator.h"\
+	".\cut.h"\
+	".\elvisio.h"\
+	".\lp.h"\
+	".\calc.h"\
+	".\more.h"\
+	".\digraph.h"\
+	".\tag.h"\
+	".\tagsrch.h"\
+	".\tagelvis.h"\
+	".\need.h"\
+	".\misc.h"\
+	
+
+"$(INTDIR)\http.obj" : $(SOURCE) $(DEP_CPP_HTTP_) "$(INTDIR)"
+
+
+# End Source File
+################################################################################
+# Begin Source File
+
+SOURCE=.\ftp.c
+DEP_CPP_FTP_C=\
+	".\elvis.h"\
+	".\config.h"\
+	".\elvctype.h"\
+	".\version.h"\
+	".\oswin32\osdef.h"\
+	".\safe.h"\
+	".\options.h"\
+	".\optglob.h"\
+	".\session.h"\
+	".\lowbuf.h"\
+	".\message.h"\
+	".\buffer.h"\
+	".\mark.h"\
+	".\buffer2.h"\
+	".\options2.h"\
+	".\scan.h"\
+	".\opsys.h"\
+	".\map.h"\
+	".\gui.h"\
+	".\display.h"\
+	".\draw.h"\
+	".\state.h"\
+	".\window.h"\
+	".\gui2.h"\
+	".\display2.h"\
+	".\draw2.h"\
+	".\state2.h"\
+	".\event.h"\
+	".\input.h"\
+	".\vi.h"\
+	".\regexp.h"\
+	".\ex.h"\
+	".\move.h"\
+	".\vicmd.h"\
+	".\operator.h"\
+	".\cut.h"\
+	".\elvisio.h"\
+	".\lp.h"\
+	".\calc.h"\
+	".\more.h"\
+	".\digraph.h"\
+	".\tag.h"\
+	".\tagsrch.h"\
+	".\tagelvis.h"\
+	".\need.h"\
+	".\misc.h"\
+	
+
+"$(INTDIR)\ftp.obj" : $(SOURCE) $(DEP_CPP_FTP_C) "$(INTDIR)"
+
+
+# End Source File
+# End Target
 # End Project
 ################################################################################

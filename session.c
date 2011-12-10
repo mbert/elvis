@@ -1,7 +1,7 @@
 /* session.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_session[] = "$Id: session.c,v 2.15 1995/10/19 21:35:10 steve Exp steve $";
+char id_session[] = "$Id: session.c,v 2.21 1998/09/20 18:33:25 steve Exp $";
 
 #include "elvis.h"
 
@@ -35,6 +35,12 @@ static CACHEENTRY *findblock(_BLKNO_ blkno);
 static void flushblock(CACHEENTRY *bc);
 #endif
 
+#ifdef DEBUG_SESSION
+static char *blktypename[] =
+{
+"SES_NEW","" "SES_SUPER","" "SES_SUPER2","" "SES_BUFINFO","" "SES_BLKLIST","" "SES_CHARS"
+};
+#endif
 
 static long	oldblkhash;	/* previous value of o_blkhash option */
 static CACHEENTRY **hashed;	/* hash table */
@@ -61,6 +67,7 @@ static void delcache(item, thenfree)
 	if (thenfree && item->dirty)
 	{
 		blkwrite(item->buf, item->blkno);
+		o_blkwrite++;
 	}
 
 	/* delete the item from the newest/oldest list */
@@ -174,6 +181,7 @@ static CACHEENTRY *findblock(blkno)
 	/* if newest item in cache, return it in a hurry! */
 	if (newest && newest->blkno == blkno)
 	{
+		o_blkhit++;
 		return newest;
 	}
 
@@ -212,9 +220,11 @@ static CACHEENTRY *findblock(blkno)
 	{
 		delcache(scan, False);
 		addcache(scan);
+		o_blkhit++;
 		return scan;
 	}
 
+	o_blkmiss++;
 	return NULL;
 }
 
@@ -259,6 +269,10 @@ void sesclose()
 {
 	BLK	 *tmp;
 
+	/* if session file was never opened, then we don't need to close it */
+	if (nblocks == 0)
+		return;
+
 	/* flush any dirty blocks */
 	sessync();
 
@@ -285,6 +299,10 @@ BLKNO seslock(blkno, forwrite, blktype)
 {
 	CACHEENTRY *bc, *newp;
 
+#ifdef DEBUG_SESSION
+	fprintf(stderr, "%s:%d: seslock(%d, %s, %s)...\n", file, line,
+		blkno, forwrite ? "True" : "False", blktypename[blktype]);
+#endif
 	assert((int)blkno < nblocks && alloccnt[blkno] > 0);
 
 	/* try to find the block in the cache */
@@ -313,7 +331,7 @@ BLKNO seslock(blkno, forwrite, blktype)
 		alloccnt[blkno]--;
 
 		/* allocate a new block */
-		blkno = sesalloc(0);
+		blkno = sesalloc(0, blktype);
 		newp = findblock(blkno);
 		if (!newp)
 		{
@@ -347,6 +365,10 @@ BLKNO seslock(blkno, forwrite, blktype)
 	assert(bc->locks <= 30);
 
 	/* return the data */
+#ifdef DEBUG_SESSION
+	fprintf(stderr, "%s:%d: seslock(...) returning %d\n",
+		file, line, blkno);
+#endif
 	return blkno;
 }
 
@@ -373,12 +395,14 @@ void sesunlock(blkno, forwrite)
 
 	bc = findblock(blkno);
 	assert(bc != NULL && bc->locks > 0 && bc->blkno == blkno);
-	bc->dirty |= forwrite;
+	if (forwrite)
+		bc->dirty = True;
 	bc->locks--;
 #ifdef DEBUG_SESSION
 	if (forwrite)
 	{
 		blkwrite(bc->buf, bc->blkno);
+		o_blkwrite++;
 	}
 #endif
 }
@@ -389,6 +413,7 @@ static void flushblock(bc)
 	CACHEENTRY	*bc;	/* cache item to be flushed */
 {
 	blkwrite(bc->buf, bc->blkno);
+	o_blkwrite++;
 	bc->dirty = False;
 }
 
@@ -444,8 +469,17 @@ void sessync()
 /* Allocate a new block (if blkno is 0) or increment the allocation
  * count on an existing block (if blkno is not 0).  Returns its BLKNO.
  */
-BLKNO sesalloc(blkwant)
+#ifdef DEBUG_SESSION
+BLKNO _sesalloc(file, line, blkwant, blktype)
+	char	*file;		/* name of source file that called this func */
+	int	line;		/* line number of source file */
 	_BLKNO_	blkwant;	/* 0 usually, else BLKNO to use */
+	BLKTYPE	  blktype;	/* type of data in this block */
+#else
+BLKNO sesalloc(blkwant, blktype)
+	_BLKNO_	blkwant;	/* 0 usually, else BLKNO to use */
+	BLKTYPE	  blktype;	/* type of data in this block */
+#endif
 {
 	BLKNO	blkno;
 	int	newsize;
@@ -487,12 +521,19 @@ BLKNO sesalloc(blkwant)
 			for (i = blkno; i < nblocks; i++)
 			{
 				blkwrite(tmp, (BLKNO)i);
+				o_blkwrite++;
 			}
 			safefree(tmp);
 		}
 
 		/* increment the allocation counter for the chosen block */
 		alloccnt[blkno]++;
+
+#ifdef DEBUG_SESSION
+		fprintf(stderr, "%s:%d: sesalloc(%d, %s), new alloccnt[%d] = %d, nblocks=%d\n",
+			file, line, blkwant, blktypename[blktype],
+			blkno, alloccnt[blkno], nblocks);
+#endif
 	}
 	else /* recycling an old block */
 	{
@@ -502,22 +543,41 @@ BLKNO sesalloc(blkwant)
 		/* if block is supposed to be new, then zero it */
 		if (blkwant == 0)
 		{
-			(void)seslock(blkno, True, SES_NEW);
+			(void)seslock(blkno, True, blktype);
 			tmp = sesblk(blkno);
 			memset((char *)tmp, 0, (size_t)o_blksize);
 			sesunlock(blkno, True);
 		}
+
+#ifdef DEBUG_SESSION
+		fprintf(stderr, "%s:%d: sesalloc(%d, %s), recycled alloccnt[%d] = %d\n",
+			file, line, blkwant, blktypename[blktype],
+			blkno, alloccnt[blkno]);
+#endif
 	}
 
+	assert(alloccnt[blkno] > 0);
 	return blkno;
 }
 
 /* Decrement the allocation count of a block.  If the block's count
  * is decremented to 0, it becomes available for reuse by sesalloc.
  */
+#ifdef DEBUG_SESSION
+void _sesfree(file, line, blkno)
+	char	*file;	/* source file of call */
+	int	line;	/* line number of call */
+	_BLKNO_	blkno;	/* BLKNO of a block to be returned to free pool */
+#else
 void sesfree(blkno)
 	_BLKNO_	blkno;	/* BLKNO of a block to be returned to free pool */
+#endif
 {
 	assert((int)blkno < nblocks && alloccnt[blkno] > 0);
 	alloccnt[blkno]--;
+
+#ifdef DEBUG_SESSION
+	fprintf(stderr, "%s:%d: sesfree(%d), alloccnt[%d]=%d\n",
+		file, line, blkno, blkno, alloccnt[blkno]);
+#endif
 }

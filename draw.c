@@ -1,7 +1,7 @@
 /* draw.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_draw[] = "$Id: draw.c,v 2.65 1996/09/26 01:05:52 steve Exp $";
+char id_draw[] = "$Id: draw.c,v 2.73 1997/12/24 03:12:52 steve Exp $";
 
 #include "elvis.h"
 
@@ -104,14 +104,6 @@ void drawexpose(win, top, left, bottom, right)
 	assert(win != NULL && top >= 0 && left >= 0 && bottom < o_lines(win)
 		&& right < o_columns(win) && top <= bottom && left <= right);
 
-#if 0
-	/* if we must redraw anyway, then do nothing */
-	if (win->di->logic == DRAW_SCRATCH)
-	{
-		return;
-	}
-#endif
-
 	/* if this GUI has no moveto() function, then do nothing */
 	if (!gui->moveto)
 	{
@@ -121,7 +113,6 @@ void drawexpose(win, top, left, bottom, right)
 	/* for each row in the rectangle... */
 	for (row = top; row <= bottom; row++)
 	{
-#if 1
 		/* find the width of this row, ignoring trailing blanks */
 		for (nonblank = o_columns(win), base = o_columns(win) * row;
 		     nonblank > left
@@ -157,25 +148,10 @@ void drawexpose(win, top, left, bottom, right)
 		{
 			guiclrtoeol(win);
 		}
-#else
-		/* for each column in the row */
-		for (base = o_columns(win) * row + left, column = left;
-		     column <= right;
-		     base++, column++)
-		{
-			/* blot out elvis' idea of the current image.  This
-			 * will cause elvis to re-output it the next time
-			 * the image is updated.
-			 */
-			win->di->curfont[base] = '\0';
-		}
-#endif
 	}
 
-#if 1
 	/* leave the cursor in the right place */
 	guimoveto(win, win->di->curscol, win->di->cursrow);
-#endif
 
 	/* update the scrollbar, too */
 	if (gui->scrollbar)
@@ -561,17 +537,6 @@ static void drawchar(p, qty, font, offset)
 			 * will be there.  This test must be made outside the
 			 * loop.
 			 */
-#if 0
-			if (offset == markoffset(thiswin->state->cursor)
-				&& thiscol % o_columns(thiswin) == 0)
-			{
-				thiscol = leftcol;
-			}
-			while (thiscol == leftcol || thiscell % o_columns(thiswin) != 0)
-			{
-				fillcell(' ', hifont, offset);
-			}
-#else
 			i = o_columns(thiswin);
 			if ((offset == markoffset(thiswin->state->cursor)
 				&& thiscol % i == 0) || thiscol == leftcol)
@@ -589,7 +554,6 @@ static void drawchar(p, qty, font, offset)
 					thiscol++, thiscell++;
 				}
 			}
-#endif
 
 			/* reset the virtual column number */
 			thiscol = 0;
@@ -610,11 +574,12 @@ static void drawchar(p, qty, font, offset)
 static void compareimage(win)
 	WINDOW	win;	/* window to be processed */
 {
+	typedef enum {NEW, BEFORE, AFTER} type_t;
 	int	i, j, k, diff, totdiff;
 	struct prevmatch_s
 	{
-		DRAWLINE *line;			/* ptr to new line's current info */
-		enum {NEW, BEFORE, AFTER} type;	/* line position, relative to any change */
+		DRAWLINE *line;	/* ptr to new line's current info */
+		type_t	 type;	/* line position, relative to any change */
 	}	*prev;
 
 	/* if we're supposed to redraw from scratch, then we won't be doing
@@ -1055,6 +1020,7 @@ static void genlastrow(win)
 {
 	int	i, j, base;
 	char	*scan;
+	CHAR	*cp;
 	char	buf[25];
 
 	/* were there any rows inserted or deleted? */
@@ -1073,6 +1039,15 @@ static void genlastrow(win)
 			win->di->newchar[base + i] = ' ';
 			win->di->newfont[base + i] = 'n';
 		}
+		if (o_showname && o_bufname(markbuffer(win->cursor)))
+		{
+			for (i = 0, cp = o_bufname(markbuffer(win->cursor));
+			     i < o_columns(win) && *cp;
+			     i++, cp++)
+			{
+				win->di->newchar[base + i] = *cp;
+			}
+		}
 	}
 	else
 	{
@@ -1087,18 +1062,29 @@ static void genlastrow(win)
 		win->di->newmsg = False;
 	}
 
-	/* does the GUI have a status function? */
-	if (gui->status)
+	/* if colors changed, then we need to redraw last line from scratch */
+	if (win->di->logic != DRAW_NORMAL)
 	{
-		/* yes, call it with status info */
-		(*gui->status)(win->gw,
-			win->cmdchars,
-			markline(win->state->cursor),
-			(*win->md->mark2col)(win, win->state->cursor, viiscmd(win)) + 1,
-			maplrnchar(o_modified(markbuffer(win->cursor)) ? '*' : ','),
-			win->state->modename);
+		guimoveto(win, 0, win->di->rows - 1);
+		guiclrtoeol(win);
+		for (i = o_columns(win); --i >= 0; )
+		{
+			win->di->curchar[base + i] = ' ';
+			win->di->curfont[base + i] = 'n';
+		}
 	}
-	else
+
+	/* does the GUI have a status function? */
+	if (!gui->status || !(*gui->status)(win->gw,
+#ifdef FEATURE_SHOWTAG
+		*win->cmdchars ? win->cmdchars : telabel(win->state->cursor),
+#else
+		win->cmdchars,
+#endif
+		markline(win->state->cursor),
+		(*win->md->mark2col)(win, win->state->cursor, viiscmd(win)) + 1,
+		maplrnchar(o_modified(markbuffer(win->cursor)) ? '*' : ','),
+		win->state->modename))
 	{
 		/* no, but maybe show status on the window's bottom row */
 
@@ -1109,7 +1095,7 @@ static void genlastrow(win)
 			for (i = base + o_columns(win) - 10; i < base + o_columns(win) - 3; i++)
 			{
 				win->di->newchar[i] = *scan++;
-				win->di->newfont[i] = 'E';	/* !!it E3: I prefer it emphasized */
+				win->di->newfont[i] = 'E';
 				if (!*scan)
 				{
 					scan = " ";
@@ -1157,6 +1143,20 @@ static void genlastrow(win)
 				win->di->newfont[i] = 'n';
 			}
 		}
+
+#ifdef FEATURE_SHOWTAG
+		/* if "showtag" and no messages, then show the tag */
+		if (o_showtag && win->di->newchar[base] == ' ')
+		{
+			for (i = base, cp = telabel(win->state->cursor);
+			     i < base + o_columns(win) - 22 && *cp;
+			     i++, cp++)
+			{
+				win->di->newchar[i] = *cp;
+				win->di->newfont[i] = 'n';
+			}
+		}
+#endif
 	}
 
 	/* if "showstack", then show it */
@@ -1325,7 +1325,7 @@ void drawimage(win)
 	}
 
 	/* setup, and choose a starting point for the drawing */
-	next = (*win->md->setup)(marktmp(first, markbuffer(win->cursor), win->di->topline),
+	next = (*win->md->setup)(win, marktmp(first, markbuffer(win->cursor), win->di->topline),
 		markoffset(win->cursor), marktmp(last, markbuffer(win->cursor), win->di->bottomline), win->mi);
 	thiswin = win;
 	thiscell = 0;
@@ -1738,6 +1738,10 @@ static CHAR	*openimage;	/* buffer, holds new line image */
 static long	opensize;	/* size of openimage */
 static BOOLEAN	opencursfound;	/* has the cursor's cell been found yet? */
 static BOOLEAN	openskipping;	/* has the line containing the cursor been completed? */
+static BOOLEAN	openselect;	/* currently outputting highlighted text? */
+static long	openseltop;	/* offset of top of highlighted region */
+static long	openselbottom;	/* offset of bottom of highlighted region */
+
 static void openchar(p, qty, font, offset)
 	CHAR	*p;	/* characters to be output */
 	long	qty;	/* number of characters */
@@ -1777,6 +1781,36 @@ static void openchar(p, qty, font, offset)
 			opencursfound = True;
 		}
 
+		/* expand the size of the buffer, if necessary */
+		if (opencnt + 2 >= opensize)
+		{
+			newp = (CHAR *)safealloc((int)(opensize + 80), sizeof(CHAR));
+			memcpy(newp, openimage, (size_t)opensize);
+			safefree(openimage);
+			openimage = newp;
+			opensize += 80;
+		}
+
+		/* if starting the highlighted text, output "*[" */
+		if (offset >= openseltop && offset <= openselbottom)
+		{
+			if (!openselect)
+			{
+				openimage[opencnt++] = '*';
+				openimage[opencnt++] = '[';
+				openselect = True;
+			}
+		}
+		else
+		{
+			if (openselect)
+			{
+				openimage[opencnt++] = ']';
+				openimage[opencnt++] = '*';
+				openselect = False;
+			}
+		}
+
 		/* newline is generally ignored */
 		if (ch == '\n')
 		{
@@ -1789,16 +1823,6 @@ static void openchar(p, qty, font, offset)
 				opencnt = 0;
 			}
 			continue;
-		}
-
-		/* expand the size of the buffer, if necessary */
-		if (opencnt >= opensize)
-		{
-			newp = (CHAR *)safealloc((int)(opensize + 80), sizeof(CHAR));
-			memcpy(newp, openimage, (size_t)opensize);
-			safefree(openimage);
-			openimage = newp;
-			opensize += 80;
 		}
 
 		/* store the character */
@@ -1888,19 +1912,27 @@ void drawopenedit(win)
 	/* else we're editing the same line as last time */
 
 	/* generate the new line image */
-	opencursfound = openskipping = False;
+	opencursfound = openskipping = openselect = False;
 	opencnt = 0;
 	openoffsetcurs = markoffset(win->state->cursor);
 	openimage = (CHAR *)safealloc(80, sizeof(CHAR));
 	opensize = 80;
+	openseltop = openselbottom = INFINITY;
 	if (win->state->acton)
 	{
-		curline = (*dmnormal.setup)(curline, openoffsetcurs, win->state->cursor, win->mi);
+		curline = (*dmnormal.setup)(win, curline, openoffsetcurs, win->state->cursor, win->mi);
 		curline = (*dmnormal.image)(win, curline, win->mi, openchar);
 	}
 	else
 	{
-		curline = (*win->md->setup)(curline, openoffsetcurs, win->state->cursor, win->mi);
+		if (win->seltop)
+		{
+			openseltop = markoffset(win->seltop);
+			openselbottom = markoffset(win->selbottom);
+			curcol += 2; /* for the *[ marker */
+		}
+		curline = (*win->md->setup)(win, curline, openoffsetcurs,
+						win->state->cursor, win->mi);
 		curline = (*win->md->image)(win, curline, win->mi, openchar);
 	}
 

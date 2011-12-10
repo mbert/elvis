@@ -1,7 +1,7 @@
 /* vicmd.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_vicmd[] = "$Id: vicmd.c,v 2.44 1996/09/18 19:16:11 steve Exp $";
+char id_vicmd[] = "$Id: vicmd.c,v 2.57 1998/08/29 16:40:08 steve Exp $";
 
 #include "elvis.h"
 
@@ -192,9 +192,12 @@ RESULT v_input(win, vinf)
 		if (cmd == 'R')
 		{
 			dotbuf = cutbuffer('.', False);
-			if (dotbuf && o_bufchars(dotbuf) > CUT_TYPELEN)
+			if (dotbuf && o_bufchars(dotbuf) > 0L)
 			{
-				offset = vinf->count * (o_bufchars(dotbuf) - CUT_TYPELEN)
+				offset = o_bufchars(dotbuf);
+				if (offset > 0 && o_partiallastline(dotbuf))
+					offset--;
+				offset = vinf->count * offset
 					+ markoffset(win->state->cursor);
 				tmp = dispmove(win, 0L, INFINITY);
 				if (offset > markoffset(tmp))
@@ -319,32 +322,24 @@ RESULT v_delchar(win, vinf)
 	else
 	{
 		end = markoffset((*win->md->move)(win, win->state->cursor, 0, INFINITY, True));
+		if (scanchar(win->state->cursor) != '\n')
+			end++;
 	}
 
-	/* choose a starting offset */
-	if (vinf->command == 'X')
-	{
-		curs = markoffset(win->state->cursor) - vinf->count;
-	}
-	else
-	{
-		curs = markoffset(win->state->cursor);
-		if (curs + vinf->count > end)
-		{
-			/* this may be a zero-length line.  Check! */
-			if (front == end && scanchar(win->state->cursor) == '\n')
-			{
-				return RESULT_ERROR;
-			}
-
-			/* nope, okay to delete */
-			curs = end - vinf->count + 1;
-		}
-	}
+	/* if zero-length line, then fail */
+	if (front == end)
+		return RESULT_ERROR;
 
 	/* construct a replacement string */
-	if (vinf->command == 'r')
+	switch (vinf->command)
 	{
+	  case 'r':
+		/* would this extend past the end of the line? */
+		curs = markoffset(win->state->cursor);
+		if (curs + vinf->count > end)
+			return RESULT_ERROR;
+
+		/* the <Enter> key is handled specially... */
 		if (vinf->key2 == '\r')
 		{
 			vinf->key2 = '\n';
@@ -355,50 +350,73 @@ RESULT v_delchar(win, vinf)
 			replen = vinf->count;
 			travel = replen - 1;
 		}
-		repstr = safealloc((int)replen, sizeof(CHAR));
+
+		/* constuct the replacement string */
+		repstr = (CHAR *)safealloc((int)replen, sizeof(CHAR));
 		for (i = 0; i < replen; i++)
 		{
 			repstr[i] = vinf->key2;
 		}
-	}
-	else if (vinf->command == '~')
-	{
+		break;
+
+	  case '~':
+		/* would this extend past the end of the line? */
+		curs = markoffset(win->state->cursor);
+		if (curs + vinf->count > end)
+			vinf->count = end - curs;
+
+		/* construct the replacement string */
 		replen = vinf->count;
-		repstr = safealloc((int)replen, sizeof(CHAR));
+		repstr = (CHAR *)safealloc((int)replen, sizeof(CHAR));
 		travel = replen;
 		for (i = 0, scanalloc(&cp, marktmp(tmp, markbuffer(win->state->cursor), curs));
 		     i < replen; i++, scannext(&cp))
 		{
 			if (isupper(*cp))
-			{
 				repstr[i] = tolower(*cp);
-			}
 			else if (islower(*cp))
-			{
 				repstr[i] = toupper(*cp);
-			}
 			else
-			{
 				repstr[i] = *cp;
-			}
 		}
 		scanfree(&cp);
-	}
-	else
-	{
-		/* we'll just delete the chars */
+		break;
+
+	  case 'X':
+		curs = markoffset(win->state->cursor) - vinf->count;
 		repstr = NULL;
 		replen = 0;
-		travel = (curs + vinf->count  - 1 == end && front != curs) ? -1 : 0;
+		travel = 0;
+		break;
+
+	  case 'x':
+		curs = markoffset(win->state->cursor);
+		if (curs + vinf->count > end)
+			return RESULT_ERROR;
+		else if (curs + vinf->count == end)
+			curs = end - vinf->count; /* move bkwd */
+		repstr = NULL;
+		replen = 0;
+		travel = 0;
+		break;
 	}
 
 	/* if the starting offset is on a different line, fail */
 	if (curs < front)
 	{
+		if (repstr)
+			safefree(repstr);
 		return RESULT_ERROR;
 	}
 
-	/* else move the cursor & replace/delete the characters */
+	/* if the "travel" amount would leave the cursor on the newline,
+	 * then adjust it.
+	 */
+	if (curs + travel >= end - vinf->count + replen
+	 && curs + travel != front)
+		travel--;
+
+	/* move the cursor & replace/delete the characters */
 	marksetoffset(win->state->cursor, curs);
 	cutyank(vinf->cutbuf, win->state->cursor,
 		marktmp(tmp, markbuffer(win->state->cursor), curs + vinf->count),
@@ -483,6 +501,9 @@ RESULT v_window(win, vinf)
 	  case 'c':
 		return exstring(win, toCHAR("close"));
 
+	  case 'o':
+	  	return exstring(win, toCHAR("only"));
+
 	  case ']':
 	  case ELVCTRL(']'):
 		/* Perform a tag lookup.  The v_tag function is clever enough
@@ -491,12 +512,23 @@ RESULT v_window(win, vinf)
 		return v_tag(win, vinf);
 
 	  case 'd':
-		if (strcmp(tochar8(o_display(win)), "normal"))
-			dispset(win, "normal");
-		else if (!strcmp(tochar8(o_bufdisplay(markbuffer(win->cursor))), "normal"))
-			dispset(win, "hex");
+		if (!CHARcmp(o_display(win), o_bufdisplay(markbuffer(win->cursor))))
+		{
+			if (!CHARcmp(o_display(win), toCHAR("normal")))
+				dispset(win, "hex");
+#ifdef DISPLAY_SYNTAX
+			else if (o_filename(markbuffer(win->cursor))
+			      && dmsknown(tochar8(o_filename(markbuffer(win->cursor))))
+			      && CHARcmp(o_display(win), toCHAR("syntax")) )
+				dispset(win, "syntax");
+#endif
+			else
+				dispset(win, "normal");
+		}
 		else
+		{
 			dispset(win, tochar8(o_bufdisplay(markbuffer(win->cursor))));
+		}
 		win->di->logic = DRAW_CHANGED;
 		return RESULT_COMPLETE;
 
@@ -541,8 +573,10 @@ RESULT v_tag(win, vinf)
 	WINDOW	win;	/* window where command was typed */
 	VIINFO	*vinf;	/* information about the command */
 {
-	CHAR	cmd[200];
+	CHAR	*cmd;
 	CHAR	*tagname;
+	CHAR	*scan;
+	RESULT	result;
 
 	assert(vinf->command == ELVCTRL('T') || vinf->command == ELVCTRL(']')
 		|| vinf->command == ELVCTRL('W'));
@@ -554,32 +588,34 @@ RESULT v_tag(win, vinf)
 		return RESULT_ERROR;
 	}
 
-	/* construct the command */
-	switch (vinf->command)
+	/* the ^T command is easy... */
+	if (vinf->command == ELVCTRL('T'))
+		return exstring(win, toCHAR("pop"));
+
+	/* get the tag name */
+	tagname = (*win->md->tagatcursor)(win, win->cursor);
+	if (!tagname) return RESULT_ERROR;
+
+	/* build the command.  Use "stag" for ^W[ and "tag" for ^[ */
+	cmd = NULL;
+	if (vinf->command == ELVCTRL('W'))
+		buildCHAR(&cmd, 's');
+	for (scan = toCHAR("tag "); *scan; scan++)
+		buildCHAR(&cmd, *scan);
+	for (scan = tagname; *scan; scan++)
 	{
-	  case ELVCTRL('T'):
-		CHARcpy(cmd, toCHAR("pop"));
-		break;
-
-	  case ELVCTRL('W'):
-		tagname = (*win->md->tagatcursor)(win, win->cursor);
-		if (!tagname) return RESULT_ERROR;
-		CHARcpy(cmd, toCHAR("stag "));
-		CHARcat(cmd, tagname);
-		safefree(tagname);
-		break;
-
-	  case ELVCTRL(']'):
-		tagname = (*win->md->tagatcursor)(win, win->cursor);
-		if (!tagname) return RESULT_ERROR;
-		CHARcpy(cmd, toCHAR("tag "));
-		CHARcat(cmd, tagname);
-		safefree(tagname);
-		break;
+		if (*scan == '|')
+			buildCHAR(&cmd, '\\');
+		buildCHAR(&cmd, *scan);
 	}
 
 	/* run the command */
-	return exstring(win, cmd);
+	result = exstring(win, cmd);
+
+	/* clean up & exit */
+	safefree(tagname);
+	safefree(cmd);
+	return result;
 }
 
 
@@ -789,7 +825,6 @@ RESULT v_ex(win, vinf)
 {
 	/* push a stratum that does ex commands */
 	statestratum(win, toCHAR(EX_BUF), ':', exenter);
-	o_internal(markbuffer(win->state->cursor)) = True;
 
 	/* The statetratum() function pushes a state which exits after a
 	 * single command.  If the command was <Shift-Q>, then we want to
@@ -851,7 +886,8 @@ RESULT v_notex(win, vinf)
 {
 	EXINFO	xinfb;
 	MARK	tmpmark;
-	CHAR	*word;
+	CHAR	*word[3];
+	BUFFER	buf;
 	RESULT	result;
 	int	i;
 
@@ -902,7 +938,8 @@ RESULT v_notex(win, vinf)
 
 	  default: /* 'K' */
 		/* ":!ref word" */
-		if (!o_keywordprg(markbuffer(win->state->cursor)))
+		buf = markbuffer(win->state->cursor);
+		if (!o_keywordprg(buf))
 		{
 			msg(MSG_ERROR, "keywordprg not set");
 			return RESULT_ERROR;
@@ -910,12 +947,25 @@ RESULT v_notex(win, vinf)
 		tmpmark = wordatcursor(&xinfb.defaddr);
 		if (!tmpmark)
 			return RESULT_ERROR;
-		word = bufmemory(tmpmark, &xinfb.defaddr);
-		i = CHARlen(o_keywordprg(markbuffer(win->state->cursor)));
-		xinfb.rhs = safealloc(sizeof(CHAR), i + CHARlen(word) + 2);
-		CHARcpy(xinfb.rhs, o_keywordprg(markbuffer(win->state->cursor)));
-		xinfb.rhs[i] = ' ';
-		CHARcpy(&xinfb.rhs[i + 1], word);
+		word[0] = bufmemory(tmpmark, &xinfb.defaddr);
+		if (CHARchr(o_keywordprg(buf), '$'))
+		{
+			word[1] = o_filename(buf) ? o_filename(buf) : toCHAR("");
+			word[2] = NULL;
+			xinfb.rhs = calculate(o_keywordprg(buf), word, True);
+			if (!xinfb.rhs)
+				return RESULT_ERROR; /* message already given */
+			xinfb.rhs = CHARdup(xinfb.rhs);
+		}
+		else /* no $1 in expression */
+		{
+			/* append word to command name, with a blank between */
+			i = CHARlen(o_keywordprg(markbuffer(win->state->cursor)));
+			xinfb.rhs = (CHAR *)safealloc(sizeof(CHAR), i + CHARlen(word[0]) + 2);
+			CHARcpy(xinfb.rhs, o_keywordprg(markbuffer(win->state->cursor)));
+			xinfb.rhs[i] = ' ';
+			CHARcpy(&xinfb.rhs[i + 1], word[0]);
+		}
 		xinfb.command = EX_BANG;
 		result = ex_bang(&xinfb);
 		safefree(xinfb.rhs);

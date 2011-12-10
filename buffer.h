@@ -18,6 +18,7 @@ struct undo_s
 #endif
 };
 
+
 typedef struct buffer_s
 {
 	struct buffer_s	*next;
@@ -30,9 +31,13 @@ typedef struct buffer_s
 	long		changepos;	/* position of the most recent change to this buffer */
 	long		undoline;	/* line number of "undolnptr" version */
 	long		docursor;	/* cursor position when "willdo" was set */
+	long		ntagdefs;	/* number of items in tagdef array */
+	struct tedef_s	*tagdef;	/* tag definitions in this buf */
 	BOOLEAN		willdo;		/* save an "undo" version before next bufreplace()? */
+	long		willevent;	/* value of eventcount when willdo was set */
 	OPTVAL		filename;	/* string: name of the file for this buffer */
 	OPTVAL		bufname;	/* string: name of buffer */
+	OPTVAL		bufid;		/* number: unique number for user buffer, or 0 */
 	OPTVAL		buflines;	/* number: of lines, from txtbuf->lines */
 	OPTVAL		bufchars;	/* number: of bytes, from txtbuf->bytes */
 	OPTVAL		retain;		/* boolean: keep buffer after writing? */
@@ -56,11 +61,15 @@ typedef struct buffer_s
 	OPTVAL		internal;	/* boolean: is this a special-purpose buffer? */
 	OPTVAL		bufdisplay;	/* string: the default display mode */
 	OPTVAL		errlines;	/* number: #lines when errlist created */
-	OPTVAL		binary;		/* boolean: buffer contains non-textual data */
+	OPTVAL		readeol;	/* one of unix/dos/mac/text/binary: file read mode */
+	OPTVAL		locked;		/* boolean: prevent changes to buffer? */
+	OPTVAL		partiallastline;/* boolean: file has no real last newline */
+	OPTVAL		putstyle;	/* one of {character line rectangle} */
 } *BUFFER;
 
 #define o_filename(buf)		((buf)->filename.value.string)
 #define o_bufname(buf)		((buf)->bufname.value.string)
+#define o_bufid(buf)		((buf)->bufid.value.number)
 #define o_buflines(buf)		((buf)->buflines.value.number)
 #define o_bufchars(buf)		((buf)->bufchars.value.number)
 #define o_retain(buf)		((buf)->retain.value.boolean)
@@ -77,7 +86,6 @@ typedef struct buffer_s
 #define o_equalprg(buf)		((buf)->equalprg.value.string)
 #define o_keywordprg(buf)	((buf)->keywordprg.value.string)
 #define o_make(buf)		((buf)->make.value.string)
-#define o_tagprg(buf)		((buf)->tagprg.value.string)
 #define o_paragraphs(buf)	((buf)->paragraphs.value.string)
 #define o_sections(buf)		((buf)->sections.value.string)
 #define o_shiftwidth(buf)	((buf)->shiftwidth.value.number)
@@ -86,22 +94,26 @@ typedef struct buffer_s
 #define o_internal(buf)		((buf)->internal.value.boolean)
 #define o_bufdisplay(buf)	((buf)->bufdisplay.value.string)
 #define o_errlines(buf)		((buf)->errlines.value.number)
-#define o_binary(buf)		((buf)->binary.value.boolean)
+#define o_readeol(buf)		((buf)->readeol.value.character)
+#define o_locked(buf)		((buf)->locked.value.boolean)
+#define o_partiallastline(buf)	((buf)->partiallastline.value.boolean)
+#define o_putstyle(buf)		((buf)->putstyle.value.character)
 #define BUFOPTQTY		((sizeof(struct buffer_s) - (int)bufoptvals((BUFFER)0)) / sizeof(OPTVAL))
 
 #define bufbufinfo(buffer)	((buffer)->bufinfo)
 #define bufoptvals(buffer)	(&(buffer)->filename)
 #define bufmarks(buffer)	((buffer)->marks)
 #define bufsetmarks(buffer, mark) ((buffer)->marks = (mark))
-#define buflist(start)		((start) ? (start)->next : buffers)
+#define buflist(start)		((start) ? (start)->next : elvis_buffers)
 
 extern BUFFER bufdefault;
-extern BUFFER buffers;
+extern BUFFER elvis_buffers;
 extern BUFFER bufdefopts;
 extern MSGIMP bufmsgtype;
 BEGIN_EXTERNC
 extern void bufinit P_((void));
-extern BUFFER bufalloc P_((CHAR *name, _BLKNO_ bufinfo));
+extern BUFFER bufalloc P_((CHAR *name, _BLKNO_ bufinfo, BOOLEAN internal));
+extern CHAR *buffilenumber P_((CHAR **refp));
 extern BUFFER buffind P_((CHAR *name));
 extern BUFFER bufload P_((CHAR *bufname, char *filename, BOOLEAN reload));
 extern BUFFER bufpath P_((CHAR *path, char *filename, CHAR *bufname));

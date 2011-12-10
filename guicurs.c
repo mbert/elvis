@@ -1,7 +1,7 @@
 /* guicurs.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_guicurs[] = "$Id: guicurs.c,v 2.16 1996/05/30 17:39:04 steve Exp $";
+char id_guicurs[] = "$Id: guicurs.c,v 2.18 1997/11/23 19:54:15 steve Exp $";
 
 #define WINDOW elviswin
 #include "elvis.h"
@@ -42,7 +42,7 @@ typedef struct cwin_s
 
 #if USE_PROTOTYPES
 static BOOLEAN clr2eol(GUIWIN *gw);
-static BOOLEAN creategw(char *name, char *attributes);
+static BOOLEAN creategw(char *name, char *firstcmd);
 static BOOLEAN focusgw (GUIWIN *gw);
 static int init(int argc, char **argv);
 static int test(void);
@@ -196,14 +196,14 @@ static BOOLEAN focusgw(gw)
  * support multiple windows.  The msg() function should be called to
  * describe the reason for the failure.
  */
-static BOOLEAN creategw(name, attributes)
+static BOOLEAN creategw(name, firstcmd)
 	char	*name;		/* name of window to create */
-	char	*attributes;	/* other parameters */
+	char	*firstcmd;	/* first command to execute in window */
 {
 	CWIN	*newp;
 
 	/* allocate storate space for the window */
-	newp = safealloc(1, sizeof(CWIN));
+	newp = (CWIN *)safealloc(1, sizeof(CWIN));
 	newp->next = winlist;
 
 	/* initialize it. */
@@ -222,6 +222,13 @@ static BOOLEAN creategw(name, attributes)
 
 	/* simulate a "window create" event */
 	eventcreate((GUIWIN *)newp, NULL, name, newp->rows, newp->columns);
+
+	/* execute the firstcmd, if any */
+	if (firstcmd)
+	{
+		winoptions(winofgw((GUIWIN *)newp));
+		exstring(windefault, toCHAR(firstcmd));
+	}
 
 	return True;
 }

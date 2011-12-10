@@ -1,7 +1,7 @@
 /* map.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_map[] = "$Id: map.c,v 2.26 1996/09/21 00:01:46 steve Exp $";
+char id_map[] = "$Id: map.c,v 2.37 1998/08/14 16:29:37 steve Exp $";
 
 #include "elvis.h"
 
@@ -143,7 +143,7 @@ void mapinsert(rawin, rawlen, cooked, cooklen, label, flags)
 	}
 
 	/* save a copy of the new cooked string */
-	scan->cooked = safekept(cooklen, sizeof(CHAR));
+	scan->cooked = (CHAR *)safekept(cooklen, sizeof(CHAR));
 	memcpy(scan->cooked, cooked, cooklen * sizeof(CHAR));
 	scan->cooklen = cooklen;
 	scan->flags = flags;
@@ -286,13 +286,12 @@ static void trace(where)
 	/* maybe log it */
 	if (o_maplog != 'o')
 	{
-		log = bufalloc(toCHAR(TRACE_BUF), 0);
+		log = bufalloc(toCHAR(TRACE_BUF), 0, True);
 		if (o_maplog == 'r')
 		{
 			bufreplace(marktmp(logstart, log, 0L), marktmp(logend, log, o_bufchars(log)), NULL, 0L);
 			o_maplog = 'a';
 		}
-		o_internal(log) = True;
 		bufreplace(marktmp(logend, log, o_bufchars(log)), &logend, toCHAR(where), (long)strlen(where));
 		ch[0] = ':';
 		bufreplace(marktmp(logend, log, o_bufchars(log)), &logend, ch, 1L);
@@ -371,7 +370,8 @@ MAPSTATE mapdo(keys, nkeys)
 				if (buf)
 				{
 					bufreplace(marktmp(mark, buf,
-						o_bufchars(buf)), &mark, keys, (long)nkeys);
+							    o_bufchars(buf)),
+						    &mark, keys, (long)nkeys);
 				}
 			}
 		}
@@ -412,9 +412,10 @@ MAPSTATE mapdo(keys, nkeys)
 					queue[i] = queue[i + 1];
 				}
 
-				/* If the key is supposed to be treated as a command,
-				 * then send a ^O before the keystroke.  This is a
-				 * kludgy way to implement the input-mode ^O command.
+				/* If the key is supposed to be treated as a
+				 * command, then send a ^O before the keystroke.
+				 * This is a kludgy way to implement the
+				 * "visual" maps.
 				 */
 				if (ascmd)
 				{
@@ -422,17 +423,18 @@ MAPSTATE mapdo(keys, nkeys)
 				}
 
 				/* Make sure the MAP_DISABLE flag is turned off.
-				 * Any character of the cooked string can force it
-				 * on, but we only care if the *last* one forces
-				 * it on.  By forcing it off before handling each
-				 * cooked keystroke, we can ignore all but the last.
+				 * Any character of the cooked string can force
+				 * it on, but we only care if the *last* one
+				 * forces it on.  By forcing it off before
+				 * handling each cooked keystroke, we can
+				 * ignore all but the last.
 				 */
 				windefault->state->mapflags &= ~MAP_DISABLE;
 
 				/* Send the keystroke to the parser. */
 				statekey((_CHAR_)j);
 
-				/* if single-stepping, then we're done for now */
+				/* if single-stepping, then we're done for now*/
 				if (tracestep)
 				{
 					return MAP_CLEAR;
@@ -460,7 +462,8 @@ MAPSTATE mapdo(keys, nkeys)
 		}
 		else
 		{
-			now = (windefault->state->mapflags & (MAP_INPUT|MAP_COMMAND|MAP_OPEN));
+			now = (windefault->state->mapflags &
+					(MAP_INPUT|MAP_COMMAND|MAP_OPEN));
 		}
 
 		/* try to match the remaining keys to each map */
@@ -481,15 +484,16 @@ MAPSTATE mapdo(keys, nkeys)
 				 && scan->rawlen > qty
 				 && !memcmp(scan->rawin, queue, qty * sizeof(CHAR)))
 				{
-					/* increment an ambiguous match counter */
+					/* increment ambiguous match counter */
 					if (scan->label)
 						ambkey++;
 					else
 						ambuser++;
 				}
 
-				/* is it a complete match, and either the first such or
-				 * longer than any previous complete matches?
+				/* is it a complete match, and either the first
+				 * such or longer than any previous complete
+				 * matches?
 				 */
 				if (scan->rawlen <= qty
 					&& !memcmp(scan->rawin, queue, scan->rawlen * sizeof(CHAR))
@@ -502,10 +506,12 @@ MAPSTATE mapdo(keys, nkeys)
 		}
 
 		/* if ambiguous, then return MAP_USER or MAP_KEY */
-		if (ambuser > 0)
-			return MAP_USER;
+		if (!o_timeout && (ambuser > 0 || ambkey > 0))
+			return MAP_CLEAR; /* so no timeouts occur */
+		else if (ambuser > 0)
+			return MAP_USER;  /* so usertime timeout is used */
 		else if (ambkey > 0)
-			return MAP_KEY;
+			return MAP_KEY;   /* so keytime timeout is used */
 
 		/* if any complete map, then apply it */
 		if (match)
@@ -523,8 +529,19 @@ MAPSTATE mapdo(keys, nkeys)
 				}
 				else
 				{
-					drawimage(windefault);
-					guiflush();
+					static long frame;
+
+					if (frame++ >= o_animation)
+					{
+						frame = 0;
+						drawimage(windefault);
+						guiflush();
+					}
+					for (scan=maps; scan; scan = scan->next)
+					{
+						if (scan != match)
+							scan->invoked = False;
+					}
 				}
 			}
 
@@ -539,7 +556,7 @@ MAPSTATE mapdo(keys, nkeys)
 			if (match->rawlen < match->cooklen)
 			{
 				/* insert some room */
-				for (i = qty + match->cooklen - match->rawlen, j = qty;
+				for (i=qty+match->cooklen-match->rawlen, j=qty;
 				     j > match->rawlen;
 				     )
 				{
@@ -549,7 +566,7 @@ MAPSTATE mapdo(keys, nkeys)
 			else if (match->rawlen > match->cooklen)
 			{
 				/* delete some keys */
-				for (i = match->cooklen, j = match->rawlen; i < qty; )
+				for (i=match->cooklen, j=match->rawlen; i<qty; )
 				{
 					queue[i++] = queue[j++];
 				}
@@ -766,7 +783,7 @@ RESULT maplearn(cbname, start)
 		buf = cutbuffer(cbname, False);
 		if (!buf)
 			return RESULT_ERROR;
-		if (o_bufchars(buf) >= CUT_TYPELEN + 2
+		if (o_bufchars(buf) >= 2L
 		 && scanchar(marktmp(tmp, buf, o_bufchars(buf) - 1)) == cbname
 		 && ((cmd = scanchar(marktmp(tmp, buf, o_bufchars(buf) - 2))) == ']'
 			|| cmd == '@'))
@@ -799,6 +816,12 @@ CHAR maplrnchar(dflt)
 }
 
 
+/* Return TRUE if we're currently executing a map, or FALSE otherwise */
+BOOLEAN mapbusy()
+{
+	return (BOOLEAN)(qty > 0);
+}
+
 /* This function implements a POSIX "terminal alert."  This involves discarding
  * any pending keytrokes, and aborting @ macros and maps.  And then the GUI's
  * bell must be rung.
@@ -828,7 +851,7 @@ CHAR *mapabbr(bkwd, oldptr, newptr, exline)
 	for (m = abbrs; m; m = m->next)
 	{
 		/* Skip this abbr if it is for the wrong context */
-		if ((m->flags & MAP_INPUT) == (exline ? MAP_INPUT : 0))
+		if ((m->flags & MAP_INPUT) == (unsigned)(exline ? MAP_INPUT : 0))
 		{
 			continue;
 		}
@@ -863,7 +886,7 @@ CHAR *mapabbr(bkwd, oldptr, newptr, exline)
 	return NULL;
 }
 
-#ifndef NO_MKEXRC
+#ifdef FEATURE_MKEXRC
 /* This function is used for saving the current map table as a series of
  * :map commands.  It is used by the :mkexrc command.
  */
@@ -909,7 +932,8 @@ void mapsave(buf)
 			     i > 0 && len < QTY(text) - 4;
 			     i--, scan++)
 			{
-				if (*scan == ' ' || *scan == '\t' || *scan == '|')
+				if (*scan == ' ' || *scan == '\t' || *scan == '|'
+				 || *scan == ELVCTRL('V') || *scan == '\033')
 				{
 					text[len++] = ELVCTRL('V');
 				}
@@ -928,7 +952,7 @@ void mapsave(buf)
 		     i > 0 && len < QTY(text) - 3;
 		     i--, scan++)
 		{
-			if (*scan == '|')
+			if (*scan == '|' || *scan == ELVCTRL('V') || *scan == '\033')
 			{
 				text[len++] = ELVCTRL('V');
 			}
@@ -941,4 +965,4 @@ void mapsave(buf)
 		markaddoffset(&append, len);
 	}
 }
-#endif /* not NO_MKEXRC */
+#endif /* def FEATURE_MKEXRC */

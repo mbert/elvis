@@ -1,7 +1,7 @@
 /* main.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_main[] = "$Id: main.c,v 2.29 1996/09/21 02:12:31 steve Exp $";
+char id_main[] = "$Id: main.c,v 2.43 1998/11/14 01:36:51 steve Exp $";
 
 #include "elvis.h"
 
@@ -16,7 +16,7 @@ static void startfirst(void);
 static void init(int argc, char **argv);
 void mainfirstcmd(WINDOW win);
 void term(void);
-void main(int argc, char **argv);
+int main(int argc, char **argv);
 #endif
 
 
@@ -34,8 +34,16 @@ static GUI *allguis[] =
 	&guix11,
 #endif
 
+#ifdef GUI_PM
+	&guipm,
+#endif
+
 #ifdef GUI_TERMCAP
 	&guitermcap,
+#endif
+
+#ifdef GUI_VIO
+	&guivio,
 #endif
 
 #ifdef GUI_CURSES
@@ -48,6 +56,7 @@ static GUI *allguis[] =
 
 #ifdef GUI_OPEN
 	&guiopen,
+	&guiscript,
 	&guiquit
 #endif
 };
@@ -72,14 +81,17 @@ static void usage(hint)
 	msg(MSG_INFO, "       -R          Mark new buffers as \"readonly\"");
 	msg(MSG_INFO, "       -e          Start in ex mode instead of vi mode");
 	msg(MSG_INFO, "       -i          Start in input mode instead of vi mode");
-	msg(MSG_INFO, "       -s          Set the \"safer\" option, for security");
+	msg(MSG_INFO, "       -S          Set the \"safer\" option, for security");
 	msg(MSG_INFO, "       -w lines    Set scroll amount to \"lines\"");
 	msg(MSG_INFO, "       -f session  Use \"session\" as the session file");
 	msg(MSG_INFO, "       -G gui      Use the \"gui\" user interface \\(see below\\)");
 	msg(MSG_INFO, "       -c command  Execute \"command\" after loading first file");
+	msg(MSG_INFO, "       -s          Read a script from stdin and execute it");
 	msg(MSG_INFO, "       -t tag      Perform a tag search");
+	msg(MSG_INFO, "       -o logfile  Send messages to logfile instead of stderr");
 	msg(MSG_INFO, "       -b blksize  Use blocks of size \"blksize\"");
 	msg(MSG_INFO, "       +command    Archaic form of \"-c command\" flag");
+	msg(MSG_INFO, "       -           Archaic form of \"-s\" flag");
 	guinames[0] = '\0';
 	for (i = 0; i < QTY(allguis); i++)
 	{
@@ -169,41 +181,13 @@ static int parseflags(argc, argv)
 		/* for now, assume we'll be deleting 0 arguements */
 		del = 0;
 
-		/* check for some special flags */
-		if (!strcmp(argv[i], "-version")
-		 || !strcmp(argv[i], "--version")
-		 || !strcmp(argv[i], "-v"))
-		{
-			msg(MSG_INFO, "[s]elvis $1", VERSION);
-#ifdef COPY1
-			msg(MSG_INFO, "[s]$1", COPY1);
-#endif
-#ifdef COPY2
-			msg(MSG_INFO, "[s]$1", COPY2);
-#endif
-#ifdef COPY3
-			msg(MSG_INFO, "[s]$1", COPY3);
-#endif
-#ifdef COPY4
-			msg(MSG_INFO, "[s]$1", COPY4);
-#endif
-#ifdef PORTEDBY
-			msg(MSG_INFO, "[s]$1", PORTEDBY);
-#endif
-			if (chosengui)
-				(*chosengui->term)();
-			exit(0);
-		}
-		else if (!strcmp(argv[i], "-help")
-		      || !strcmp(argv[i], "--help")
-		      || !strcmp(argv[i], "-?"))
-		{
-			usage(NULL);
-		}
-
 		/* recognize any normal flags */
 		if (argv[i][0] == '-')
 		{
+			/* the "-" flag has already been processed */
+			if (!argv[i][1])
+				del = 1;
+
 			for (j = 1; j != 0 && argv[i][j]; j++)
 			{
 				switch (argv[i][j])
@@ -224,7 +208,8 @@ static int parseflags(argc, argv)
 					break;
 
 				  case 'V':
-				  	o_verbose = True;
+				  case 's':
+				  	/* already handled in chosengui() */
 				  	del = 1;
 				  	break;
 
@@ -243,6 +228,25 @@ static int parseflags(argc, argv)
 					else
 					{
 						usage("-s requires the name of a session file");
+					}
+					j = -1; /* so we stop processing this arg */
+					break;
+
+				  case 'o':
+					if (argv[i][j + 1])
+					{
+						msglog(&argv[i][j + 1]);
+						del = 1;
+					}
+					else if (i + 1 < argc)
+					{
+						msglog(argv[i + 1]);
+						del = 2;
+						i++;
+					}
+					else
+					{
+						usage("-o requires the name of a log file");
 					}
 					j = -1; /* so we stop processing this arg */
 					break;
@@ -305,9 +309,11 @@ static int parseflags(argc, argv)
 					{
 						usage("-b requires a block size for the session file");
 					}
-					if (size < 256 || size > 8192)
+					if (size != 512 && size != 1024
+						&& size != 2048 && size != 4096
+						&& size != 8192)
 					{
-						usage("bad blksize given for -b");
+						usage("bad -b blksize: should be 512, 1024, 2048, 4096, or 8192");
 					}
 					j = -1; /* so we stop processing this arg */
 					o_blksize = size;
@@ -319,7 +325,7 @@ static int parseflags(argc, argv)
 					del = 1;
 					break;
 
-				  case 's':
+				  case 'S':
 					o_safer = True;
 					del = 1;
 					break;
@@ -398,10 +404,15 @@ static int choosegui(argc, argv)
 	/* Initialize "j" just to silence a compiler warning */
 	j = 0;
 
-	/* search for "-G gui" in the command line */
+	/* search for "-G gui" in the command line.  Also watch for "-V" */
 	for (i = 1; i < argc; i++)
 	{
-		if (argv[i][0] == '-' && argv[i][1] == 'G')
+		/* skip non-flag arguments */
+		if (argv[i][0] != '-')
+			continue;
+
+		/* is it -G?  -V?  - or -s? */
+		if (argv[i][1] == 'G')
 		{
 			/* remember the gui name */
 			if (argv[i][2])
@@ -418,10 +429,53 @@ static int choosegui(argc, argv)
 			}
 			argv[i] = NULL;
 			argc = i;
-
-			/* stop looking for "-G" */
-			break;
 		}
+		else if (argv[i][1] == 'V')
+		{
+			for (j = 1; argv[i][j] == 'V'; j++)
+				o_verbose++;
+		}
+		else if (argv[i][1] == '\0' || argv[i][1] == 's')
+		{
+			/* use the "script" interface */
+			o_gui = toCHAR("script");
+
+			/* don't read any configuration files */
+			optpreset(o_elvispath, NULL, OPT_HIDE);
+		}
+		else if (!strcmp(argv[i], "-version")
+		 || !strcmp(argv[i], "--version")
+		 || !strcmp(argv[i], "-v"))
+		{
+			msg(MSG_INFO, "[s]elvis $1", VERSION);
+#ifdef COPY1
+			msg(MSG_INFO, "[s]$1", COPY1);
+#endif
+#ifdef COPY2
+			msg(MSG_INFO, "[s]$1", COPY2);
+#endif
+#ifdef COPY3
+			msg(MSG_INFO, "[s]$1", COPY3);
+#endif
+#ifdef COPY4
+			msg(MSG_INFO, "[s]$1", COPY4);
+#endif
+#ifdef COPY5
+			msg(MSG_INFO, "[s]$1", COPY5);
+#endif
+#ifdef PORTEDBY
+			msg(MSG_INFO, "[s]$1", PORTEDBY);
+#endif
+			exit(0);
+		}
+		else if (!strcmp(argv[i], "-help")	/* old GNU */
+		      || !strcmp(argv[i], "--help")	/* new GNU */
+		      || !strcmp(argv[i], "/?")		/* DOS */
+		      || !strcmp(argv[i], "-?"))	/* common */
+		{
+			usage(NULL);
+		}
+
 	}
 
 	/* find the specified GUI, or the first available if none specified */
@@ -464,7 +518,7 @@ static int choosegui(argc, argv)
 			}
 			else
 			{
-				msg(MSG_ERROR, "no gui available", o_gui);
+				msg(MSG_ERROR, "no gui available");
 				exit(0);
 			}
 		}
@@ -479,7 +533,8 @@ static int choosegui(argc, argv)
 
 	/* Remember the chosen GUI, but don't set the official "gui" pointer
 	 * yet because we want any initialization error message to go to
-	 * stderr instead of a window.
+	 * stderr instead of a window.  EXCEPTION: If the gui doesn't support
+	 * full screen mode, then we can set "gui" now.
 	 */
 	chosengui = allguis[i];
 	return argc;
@@ -502,6 +557,9 @@ static void doexrc()
 		/* Execute its contents. */
 		(void)experform((WINDOW)0, marktmp(top, buf, 0),
 			marktmp(bottom, buf, o_bufchars(buf)));
+
+		/* save the current values as the default values */
+		optsetdflt();
 
 		/* After this, only the current display-mode's options should
 		 * be available.
@@ -551,7 +609,7 @@ static void startfirst()
 	if (!arglist[0])
 	{
 		/* Create an anonymous buffer and a window for it */
-		buf = bufalloc(NULL, 0);
+		buf = bufalloc(NULL, 0, False);
 		assert(buf);
 		(void)(*gui->creategw)(tochar8(o_bufname(buf)), "");
 	}
@@ -632,13 +690,11 @@ static void init(argc, argv)
 	o_gui = toCHAR(gui->name);
 
 	/* Create the "Elvis ex history" buffer, and tweak its options */
-	buf = bufalloc(toCHAR(EX_BUF), (BLKNO)0);
-	o_inputtab(buf) = 'f';
-	o_internal(buf) = True;
+	buf = bufalloc(toCHAR(EX_BUF), (BLKNO)0, True);
+	o_inputtab(buf) = 'e';
 
 	/* Create the "Elvis error list" buffer, and tweak its options */
-	buf = bufalloc(toCHAR(ERRLIST_BUF), (BLKNO)0);
-	o_internal(buf) = True;
+	buf = bufalloc(toCHAR(ERRLIST_BUF), (BLKNO)0, True);
 	o_undolevels(buf) = 0;
 
 	/* Execute the initialization buffer (which may create some windows) */
@@ -683,6 +739,7 @@ void term()
 {
 #ifdef DEBUG_ALLOC
 	int	i;
+	BUFFER	buf, next;
 #endif
 
 	/* Call the GUI's term() function */
@@ -692,21 +749,29 @@ void term()
 	/* Flush any final messages */
 	msgflush();
 
-	/* Close the session */
-	sesclose();
-
 #ifdef DEBUG_ALLOC
 	/* Free the args list so it isn't reported as a memory leak */
 	for (i = 0; arglist[i]; i++)
 		safefree(arglist[i]);
 	safefree(arglist);
+
+	/* Free all the buffers so they aren't reported as memory leaks */
+	for (buf = ((BUFFER)0); buf; buf = next)
+	{
+		next = buflist(buf);
+		if (!o_internal(buf))
+			buffree(buf);
+	}
 #endif
+
+	/* Close the session */
+	sesclose();
 
 	/* Check for any memory leaks */
 	safeterm();
 }
 
-void main(argc, argv)
+int main(argc, argv)
 	int	argc;	/* number of command-line arguments */
 	char	**argv;	/* values of the command-line arguments */
 {
@@ -716,4 +781,5 @@ void main(argc, argv)
 #if !defined (GUI_WIN32)
 	exit((int)o_exitcode);
 #endif
+	return (int)o_exitcode;
 }

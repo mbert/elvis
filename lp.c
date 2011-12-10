@@ -1,11 +1,12 @@
 /* lp.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_lp[] = "$Id: lp.c,v 2.21 1996/08/19 22:05:21 steve Exp $";
+char id_lp[] = "$Id: lp.c,v 2.28 1997/11/02 18:54:45 steve Exp $";
 
 /* This file contains generic printing code. */
 
 #include "elvis.h"
+#ifdef FEATURE_LPR
 
 #if USE_PROTOTYPES
 static LPTYPE *findtype(char *name);
@@ -31,6 +32,7 @@ static int	linesleft;	/* number of usable lines left on this page */
 static int	column;		/* column number, used to implement wrapping */
 static WINDOW	prwin;		/* window doing the printing */
 static BOOLEAN	anytext;	/* False if blank page, True if any text */
+static long	lnum;		/* line number of current line */
 
 /* Output buffering variables */
 static CHAR	*iobuf;		/* pointer to the I/O buffer */
@@ -98,6 +100,7 @@ static void draw(p, qty, font, offset)
 	WINDOW	win;
 	long	delta;
 	CHAR	ch;
+	char	lnumstr[20];
 
 	/* A negative qty indicates that the character *p is to be repeated.
 	 */
@@ -127,6 +130,17 @@ static void draw(p, qty, font, offset)
 			{
 				ch = '\f';
 			}
+		}
+
+		/* maybe output a line number */
+		if (column == 0		/* at start of line */
+		 && o_lpnumber		/* "lpnumber" option is set */
+		 && offset >= -1	/* not doing header or line number */
+		 && ch != '\f')		/* character isn't formfeed */
+		{
+			/* output a line number */
+			sprintf(lnumstr, "%6ld  ", lnum);
+			draw(toCHAR(lnumstr), 8, 'n', -2L);
 		}
 
 		/* if line is too long, then wrap it or clip it */
@@ -221,6 +235,9 @@ RESULT lp(win, top, bottom, force)
 {
 	long	oldcurs;
 	MARK	next;
+	CHAR	*origdisplay = NULL;
+	char	*out;
+	char	rwa;
 	
 	/* convert the value of o_lptype to an LPTYPE pointer */
 	type = findtype(tochar8(o_lptype));
@@ -230,22 +247,37 @@ RESULT lp(win, top, bottom, force)
 		return RESULT_ERROR;
 	}
 
+	/* Switch to the bufdisplay display mode, if not that way already */
+	if (CHARcmp(o_display(win), o_bufdisplay(markbuffer(top))))
+	{
+		origdisplay = CHARdup(o_display(win));
+		if (!dispset(win, tochar8(o_bufdisplay(markbuffer(top)))))
+		{
+			safefree(origdisplay);
+			return RESULT_ERROR;
+		}
+	}
+
 	/* Call the mode's setup function.  Pretend the cursor is at the
 	 * top of the print region, so setup() doesn't try to scroll.
 	 */
-	next = (*win->md->setup)(top, markoffset(top), bottom, win->mi);
+	next = (*win->md->setup)(win, top, markoffset(top), bottom, win->mi);
 
 	/* open file or filter program */
 	if (type->spooled)
 	{
-		if (!o_lpout || !*o_lpout)
+		rwa = 'w';
+		out = tochar8(o_lpout);
+		if (!out || !*out)
 		{
 			msg(MSG_ERROR, "must set lpout");
-			return RESULT_ERROR;
+			goto Error;
 		}
-		if (!ioopen(tochar8(o_lpout), 'w', True, force, False))
+		if (out[0] == '>' && out[1] == '>')
+			out += 2, rwa = 'a';
+		if (!ioopen(out, rwa, True, force, 'b'))
 		{
-			return RESULT_ERROR;
+			goto Error;
 		}
 	}
 
@@ -281,6 +313,7 @@ RESULT lp(win, top, bottom, force)
 	marksetoffset(win->cursor, o_bufchars(markbuffer(win->cursor)));
 	while (markoffset(next) < markoffset(bottom))
 	{
+		lnum = markline(next);
 		next = (*win->md->image)(win, next, win->mi, draw);
 	}
 	marksetoffset(win->cursor, oldcurs);
@@ -295,12 +328,24 @@ RESULT lp(win, top, bottom, force)
 	}
 	safefree(iobuf);
 	msg(MSG_INFO, "[d]$1 pages", (long)pagenum);
-	if (!type->spooled || ioclose())
+	if (type->spooled && ioclose())
+		goto Error;
+
+	/* clean up and return success */
+	if (origdisplay)
 	{
-		return RESULT_COMPLETE;
+		(void)dispset(win, tochar8(origdisplay));
+		safefree(origdisplay);
 	}
-	else
+	return RESULT_COMPLETE;
+
+Error:
+	/* clean up and return failure */
+	if (origdisplay)
 	{
-		return RESULT_ERROR;
+		(void)dispset(win, tochar8(origdisplay));
+		safefree(origdisplay);
 	}
+	return RESULT_ERROR;
 }
+#endif /* FEATURE_LPR */

@@ -1,6 +1,6 @@
 /* ctags.c */
 
-char id_ctags[] = "$Id: ctags.c,v 2.8 1996/09/21 02:12:31 steve Exp $";
+char id_ctags[] = "$Id: ctags.c,v 2.22 1998/11/14 01:36:51 steve Exp $";
 
 /* This is a reimplementation of the ctags(1) program.  It supports ANSI C,
  * and has heaps o' flags.  It is meant to be distributed with elvis.
@@ -10,12 +10,6 @@ char id_ctags[] = "$Id: ctags.c,v 2.8 1996/09/21 02:12:31 steve Exp $";
  *		function pointers in parameter declaration 
  */
 
-#include <stdio.h>
-#include <ctype.h>
-#ifdef __STDC__
-# include <string.h>
-# include <stdlib.h>
-#endif
 #include "elvis.h"
 #if OSEXPANDARGS
 # define JUST_DIRFIRST
@@ -42,22 +36,26 @@ char id_ctags[] = "$Id: ctags.c,v 2.8 1996/09/21 02:12:31 steve Exp $";
 #define ARGS	  2
 #define COMMA	  3
 #define SEMICOLON 4
-#define TYPEDEF   5
-#define KSTATIC	  6
-#define EXTERN	  7
-#define NAME	  8
-#define INLINE	  9
+#define CLASSSEP  5
+#define TYPEDEF   6
+#define CLASS	  7
+#define STRUCT	  8
+#define UNION	  9
+#define KSTATIC	  10
+#define EXTERN	  11
+#define NAME	  12
+#define INLINE	  13
 
 extern void	file_open P_((char *));
 extern int	file_getc P_((void));
 extern void	file_ungetc P_((int));
-extern void	file_copyline P_((long, FILE *, int));
+extern void	file_copyline P_((long, FILE *, char *));
 extern void	cpp_open P_((char *));
 extern void	cpp_echo P_((int));
 extern int	cpp_getc P_((void));
 extern void	cpp_ungetc P_((int));
 extern int	lex_gettoken P_((void));
-extern void	maketag P_((int, char *, long, long, int));
+extern void	maketag P_((int, char *, long, long, int, char *));
 extern void	ctags P_((char *));
 extern void	usage P_((void));
 extern void	main P_((int, char **));
@@ -72,6 +70,9 @@ static int  num_tags = 0;
 static int  total_tags = 0;
 #endif
 
+/* support for elvis' ctype macros */
+#include "ctypetbl.h"
+
 /* -------------------------------------------------------------------------- */
 /* Some global variables */
 
@@ -80,6 +81,7 @@ char	*del_word;	/* -Dword  ignore word -- good for parameter macro */
 int	backward;	/* -B  regexp patterns search backwards */
 int	use_numbers;	/* -N  use line numbers instead of regexp patterns */
 int	incl_static;	/* -s  include static tags */
+int	incl_extern;	/* -e  include extern tags */
 int	incl_types;	/* -t  include typedefs and structs */
 int	incl_vars;	/* -v  include variables */
 int	incl_inline;	/* -i  include inline's */
@@ -88,10 +90,29 @@ int	make_xtbl;	/* -x  write cross-reference table to stdout */
 int	make_tags = 1;	/*     generate a "tags" file (implied by lack of -x) */
 int	make_refs;	/* -r  generate a "refs" file */
 int	append_files;	/* -a  append to "tags" [and "refs"] files */
+int	add_hints;	/* -h  include extra fields that give elvis hints */
+int	add_ln;		/* -l  include line number in hints */
 
 /* The following are used for outputting to the "tags" and "refs" files */
 FILE	*tags;		/* used for writing to the "tags" file */
 FILE	*refs;		/* used for writing to the "refs" file */
+
+/* The following are either empty or store hints */
+char	hint_class[200];/* class name, for tags preceeded by a name and :: */
+
+/* -------------------------------------------------------------------------- */
+/* display a fatal error message from safe.c */
+#ifdef USE_PROTOTYPES
+void msg(MSGIMP type, char *msg, ...)
+#else
+void msg(type, msg)
+	MSGIMP	type;
+	char	*msg;
+#endif
+{
+	fprintf(stderr, "%s\n", msg);
+	abort();
+}
 
 /* -------------------------------------------------------------------------- */
 /* These are used for reading a source file.  It keeps track of line numbers */
@@ -193,10 +214,10 @@ void file_ungetc(ch)
  *
  * This is meant to be used when generating a tag line.
  */
-void file_copyline(seek, fp, quote)
+void file_copyline(seek, fp, buf)
 	long	seek;	/* where the lines starts in the source file */
-	FILE	*fp;	/* the output stream to copy it to */
-	int	quote;	/* 1 to quote \ and $ characters, 0 normally */
+	FILE	*fp;	/* the output stream to copy it to if buf==NULL */
+	char	*buf;	/* line buffer, or NULL to write to fp */
 {
 	long	oldseek;/* where the file's pointer was before we messed it up */
 	char	ch;	/* a single character from the file */
@@ -206,36 +227,33 @@ void file_copyline(seek, fp, quote)
 	oldseek = ftell(file_fp);
 	fseek(file_fp, seek, 0);
 
-	/* if first character is '^', then quote it */
-	ch = getc(file_fp);
-#if 0
-	if (ch == '^')
-	{
-		putc('\\', fp);
-	}
-#endif
-
 	/* write everything up to, but not including, the newline */
-	while (ch != '\n')
+	for (ch = getc(file_fp); ch != '\n'; ch = next)
 	{
 		/* preread the next character from this file */
 		next = getc(file_fp);
 
 		/* if character is '\', or a terminal '$', then quote it */
-		if (quote && (ch == '\\'
+		if (buf && (ch == '\\'
 			   || ch == (backward ? '?' : '/')
 			   || (ch == '$' && next == '\n')))
 		{
-			putc('\\', fp);
+			*buf++ = '\\';
 		}
 
 		/* copy the character, unless it is a terminal '\r' */
 		if (ch != '\r' || next != '\n')
-			putc(ch, fp);
-
-		/* next character... */
-		ch = next;
+		{
+			if (buf)
+				*buf++ = ch;
+			else
+				putc(ch, fp);
+		}
 	}
+
+	/* mark the end of the line */
+	if (buf)
+		*buf = '\0';
 
 	/* seek back to the old position */
 	fseek(file_fp, oldseek, 0);
@@ -385,7 +403,7 @@ int cpp_getc()
 		}
 
 		/* output a tag line */
-		maketag((file_header || incl_static) ? 0 : KSTATIC, name, file_lnum, file_seek, TRUE);
+		maketag(file_header ? 0 : KSTATIC, name, file_lnum, file_seek, TRUE, "d");
 	}
 
 	/* skip to the end of the directive -- a newline that isn't preceded
@@ -421,12 +439,14 @@ void cpp_ungetc(ch)
  *   (deleted)	(*	(parens used in complex declaration)
  *   (deleted)	[...]	(array subscript, when ... contains no ])
  *   (deleted)	struct	(intro to structure declaration)
- *   BODY	{...}	('{' can occur anywhere, '}' only at BOW if ... has '{')
+ *   (deleted)	:words{	(usually ":public baseclass {" in a class declaration
+ *   BODY	{...}	('{' can occur anywhere, '}' only at BOL if ... has '{')
  *   ARGS	(...{	(args of function, not extern or forward)
  *   ARGS	(...);	(args of an extern/forward function declaration)
  *   COMMA	,	(separate declarations that have same scope)
  *   SEMICOLON	;	(separate declarations that have different scope)
  *   SEMICOLON  =...;	(initializer)
+ *   CLASSSEP	::	(class separator)
  *   TYPEDEF	typedef	(the "typedef" keyword)
  *   KSTATIC	static	(the "static" keyword)
  *   KSTATIC	private	(the "static" keyword)
@@ -602,6 +622,27 @@ int lex_gettoken()
 			token = SEMICOLON;
 			break;
 
+		  case ':':
+		  	/* check for a second ':' */
+		  	ch = cpp_getc();
+		  	if (ch == ':')
+		  	{
+		  		token = CLASSSEP;
+		  	}
+		  	else
+		  	{
+		  		/* probably ": public baseclass {" in a class
+		  		 * declaration.
+		  		 */
+		  		while (isspace(ch) || isalnum(ch) || ch == '_')
+		  		{
+		  			ch = cpp_getc();
+		  		}
+				cpp_ungetc(ch);
+				token = DELETED;
+		  	}
+		  	break;
+
 		  case EOF:
 			token = EOF;
 			break;
@@ -627,17 +668,38 @@ int lex_gettoken()
 					token = TYPEDEF;
 					lex_seek = -1L;
 				}
+				else if (!strcmp(name, "class"))
+				{
+					token = CLASS;
+					lex_seek = -1L;
+				}
+				else if (!strcmp(name, "struct"))
+				{
+					token = STRUCT;
+					lex_seek = -1L;
+				}
+				else if (!strcmp(name, "union"))
+				{
+					token = UNION;
+					lex_seek = -1L;
+				}
 				else if (!strcmp(name, "static")
 				      || !strcmp(name, "private")
 				      || !strcmp(name, "protected")
 				      || !strcmp(name, "PRIVATE"))
 				{
 					token = KSTATIC;
+					/* ch already contains ungotten next
+					 * char.  If ':' then delete it.
+					 */
+					if (ch == ':')
+						(void)cpp_getc();
 					lex_seek = -1L;
 				}
 				else if (!strcmp(name, "extern")
 				      || !strcmp(name, "EXTERN")
-				      || !strcmp(name, "FORWARD"))
+				      || !strcmp(name, "FORWARD")
+				      || !strcmp(name, "virtual"))
 				{
 					token = EXTERN;
 					lex_seek = -1L;
@@ -656,6 +718,22 @@ int lex_gettoken()
 				{
 					token = DELETED;
 					lex_seek = -1L;
+				}
+				else if (!strcmp(name, "operator"))
+				{
+					token = NAME;
+					ch = cpp_getc();
+					while (strchr("[]<>=!%^&*+-?/:,|~", ch))
+					{
+						name[i++] = ch;
+						ch = cpp_getc();
+					}
+					cpp_ungetc(ch);
+
+					name[i] = '\0';
+					strcpy(lex_name, name);
+					lex_seek = file_seek;
+					lex_lnum = file_lnum;
 				}
 				else
 				{
@@ -685,16 +763,23 @@ int lex_gettoken()
 /* This function generates a tag for the object in lex_name, whose tag line is
  * located at a given seek offset.
  */
-void maketag(scope, name, lnum, seek, number)
+void maketag(scope, name, lnum, seek, number, kind)
 	int	scope;	/* 0 if global, or KSTATIC if static */
 	char	*name;	/* name of the tag */
 	long	lnum;	/* line number of the tag */
 	long	seek;	/* the seek offset of the line */
 	int	number;	/* 1 to give line number, or 0 to give regexp */
+	char	*kind;	/* token type of the tag: "f" for function, etc. */
 {
-	if (scope == EXTERN || (scope == KSTATIC && !incl_static))
+	TAG	tag;	/* structure for storing tag info */
+	char	buf[200];
+	char	lnbuf[20];
+
+
+	/* if tag has a scope that we don't care about, ignore it */
+	if ((scope == EXTERN && !incl_extern)
+	 || (scope == KSTATIC && !incl_static))
 	{
-		/* whoa!  we should *never* output a tag for "extern" decl */
 		return;
 	}
 
@@ -705,29 +790,46 @@ void maketag(scope, name, lnum, seek, number)
 		set_total_tags (++total_tags);
 #endif
 
-		fprintf(tags, "%s\t%s\t", name, file_name);
-
+		/* store the basic attributes */
+		memset(&tag, 0, sizeof tag);
+		tag.TAGNAME = name;
+		tag.TAGFILE = file_name;
 		if (number)
 		{
-			/* output the line number */
-			fprintf(tags, "%ld\n", lnum);
+			sprintf(buf, "%ld", lnum);
 		}
 		else
 		{
-			/* output the target line */
-			putc(backward ? '?' : '/', tags);
-			putc('^', tags);
-			file_copyline(seek, tags, TRUE);
-			putc('$', tags);
-			putc(backward ? '?' : '/', tags);
-			putc('\n', tags);
+			strcpy(buf, backward ? "?^" : "/^");
+			file_copyline(seek, NULL, buf + 2);
+			strcat(buf, backward ? "$?" : "$/");
 		}
+		tag.TAGADDR = buf;
+
+		/* add any relevent hints */
+		if (add_hints)
+		{
+			if (scope == KSTATIC)
+				tagattr(&tag, "file", "");
+			if (hint_class[0])
+				tagattr(&tag, "class", hint_class);
+			if (kind)
+				tagattr(&tag, "kind", kind);
+			if (add_ln)
+			{
+				sprintf(lnbuf, "%ld", lnum);
+				tagattr(&tag, "ln", lnbuf);
+			}
+		}
+
+		/* store the tag */
+		tagadd(tagdup(&tag));
 	}
 
 	if (make_xtbl)
 	{
 		printf("%-15.15s%6ld %-16.16s ", name, lnum, file_name);
-		file_copyline(seek, stdout, FALSE);
+		file_copyline(seek, stdout, NULL);
 		putchar('\n');
 	}
 }
@@ -769,7 +871,11 @@ void ctags(name)
 			  case  ARGS:	   printf("() ");		break;
 			  case  COMMA:	   printf(",\n");		break;
 			  case  SEMICOLON: printf(";\n");		break;
+			  case	CLASSSEP:  printf("::");		break;
 			  case  TYPEDEF:   printf("typedef ");		break;
+			  case	CLASS:	   printf("class ");		break;
+			  case	STRUCT:	   printf("struct ");		break;
+			  case	UNION:	   printf("union ");		break;
 			  case  KSTATIC:   printf("static ");		break;
 			  case  EXTERN:	   printf("extern ");		break;
 			  case  NAME:	   printf("\"%s\" ", lex_name);	break;
@@ -777,8 +883,16 @@ void ctags(name)
 			}
 		}
 
+		/* the class name is clobbered after most tokens */
+		if (prev != NAME && prev != CLASSSEP && prev != ARGS)
+		{
+			*hint_class = '\0';
+		}
+
 		/* scope keyword? */
-		if (token == TYPEDEF || token == KSTATIC || token == EXTERN)
+		if (token == TYPEDEF || token == KSTATIC
+		 || token == EXTERN || token == CLASS
+		 || token == STRUCT || token == UNION)
 		{
 			scope = token;
 			gotname = FALSE;
@@ -801,7 +915,17 @@ void ctags(name)
 			continue;
 		}
 
-		/* if NAME BODY, without ARGS, then NAME is a struct tag */
+		/* if NAME CLASSSEP, then NAME is a possible class name */
+		if (gotname && token == CLASSSEP)
+		{
+			strcpy(hint_class, lex_name);
+			gotname = False;
+			continue;
+		}
+
+		/* if NAME BODY, without ARGS, then NAME is a struct tag or a
+		 * class name
+		 */
 		if (gotname && token == BODY && prev != ARGS)
 		{
 			gotname = FALSE;
@@ -815,7 +939,11 @@ void ctags(name)
 			/* generate a tag, if -t and maybe -s */
 			if (incl_types)
 			{
-				maketag(file_header ? 0 : KSTATIC, lex_name, lex_lnum, tagseek, use_numbers);
+				maketag(file_header ? 0 : KSTATIC,
+					lex_name, lex_lnum, tagseek,
+					use_numbers,
+					scope==CLASS ? "c" :
+					scope==STRUCT ? "s" : "u");
 			}
 		}
 
@@ -825,29 +953,33 @@ void ctags(name)
 			gotname = FALSE;
 			
 			/* generate a tag, maybe checking -s */
-			maketag(scope, lex_name, lex_lnum, tagseek, use_numbers);
+			maketag(scope, lex_name, lex_lnum, tagseek, use_numbers, "f");
 		}
 
 		/* If NAME SEMICOLON or NAME COMMA, then NAME is var/typedef.
-		 * Note that NAME ARGS SEMICOLON is an extern function declaration,
-		 * even if the word "extern" was left off, so we need to guard
-		 * against that possibility.
+		 * Note that NAME ARGS SEMICOLON is an extern function
+		 * declaration, even if the word "extern" was left off, so we
+		 * need to guard against that possibility.
 		 */
-		if (gotname && (token == SEMICOLON || token == COMMA) && prev != ARGS)
+		if (gotname && (token == SEMICOLON || token == COMMA))
 		{
 			gotname = FALSE;
 
+			if (prev == ARGS)
+			{
+				maketag(EXTERN, lex_name, lex_lnum, tagseek, use_numbers, "x");
+			}
 			/* generate a tag, if -v/-t and maybe -s */
-			if (scope==TYPEDEF ? incl_types : incl_vars)
+			else if (scope==TYPEDEF || scope==STRUCT || scope==UNION ? incl_types : incl_vars)
 			{
 				/* a TYPEDEF outside of a header is KSTATIC */
 				if (scope == TYPEDEF && !file_header)
 				{
-					maketag(KSTATIC, lex_name, lex_lnum, tagseek, use_numbers);
+					maketag(KSTATIC, lex_name, lex_lnum, tagseek, use_numbers, "t");
 				}
 				else /* use whatever scope was declared */
 				{
-					maketag(scope, lex_name, lex_lnum, tagseek, use_numbers);
+					maketag(scope, lex_name, lex_lnum, tagseek, use_numbers, scope==TYPEDEF || scope==STRUCT || scope==UNION ? "t" : "v");
 				}
 			}
 		}
@@ -869,16 +1001,21 @@ void usage()
 {
 	fprintf(stderr, "usage: ctags [flags] filenames...\n");
 	fprintf(stderr, "\t-Dword  Ignore \"word\" -- handy for parameter macro name\n");
+	fprintf(stderr, "\t-F      Use /regexp/ (default)\n");
 	fprintf(stderr, "\t-B      Use ?regexp? instead of /regexp/\n");
 	fprintf(stderr, "\t-N      Use line numbers instead of /regexp/\n");
 	fprintf(stderr, "\t-s      Include static tags\n");
+	fprintf(stderr, "\t-e      Include extern tags\n");
 	fprintf(stderr, "\t-i      Include inline definitions\n");
 	fprintf(stderr, "\t-t      Include typedefs\n");
 	fprintf(stderr, "\t-v      Include variable declarations\n");
+	fprintf(stderr, "\t-h      Add hints to help elvis distinguish between overloaded tags\n");
+	fprintf(stderr, "\t-l      Add a \"ln\" line number hint (implies -h)\n");
 	fprintf(stderr, "\t-p      Write parse info to stdout (for debugging ctags)\n");
 	fprintf(stderr, "\t-x      Write cross-reference table to stdout; skip \"tags\"\n");
 	fprintf(stderr, "\t-r      Write a \"refs\" file, in addition to \"tags\"\n");
 	fprintf(stderr, "\t-a      Append to \"tags\", instead of overwriting\n");
+	fprintf(stderr, "If no flags are given, ctags assumes it should use -l -i -s -t -v\n");
 	fprintf(stderr, "Report bugs to kirkenda@cs.pdx.edu\n");
 	exit(2);
 }
@@ -904,8 +1041,7 @@ void main(argc, argv)
 	/* detect special GNU flags */
 	if (argc >= 2)
 	{
-		if (!strcmp(argv[1], "-V") /* oops, lowercase -v already used */
-		 || !strcmp(argv[1], "-version")
+		if (!strcmp(argv[1], "-version")
 		 || !strcmp(argv[1], "--version"))
 		{
 			printf("ctags (elvis) %s\n", VERSION);
@@ -921,12 +1057,19 @@ void main(argc, argv)
 #ifdef COPY4
 			puts(COPY4);
 #endif
+#ifdef COPY5
+			puts(COPY5);
+#endif
 #ifdef GUI_WIN32
 # ifdef PORTEDBY
 			puts(PORTEDBY);
 # endif
 #endif
 			exit(0);
+		}
+		else if (!strcmp(argv[1], "/?"))
+		{
+			usage();
 		}
 	}
 
@@ -944,10 +1087,11 @@ void main(argc, argv)
 					del_word = argv[++i];
 				j = strlen(argv[i]) - 1;/* to exit inner loop */
 				break;
-
+			  case 'F':	backward = FALSE;		break;
 			  case 'B':	backward = TRUE;		break;
 			  case 'N':	use_numbers = TRUE;		break;
 			  case 's':	incl_static = TRUE;		break;
+			  case 'e':	incl_extern = TRUE;		break;
 			  case 'i':	incl_inline = TRUE;		break;
 			  case 't':	incl_types = TRUE;		break;
 			  case 'v':	incl_vars = TRUE;		break;
@@ -955,6 +1099,8 @@ void main(argc, argv)
 			  case 'p':	make_parse = TRUE;		break;
 			  case 'x':	make_xtbl=TRUE,make_tags=FALSE;	break;
 			  case 'a':	append_files = TRUE;		break;
+			  case 'h':	add_hints = TRUE;		break;
+			  case 'l':	add_hints = add_ln = TRUE;	break;
 			  default:	usage();
 			}
 		}
@@ -965,6 +1111,11 @@ void main(argc, argv)
 	{
 		usage();
 	}
+
+	/* If no flags given on command line, then use big defaults */
+	if (i == 1)
+		add_ln = add_hints = incl_static = incl_types =
+					incl_vars = incl_inline = TRUE;
 
 	/* open the "tags" and maybe "refs" files */
 	if (make_tags)
@@ -999,6 +1150,63 @@ void main(argc, argv)
 #endif
 	}
 
+	/* add the extra format args */
+	fprintf(tags, "!_TAG_FILE_FORMAT\t%d\t/supported features/\n", add_hints ? 2 : 1);
+	fprintf(tags, "!_TAG_FILE_SORTED\t1\t/0=unsorted, 1=sorted/\n");
+	fprintf(tags, "!_TAG_PROGRAM_AUTHOR\tSteve Kirkendall\t/kirkenda@cs.pdx.edu/\n");
+	fprintf(tags, "!_TAG_PROGRAM_NAME\tElvis Ctags\t//\n");
+	fprintf(tags, "!_TAG_PROGRAM_URL\tftp://ftp.cs.pdx.edu/pub/elvis/README.html\t/official site/\n");
+	fprintf(tags, "!_TAG_PROGRAM_VERSION\t%s\t//\n", VERSION);
+
+	/* write the tags */
+	while (taglist)
+	{
+		fprintf(tags, "%s\t%s\t%s",
+			taglist->TAGNAME, taglist->TAGFILE, taglist->TAGADDR);
+		for (i = 3, j = -1; i < MAXATTR; i++)
+		{
+			if (taglist->attr[i])
+			{
+				if (j == -1)
+					fprintf(tags, ";\"");
+				if (strcmp(tagattrname[i], "kind"))
+					fprintf(tags, "\t%s:", tagattrname[i]);
+				else
+					putc('\t', tags);
+				for (j = 0; taglist->attr[i][j]; j++)
+				{
+					switch (taglist->attr[i][j])
+					{
+					  case '\\':
+						putc('\\', tags);
+						putc('\\', tags);
+						break;
+
+					  case '\n':
+						putc('\\', tags);
+						putc('n', tags);
+						break;
+
+					  case '\r':
+						putc('\\', tags);
+						putc('r', tags);
+						break;
+
+					  case '\t':
+						putc('\\', tags);
+						putc('t', tags);
+						break;
+
+					  default:
+						putc(taglist->attr[i][j], tags);
+					}
+				}
+			}
+		}
+		putc('\n', tags);
+		tagdelete(False);
+	}
+
 	/* close "tags" and maybe "refs" */
 	if (make_tags)
 	{
@@ -1008,18 +1216,6 @@ void main(argc, argv)
 	{
 		fclose(refs);
 	}
-
-	/* This is a hack which will sort the tags list.   It should
-	 * on UNIX and OS-9.  You may have trouble with csh.   Note
-	 * that the tags list only has to be sorted if you intend to
-	 * use it with the real vi;  elvis permits unsorted tags.
-	 */
-#ifdef SORTunix
-	system("sort tags >_tags$$ && mv _tags$$ tags");
-#endif
-#ifdef SORTosk
-	system("qsort tags >-_tags; -nx; del tags; rename _tags tags");
-#endif
 
 	exit(0);
 	/*NOTREACHED*/

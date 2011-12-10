@@ -1,7 +1,7 @@
 /* ex.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_ex[] = "$Id: ex.c,v 2.95 1996/09/21 01:21:36 steve Exp $";
+char id_ex[] = "$Id: ex.c,v 2.147 1998/11/21 01:36:11 steve Exp $";
 
 #include "elvis.h"
 
@@ -19,7 +19,7 @@ static void parselhs(CHAR **refp, EXINFO *xinf, long flags);
 static void parserhs(CHAR **refp, EXINFO *xinf, long flags);
 static void parsecutbuffer(CHAR **refp, EXINFO *xinf, long flags);
 static void parsecount(CHAR **refp, EXINFO *xinf, long flags);
-static BOOLEAN parsecmds(CHAR **refp, EXINFO *xinf, long flags);
+static RESULT parsecmds(CHAR **refp, EXINFO *xinf, long flags);
 static BOOLEAN parsefileargs(CHAR **refp, EXINFO *xinf, long flags);
 static RESULT parse(WINDOW win, CHAR **refp, EXINFO *xinf);
 static RESULT execute(EXINFO *xinf);
@@ -27,6 +27,8 @@ static RESULT execute(EXINFO *xinf);
 
 /* Minimum number of filename pointers to allocate at a time. */
 #define FILEGRAN	8
+
+
 
 /* These are the possible arguments for a command.  These may be combined
  * via the bitwise OR operator to describe arbitrary combinations of these.
@@ -53,7 +55,9 @@ static RESULT execute(EXINFO *xinf);
 
 /* The following values indicate the default values of arguments */
 #define d_All	  0x00080000L	/* default range is all lines */
-#define d_None	  0x00100000L	/* default range is no lines (else current line) */
+#define d_2Lines  0x00100000L	/* default range is two lines (for :join) */
+#define d_None	  0x00180000L	/* default range is no lines (else current line) */
+#define d_LnMask  0x00180000L	/* mask value for extracting line defaults */
 #define d_File	  0x00200000L	/* default file is current file (else no default) */
 
 /* The following indicate other quirks of commands */
@@ -66,6 +70,7 @@ static RESULT execute(EXINFO *xinf);
 #define q_Ex	  0x10000000L	/* only allowed in ex mode, not vi's <:> cmd */
 #define q_CtrlV	  0x20000000L	/* use ^V for quote char, instead of \ */
 #define q_MayQuit 0x40000000L	/* may cause window to disappear */
+#define q_SwitchB 0x80000000L	/* may move cursor to a different buffer */
 
 
 /* This array maps ex command names to command codes. The order in which
@@ -90,109 +95,130 @@ static struct
 	EXCMD	code;	/* enum code of the command */
 	RESULT	(*fn) P_((EXINFO *));
 			/* function which executes the command */
-	long	flags;	/* command line arguments permitted/needed/used */
+	unsigned long	flags;	/* command line arguments, defaults, quirks */
 }
 	cmdnames[] =
-{	   /*	 cmd name	cmd code	function	arguments */
+{   /*	 cmd name	cmd code	function	arguments */
 /*!   */{"!",		EX_BANG,	ex_bang,	a_Range | a_Cmds | d_None | q_Exrc | q_Unsafe | q_Undo			},
 /*#   */{"#",		EX_NUMBER,	ex_print,	a_Range | a_Count | a_Pflag						},
-/*&   */{"&",		EX_SUBAGAIN,	ex_substitute,	a_Range | q_Undo							},
+/*&   */{"&",		EX_SUBAGAIN,	ex_substitute,	a_Range | a_Rhs | q_Undo						},
 /*<   */{"<",		EX_SHIFTL,	ex_shift,	a_Range | a_Multi | a_Bang | a_Count | q_Autop | q_Undo			},
 /*=   */{"=",		EX_EQUAL,	ex_file,	a_Range									},
 /*>   */{">",		EX_SHIFTR,	ex_shift,	a_Range | a_Multi | a_Bang | a_Count | q_Autop | q_Undo			},
 /*@   */{"@",		EX_AT,		ex_at,		a_Buffer								},
-/*N   */{"Next",	EX_PREVIOUS,	ex_next,	a_Bang | q_Unsafe							},
+/*N   */{"Next",	EX_PREVIOUS,	ex_next,	a_Bang | q_Unsafe | q_SwitchB						},
 /*"   */{"\"",		EX_COMMENT,	ex_comment,	a_Cmds | q_Exrc								},
 /*a   */{"append",	EX_APPEND,	ex_append,	a_Line | a_Bang | a_Cmds | a_Text | q_Zero | q_Undo | q_Ex		},
 /*ab  */{"abbreviate",	EX_ABBR,	ex_map,		a_Bang | a_Lhs | a_Rhs | q_Exrc | q_Custom | q_Unsafe | q_CtrlV		},
 /*al  */{"all",		EX_ALL,		ex_all,		a_Bang | a_Cmds								},
+#ifdef FEATURE_ALIAS
+/*ali */{"alias",	EX_ALIAS,	ex_alias,	a_Lhs | a_Cmds | q_Exrc | q_Unsafe | q_Custom				},
+#endif
 /*ar  */{"args",	EX_ARGS,	ex_args,	a_Files | q_Exrc | q_Unsafe						},
-/*b   */{"buffer",	EX_BUFFER,	ex_buffer,	a_Bang | a_Rhs								},
-/*br  */{"break",	EX_BREAK,	ex_map,		a_Bang | a_Lhs | q_CtrlV						},
+/*b   */{"buffer",	EX_BUFFER,	ex_buffer,	a_Bang | a_Rhs | q_SwitchB						},
+/*bb  */{"bbrowse",	EX_BBROWSE,	ex_buffer,	a_Bang | q_SwitchB							},
+/*br  */{"browse",	EX_BROWSE,	ex_browse,	a_Bang|a_Rhs | q_SwitchB						},
+/*bro */{"break",	EX_BREAK,	ex_map,		a_Bang | a_Lhs | q_CtrlV						},
 /*c   */{"change",	EX_CHANGE,	ex_append,	a_Range | a_Bang | a_Count | a_Text | q_Undo | q_Ex			},
 /*cha */{"chdir",	EX_CD,		ex_cd,		a_Bang | a_File | q_Exrc | q_Unsafe					},
 /*ca  */{"calculate",	EX_CALC,	ex_comment,	a_Cmds | q_Exrc								},
-/*cc  */{"cc",		EX_CC,		ex_make,	a_Bang | a_Rhs | q_Unsafe						},
+/*cc  */{"cc",		EX_CC,		ex_make,	a_Bang | a_Rhs | q_Unsafe | q_SwitchB					},
 /*cd  */{"cd",		EX_CD,		ex_cd,		a_Bang | a_File | q_Exrc | q_Unsafe					},
 /*cl  */{"close",	EX_CLOSE,	ex_xit,		a_Bang | q_MayQuit							},
 /*co  */{"copy",	EX_COPY,	ex_move,	a_Range | a_Target | a_Pflag | q_Autop | q_Undo				},
 /*col */{"color",	EX_COLOR,	ex_color,	a_Rhs | q_Exrc | q_Custom						},
 /*d   */{"delete",	EX_DELETE,	ex_delete,	a_Range | a_Buffer | a_Count | a_Pflag | q_Undo | q_Autop		},
 /*di  */{"display",	EX_DISPLAY,	ex_display,	a_Rhs									},
-/*dis */{"digraph",	EX_DIGRAPH,	ex_digraph,	a_Bang | a_Rhs | q_Exrc | q_Custom					},
-/*e   */{"edit",	EX_EDIT,	ex_edit,	a_Bang | a_Plus | a_File | d_File					},
+/*dig */{"digraph",	EX_DIGRAPH,	ex_digraph,	a_Bang | a_Rhs | q_Exrc | q_Custom					},
+/*do  */{"do",		EX_DO,		ex_do,		a_Cmds | q_Exrc			 					},
+/*e   */{"edit",	EX_EDIT,	ex_edit,	a_Bang | a_Plus | a_File | d_File | q_SwitchB				},
 /*ec  */{"echo",	EX_ECHO,	ex_comment,	a_Rhs | q_Exrc								},
 /*el  */{"else",	EX_ELSE,	ex_then,	a_Cmds | q_Exrc								},
-/*er  */{"errlist",	EX_ERRLIST,	ex_errlist,	a_Bang | a_File | a_Filter						},
+/*er  */{"errlist",	EX_ERRLIST,	ex_errlist,	a_Bang | a_File | a_Filter | q_SwitchB					},
+/*erro*/{"error",	EX_ERROR,	ex_message,	a_Rhs | q_Exrc								},
 /*ev  */{"eval",	EX_EVAL,	ex_if,		a_Cmds | q_Exrc								},
-/*ex  */{"ex",		EX_EDIT,	ex_edit,	a_Bang | a_Plus | a_File | d_File | q_Unsafe				},
+/*ex  */{"ex",		EX_EDIT,	ex_edit,	a_Bang | a_Plus | a_File | d_File | q_Unsafe | q_SwitchB		},
 /*f   */{"file",	EX_FILE,	ex_file,	a_File | q_Unsafe							},
 /*g   */{"global",	EX_GLOBAL,	ex_global,	a_Range | a_Bang | a_RegExp | a_Cmds | d_All | q_Undo			},
-/*go  */{"goto",	EX_GOTO,	ex_comment,	a_Line | q_Zero | q_Autop						},
-/*gu  */{"gui",		EX_GUI,		ex_gui,		a_Rhs | q_Exrc								},
-/*h   */{"help",	EX_HELP,	ex_help,	a_Lhs | a_Rhs								},
+/*go  */{"goto",	EX_GOTO,	ex_comment,	a_Line | q_Zero | q_Autop | q_SwitchB					},
+/*gu  */{"gui",		EX_GUI,		ex_gui,		a_Cmds | q_Exrc								},
+/*h   */{"help",	EX_HELP,	ex_help,	a_Lhs | a_Rhs | q_SwitchB						},
 /*i   */{"insert",	EX_INSERT,	ex_append,	a_Line | a_Bang | a_Cmds | a_Text | q_Undo | q_Ex			},
 /*if  */{"if",		EX_IF,		ex_if,		a_Cmds | q_Exrc								},
-/*j   */{"join",	EX_INSERT,	ex_join,	a_Range | a_Bang | q_Autop | q_Undo					},
+/*j   */{"join",	EX_INSERT,	ex_join,	a_Range | a_Bang | a_Count | d_2Lines | q_Autop | q_Undo		},
 /*k   */{"k",		EX_MARK,	ex_mark,	a_Line | a_Lhs								},
 /*l   */{"list",	EX_LIST,	ex_print,	a_Range | a_Count | a_Pflag						},
-/*la  */{"last",	EX_LAST,	ex_next,	q_Unsafe								},
+/*la  */{"last",	EX_LAST,	ex_next,	q_Unsafe | q_SwitchB							},
 /*le  */{"let",		EX_LET,		ex_set,		a_Bang | a_Cmds | q_Exrc | q_Custom					},
-/*lp  */{"lpr",		EX_LPR,		ex_lpr,		a_Range | a_Bang | a_File | a_Filter | d_All | q_Unsafe			},
+/*se  */{"local",	EX_LOCAL,	ex_set,		a_Rhs | q_Exrc				 				},
+/*lp  */{"lpr",		EX_LPR,		ex_lpr,		a_Range | a_Bang | a_Append | a_File | a_Filter | d_All | q_Unsafe			},
 /*m   */{"move",	EX_MOVE,	ex_move,	a_Range | a_Target | q_Autop | q_Undo					},
 /*ma  */{"mark",	EX_MARK,	ex_mark,	a_Line | a_Lhs								},
-/*mak */{"make",	EX_MAKE,	ex_make,	a_Bang | a_Rhs | q_Unsafe						},
+/*mak */{"make",	EX_MAKE,	ex_make,	a_Bang | a_Rhs | q_Unsafe | q_SwitchB					},
 /*map */{"map",		EX_MAP,		ex_map,		a_Bang | a_Lhs | a_Rhs | q_Exrc | q_Custom | q_Unsafe | q_CtrlV		},
+/*me  */{"message",	EX_MESSAGE,	ex_message,	a_Rhs | q_Exrc								},
 /*mk  */{"mkexrc",	EX_MKEXRC,	ex_mkexrc,	a_Bang | a_File | q_Unsafe						},
-/*n   */{"next",	EX_NEXT,	ex_next,	a_Bang | a_Files | q_Unsafe						},
+/*n   */{"next",	EX_NEXT,	ex_next,	a_Bang | a_Files | q_Unsafe | q_SwitchB					},
 /*ne  */{"new",		EX_SNEW,	ex_split,	q_Unsafe								},
 /*no  */{"normal",	EX_NORMAL,	ex_display										},
 /*nu  */{"number",	EX_NUMBER,	ex_print,	a_Range | a_Count | a_Pflag						},
 /*o   */{"open",	EX_OPEN,	ex_edit,	a_Bang | a_Plus | a_File						},
+/*on  */{"only",	EX_ONLY,	ex_qall,	a_Bang | d_None | q_Unsafe						},
 /*p   */{"print",	EX_PRINT,	ex_print,	a_Range | a_Count | a_Pflag						},
-/*pre */{"previous",	EX_PREVIOUS,	ex_next,	a_Bang | q_Unsafe							},
+/*pre */{"previous",	EX_PREVIOUS,	ex_next,	a_Bang | q_Unsafe | q_SwitchB						},
 /*pres*/{"preserve",	EX_PRESERVE,	ex_qall,	d_None | q_Unsafe | q_MayQuit						},
-/*po  */{"pop",		EX_POP,		ex_pop,		a_Bang | q_Unsafe							},
+/*po  */{"pop",		EX_POP,		ex_pop,		a_Bang | q_Unsafe | q_SwitchB						},
 /*pu  */{"put",		EX_PUT,		ex_put,		a_Line | q_Zero | a_Buffer | q_Undo					},
 /*q   */{"quit",	EX_QUIT,	ex_xit,		a_Bang | q_MayQuit							},
 /*qa  */{"qall",	EX_QALL,	ex_qall,	a_Bang | q_MayQuit							},
 /*r   */{"read",	EX_READ,	ex_read,	a_Line | a_File | a_Filter | q_Zero | q_Undo				},
 /*red */{"redo",	EX_REDO,	ex_undo,	a_Lhs | q_Autop								},
-/*rew */{"rewind",	EX_REWIND,	ex_next,	a_Bang | q_Unsafe							},
+/*rew */{"rewind",	EX_REWIND,	ex_next,	a_Bang | q_Unsafe | q_SwitchB						},
 /*s   */{"substitute",	EX_SUBSTITUTE,	ex_substitute,	a_Range|a_RegExp|a_RegSub|a_Rhs|a_Count|a_Pflag|q_Autop|q_Undo|q_Exrc	},
 /*sN  */{"sNext",	EX_SPREVIOUS,	ex_next,	q_Unsafe								},
 /*sa  */{"sall",	EX_SALL,	ex_sall,	q_Unsafe								},
 /*saf */{"safer",	EX_SAFER,	ex_source,	a_Bang | a_File | q_Exrc						},
+/*sbb */{"sbbrowse",	EX_SBBROWSE,	ex_buffer,	a_Bang									},
+/*sbr */{"sbrowse",	EX_SBROWSE,	ex_browse,	a_Bang|a_Rhs								},
 /*se  */{"set",		EX_SET,		ex_set,		a_Bang | a_Rhs | q_Exrc | q_Custom					},
 /*sh  */{"shell",	EX_SHELL,	ex_suspend,	q_Unsafe								},
 /*sl  */{"slast",	EX_SLAST,	ex_next,	q_Unsafe								},
 /*sn  */{"snext",	EX_SNEXT,	ex_next,	a_Files									},
 /*snew*/{"snew",	EX_SNEW,	ex_split,	q_Unsafe								},
 /*so  */{"source",	EX_SOURCE,	ex_source,	a_Bang | a_File | q_Exrc						},
-/*sp  */{"split",	EX_SPLIT,	ex_split,	a_Line | a_File								},
+/*sp  */{"split",	EX_SPLIT,	ex_split,	a_Line | a_Plus | a_File | a_Filter					},
 /*sr  */{"srewind",	EX_SREWIND,	ex_next,	a_Bang | q_Unsafe							},
 /*st  */{"stop",	EX_STOP,	ex_suspend,	a_Bang | q_Unsafe							},
-/*sta */{"stag",	EX_STAG,	ex_tag,		a_Lhs									},
+/*sta */{"stag",	EX_STAG,	ex_tag,		a_Rhs									},
 /*stac*/{"stack",	EX_STACK,	ex_stack,	d_None									},
 /*su  */{"suspend",	EX_SUSPEND,	ex_suspend,	a_Bang | q_Unsafe							},
 /*t   */{"to",		EX_COPY,	ex_move,	a_Range | a_Target | a_Pflag | q_Autop | q_Undo				},
-/*ta  */{"tag",		EX_TAG,		ex_tag,		a_Bang | a_Lhs | q_Unsafe						},
+/*ta  */{"tag",		EX_TAG,		ex_tag,		a_Bang | a_Rhs | q_Unsafe | q_SwitchB					},
 /*th  */{"then",	EX_THEN,	ex_then,	a_Cmds | q_Exrc			 					},
+/*try */{"try",		EX_TRY,		ex_then,	a_Cmds | q_Exrc			 					},
 /*u   */{"undo",	EX_UNDO,	ex_undo,	a_Lhs | q_Autop								},
 /*una */{"unabbreviate",EX_UNABBR,	ex_map,		a_Bang | a_Lhs | q_Exrc | q_Custom | q_CtrlV				},
+#ifdef FEATURE_ALIAS
+/*unal*/{"unalias",	EX_UNALIAS,	ex_alias,	a_Lhs | q_Exrc | q_Custom						},
+#endif
 /*unb */{"unbreak",	EX_UNBREAK,	ex_map,		a_Bang | a_Lhs | q_CtrlV						},
 /*unm */{"unmap",	EX_UNMAP,	ex_map,		a_Bang | a_Lhs | q_Exrc | q_Custom | q_CtrlV				},
 /*v   */{"vglobal",	EX_VGLOBAL,	ex_global,	a_Range | a_Bang | a_RegExp | a_Cmds | d_All | q_Undo			},
 /*ve  */{"version",	EX_VERSION,	ex_version,	q_Exrc									},
-/*vi  */{"visual",	EX_VISUAL,	ex_edit,	a_Bang | a_Plus | a_File						},
+/*vi  */{"visual",	EX_VISUAL,	ex_edit,	a_Bang | a_Plus | a_File | q_SwitchB					},
 /*w   */{"write",	EX_WRITE,	ex_write,	a_Range | a_Bang | a_Append | a_File | a_Filter | d_All | q_Unsafe	},
+/*wa  */{"warning",	EX_WARNING,	ex_message,	a_Rhs | q_Exrc								},
+/*if  */{"while",	EX_WHILE,	ex_while,	a_Cmds | q_Exrc								},
 /*wi  */{"window",	EX_WINDOW,	ex_window,	a_Lhs									},
-/*wn  */{"wnext",	EX_WNEXT,	ex_next,	a_Bang | q_Unsafe							},
+/*wn  */{"wnext",	EX_WNEXT,	ex_next,	a_Bang | q_Unsafe | q_SwitchB						},
 /*wq  */{"wquit",	EX_WQUIT,	ex_xit,		a_Bang | a_File | d_File | q_MayQuit					},
 /*x   */{"xit",		EX_XIT,		ex_xit,		a_Bang | a_File  | q_MayQuit						},
 /*y   */{"yank",	EX_YANK,	ex_delete,	a_Range | a_Buffer | a_Count						},
 /*z   */{"z",		EX_Z,		ex_z,		a_Line | a_Rhs								},
-/*~   */{"~",		EX_SUBAGAIN,	ex_substitute,	a_Range | q_Undo							},
+/*~   */{"~",		EX_SUBRECENT,	ex_substitute,	a_Range | a_Rhs | q_Undo						},
+#ifdef FEATURE_ALIAS
+/*~   */{" "/*dummy name*/,EX_DOALIAS,	ex_doalias,	a_Range | a_Bang | a_Rhs | q_Exrc 					},
+#endif
 };
 
 
@@ -350,11 +376,11 @@ static BOOLEAN parsebuffername(refp, xinf)
 	buf = buffind(bufname);
 	if (!buf)
 	{
-		msg(MSG_ERROR, "no such buffer");
+		msg(MSG_ERROR, "[S]no buffer named $1", bufname);
 		return False;
 	}
 	xinf->defaddr.buffer = buf;
-	marksetoffset(&xinf->defaddr, buf->changepos);
+	marksetoffset(&xinf->defaddr, buf->docursor);
 	return True;
 }
 
@@ -372,8 +398,8 @@ static BOOLEAN parseregexp(refp, xinf, flags)
 	CHAR	*retext;/* source code of the regular expression */
 
 	/* If this command doesn't use regular expressions, then do nothing.
-	 * (By the way, not use regexps implies that it doesn't use replacement
-	 * text either.)
+	 * (By the way, not using regexps implies that it doesn't use
+	 * replacement text either.)
 	 */
 	if ((flags & a_RegExp) == 0)
 	{
@@ -383,7 +409,6 @@ static BOOLEAN parseregexp(refp, xinf, flags)
 	/* get the delimiter character.  Can be any punctuation character
 	 * except '|'.  If no delimiter is given, then use an empty string.
 	 */
-	empty[0] = (CHAR)0;
 	if (*refp && ispunct(**refp) && **refp != '|')
 	{
 		/* remember the delimiter */
@@ -391,71 +416,58 @@ static BOOLEAN parseregexp(refp, xinf, flags)
 		scannext(refp);
 
 		/* collect the characters of the regexp source code */
-		for (retext = (CHAR *)0;
-		     *refp && **refp != '\n' && **refp != delim;
-		     scannext(refp))
-		{
-			/* if backslash followed by delimiter, then just add
-			 * delimiter.  Else add both the backslash and whatever
-			 * other character followed it.
-			 */
-			if (**refp == '\\')
-			{
-				if (!scannext(refp))
-				{
-					buildCHAR(&retext, '\\');
-				}
-				else if (**refp == delim)
-				{
-					buildCHAR(&retext, delim);
-				}
-				else
-				{
-					buildCHAR(&retext, '\\');
-					buildCHAR(&retext, **refp);
-				}
-			}
-			else
-			{
-				buildCHAR(&retext, **refp);
-			}
-		}
+		retext = (*refp && **refp) ? regbuild(delim, refp) : NULL;
+
+		/* if an empty regexp was explicitly given (":s//" rather than
+		 * ":s"), then remember that.  We need to distinguish between
+		 * an explicit empty regexp and an implicit one, because if
+		 * there is no explicit regexp then there can't be any
+		 * replacement text either.
+		 */
 		if (!retext)
 		{
 			retext = empty;
+			empty[0] = (CHAR)0;
 		}
 	}
 	else
 	{
-		retext = empty;
+		retext = NULL;
 		delim = '\n'; /* illegal delimiter, affects a_RegSub text below */
-	}
-
-	/* consume the ending delimiter (if any) */
-	if (*refp && **refp == delim)
-	{
-		scannext(refp);
+		if (xinf->command == EX_SUBSTITUTE)
+			xinf->command = EX_SUBAGAIN;
 	}
 
 	/* compile the regular expression */
-	xinf->re = regcomp(retext, xinf->window ? xinf->window->state->cursor : NULL);
+	xinf->re = regcomp(retext ? retext : empty,
+			   xinf->window ? xinf->window->state->cursor : NULL);
+
+	/* We don't need the source to the regexp anymore.  If the source was
+	 * anything other than the empty string, then free its memory.
+	 */
+	if (retext && retext != empty)
+		safefree(retext);
+
+	/* detect errors in the regexp */
 	if (!xinf->re)
 	{
 		/* error message already written out by regcomp() */
 		return False;
 	}
 
-	/* We don't need to source to the regexp anymore.  If the source was
-	 * anything other than the empty string, then free its memory.
-	 */
-	if (retext != empty)
-	{
-		safefree(retext);
-	}
-
 	/* if no substitution text is needed, then we're done. */
 	if ((flags & a_RegSub) == 0)
 	{
+		return True;
+	}
+
+	/* We do use replacement text.  If there was no regexp, then the
+	 * replacement text is implied to be "~" -- so :s with no args will
+	 * repeat the previous replacement command.
+	 */
+	if (!retext)
+	{
+		xinf->lhs = CHARdup(toCHAR(o_magic ? "~" : "\\~"));
 		return True;
 	}
 
@@ -486,19 +498,11 @@ static BOOLEAN parseregexp(refp, xinf, flags)
 				{
 					buildCHAR(&xinf->lhs, delim);
 				}
-				else if (**refp == ELVCTRL('M'))
-				{
-					buildCHAR(&xinf->lhs, (CHAR)ELVCTRL('M'));
-				}
 				else
 				{
 					buildCHAR(&xinf->lhs, '\\');
 					buildCHAR(&xinf->lhs, **refp);
 				}
-			}
-			else if (**refp == ELVCTRL('M'))
-			{
-				buildCHAR(&xinf->lhs, '\n');
 			}
 			else
 			{
@@ -537,6 +541,7 @@ BOOLEAN exparseaddress(refp, xinf)
 	long	buflines;/* number of lines in buffer */
 	MARKBUF	m;	/* start of a line */
 	CHAR	ch;
+	regexp	*re;
 
 	/* if nothing, do nothing */
 	if (!*refp)
@@ -557,6 +562,13 @@ BOOLEAN exparseaddress(refp, xinf)
 
 	  case '/':
 	  case '?':
+		/* if buffer is empty then fail */
+		if (o_bufchars(markbuffer(&xinf->defaddr)) <= 1)
+		{
+			msg(MSG_ERROR, "no match");
+			return False;
+		}
+
 		/* parse & compile the regular expression */
 		delta = (**refp == '?') ? -1 : 1;
 		if (!parseregexp(refp, xinf, a_RegExp))
@@ -565,16 +577,20 @@ BOOLEAN exparseaddress(refp, xinf)
 		}
 
 		/* allow the visual 'n' and 'N' commands to search for the
-		 * same regexp.
+		 * same regexp, unless the "saveregexp" option is turned off.
 		 */
-		if (searchre)
+		re = xinf->re;
+		if (o_saveregexp)
 		{
-			safefree(searchre);
+			if (searchre)
+			{
+				safefree(searchre);
+			}
+			searchre = xinf->re;
+			searchforward = (BOOLEAN)(delta > 0);
+			searchhasdelta = False;
+			xinf->re = NULL;
 		}
-		searchre = xinf->re;
-		searchforward = (BOOLEAN)(delta > 0);
-		searchhasdelta = False;
-		xinf->re = NULL;
 
 		/* search for the regular expression */
 		start = lnum;
@@ -602,7 +618,7 @@ BOOLEAN exparseaddress(refp, xinf)
 			}
 
 			/* see if this line contains the regexp */
-			if (regexec(searchre, marktmp(m, markbuffer(&xinf->defaddr), lowline(bi, lnum)), True))
+			if (regexec(re, marktmp(m, markbuffer(&xinf->defaddr), lowline(bi, lnum)), True))
 			{
 				delta = 0;
 			}
@@ -627,7 +643,7 @@ BOOLEAN exparseaddress(refp, xinf)
 		/* If we get here, then we've found a match, and lnum is set
 		 * to its line number.  Good!
 		 */
-		xinf->fromoffset = (searchre->leavep >= 0 ? searchre->leavep : searchre->startp[0]);
+		xinf->fromoffset = (re->leavep >= 0 ? re->leavep : re->startp[0]);
 		break;
 
 	  case '\'':
@@ -691,14 +707,18 @@ BOOLEAN exparseaddress(refp, xinf)
 
 	/* followed by a delta? */
 	skipwhitespace(refp);
-	if (*refp && (**refp == '+' || **refp == '-'))
+	if (*refp && (**refp == '+' || **refp == '-' || isdigit(**refp)))
 	{
-		/* delta cancels implies whole-line addressing */
+		/* delta implies whole-line addressing */
 		xinf->fromoffset = 0;
 
 		/* find the sign & magnitude of the delta */
 		sign = **refp;
-		for (delta = 1; scannext(refp) && **refp == sign; delta++)
+		if (isdigit(sign))
+			sign = '+';
+		else
+			scannext(refp);
+		for (delta = 1; **refp == sign; scannext(refp), delta++)
 		{
 		}
 		if (delta == 1 && *refp && isdigit(**refp))
@@ -756,13 +776,30 @@ static BOOLEAN parsecommandname(refp, xinf)
 		goto Found;
 	}
 
+	/* begin by checking for aliases */
+	start = scanmark(refp);
+#ifdef FEATURE_ALIAS
+	for (len = 0; len < QTY(cmdname) - 1 && *refp && isalnum(**refp); scannext(refp))
+	{
+		cmdname[len++] = **refp;
+	}
+	cmdname[len] = '\0';
+	xinf->cmdname = exisalias(cmdname, False);
+	if (xinf->cmdname)
+	{
+		xinf->cmdidx = QTY(cmdnames) - 1;
+		xinf->command = EX_DOALIAS;
+		return True;
+	}
+	scanseek(refp, start);
+#endif /* FEATURE_DOALIAS */
+
 	/* start with shortest possible command name, and extend the command
 	 * name as much as possible without eliminating all commands from
 	 * matching.  When we get it as long as possible, then the first
 	 * matching name is the one we'll use.
 	 */
 	len = 0;
-	start = scanmark(refp);
 	firstmatch = 0;
 	anymatch = False;
 	do
@@ -799,7 +836,7 @@ static BOOLEAN parsecommandname(refp, xinf)
 			}
 		}
 
-	} while (matches > 0 && scannext(refp) && isalpha(**refp));
+	} while (matches > 0 && scannext(refp) && isalnum(**refp));
 
 	/* at this point, if "matches" is zero and "firstmatch" has been set,
 	 * then we may have read one too many characters for the command name,
@@ -961,7 +998,13 @@ static void parseprintflag(refp, xinf, flags)
 		goto NoFlag;
 	}
 
-	/* we have a print flag -- now see if we have a delta */
+	/* we have a print flag -- tweak it via "list" and "number" options */
+	if (o_number(xinf->window))
+		xinf->pflag = (xinf->pflag == PF_LIST || xinf->pflag == PF_NUMLIST) ? PF_NUMLIST : PF_NUMBER;
+	if (o_list(xinf->window))
+		xinf->pflag = (xinf->pflag == PF_NUMBER || xinf->pflag == PF_NUMLIST) ? PF_NUMLIST : PF_LIST;
+
+	/* now see if we have a delta */
 	if (refp && (**refp == '+' || **refp == '-'))
 	{
 		sign = **refp;
@@ -1015,7 +1058,8 @@ static void parselhs(refp, xinf, flags)
 	quote = (flags & q_CtrlV) ? ELVCTRL('V') : '\\';
 
 	/* collect characters up to next whitespace or end of command */
-	while (*refp && **refp != ' ' && **refp != '\t' && **refp != '\n' && **refp != '|')
+	while (*refp && **refp != ' ' && **refp != '\t' && **refp != '\n'
+		&& (**refp != '|' || (*refp)[1] == '\n'))
 	{
 		/* backslash followed by whitespace becomes just whitespace */
 		if (**refp == quote)
@@ -1104,8 +1148,17 @@ static void parsecutbuffer(refp, xinf, flags)
 	if ((flags & a_Buffer) == 0)
 		return;
 
-	/* if double-quote, then following character is buffer name */
-	if (*refp && (isalpha(**refp) || **refp == '<' || **refp == '>' || (**refp == '"' && scannext(refp))))
+	/* if @ then use the anonymous cut buffer */
+	if (*refp && **refp == '@')
+	{
+		xinf->cutbuf = '1';
+		scannext(refp);
+	}
+
+	/* if double-quote, then following character is buffer name.  Also,
+	 * letters letters, digits, <, and > don't require a " character.
+	 */
+	if (*refp && (isalnum(**refp) || **refp == '<' || **refp == '>' || (**refp == '"' && scannext(refp))))
 	{
 		xinf->cutbuf = **refp;
 		scannext(refp);
@@ -1140,9 +1193,11 @@ static void parsecount(refp, xinf, flags)
 
 /* This function parses an optional command list, if the command supports them.
  * A command list is a string which may contain any characters except newline.
- * (In particular, '|' is allowed.)
+ * (In particular, '|' is allowed.)  Returns RESULT_COMPLETE if successful,
+ * RESULT_ERROR if unsuccessful, or RESULT_MORE if we hit the end of the buffer
+ * while looking for the end of a multi-line command.
  */
-static BOOLEAN parsecmds(refp, xinf, flags)
+static RESULT parsecmds(refp, xinf, flags)
 	CHAR	**refp;	/* pointer to the (CHAR *) used for scanning command */
 	EXINFO	*xinf;	/* info about the command being parsed */
 	long	flags;	/* bitmap of command attributes */
@@ -1154,10 +1209,11 @@ static BOOLEAN parsecmds(refp, xinf, flags)
 	MARKBUF	end;
 	MARK	start;
 	int	i;
+	int	nest;
 
 	/* if the command doesn't use cmds, then do nothing */
 	if ((flags & a_Cmds) == 0)
-		return True;
+		return RESULT_COMPLETE;
 
 	/* determine whether this command is for a shell or for ex */
 	shell = (BOOLEAN)(xinf->command == EX_BANG || (flags & a_Filter) != 0);
@@ -1171,134 +1227,167 @@ static BOOLEAN parsecmds(refp, xinf, flags)
 		/* collect characters up to next } character which appears
 		 * at the front of a line.  Ignore blank lines.
 		 */
-		for (bol = True; scannext(refp) && !(bol && **refp == '}'); )
+		for (ch = '\n', nest = 0; scannext(refp); )
 		{
-			if (!bol || **refp != '\n')
+			if (ch == '\n' && **refp == '}')
+			{
+				if (nest == 0)
+					break;
+				nest--;
+			}
+			if (ch == '{' && **refp == '\n')
+				nest++;
+			if (ch == '\n' && (**refp == ' ' || **refp == '\t'))
+				continue;
+			if (ch != '\n' || **refp != '\n')
 				buildCHAR(&xinf->rhs, **refp);
-			if (**refp == '\n')
-				bol = True;
-			if (!isspace(**refp))
-				bol = False;
+			ch = **refp;
 		}
 
-		/* if we hit end without finding } then complain. */
+		/* if we hit end without finding } then we need more. */
 		if (!*refp)
 		{
-			msg(MSG_ERROR, "missing }");
-			return False;
+			return RESULT_MORE;
 		}
 
 		/* eat the closing } */
 		scannext(refp);
 
-		return True;
+		return RESULT_COMPLETE;
 	}
 
-	/* collect characters up to end of command */
+	/* ex commands allow a ...backslash-newline... syntax */
+	if (!shell)
+	{
+		for (bol = False; *refp && **refp && **refp != '\n'; scannext(refp))
+		{
+			/* if backslash which preceeds newline, then delete
+			 * the backslash and treat the newline literally.
+			 */
+			bol = False;
+			if (**refp == '\\')
+			{
+				if (!scannext(refp))
+					continue;
+				if (**refp != '\n')
+					buildCHAR(&xinf->rhs, '\\');
+				else
+					bol = True;
+			}
+			buildCHAR(&xinf->rhs, **refp);
+		}
+		if (xinf->rhs)
+			buildCHAR(&xinf->rhs, '\n');
+
+		return bol ? RESULT_MORE : RESULT_COMPLETE;
+	}
+
+	/* shell commands are more complex, due to substitutions... */
+	bol = True;
 	while (*refp && **refp && **refp != '\n')
 	{
-		if (!shell)
+		/* copy most characters literally, but perform
+		 * substitutions for !, %, #
+		 */
+		ch = **refp;
+		switch (ch)
 		{
-			/* copy all characters literally */
-			buildCHAR(&xinf->rhs, **refp);
-			scannext(refp);
-		}
-		else
-		{
-			/* copy most characters literally, but perform
-			 * substitutions for !, %, #
-			 */
-			ch = **refp;
-			switch (ch)
+		  case '%':
+			scan = o_filename(markbuffer(&xinf->defaddr));
+			break;
+
+		  case '#':
+			scan = buffilenumber(refp);
+			break;
+
+		  case '!':
+			if (bol)
 			{
-			  case '%':
-				scan = o_filename(markbuffer(&xinf->defaddr));
-				break;
-
-			  case '#':
-				scan = o_previousfile;
-				break;
-
-			  case '!':
 				scan = o_previouscommand;
-				break;
-
-			  case '\\':
-				scannext(refp);
-				if (*refp && !CHARchr(toCHAR("%#!@\\"), **refp))
-				{
-					buildCHAR(&xinf->rhs, (_CHAR_)'\\');
-					ch = **refp;
-				}
-				else if (*refp && **refp == '@')
-				{
-					if (!xinf->window)
-					{
-						msg(MSG_ERROR, "can't use \\@ during initialization");
-					}
-					end = *xinf->window->cursor;
-					start = wordatcursor(&end);
-					if (!start)
-					{
-						msg(MSG_ERROR, "cursor not on word");
-						return False;
-					}
-					for (i = markoffset(&end) - markoffset(start),
-						scanalloc(&scan, start);
-					     scan && i > 0;
-					     scannext(&scan), i--)
-					{
-						buildCHAR(&xinf->rhs, *scan);
-					}
-					scanfree(&scan);
-
-					/* don't add anything else */
-					scan = xinf->rhs;
-					break;
-				}
-				/* fall through for all but \@ ... */
-
-			  default:
+			}
+			else
+			{
 				buildCHAR(&xinf->rhs, **refp);
 				scan = xinf->rhs;
 			}
+			break;
 
-			/* are we trying to add a string? */
-			if (scan != xinf->rhs)
+		  case '\\':
+			scannext(refp);
+			if (*refp && !CHARchr(toCHAR("%#!@"), **refp)) /* !!!removed '\\' */
 			{
-				/* we want to... but do we have the string? */
-				if (scan)
-				{
-					for ( ; *scan; scan++)
-						buildCHAR(&xinf->rhs, *scan);
-				}
-				else
-				{
-					msg(MSG_ERROR, "[C]no value to substitute for $1", ch);
-					return False;
-				}
+				buildCHAR(&xinf->rhs, (_CHAR_)'\\');
+				ch = **refp;
 			}
+			else if (*refp && **refp == '@')
+			{
+				if (!xinf->window)
+				{
+					msg(MSG_ERROR, "can't use \\\\@ during initialization");
+				}
+				end = *xinf->window->cursor;
+				start = wordatcursor(&end);
+				if (!start)
+				{
+					msg(MSG_ERROR, "cursor not on word");
+					return RESULT_ERROR;
+				}
+				for (i = markoffset(&end) - markoffset(start),
+					scanalloc(&scan, start);
+				     scan && i > 0;
+				     scannext(&scan), i--)
+				{
+					buildCHAR(&xinf->rhs, *scan);
+				}
+				scanfree(&scan);
 
-			/* Move on to the next character.  Note that we need to
-			 * check (*refp) because it may have become NULL during
-			 * the processing of a backslash.
-			 */
-			if (*refp)
-				scannext(refp);
+				/* don't add anything else */
+				scan = xinf->rhs;
+				break;
+			}
+			/* fall through for all but \@ ... */
+
+		  default:
+			buildCHAR(&xinf->rhs, **refp);
+			scan = xinf->rhs;
 		}
+
+		/* are we trying to add a string? */
+		if (scan != xinf->rhs)
+		{
+			/* we want to... but do we have the string? */
+			if (scan)
+			{
+				for ( ; *scan; scan++)
+					buildCHAR(&xinf->rhs, *scan);
+			}
+			else
+			{
+				msg(MSG_ERROR, "[C]no value to substitute for $1", ch);
+				return RESULT_ERROR;
+			}
+		}
+
+		/* Move on to the next character.  Note that we need to
+		 * check (*refp) because it may have become NULL during
+		 * the processing of a backslash.
+		 */
+		if (*refp)
+			scannext(refp);
+		bol = False;
 	}
 
 	/* if shell command, then remember it for later ! substitutions */
 	if (shell)
 	{
 		if (!xinf->rhs)
-			return False; /* blank commands are illegal */
+			return RESULT_ERROR; /* blank commands are illegal */
 		if (o_previouscommand)
 			safefree(o_previouscommand);
 		o_previouscommand = CHARkdup(xinf->rhs);
 	}
 
-	return True;
+	return RESULT_COMPLETE;
 }
 
 
@@ -1317,8 +1406,19 @@ BOOLEAN exaddfilearg(file, nfiles, filename, wild)
 	char	**old;		/* previous value of xinf->file pointer */
 	int	start;		/* index into xinf->file of wildcard's expansion */
 	BOOLEAN	mustfree=False;	/* if True, then free "match" before returning*/
+	char	slash;		/* local slash character */
+	char	tmp[256];
 	int	i;
 
+	/* never use wildcards for URLs */
+	if (((match = urllocal(filename)) != NULL && match != filename)
+#if defined(PROTOCOL_HTTP) || defined(PROTOCOL_FTP)
+		|| urlremote(filename)
+#endif
+	)
+	{
+		wild = False;
+	}
 
 	/* are we supposed to match wildcards? */
 	if (wild)
@@ -1333,7 +1433,8 @@ BOOLEAN exaddfilearg(file, nfiles, filename, wild)
 		 * intended to allow MS-DOS users to type forward slashes in
 		 * their filenames, if they so prefer.
 		 */
-		if (dirpath("a", "b")[1] == '\\')
+		slash = dirpath("a", "b")[1];
+		if (slash == '\\')
 		{
 			for (i = 0; filename[i]; i++)
 			{
@@ -1345,13 +1446,41 @@ BOOLEAN exaddfilearg(file, nfiles, filename, wild)
 		}
 
 		/* replace ~ with the name of the home directory */
+#if 1
+		match = NULL;
+		if (filename[0] == '~' && filename[1] == '+')
+			match = dircwd(), i = 2;
+		else if (filename[0] == '~' && filename[1] == '-')
+			match = tochar8(o_previousdir), i = 2;
+		else if (filename[0] == '~')
+			match = tochar8(o_home), i = 1;
+		if (match && filename[i] == slash && filename[i + 1])
+		{
+			filename = safedup(dirpath(match, filename + i + 1));
+			mustfree = True;
+		}
+		else if (match && (filename[i] == slash || !filename[i]))
+		{
+			filename = safedup(match);
+			mustfree = True;
+		}
+# if ANY_UNIX
+		else if (filename[0] == '~' && isalpha(filename[1]))
+		{
+			filename = safedup(expanduserhome(tochar8(filename), tmp));
+			mustfree = True;
+		}
+#endif /*ANY_UNIX*/
+
+#else
 		if (filename[0] == '~' && !isalpha(filename[1]))
 		{
-			filename = strdup(filename[1]
+			filename = safedup(filename[1]
 				    ? dirpath(tochar8(o_home), &filename[2])
 				    : tochar8(o_home));
 			mustfree = True;
 		}
+#endif
 
 		/* If there are any matches... */
 		if ((match = dirfirst(filename, False)) != NULL)
@@ -1390,7 +1519,7 @@ BOOLEAN exaddfilearg(file, nfiles, filename, wild)
 		if (*nfiles == 0 || (*nfiles + 1) % FILEGRAN == 0)
 		{
 			old = *file;
-			*file = (char **)safealloc(*nfiles + FILEGRAN, sizeof(char *));
+			*file = (char **)safealloc(*nfiles + 1 + FILEGRAN, sizeof(char *));
 			if (old)
 			{
 				memcpy(*file, old, *nfiles * sizeof(char *));
@@ -1432,7 +1561,7 @@ static BOOLEAN parsefileargs(refp, xinf, flags)
 		buildCHAR(&xinf->rhs, (_CHAR_)'!');
 
 		/* collect characters up to next newline */
-		return parsecmds(refp, xinf, flags | a_Cmds);
+		return (BOOLEAN)(RESULT_COMPLETE == parsecmds(refp, xinf, flags | a_Cmds));
 	}
 
 	/* An initial backslash could have been used to quote a ! or > at
@@ -1452,7 +1581,8 @@ static BOOLEAN parsefileargs(refp, xinf, flags)
 			msg(MSG_ERROR, "oops");
 			return False;
 		}
-		if (**refp != '!' && **refp != '>' && (**refp != '\\' || dirpath("a", "b")[1] == '\\'))
+		if (**refp != '!' && **refp != '>' &&
+			(**refp != '\\' || dirpath("a", "b")[1] == '\\'))
 		{
 			scanprev(refp);
 		}
@@ -1482,7 +1612,9 @@ static BOOLEAN parsefileargs(refp, xinf, flags)
 		  case '\\':
 			/* backslash can be used to quote some characters. */
 			scannext(refp);
-			if (*refp && **refp == '*' && dirpath("a", "b")[1] == '\\')
+			if (!*refp)
+				break; /* hit end of string */
+			if (**refp == '*' && dirpath("a", "b")[1] == '\\')
 			{
 				/* This operating system seems use backslashes
 				 * in filenames.  So an expression such as
@@ -1490,25 +1622,35 @@ static BOOLEAN parsefileargs(refp, xinf, flags)
 				 */
 				scanprev(refp);
 			}
-			else if (*refp && !CHARchr(toCHAR(" \t\\#!*"), **refp))
+			else if (!CHARchr(toCHAR(" \t\\#!*"), **refp))
 			{
+				/* backslash isn't followed by a char that might
+				 * require backslash quoting, so the backslash
+				 * must be here for some other reason.  Keep it.
+				 */
+				scanprev(refp);
+			}
+			else if (**refp == '\\' && filename == NULL)
+			{
+				/* A double-backslash at the start of a name
+				 * is kept, so Win32 users can have names like
+				 * \\machine\directory\file
+				 */
 				scanprev(refp);
 			}
 			buildCHAR(&filename, **refp);
 			break;
 
 		  case '#':
-			if (o_previousfile)
+			scan = buffilenumber(refp);
+			if (!scan)
 			{
-				for (scan = o_previousfile; *scan; scan++)
-				{
-					buildCHAR(&filename, *scan);
-				}
-			}
-			else
-			{
-				msg(MSG_ERROR, "no previous file");
+				msg(MSG_ERROR, "[c]no value to substitute for $1", '#');
 				goto Error;
+			}
+			for ( ; *scan; scan++)
+			{
+				buildCHAR(&filename, *scan);
 			}
 			break;
 
@@ -1523,22 +1665,7 @@ static BOOLEAN parsefileargs(refp, xinf, flags)
 			}
 			else
 			{
-				msg(MSG_ERROR, "no file name");
-				goto Error;
-			}
-			break;
-
-		  case '!':
-			if (o_previouscommand)
-			{
-				for (scan = o_previouscommand; *scan; scan++)
-				{
-					buildCHAR(&filename, *scan);
-				}
-			}
-			else
-			{
-				msg(MSG_ERROR, "no previous command");
+				msg(MSG_ERROR, "[c]no value to substitute for $1", '%');
 				goto Error;
 			}
 			break;
@@ -1622,33 +1749,67 @@ static RESULT parse(win, refp, xinf)
 	long	flags;	/* bitmap of command attributes */
 	BOOLEAN	sel;	/* did address come from selection? */
 	CHAR	*p2;	/* a second scanning variable */
+	CHAR	*lntext;/* text of current line, used for trace */
 	RESULT	result;	/* result of parsing */
+	BOOLEAN	twoaddrs;/* have two addresses been seen on this line? */
+	BUFFER	log;	/* log buffer, for debugging */
+	MARKBUF	logstart; /* start of the log buffer, for debugging */
+	MARKBUF	logend;	/* end of the log buffer, for debugging */
+	long	loglen;	/* length of log message */
+	CHAR	*logstr;/* start of string command, or NULL if from buffer */
 	int	i;
+
+	/* if verbose, then display this line on stderr */
+	if (o_verbose >= 3 && !win)
+	{
+		lntext = NULL;
+		for (scandup(&p2, refp); p2 && *p2 != '\n'; scannext(&p2))
+		{
+			buildCHAR(&lntext, *p2);
+		}
+		scanfree(&p2);
+		if (lntext)
+		{
+			msg(MSG_INFO, "[S]:$1", lntext);
+			safefree(lntext);
+		}
+	}
 
 	/* set defaults */
 	memset((char *)xinf, 0, sizeof *xinf);
 	xinf->window = win;
+	twoaddrs = False;
 
-	/* remember where this command started */
-	orig = *scanmark(refp);
-
-	/* skip leading ':' characters */
-	while (*refp && **refp == ':')
+	/* skip leading ':' characters and whitespace */
+	while (*refp && (**refp == ':' || **refp == ' ' || **refp == '\t'))
 	{
 		scannext(refp);
 	}
+
+	/* remember where this command started */
+	orig = *scanmark(refp);
+	logstr = markbuffer(&orig) ? NULL : *refp;
 
 	/* If no command was entered, then assume the command line should be
 	 * "+p", so the user can simply hit <Enter> to step through the file.
 	 * Only do this for interactively entered commands, though!
 	 */
-	skipwhitespace(refp);
 	if ((!*refp || **refp == '\n')
 		&& markbuffer(&orig) == buffind(toCHAR(EX_BUF)))
 	{
-		scanstring(&p2, toCHAR("+p"));
-		result = parse(win, &p2, xinf);
-		scanfree(&p2);
+		/* parse the "+p" command, unless at end of buffer */
+		if (markline(win->cursor) < o_buflines(markbuffer(win->cursor)))
+		{
+			scanstring(&p2, toCHAR("+p"));
+			result = parse(win, &p2, xinf);
+			scanfree(&p2);
+		}
+		else
+		{
+			msg(MSG_ERROR, "no more lines");
+			result = RESULT_ERROR;
+		}
+
 		return result;
 	}
 
@@ -1719,6 +1880,10 @@ static RESULT parse(win, refp, xinf)
 					if (xinf->window && xinf->window->selbottom)
 						xinf->to = markline(xinf->window->selbottom);
 					xinf->anyaddr = True;
+				}
+				else
+				{
+					twoaddrs = True;
 				}
 
 				/* if followed by a semicolon, then this
@@ -1920,9 +2085,10 @@ static RESULT parse(win, refp, xinf)
 	 * may include the '|' character but not newline
 	 */
 	skipwhitespace(refp);
-	if (!parsecmds(refp, xinf, flags))
+	result = parsecmds(refp, xinf, flags);
+	if (result != RESULT_COMPLETE)
 	{
-		return RESULT_ERROR;
+		return result;
 	}
 
 	/* By this point, there should be no more arguments on this line. */
@@ -1941,6 +2107,20 @@ static RESULT parse(win, refp, xinf)
 		msg(MSG_ERROR, "[s]$1 is illegal in vi mode", xinf->cmdname);
 		return RESULT_ERROR;
 	}
+
+	/* If the buffer is locked, then complain about edit commands.  Note
+	 * that ":s/???/???/x" and ":!cmd" (with no addresses) are specifically
+	 * permitted.
+	 */
+	if (o_locked(markbuffer(&xinf->defaddr))
+	 && 0 != (flags & q_Undo)
+	 && !(xinf->command == EX_SUBSTITUTE && xinf->rhs && CHARchr(xinf->rhs, 'x'))
+	 && !(xinf->command == EX_BANG && !xinf->anyaddr) )
+	{
+		msg(MSG_ERROR, "[s]buffer $1 is locked", o_bufname(markbuffer(&xinf->defaddr)));
+		return RESULT_ERROR;
+	}
+
 	/* Maybe parse extra text lines which are arguments to this command */
 	if (!xinf->rhs && 0 != (flags & a_Text) && *refp)
 	{
@@ -1963,10 +2143,12 @@ static RESULT parse(win, refp, xinf)
 		/* if all went well, then strip the "." from the end */
 		if (*refp)
 		{
-			xinf->rhs[i>2 ? i-2 : 0] = '\0';
+			assert(i > 2);
+			xinf->rhs[i - 1] = '\0';
 		}
-		else /* end not found, need more text */
+		else if (markbuffer(&orig) != NULL) /* not scanning string */
 		{
+			/* end not found, need more text */
 			scanseek(refp, &orig);
 			drawopencomplete(win);
 			return RESULT_MORE;
@@ -1976,13 +2158,21 @@ static RESULT parse(win, refp, xinf)
 
 	/* convert line numbers to marks (if there are any) */
 	if ((flags & (a_Line|a_Range)) != 0
-		&& (xinf->anyaddr || (flags & d_None) == 0))
+		&& (xinf->anyaddr || (flags & d_LnMask) != d_None))
 	{
 		/* if no lines, set the default */
-		if (!xinf->anyaddr && (flags & d_All) != 0)
+		if (!xinf->anyaddr && (flags & d_LnMask) == d_All)
 		{
 			xinf->from = 1;
 			xinf->to = o_buflines(markbuffer(&xinf->defaddr));
+		}
+
+		/* if only one address was given, and the default range
+		 * include should include 2 lines, then add second line.
+		 */
+		if (!twoaddrs && (flags & d_LnMask) == d_2Lines)
+		{
+			xinf->to = xinf->from + 1;
 		}
 
 		/* if there was a count, add it to "from" to make "to" */
@@ -2004,17 +2194,38 @@ static RESULT parse(win, refp, xinf)
 		else
 			xinf->toaddr = markalloc(markbuffer(&xinf->defaddr),
 					lowline(bufbufinfo(markbuffer(&xinf->defaddr)), xinf->to + 1));
-
-#if 0
-		/* the cursor should be left on the last line */
-		xinf->newcurs = markalloc(markbuffer(&xinf->defaddr),
-			lowline(bufbufinfo(markbuffer(&xinf->defaddr)), xinf->to));
-#endif
 	}
 	else
 	{
 		/* the cursor won't move */
 		xinf->newcurs = (MARK)0;
+	}
+
+	/* maybe add the commands to the map log */
+	if (o_maplog != 'o'
+		&& (logstr || !o_internal(markbuffer(scanmark(refp))) ) )
+	{
+		log = bufalloc(toCHAR(TRACE_BUF), 0, True);
+		if (o_maplog == 'r')
+		{
+			bufreplace(marktmp(logstart, log, 0L), marktmp(logend, log, o_bufchars(log)), NULL, 0L);
+			o_maplog = 'a';
+		}
+		bufreplace(marktmp(logend, log, o_bufchars(log)), &logend, toCHAR(":"), 1L);
+		if (logstr)
+		{
+			if (*refp)
+				loglen = (int)(*refp - logstr);
+			else
+				loglen = CHARlen(logstr);
+			assert(loglen > 0L);
+			bufreplace(marktmp(logend, log, o_bufchars(log)),
+					&logend, logstr, loglen);
+		}
+		else
+			bufpaste(marktmp(logend, log, o_bufchars(log)),
+					&orig, scanmark(refp));
+		bufreplace(marktmp(logend, log, o_bufchars(log)), &logend, toCHAR("\n"), 1L);
 	}
 
 	/* move the scan point past the command separator */
@@ -2038,18 +2249,23 @@ static RESULT execute(xinf)
 	RESULT		ret;
 	BUFFER		origdef;/* original value of bufdefault */
 	struct state_s	*state;
+	unsigned long	flags;
+	WINDOW		found;
 
 	/* If we need to save an "undo" version of the buffer, then
 	 * remember that fact.
 	 */
-	if (globaldepth == 0 && (cmdnames[xinf->cmdidx].flags & q_Undo))
+	flags = cmdnames[xinf->cmdidx].flags;
+	if (xinf->window && xinf->window->cursor && globaldepth == 0)
+		bufwilldo(xinf->window->cursor, False);
+	if (globaldepth == 0 && (flags & q_Undo))
 	{
 		if (xinf->destaddr)
-			bufwilldo(xinf->destaddr);
+			bufwilldo(xinf->destaddr, True);
 		else if (xinf->window)
-			bufwilldo(xinf->window->cursor);
+			bufwilldo(xinf->window->cursor, True);
 		else if (xinf->toaddr)
-			bufwilldo(xinf->toaddr);
+			bufwilldo(xinf->toaddr, True);
 	}
 
 	/* if global command, then increment globaldepth */
@@ -2062,7 +2278,7 @@ static RESULT execute(xinf)
 	 * as INFO instead of the normal STATUS.  This is so they'll be queued
 	 * and can be printed someplace else after the window is closed.
 	 */
-	if (cmdnames[xinf->cmdidx].flags & q_MayQuit)
+	if (flags & q_MayQuit)
 	{
 		bufmsgtype = MSG_INFO;
 	}
@@ -2092,7 +2308,32 @@ static RESULT execute(xinf)
 	/* if command failed, we're done. */
 	if (ret != RESULT_COMPLETE)
 	{
+		/* !!! Should we call exfree(xinf) here? */
 		return RESULT_ERROR;
+	}
+
+	/* if the window was deleted, we're done */
+	if (xinf->window)
+	{
+		for (found = winofbuf(NULL, NULL);
+		     found && found != xinf->window;
+		     found = winofbuf(found, NULL))
+		{
+		}
+		if (!found)
+		{
+			exfree(xinf);
+			return RESULT_COMPLETE;
+		}
+	}
+
+	/* most commands aren't allowed to switch buffers */
+	if (xinf->newcurs
+	 && markbuffer(xinf->window->cursor) != markbuffer(xinf->newcurs)
+	 && !(flags & q_SwitchB))
+	{
+		markfree(xinf->newcurs);
+		xinf->newcurs = NULL;
 	}
 
 	/* move the cursor to where it wants to be */
@@ -2115,14 +2356,15 @@ static RESULT execute(xinf)
 				(*gui->retitle)(xinf->window->gw, tochar8(o_bufname(markbuffer(xinf->newcurs))));
 			}
 			marksetbuffer(state->cursor, markbuffer(xinf->newcurs));
-			marksetbuffer(state->top, markbuffer(xinf->newcurs));
-			marksetbuffer(state->bottom, markbuffer(xinf->newcurs));
 			dispset(xinf->window, tochar8(o_bufdisplay(markbuffer(xinf->newcurs))));
+			bufoptions(markbuffer(xinf->newcurs));
 		}
 
 		/* other stuff is easy */
 		marksetoffset(state->cursor, markoffset(xinf->newcurs));
+		marksetbuffer(state->top, markbuffer(xinf->newcurs));
 		marksetoffset(state->top, markoffset(xinf->newcurs));
+		marksetbuffer(state->bottom, markbuffer(xinf->newcurs));
 		marksetoffset(state->bottom, markoffset(xinf->newcurs));
 		markfree(xinf->newcurs);
 		xinf->window->wantcol = state->wantcol = (*xinf->window->md->mark2col)(xinf->window, xinf->window->cursor, True);
@@ -2159,12 +2401,12 @@ static RESULT execute(xinf)
 		exprintlines(xinf->window, pline, 1, xinf->pflag);
 	}
 
+# ifdef FEATURE_MKEXRC
 	/* if we're supposed to regenerate CUSTOM_BUF, then do so now */
-	if (cmdnames[xinf->cmdidx].flags & q_Custom)
+	if (flags & q_Custom)
 	{
 		/* find/create the buffer */
-		custom = bufalloc(toCHAR(CUSTOM_BUF), 0);
-		o_internal(custom) = True;
+		custom = bufalloc(toCHAR(CUSTOM_BUF), 0, True);
 		if (o_bufchars(custom) != 0)
 		{
 			bufreplace(marktmp(top, custom, 0),
@@ -2178,11 +2420,13 @@ static RESULT execute(xinf)
 		digsave(custom);
 		colorsave(custom);
 		/* abbrsave(custom); */
+		/* aliassave(custom); */
 		if (gui && gui->save)
 		{
 			(*gui->save)(custom, xinf->window->gw);
 		}
 	}
+# endif /* FEATURE_MKEXRC */
 
 	/* free the data associated with that command */
 	exfree(xinf);
@@ -2272,6 +2516,16 @@ RESULT exstring(win, str)
 {
 	EXINFO	xinfb;	/* buffer, holds info about command being parsed */
 	CHAR	*p;	/* pointer used for scanning command line */
+	BOOLEAN	oldthenflag;
+	CHAR	*olddotest;
+	RESULT	result;
+	void	*locals;
+
+	/* commands run this way don't affect the :if or :while expressions */
+	oldthenflag = exthenflag;
+	olddotest = exdotest;
+	exdotest = NULL;
+	locals = optlocal(NULL);
 
 	/* start reading commands */
 	scanstring(&p, str);
@@ -2287,12 +2541,20 @@ RESULT exstring(win, str)
 		}
 	}
 	scanfree(&p);
-	return RESULT_COMPLETE;
+	result = RESULT_COMPLETE;
+	goto Done;
 
 Fail:
 	scanfree(&p);
 	exfree(&xinfb);
-	return RESULT_ERROR;
+	result = RESULT_ERROR;
+	/* and fall through... */
+
+Done:
+	(void)optlocal(locals);
+	exthenflag = oldthenflag;
+	exdotest = olddotest;
+	return result;
 }
 
 
@@ -2351,11 +2613,6 @@ RESULT exenter(win)
 	WINDOW	win;	/* window where an ex command has been entered */
 {
 	STATE	*state = win->state;
-
-#if 0
-	assert(markoffset(state->top) <= markoffset(state->cursor));
-	assert(markoffset(state->cursor) <= markoffset(state->bottom));
-#endif
 
 	return experform(win, state->top, state->bottom);
 }
@@ -2481,3 +2738,200 @@ long exprintlines(win, mark, qty, pflag)
 	scanfree(&scan);
 	return last;
 }
+
+
+#ifdef FEATURE_COMPLETE
+CHAR *excomplete(win, from, to)
+	WINDOW	win;	/* window where multiple matches are listed */
+	MARK	from;	/* start of the line where completion is needed */
+	MARK	to;	/* position of the cursor within that line */
+{
+	CHAR	*s;
+	long	offset;
+ static CHAR	tab[2] = "\t";
+ static CHAR	common[10];/* long enough for any ex command name */
+ 	MARKBUF	tmp;
+	CHAR	*cmdname;
+	int	len, mlen;
+	int	i, j, match;
+
+	(void)scanalloc(&s, from);
+	offset = markoffset(from);
+
+	/* skip leading ':' characters and whitespace */
+	while (*s && offset < markoffset(to) && (*s == ':' || isspace(*s)))
+	{
+		scannext(&s);
+		offset++;
+	}
+
+	/* if '(' then skip forward for matching ')'.  If we hit the cursor
+	 * before that, then we want to perform filename completion (really
+	 * buffername completion)
+	 */
+	if (*s == '(')
+	{
+		while (*s && offset < markoffset(to) && *s != ')')
+		{
+			scannext(&s);
+			offset++;
+		}
+		if (offset == markoffset(to))
+		{
+			scanfree(&s);
+			return NULL;
+		}
+	}
+
+	/* if at start of line, or next char isn't a command, then always
+	 * use a literal tab.  If at start of a ! command, then do filename
+	 * completion.
+	 */
+	if (!s || offset >= markoffset(to) || !isalpha(*s))
+	{
+		if (s && offset < markoffset(to) && *s == '!')
+			cmdname = NULL;
+		else
+			cmdname = tab;
+		scanfree(&s);
+		return cmdname;
+	}
+
+	/* collect the characters of the command name */
+	cmdname = NULL;
+	do
+	{
+		len = buildCHAR(&cmdname, *s);
+		offset++;
+	} while (scannext(&s) && offset < markoffset(to) && isalpha(*s));
+	scanfree(&s);
+
+	/* if cursor is at end of command name, then try to expand the name.
+	 * This doesn't know about aliases!
+	 */
+	if (offset == markoffset(to))
+	{
+		/* count the matches */
+		for (i = j = 0; i < QTY(cmdnames); i++)
+			if (!CHARncmp(cmdname, toCHAR(cmdnames[i].name), len))
+			{
+				if (j == 0)
+				{
+					match = i;
+					mlen = strlen(cmdnames[match].name);
+				}
+				else
+				{
+					while (strncmp(cmdnames[i].name, cmdnames[match].name, mlen))
+						mlen--;
+				}
+				j++;
+			}
+
+		/* don't need our copy of the partial name anymore */
+		safefree(cmdname);
+
+		/* if no matches, then do a literal tab */
+		if (j == 0)
+			return tab;
+
+		/* If one match, then return the untyped portion of it followed
+		 * by a space.  The user may want to back up over the space
+		 * to append a ! but the space is still nice because it
+		 * reassures the user that the name really is complete.
+		 */
+		if (j == 1)
+		{
+			for (i = 0, j = len; cmdnames[match].name[j]; i++, j++)
+				common[i] = cmdnames[match].name[j];
+			common[i++] = ' ';
+			common[i] = '\0';
+			return common;
+		}
+
+		/* Else multiple matches.  Can we add to their common chars?
+		 * If so, great!  If not, then list all matches.
+		 */
+		for (i = 0, j = len; j < mlen; j++, i++)
+			common[i] = cmdnames[match].name[j];
+		common[i] = '\0';
+		if (mlen == len)
+		{
+			for (i = j = 0; i < QTY(cmdnames); i++)
+				if (!strncmp(cmdnames[match].name, cmdnames[i].name, len))
+				{
+					mlen = strlen(cmdnames[i].name);
+					if (j + mlen + 1 >= o_columns(win))
+					{
+						drawextext(win, toCHAR("\n"), 1);
+						j = 0;
+					}
+					else if (j != 0)
+						drawextext(win, blanks, 1);
+					drawextext(win,
+						toCHAR(cmdnames[i].name),
+						mlen);
+					j += mlen + 1;
+				}
+			if (j != 0)
+				drawextext(win, toCHAR("\n"), 1);
+		}
+		return common;
+	}
+
+	/* if we get here, then we're completing the args of a command,
+	 * instead of the command itself.
+	 */
+
+#ifdef FEATURE_ALIAS
+	/* macros probably take filenames for args */
+	if (exisalias(tochar8(cmdname), False))
+	{
+		safefree(cmdname);
+		return NULL;
+	}
+#endif
+
+	/* look up the command */
+	for (i = 0; i < QTY(cmdnames) && CHARncmp(cmdname, toCHAR(cmdnames[i].name), len); i++)
+	{
+	}
+	safefree(cmdname);
+	if (i >= QTY(cmdnames))
+	{
+		/* Unknown command.  This is probably either a typo (in which
+		 * case the behavior of <Tab> isn't that critical) or it is
+		 * really a shell command via the recursive excomplete() call,
+		 * below.  In the latter case, filename completion is the
+		 * best action, so we do that.
+		 */
+		return NULL;
+	}
+
+	/* the :set command completes option names */
+	if (cmdnames[i].code == EX_SET)
+		return optcomplete(win, to);
+
+	/* The :tag and :stag commands complete tag tags.  I'm tempted to
+	 * add :browse and :sbrowse here, but I suspect that filename
+	 * completion might be more useful for them.
+	 */
+	if (cmdnames[i].code == EX_TAG || cmdnames[i].code == EX_STAG)
+		return tagcomplete(win, to);
+
+	/* Many commands take ex commands as their arguments.  The a_Cmds
+	 * flag is set for these commands, but it is also set for a few
+	 * others.  Oh well, it's close enough.  Also, the :help command's
+	 * arguments resemble an ex command.
+	 */
+	if ((cmdnames[i].flags & a_Cmds) != 0 || cmdnames[i].code == EX_HELP)
+		return  excomplete(win, marktmp(tmp, markbuffer(to), offset), to);
+
+	/* does the command take filename arguments or a target address? */
+	if ((cmdnames[i].flags & (a_Target | a_Filter | a_File | a_Files)) != 0)
+		return NULL;/* do filename expansion */
+
+	/* if all else fails, just treat it literally */
+	return tab;
+}
+#endif /* FEATURE_COMPLETE */

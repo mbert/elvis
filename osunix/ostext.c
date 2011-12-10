@@ -6,7 +6,7 @@
 #include <errno.h>
 #include "elvis.h"
 
-char id_ostext[] = "$Id: ostext.c,v 2.4 1995/11/22 01:08:41 steve Exp $";
+char id_ostext[] = "$Id: ostext.c,v 2.5 1998/11/28 05:14:22 steve Exp $";
 
 /* This is the filedescriptor of the file being read */
 static int fd;
@@ -20,16 +20,28 @@ static int fd;
 int txtopen(filename, rwa, binary)
 	char	*filename;	/* name of file */
 	_char_	rwa;		/* 'r'=read, 'w'=write, 'a'=append */
-	BOOLEAN	binary;		/* (ignored) */
+	BOOLEAN	binary;		/* (ignored, except under Cygwin) */
 {
-	assert(rwa == 'r' || rwa == 'w' || rwa == 'a');
+	int	mode;
 
+	assert(rwa == 'r' || rwa == 'w' || rwa == 'a');
 	switch (rwa)
 	{
-	  case 'r': fd = open(filename, O_RDONLY);		break;
-	  case 'w': fd = creat(filename, 0666);			break;
-	  case 'a': fd = open(filename, O_WRONLY|O_APPEND);	break;
+	  case 'r': mode = O_RDONLY;			break;
+	  case 'w': mode = O_WRONLY|O_TRUNC|O_CREAT;	break;
+	  case 'a': mode = O_WRONLY|O_APPEND;		break;
 	}
+#ifdef O_BINARY
+	if (binary)
+		mode |= O_BINARY;
+#else
+# ifdef _O_BINARY
+	if (binary)
+		mode |= _O_BINARY;
+# endif
+#endif
+
+	fd = open(filename, mode, 0666);
 	if (fd < 0)
 	{
 		if (errno == EPERM || EACCES)

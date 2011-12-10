@@ -1,11 +1,11 @@
 <html><head>
-<title>Elvis 2.0 Messages</title>
+<title>Elvis 2.1 Messages</title>
 </head><body>
 
 <h1>12. MESSAGES</h1>
 
 Elvis has an extremely versatile method for handling messages.
-You can change the verbiage, or even the language, of any message.
+You can change the wording, or even the language, of any message.
 You can make any message ring the terminal's bell.
 You can hide certain messages.
 
@@ -59,9 +59,12 @@ The <a href="elvisopt.html#bitsperchar">bitsperchar</a> option indicates which.)
 All of the messages built into elvis are terse.
 If the <a href="elvisopt.html#terse">terse</a> option is turned off,
 then elvis will attempt to translate each terse message into a verbose one.
+Although the terse messages are written in English, the verbose messages
+can be in any language.
 
 <p>When elvis first creates a new edit session, it attempts to locate a
-file named "<a name="elvis.msg"></a>elvis.msg" and load it into a buffer named "Elvis messages".
+file named "<a name="elvis.msg">elvis.msg</a>" and load it into a buffer named
+"Elvis messages".
 To find the "elvis.msg" file, elvis searches through all of the directories
 named in the <a href="elvisopt.html#elvispath">elvispath</a> option.
 
@@ -85,7 +88,7 @@ You can yank a line from Appendix A, paste it into your "elvis.msg" file,
 and add a colon and verbose message to the end of the message.
 
 <p>By the way, Appendix A is created automatically via the command
-<tt>"make&nbsp;lib/elvistrs.msg".</tt>
+<code>"make&nbsp;lib/elvistrs.msg".</code>
 This just searches for all messages in any source file, sorts them, and
 discards any duplicates.
 I intend to add another appendix some day which describes some of the

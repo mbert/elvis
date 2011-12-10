@@ -1,7 +1,7 @@
 /* exmake.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_make[] = "$Id: exmake.c,v 2.20 1996/09/21 01:21:36 steve Exp $";
+char id_make[] = "$Id: exmake.c,v 2.26 1998/07/31 03:30:01 steve Exp $";
 
 #include "elvis.h"
 
@@ -11,6 +11,7 @@ static RESULT gotoerr(EXINFO *xinf);
 static void errprep(void);
 #endif
 
+static char	*maybedir;	/* directory name extracted from errlist */
 static CHAR	*errfile;	/* name of file where error was detected */
 static long	errline;	/* the line number for an error */
 static CHAR	*errdesc;	/* description of the error */
@@ -24,7 +25,7 @@ static MARK	errnext;	/* used for stepping through the error list */
  *
  * The line is scanned for words.  "Words", for this purpose, are considered
  * to be contiguous strings of non-whitespace characters other than ':'
- * (unless followed by a backslash) or '(' or ')' or any quote character.
+ * (unless followed by a backslash) or any of ( ) , " '
  *
  * If a word happens to be the name of an existing file which is writable
  * by the user, then it is taken to be the filename.  Otherwise, if it contains
@@ -78,8 +79,7 @@ static BOOLEAN parse_errmsg()
 	for (scanalloc(&cp, errnext); cp && *cp != '\n'; cp && scannext(&cp))
 	{
 		/* is the character legal in a word? */
-		if (!isspace(*cp) && *cp != '(' && *cp != ')' && *cp != ':'
-			&& *cp != '"' && *cp != '\'' && *cp != '`' && *cp != ',')
+		if (!isspace(*cp) && CHARchr("():\"'`,", *cp) == NULL)
 		{
 			/* character in word */
 			buildCHAR(&word, *cp);
@@ -118,13 +118,32 @@ static BOOLEAN parse_errmsg()
 			continue;
 
 		/* So we must have a word that we need to process.  Is it the
-		 * name of an existing, writable file?
+		 * name of an existing, writable text file?
 		 */
-		if (!errfile && ((perms = dirperm(tochar8(word))) == DIR_READWRITE
-				|| (o_anyerror && perms == DIR_READONLY)))
+		if (!errfile
+		 && ((perms = dirperm(tochar8(word))) == DIR_READWRITE
+			|| (o_anyerror && perms == DIR_READONLY))
+		 && *ioeol(tochar8(word)) != 'b')
 		{
 			/* this is the name of the source file */
 			errfile = word;
+		}
+		else if (dirperm(tochar8(word)) == DIR_NOTFILE)
+		{
+			/* this may be the name of a directory where
+			 * source files reside */
+			if (maybedir)
+				safefree(maybedir);
+			maybedir = tochar8(word);
+		}
+		else if (!errfile
+		 && maybedir
+		 && ((perms = dirperm(dirpath(maybedir, tochar8(word))) ) == DIR_READWRITE
+			|| (o_anyerror && perms == DIR_READONLY))
+		 && *ioeol(dirpath(maybedir, tochar8(word))) != 'b')
+		{
+			errfile = CHARdup(toCHAR(dirpath(maybedir, tochar8(word))));
+			safefree(word);
 		}
 		else if (!errline && calcnumber(word))
 		{
@@ -140,7 +159,7 @@ static BOOLEAN parse_errmsg()
 			safefree(word);
 			word = NULL;
 			while (cp && *cp != '\n' &&
-				(isspace(*cp) || isdigit(*cp) || *cp == ':'))
+				(isspace(*cp) || isdigit(*cp) || *cp == ':' || *cp == '-'))
 			{
 				scannext(&cp);
 			}
@@ -230,7 +249,9 @@ static BOOLEAN parse_errmsg()
 	 * viewing the error list, the new window's cursor will start at the
 	 * end of the current message instead of at the top of the buffer.
 	 */
-	markbuffer(errnext)->changepos = markoffset(errnext) - 1;
+	markaddoffset(errnext, -1L);
+	bufwilldo(errnext, False);
+	markaddoffset(errnext, 1L);
 
 	/* return True since there was a line for us to parse */
 	scanfree(&cp);
@@ -361,6 +382,13 @@ static void errprep()
 		errnext = NULL;
 	}
 
+	/* clobber the maybedir */
+	if (maybedir)
+	{
+		safefree(maybedir);
+		maybedir = NULL;
+	}
+
 	/* remember how many lines each buffer has now */
 	for (buf = NULL; (buf = buflist(buf)) != NULL; )
 	{
@@ -386,7 +414,7 @@ RESULT	ex_errlist(xinf)
 		errprep();
 
 		/* load the buffer from the named file */
-		errbuf = bufalloc(toCHAR(ERRLIST_BUF), 0);
+		errbuf = bufalloc(toCHAR(ERRLIST_BUF), 0, True);
 		retval = bufread(marktmp(from, errbuf, 0), xinf->rhs ? tochar8(xinf->rhs) : xinf->file[0]);
 
 		/* turn off the "modified" flag on the (Elvis error list) buf */
@@ -419,6 +447,7 @@ RESULT	ex_make(xinf)
 	int	nio;	/* number of characters read */
 	MARKBUF	start, end;/* ends of errlist buffer, used for appending */
 	BOOLEAN	origrefresh;
+	long	origpollfreq;
 	BUFFER	buf;
 	WINDOW	errwin;	/* window which is displaying errors */
 
@@ -454,6 +483,9 @@ RESULT	ex_make(xinf)
 	/* output the command name, so the user knows what's happening */
 	origrefresh = o_exrefresh;
 	o_exrefresh = True;
+	origpollfreq = o_pollfrequency;
+	o_pollfrequency = 1;
+	(void)guipoll(True);
 	drawextext(xinf->window, str, (int)CHARlen(str));
 	drawextext(xinf->window, toCHAR("\n"), 1);
 
@@ -467,6 +499,7 @@ RESULT	ex_make(xinf)
 	{
 		/* failed -- error message already given */
 		o_exrefresh = origrefresh;
+		o_pollfrequency = origpollfreq;
 		return RESULT_ERROR;
 	}
 	buf = buffind(toCHAR(ERRLIST_BUF));
@@ -477,7 +510,7 @@ RESULT	ex_make(xinf)
 	}
 	io = (CHAR *)safealloc(1024, sizeof(CHAR));
 	(void)marktmp(end, buf, 0);
-	while ((nio = prgread(io, 1024)) > 0)
+	while (!guipoll(False) && (nio = prgread(io, 1024)) > 0)
 	{
 		/* show it on the screen */
 		drawextext(xinf->window, io, nio);
@@ -489,6 +522,7 @@ RESULT	ex_make(xinf)
 	(void)prgclose();
 	safefree(io);
 	o_exrefresh = origrefresh;
+	o_pollfrequency = origpollfreq;
 
 	/* turn off the "modified" flag on the (Elvis error list) buf */
 	o_modified(buf) = False;

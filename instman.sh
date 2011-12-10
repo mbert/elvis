@@ -3,7 +3,7 @@
 # This shell script is used on UNIX-like systems to install or remove
 # man-pages.  It is run automatically during "make install".
 #
-#   usage: sh install.sh [-u] [-bbindir] programs...
+#   usage: sh install.sh [-r] [-bbindir] programs...
 #
 ################################################################################
 
@@ -168,8 +168,7 @@ then
 			elif [ -x ./elvis ]
 			then
 				ELVISPATH=dummypath; export ELVISPATH
-				EXINIT="se lptype=bs"; export EXINIT
-				./elvis -gquit -c"se bufdisplay=man|lp! $catdir/$i$ext" lib/$i.man
+				./elvis -Gquit -c"se bd=man lpt=bs|lp! $catdir/$i$ext" lib/$i.man
 			else
 				# give nroff another chance
 				nroff -man lib/$i.man >$catdir/$i$ext
@@ -249,3 +248,4 @@ case $job in
 	fi
 	;;
 esac
+exit 0

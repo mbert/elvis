@@ -11,7 +11,7 @@
 
 # define ELVCT_ALPHA	(ELVCT_UPPER|ELVCT_LOWER)
 # define ELVCT_ALNUM	(ELVCT_ALPHA|ELVCT_DIGIT)
-# define ELVCT_PRINT	(ELVCT_ALNUM|ELVCT_PUNCT)
+# define ELVCT_GRAPH	(ELVCT_ALNUM|ELVCT_PUNCT)
 
 # define isupper(c)	((elvct_class[(CHAR)(c)] & ELVCT_UPPER) != 0)
 # define islower(c)	((elvct_class[(CHAR)(c)] & ELVCT_LOWER) != 0)
@@ -19,11 +19,10 @@
 # define isxdigit(c)	((elvct_class[(CHAR)(c)] & ELVCT_XDIGIT) != 0)
 # define isspace(c)	((elvct_class[(CHAR)(c)] & ELVCT_SPACE) != 0)
 # define ispunct(c)	((elvct_class[(CHAR)(c)] & ELVCT_PUNCT) != 0)
-# define isprint(c)	((elvct_class[(CHAR)(c)] & ELVCT_PRINT) != 0)
+# define isgraph(c)	((elvct_class[(CHAR)(c)] & ELVCT_GRAPH) != 0)
 # define iscntrl(c)	((elvct_class[(CHAR)(c)] & ELVCT_CNTRL) != 0)
 # define isalpha(c)	((elvct_class[(CHAR)(c)] & ELVCT_ALPHA) != 0)
 # define isalnum(c)	((elvct_class[(CHAR)(c)] & ELVCT_ALNUM) != 0)
-# define isprint(c)	((elvct_class[(CHAR)(c)] & ELVCT_PRINT) != 0)
 
 # define setupper(c)	(elvct_class[(CHAR)(c)] |= ELVCT_UPPER)
 # define setlower(c)	(elvct_class[(CHAR)(c)] |= ELVCT_LOWER)

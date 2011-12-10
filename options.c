@@ -1,7 +1,7 @@
 /* options.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_options[] = "$Id: options.c,v 2.31 1996/08/09 20:13:45 steve Exp $";
+char id_options[] = "$Id: options.c,v 2.49 1998/11/29 19:35:12 steve Exp $";
 
 /* This file contains functions which manipulate options.
  *
@@ -40,14 +40,34 @@ typedef struct optout_s
 } OPTOUT;
 
 
+/* This is used for storing the names and values of :local options, so they can
+ * be restored when the script/alias is done.
+ */
+typedef struct optstk_s
+{
+	struct optstk_s	*next;	/* another stack entry, or NULL */
+	OPTDESC		*desc;	/* descriptions of options */
+	OPTVAL		*val;	/* values of options */
+	int		i;	/* index of the value being stored */
+	BOOLEAN		wasset;	/* was the OPT_SET flag set originally? */
+	CHAR		*value;	/* original value of the option, as a string */
+} OPTSTK;
+
 #if USE_PROTOTYPES
 static BOOLEAN optshow(char *name);
 static void optoutput(BOOLEAN domain, BOOLEAN all, BOOLEAN set, CHAR *outbuf, size_t outsize);
+static void savelocal(OPTDESC *desc, OPTVAL *val, int i);
+static OPTSTK *restorelocal(OPTSTK *item);
 #endif
 
 
 /* head of the list of current option domains */
 static OPTDOMAIN	*head;
+
+
+/* stack of local options */
+static OPTSTK *stack = (OPTSTK *)1;
+
 
 /* Check a number's validity.  If valid & different, then set val and return
  * 1; if valid & same, then return 0; else give error message and return -1.
@@ -222,11 +242,14 @@ void optdelete(val)
 
 	/* locate the domain in the list */
 	for (scan = head, lag = (OPTDOMAIN *)0;
-	     scan->val != val;
+	     scan && scan->val != val;
 	     lag = scan, scan = scan->next)
 	{
-		assert(scan->next != (OPTDOMAIN *)0);
 	}
+
+	/* if not found, then do nothing */
+	if (!scan)
+		return;
 
 	/* remove the domain from the list */
 	if (lag)
@@ -361,6 +384,11 @@ static void optoutput(domain, all, set, outbuf, outsize)
 		OPTOUT	*opt;	/* first option in a column */
 		int	width;	/* width of the column */
 	}	  colinfo[OPT_MAXCOLS];
+	CHAR	  *str, *build;
+
+	/* if no output buffer, then do nothing */
+	if (!outbuf)
+		return;
 
 	/* start with an empty list */
 	out = (OPTOUT *)0;
@@ -375,10 +403,12 @@ static void optoutput(domain, all, set, outbuf, outsize)
 		for (i = 0; i < dom->nopts; dom->val[i++].flags &= ~OPT_SHOW)
 		{
 			/* Skip if we aren't supposed to output this option */
-			if (all ? ((dom->val[i].flags & OPT_HIDE) != 0 && !set)
-				: !(dom->val[i].flags & (set ? OPT_SET : OPT_SHOW)))
+			if (!all || !set)
 			{
-				continue;
+				if ((all || set) && dom->val[i].flags & OPT_HIDE)
+					continue;
+				if (!all && !(dom->val[i].flags & (set ? OPT_SET : OPT_SHOW)))
+					continue;
 			}
 
 			/* See where this should be inserted into the output
@@ -398,16 +428,24 @@ static void optoutput(domain, all, set, outbuf, outsize)
 			newp = (OPTOUT *)safealloc(1, sizeof(OPTOUT));
 			newp->dom = dom;
 			newp->idx = i;
-			newp->width = strlen(dom->desc[i].longname);
 			if (domain) /* including domain name? */
-			{
-				newp->width += strlen(dom->name) + 1;
-			}
+				newp->width = strlen(dom->name) + 1 +
+						strlen(dom->desc[i].shortname);
+			else
+				newp->width = strlen(dom->desc[i].longname);
 			if (dom->desc[i].isvalid) /* non-boolean? */
 			{
 				newp->width += 1;
 				if (dom->desc[i].asstring)
-					newp->width += CHARlen((*dom->desc[i].asstring)(&dom->desc[i], &dom->val[i]));
+				{
+					cmp = CHARlen((*dom->desc[i].asstring)(&dom->desc[i], &dom->val[i]));
+					if (newp->width + cmp > o_optionwidth
+					 && newp->width < o_optionwidth - 3
+					 && (dom->val[i].flags & OPT_SHOW) == 0)
+						newp->width = o_optionwidth;
+					else
+						newp->width += cmp;
+				}
 			}
 			else if (!dom->val[i].value.boolean)
 			{
@@ -510,13 +548,36 @@ static void optoutput(domain, all, set, outbuf, outsize)
 				{
 					(void)CHARcat(outbuf, "no");
 				}
-				(void)CHARcat(outbuf, scan->dom->desc[scan->idx].longname);
+				(void)CHARcat(outbuf, domain
+					? scan->dom->desc[scan->idx].shortname
+					: scan->dom->desc[scan->idx].longname);
 			}
 			else
 			{
-				(void)CHARcat(outbuf, scan->dom->desc[scan->idx].longname);
+
+				str = (CHAR *)(domain
+					? scan->dom->desc[scan->idx].shortname
+					: scan->dom->desc[scan->idx].longname);
+				(void)CHARcat(outbuf, str);
 				(void)CHARcat(outbuf, toCHAR("="));
-				(void)CHARcat(outbuf, (*scan->dom->desc[scan->idx].asstring)(&scan->dom->desc[scan->idx], &scan->dom->val[scan->idx]));
+				cmp = CHARlen(str) + 1;
+				str = (*scan->dom->desc[scan->idx].asstring)(
+					&scan->dom->desc[scan->idx],
+					&scan->dom->val[scan->idx]);
+				if (cmp + CHARlen(str) > scan->width)
+				{
+					/* value too long, so just show part */
+					build = &outbuf[CHARlen(outbuf)];
+					for (; cmp < scan->width - 3; cmp++)
+						*build++ = *str++;
+					*build++ = '.';
+					*build++ = '.';
+					*build++ = '.';
+					*build++ = '\0';
+				}
+				else
+					/* show the whole value */
+					(void)CHARcat(outbuf, str);
 			}
 
 			/* pad to max width, except at end of column */
@@ -546,12 +607,16 @@ static void optoutput(domain, all, set, outbuf, outsize)
 }
 
 
-/* This function returns the value of an option, as a nul-terminated string.
- * For booleans, it returns "true" or "false".  For invalid option names, it
- * returns a NULL pointer.
+/* This function returns the value of an option, as a statically allocated,
+ * nul-terminated string.  For booleans, it returns "true" or "false".  For
+ * invalid option names, it returns a NULL pointer.
+ *
+ * If the desc parameter is non-NULL, then the pointer that it refers to will
+ * be altered to point to the option's OPTDESC struct.
  */
-CHAR *optgetstr(name)
+CHAR *optgetstr(name, desc)
 	CHAR	*name;	/* NUL-terminated name */
+	OPTDESC	**desc;	/* where to store a pointer to the OPTDESC struct */
 {
 	OPTDOMAIN *dom;	/* used for scanning through domains */
 	int	  i;	/* used for scanning through opts in a domain */
@@ -569,6 +634,10 @@ CHAR *optgetstr(name)
 				continue;
 			}
 
+			/* if the caller wants to know the OPTDESC, tell it */
+			if (desc)
+				*desc = &dom->desc[i];
+
 			/* convert it */
 			if (dom->desc[i].isvalid) /* non-boolean? */
 			{
@@ -580,11 +649,11 @@ CHAR *optgetstr(name)
 			}
 			else if (dom->val[i].value.boolean)
 			{
-				return (CHAR *)"true";
+				return o_true;
 			}
 			else
 			{
-				return (CHAR *)"false";
+				return o_false;
 			}
 		}
 	}
@@ -599,13 +668,15 @@ CHAR *optgetstr(name)
  * returns False without issueing an error message, on the assumption that
  * whatever caused the NULL pointer already issued a message.
  */
-BOOLEAN optputstr(name, value)
+BOOLEAN optputstr(name, value, bang)
 	CHAR	*name;	/* NUL-terminated name */
 	CHAR	*value;	/* NUL-terminated value */
+	BOOLEAN	bang;	/* don't set the OPT_SET flag? */
 {
 	OPTDOMAIN *dom;	/* used for scanning through domains */
 	int	  i;	/* used for scanning through opts in a domain */
 	BOOLEAN	  ret;	/* return code */
+	WINDOW	  w;
 
 	/* For each domain... */
 	for (dom = head; dom; dom = dom->next)
@@ -623,7 +694,16 @@ BOOLEAN optputstr(name, value)
 			/* if the option is locked, then fail */
 			if (dom->val[i].flags & OPT_LOCK)
 			{
-				msg(MSG_ERROR, "[S]$1 is locked", name);
+				if (!bang)
+					msg(MSG_ERROR, "[S]$1 is locked", name);
+				return False;
+			}
+
+			/* if the option is unsafe and "safer" is set, fail */
+			if (o_safer && (dom->val[i].flags & OPT_UNSAFE) != 0)
+			{
+				if (!bang)
+					msg(MSG_ERROR, "[S]unsafe to change $1", name);
 				return False;
 			}
 
@@ -631,8 +711,8 @@ BOOLEAN optputstr(name, value)
 			ret = True;
 			if (dom->desc[i].isvalid) /* non-boolean? */
 			{
-				/* if the value is valid & different and we need to 
-				 * call a store function, then call it.
+				/* if the value is valid & different and we need
+				 * to call a store function, then call it.
 				 */
 				if ((*dom->desc[i].isvalid)(&dom->desc[i], &dom->val[i], value) == 1
 				 && dom->desc[i].store)
@@ -645,13 +725,26 @@ BOOLEAN optputstr(name, value)
 				dom->val[i].value.boolean = calctrue(value);
 			}
 
-			/* set the "set" flag */
-			dom->val[i].flags |= OPT_SET;
+			/* set or clear the "set" flag */
+			if (!bang)
+			{
+				if (!dom->desc[i].dflt
+				    || CHARcmp(optgetstr(toCHAR(dom->desc[i].longname), NULL), dom->desc[i].dflt))
+					dom->val[i].flags |= OPT_SET;
+				else
+					dom->val[i].flags &= ~OPT_SET;
+			}
 
 			/* if the "redraw" flag is set, then force redraw */
-			if ((dom->val[i].flags & OPT_REDRAW) != 0 && windefault)
+			if (dom->val[i].flags & (OPT_REDRAW|OPT_SCRATCH))
 			{
-				windefault->di->logic = DRAW_CHANGED;
+				for (w = winofbuf(NULL, NULL); w; w = winofbuf(w, NULL))
+				{
+					if (dom->val[i].flags & OPT_SCRATCH)
+						w->di->logic = DRAW_SCRATCH;
+					else if (w->di->logic == DRAW_NORMAL)
+						w->di->logic = DRAW_CHANGED;
+				}
 			}
 
 			return ret;
@@ -659,15 +752,130 @@ BOOLEAN optputstr(name, value)
 	}
 
 	/* if we get here, then we didn't find the option */
-	msg(MSG_ERROR, "[S]bad option name $1", name);
+	if (!bang)
+		msg(MSG_ERROR, "[S]bad option name $1", name);
 	return False;
 }
 
+/* Save an option on the :local stack */
+static void savelocal(desc, val, i)
+	OPTDESC	*desc;	/* descriptions of the option's domain */
+	OPTVAL	*val;	/* values of the option's domain */
+	int	i;	/* index of the particular option we want to save */
+{
+	OPTSTK	*s;
+
+	/* create a stack entry */
+	s = (OPTSTK *)safealloc(1, sizeof(OPTSTK));
+
+	/* store the data into it */
+	s->desc = desc;
+	s->val = val;
+	s->i = i;
+	s->wasset = (BOOLEAN)((val[i].flags & OPT_SET) != 0);
+	if (desc[i].isvalid) /* non-boolean? */
+	{
+		if (desc[i].asstring)
+			s->value = (*desc[i].asstring)(&desc[i], &val[i]);
+		else
+			s->value = toCHAR("");
+	}
+	else if (val[i].value.boolean)
+	{
+		s->value = o_true;
+	}
+	else
+	{
+		s->value = o_false;
+	}
+	s->value = CHARdup(s->value);
+
+	/* insert it onto the stack */
+	s->next = stack;
+	stack = s;
+}
+
+/* Restore a single option from the :local stack, and then free that item and
+ * return the one after it.
+ */
+static OPTSTK *restorelocal(item)
+	OPTSTK	*item;
+{
+	OPTSTK	*next;
+	OPTDESC	*desc = &item->desc[item->i];
+	OPTVAL	*val = &item->val[item->i];
+	OPTDOMAIN *d;
+
+	/* verify that the option is still active */
+	for (d = head; d; d = d->next)
+		if (d->val == item->val)
+			break;
+	if (d)
+	{
+		/* restore the value */
+		if (desc->isvalid) /* non-boolean? */
+		{
+			/* if the value is valid & different and we need
+			 * to call a store function, then call it.
+			 */
+			if ((*desc->isvalid)(desc, val, item->value) == 1
+			 && desc->store)
+			{
+				(void)(*desc->store)(desc, val, stack->value);
+			}
+		}
+		else
+		{
+			val->value.boolean = calctrue(stack->value);
+		}
+
+		/* restore the "was set" flag */
+		if (stack->wasset)
+			val->flags |= OPT_SET;
+		else
+			val->flags &= ~OPT_SET;
+	}
+	else
+	{
+		msg(MSG_WARNING, "[s]can't restore local $1", desc->longname);
+	}
+
+	/* free it */
+	next = item->next;
+	safefree(item->value);
+	safefree(item);
+
+	/* return the item after it */
+	return next;
+}
+
+
+/* This function serves to purposes.  It should be called with NULL at the start
+ * of a script or alias, to find the current location of the :local stack.  It
+ * should be called again at the end of the script/alias to restore all local
+ * variables from that stack.
+ */
+void *optlocal(level)
+	void 	*level;	/* level of stack to pop to */
+{
+	/* if NULL, then return the current stack */
+	if (!level)
+		return stack;
+
+	/* else we need to restore items until we reach the old stack point */
+	while ((void *)stack != level)
+		stack = restorelocal(stack);
+
+	return NULL;
+}
 
 /* This function parses the arguments to a ":set" command.  Returns True if
  * successful.  For errors, it issues an error message via msg() and returns
  * False.  If any options are to be output, their values will be stored in
  * a null-terminated string in outbuf.
+ *
+ * If outbuf is NULL, then no options will be output, and any options mentioned
+ * in the "args" string will be pushed onto the :local stack.
  */
 BOOLEAN optset(bang, args, outbuf, outsize)
 	BOOLEAN	  bang;		/* if True, any options displayed will include domain */
@@ -693,7 +901,7 @@ BOOLEAN optset(bang, args, outbuf, outsize)
 	/* initialize "prefix" just to avoid a compiler warning */
 	prefix = NULL;
 
-	/* if no arguments, list values of any set values */
+	/* if no arguments, list values of any set options */
 	if (!*args)
 	{
 		optoutput(bang, False, True, outbuf, outsize);
@@ -720,6 +928,8 @@ BOOLEAN optset(bang, args, outbuf, outsize)
 		{
 			name++;
 		}
+		if (!*name)
+			break;
 
 		/* after the name, find the value (if any) */
 		for (scan = name; isalnum(*scan); scan++)
@@ -752,7 +962,8 @@ BOOLEAN optset(bang, args, outbuf, outsize)
 		{
 			/* mark the option for showing */
 			*scan++ = '\0';
-			ret &= optshow(tochar8(name));
+			if (!optshow(tochar8(name)))
+				ret = False;
 			continue;
 		}
 		else /* no "=" or "?" */
@@ -800,7 +1011,10 @@ BreakBreak:
 		{
 			if (prefix == name)
 			{
-				optshow(tochar8(name));
+				if (outbuf)
+					optshow(tochar8(name));
+				else
+					savelocal(dom->desc, dom->val, i);
 			}
 			else
 			{
@@ -819,6 +1033,15 @@ BreakBreak:
 			continue;
 		}
 
+		/* if unsafe, then complain */
+		if (o_safer && (dom->val[i].flags & OPT_UNSAFE) != 0)
+		{
+			msg(MSG_ERROR, "[S]unsafe to change $1", name);
+			name = scan;
+			ret = False;
+			continue;
+		}
+
 		/* if boolean & we got a value, then complain */
 		if (!dom->desc[i].isvalid && value)
 		{
@@ -827,6 +1050,10 @@ BreakBreak:
 			ret = False;
 			continue;
 		}
+
+		/* if :local then save its original value */
+		if (!outbuf)
+			savelocal(dom->desc, dom->val, i);
 
 		/* if boolean, set it */
 		if (!dom->desc[i].isvalid)
@@ -841,7 +1068,10 @@ BreakBreak:
 
 			/* if there's a store function, then call it */
 			if (dom->desc[i].store)
-				ret &= (BOOLEAN)((*dom->desc[i].store)(&dom->desc[i], &dom->val[i], toCHAR(b ? "true" : "false")) >= 0);
+			{
+				if ((*dom->desc[i].store)(&dom->desc[i], &dom->val[i], b ? o_true : o_false) < 0)
+					ret = False;
+			}
 			else
 				dom->val[i].value.boolean = b;
 		}
@@ -853,24 +1083,33 @@ BreakBreak:
 			if ((*dom->desc[i].isvalid)(&dom->desc[i], &dom->val[i], value) == 1
 			 && dom->desc[i].store)
 			{
-				ret &= (BOOLEAN)((*dom->desc[i].store)(&dom->desc[i], &dom->val[i], value) >= 0);
+				if ((*dom->desc[i].store)(&dom->desc[i], &dom->val[i], value) < 0)
+					ret = False;
 			}
 		}
 
 		/* set the "set" flag */
 		if (!bang)
 		{
-			dom->val[i].flags |= OPT_SET;
+			/* set or clear the "set" flag */
+			if (!dom->desc[i].dflt
+			 || CHARcmp(optgetstr(toCHAR(dom->desc[i].longname), NULL), dom->desc[i].dflt))
+				dom->val[i].flags |= OPT_SET;
+			else
+				dom->val[i].flags &= ~OPT_SET;
+
 		}
 
 		/* If the "redraw" flag is set, then force redrawing (or at
 		 * least regeneration) of all windows.
 		 */
-		if (dom->val[i].flags & OPT_REDRAW)
+		if (dom->val[i].flags & (OPT_REDRAW|OPT_SCRATCH))
 		{
 			for (w = winofbuf(NULL, NULL); w; w = winofbuf(w, NULL))
 			{
-				if (w->di->logic == DRAW_NORMAL)
+				if (dom->val[i].flags & OPT_SCRATCH)
+					w->di->logic = DRAW_SCRATCH;
+				else if (w->di->logic == DRAW_NORMAL)
 					w->di->logic = DRAW_CHANGED;
 			}
 		}
@@ -882,12 +1121,11 @@ BreakBreak:
 }
 
 
-/* This function returns the full name of an option, given a possibly-
- * abbreviated string.  If the string is not the name of an option, it
- * returns NULL.
+/* This function returns the OPTVAL struct of an option, given a name.
+ * If the string is not the name of an option, it returns NULL.
  */
-CHAR *optname(name)
-	CHAR	*name;
+OPTVAL *optval(name)
+	char	*name;
 {
 	OPTDOMAIN *dom;
 	int	  i;
@@ -902,8 +1140,8 @@ CHAR *optname(name)
 			if (!strcmp(dom->desc[i].longname, tochar8(name))
 			 || !strcmp(dom->desc[i].shortname, tochar8(name)))
 			{
-				/* return the long name */
-				return toCHAR(dom->desc[i].longname);
+				/* return the value struct */
+				return &dom->val[i];
 			}
 		}
 	}
@@ -912,6 +1150,7 @@ CHAR *optname(name)
 }
 
 
+# ifdef FEATURE_MKEXRC
 /* This function saves the values of some options.  It only does this for
  * options whose values have been changed, and which are in the "global",
  * "buf", "win", "syntax", or "lp" domains.
@@ -919,58 +1158,317 @@ CHAR *optname(name)
 void optsave(custom)
 	BUFFER	custom;	/* where to stuff the "set" commands */
 {
-	MARKBUF	m;
+	MARKBUF   m;
 	OPTDOMAIN *dom;
-	int	  i, j;
+	int	  i, j, pass;
 	CHAR	  *str;
 	char	  *tmp;
+	BOOLEAN	  any;
+
+	/* make two passes - one for universal options, and one for options
+	 * which only apply to this GUI.
+	 */
+	for (pass = 1; pass <= 2; pass++)
+	{
+		any = False;
+
+		/* for each domain of options... */
+		for (dom = head; dom; dom = dom->next)
+		{
+			if (pass == 1)
+			{
+				/* ignore if not "global", "buf", "win", "lp",
+				 * or "syntax"
+				 */
+				if (strcmp(dom->name, "global")
+				 && strcmp(dom->name, "buf")
+				 && strcmp(dom->name, "win")
+				 && strcmp(dom->name, "lp")
+				 && strcmp(dom->name, "syntax"))
+					continue;
+			}
+			else /* pass == 2 */
+			{
+				/* ignore if not GUI global options or GUI
+				 * window options.
+				 */
+				if (strcmp(dom->name, tochar8(o_gui))
+				 && gui->optdescs != dom->desc)
+					continue;
+			}
+
+			/* for each option in that domain... */
+			for (i = 0; i < dom->nopts; i++)
+			{
+				/* if its value has been set... */
+				if ((dom->val[i].flags & (OPT_SET|OPT_LOCK|OPT_UNSAFE|OPT_NODFLT)) == OPT_SET)
+				{
+					/* if first item in pass 2, then add a
+					 * GUI test.
+					 */
+					if (pass == 2 && !any)
+					{
+						tmp = (char *)safealloc(40, sizeof(char));
+						sprintf(tmp, "\nif gui=\"%s\"\nthen {\n", tochar8(o_gui));/*}*/
+						bufreplace(marktmp(m, custom, o_bufchars(custom)), &m, toCHAR(tmp), (long)strlen(tmp));
+						safefree((void *)tmp);
+					}
+					any = True;
+
+					/* then add it to the custom buffer */
+					if (dom->desc[i].asstring)
+					{
+						str = (*dom->desc[i].asstring)(&dom->desc[i], &dom->val[i]);
+						tmp = (char *)safealloc(7 + strlen(dom->desc[i].longname) + 2 * CHARlen(str), sizeof(char));
+						strcpy(tmp, "set ");
+						strcat(tmp, dom->desc[i].longname);
+						strcat(tmp, "=");
+						for (j = strlen(tmp); *str; )
+						{
+							if (*str == ' ' || *str == '\t' || *str == '|' || *str == '\\')
+							{
+								tmp[j++] = '\\';
+							}
+							tmp[j++] = (char)*str++;
+						}
+						tmp[j++] = '\n';
+						tmp[j] = '\0';
+					}
+					else
+					{
+						tmp = (char *)safealloc(8 + strlen(dom->desc[i].longname), sizeof(char));
+						sprintf(tmp, "set %s%s\n",
+							dom->val[i].value.boolean ? "" : "no",
+							dom->desc[i].longname);
+					}
+					bufreplace(marktmp(m, custom, o_bufchars(custom)), &m, toCHAR(tmp), (long)strlen(tmp));
+					safefree((void *)tmp);
+				}
+			}
+		}
+
+		/* if this is pass 2 as we wrote anything, then close { */
+		if (pass == 2 && any)
+		{
+			bufreplace(marktmp(m, custom, o_bufchars(custom)), &m, toCHAR("}\n"), 2L);
+		}
+	}
+}
+# endif /* FEATURE_MKEXRC */
+
+
+/* This function stores the current values as default values, for every option.
+ * It is called immediately after processing the "elvis.ini" file.  Later, the
+ * default values will be used to detect which options have been changed.
+ */
+void optsetdflt P_((void))
+{
+	OPTDOMAIN *dom;
+	int	  i;
 
 	/* for each domain of options... */
 	for (dom = head; dom; dom = dom->next)
 	{
-		/* ignore if not "global", "buf", "win", "lp", or "syntax" */
-		if (strcmp(dom->name, "global") && strcmp(dom->name, "buf")
-			&& strcmp(dom->name, "win") && strcmp(dom->name, "lp")
-			&& strcmp(dom->name, "syntax"))
-		{
-			continue;
-		}
-
 		/* for each option in that domain... */
 		for (i = 0; i < dom->nopts; i++)
 		{
-			/* if its value has been set... */
-			if ((dom->val[i].flags & (OPT_SET|OPT_LOCK|OPT_UNSAFE)) == OPT_SET)
-			{
-				/* then add it to the custom buffer */
-				if (dom->desc[i].asstring)
-				{
-					str = (*dom->desc[i].asstring)(&dom->desc[i], &dom->val[i]);
-					tmp = safealloc(7 + strlen(dom->desc[i].longname) + 2 * CHARlen(str), sizeof(char));
-					strcpy(tmp, "set ");
-					strcat(tmp, dom->desc[i].longname);
-					strcat(tmp, "=");
-					for (j = strlen(tmp); *str; )
-					{
-						if (*str == ' ' || *str == '\t' || *str == '|' || *str == '\\')
-						{
-							tmp[j++] = '\\';
-						}
-						tmp[j++] = (char)*str++;
-					}
-					tmp[j++] = '\n';
-					tmp[j] = '\0';
-				}
-				else
-				{
-					tmp = safealloc(8 + strlen(dom->desc[i].longname), sizeof(char));
-					sprintf(tmp, "set %s%s\n",
-						dom->val[i].value.boolean ? "" : "no",
-						dom->desc[i].longname);
-				}
-				bufreplace(marktmp(m, custom, o_bufchars(custom)), &m, toCHAR(tmp), (long)strlen(tmp));
-				safefree((void *)tmp);
-			}
+			/* skip if it shouldn't have a default value */
+			if (dom->val[i].flags & OPT_NODFLT)
+				continue;
+
+			/* store a dynamically-allocated copy of its value */
+			dom->desc[i].dflt = CHARkdup(optgetstr(toCHAR(dom->desc[i].longname), NULL));
+
+			/* clear the "set" flag */
+			dom->val[i].flags &= ~OPT_SET;
 		}
 	}
 }
+
+
+#ifdef FEATURE_COMPLETE
+/* This function is used for completing an option name.  It searches
+ * backward from the provided cursor position to collect the characters
+ * of a partial option name, and then it looks for any known options
+ * whose name matches that partial name.  It returns a statically-allocated
+ * string containing any new characters that it could match.
+ *
+ * It only complete the long names.  Short names aren't worth the effort.
+ */
+CHAR *optcomplete(win, m)
+	WINDOW	win;	/* the window where multiple matches are listed */
+	MARK	m;	/* the cursor position (end of partial name) */
+{
+	char	partial[20];
+ static CHAR	retbuf[100];
+	int	plen;		/* length of partial string */
+	CHAR	*cp;
+	OPTDOMAIN *dom;
+	char	*name;
+	int	i, j, mlen, mcount;
+	BOOLEAN	isbool;
+	BOOLEAN	getvalue;
+
+	/* if the cursor is located immediately after a '=' then skip back
+	 * before the '=' so we can still get the option name.  Also set a
+	 * flag we can test later so we know how to treat that name.
+	 */
+	getvalue = False;
+	scanalloc(&cp, m);
+	if (!scanprev(&cp))
+	{
+		retbuf[0] = '\t';
+		retbuf[1] = '\0';
+		scanfree(&cp);
+		return retbuf;
+	}
+	if (*cp == '=')
+		getvalue = True;
+	else
+		scannext(&cp);
+
+	/* collect the characters of the partial name */
+	partial[0] = '\0';
+	for (plen = 0; scanprev(&cp) && isalnum(*cp) && plen < QTY(partial)-1; )
+	{
+		memmove(partial + 1, partial, QTY(partial) - 1);
+		partial[0] = *cp;
+		plen++;
+	}
+	scanfree(&cp);
+
+	/* if '=' then just get the value */
+	if (getvalue)
+	{
+		memset(retbuf, 0, sizeof retbuf);
+		cp = optgetstr(toCHAR(partial), NULL);
+		if (!cp)
+		{
+			retbuf[0] = '\t';
+			retbuf[1] = '\0';
+		}
+		else
+		{
+			cp = addquotes(toCHAR("\"|"), cp);
+			if (CHARchr(cp, ' ') || CHARchr(cp, '\t'))
+			{
+				retbuf[0] = '"';
+				CHARncpy(&retbuf[1], cp, QTY(retbuf) - 3);
+				CHARcat(retbuf, toCHAR("\""));
+			}
+			else
+			{
+				CHARncpy(retbuf, cp, QTY(retbuf) - 1);
+			}
+			safefree(cp);
+		}
+		return retbuf;
+	}
+
+	/* look for matches */
+	for (mcount = 0, dom = head; dom; dom = dom->next)
+	{
+		/* check every option in this domain */
+		for (i = 0; i < dom->nopts; i++)
+		{
+			name = dom->desc[i].longname;
+			if (!dom->desc[i].asstring /* boolean option */
+			 && plen >= 2
+			 && partial[0] == 'n' && partial[1] == 'o'
+			 && !strncmp(name, partial + 2, plen - 2))
+			{
+				mcount++;
+				isbool = True;
+				if (mcount == 1)
+				{
+					mlen = strlen(name) + 2;
+					strcpy(partial + 2, name);
+				}
+				else
+				{
+					while (strncmp(partial + 2, name, mlen) != 0)
+						mlen--;
+				}
+			}
+			else if (!strncmp(name, partial, plen))
+			{
+				mcount++;
+				isbool = (BOOLEAN)(!dom->desc[i].asstring);
+				if (mcount == 1)
+				{
+					mlen = strlen(name);
+					strcpy(partial, name);
+				}
+				else
+				{
+					while (strncmp(partial, name, mlen) != 0)
+						mlen--;
+				}
+			}
+		}
+	}
+
+	/* Copy the new matching chars into the return buffer */
+	i = 0;
+	if (mcount >= 1)
+		for (i = 0, j = plen; j < mlen; )
+			retbuf[i++] = partial[j++];
+
+	/* Unless there are multiple matches, add a space or '=' */
+	if (mcount <= 1)
+		retbuf[i++] = isbool ? ' ' : '=';
+	retbuf[i] = '\0';
+
+	/* if no chars could be added, then list all matches */
+	if (!retbuf[0])
+	{
+		j = 0;
+		for (dom = head; dom; dom = dom->next)
+			for (i = 0; i < dom->nopts; i++)
+			{
+				name = dom->desc[i].longname;
+				if (!dom->desc[i].asstring /* boolean option */
+				 && plen >= 2
+				 && partial[0] == 'n' && partial[1] == 'o'
+				 && !strncmp(name, partial + 2, plen - 2))
+				{
+					mlen = strlen(name);
+					if (2 + j + 1 + mlen >= o_columns(win))
+					{
+						drawextext(win, toCHAR("\n"), 1);
+						j = 0;
+					}
+					else if (j > 0)
+					{
+						drawextext(win, blanks, 1);
+						j++;
+					}
+					drawextext(win, toCHAR("no"), 2);
+					drawextext(win, toCHAR(name), mlen);
+					j += 2 + mlen;
+				}
+				else if (!strncmp(name, partial, plen))
+				{
+					mlen = strlen(name);
+					if (j + 1 + mlen >= o_columns(win))
+					{
+						drawextext(win, toCHAR("\n"), 1);
+						j = 0;
+					}
+					else if (j > 0)
+					{
+						drawextext(win, blanks, 1);
+						j++;
+					}
+					drawextext(win, toCHAR(name), mlen);
+					j += mlen;
+				}
+			}
+		if (j > 0)
+			drawextext(win, toCHAR("\n"), 1);
+	}
+
+	/* return the matching chars */
+	return retbuf;
+}
+#endif

@@ -3,9 +3,9 @@
 
 
 
-/* The following linked list of structs is used to store scan contexts.  It is declared
- * publicly only for the sake of the macros; no other modules are expected to access it
- * directly.
+/* The following linked list of structs is used to store scan contexts.
+ * It is declared publicly only for the sake of the macros; no other modules
+ * are expected to access it directly.
  */
 extern struct scan_s
 {
@@ -45,7 +45,7 @@ END_EXTERNC
 
 # define scanprev(cp)	(scan__top->leftedge < *(cp) ? --*(cp) : scan__prev(cp))
 # define scannext(cp)	(scan__top->rightedge > *(cp) + 1 ? ++*(cp) : scan__next(cp))
-# define scanleft(cp)	((COUNT)(*(cp) - scan__top->leftedge)))
+# define scanleft(cp)	((COUNT)(*(cp) - scan__top->leftedge))
 # define scanright(cp)	((COUNT)(scan__top->rightedge - *(cp)))
 # define scanmark(cp)	marktmp(scan__markbuf, scan__top->buffer, scan__top->leoffset + (int)((*cp) - scan__top->leftedge))
 

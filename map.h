@@ -32,6 +32,7 @@ extern void	mapunget P_((CHAR *keys, int nkeys, BOOLEAN remap));
 extern CHAR	*maplist P_((MAPFLAGS flags, int *reflen));
 extern RESULT	maplearn P_((_CHAR_ buf, BOOLEAN starting));
 extern CHAR	maplrnchar P_((_CHAR_ dflt));
+extern BOOLEAN	mapbusy P_((void));
 extern void	mapalert P_((void));
 extern CHAR	*mapabbr P_((CHAR *bkwd, long *oldptr, long *newptr, BOOLEAN exline));
 #ifndef NO_EXRC

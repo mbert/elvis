@@ -1,6 +1,6 @@
 /* oswin32/tcaphelp.c */
 
-char id_tcaphelp[] = "$Id: tcaphelp.c,v 2.18 1996/09/18 20:37:17 steve Exp $";
+char id_tcaphelp[] = "$Id: tcaphelp.c,v 2.26 1998/08/29 16:44:06 steve Exp $";
 
 #include "elvis.h"
 #if defined(GUI_TERMCAP) || defined(GUI_OPEN)
@@ -32,16 +32,38 @@ char id_tcaphelp[] = "$Id: tcaphelp.c,v 2.18 1996/09/18 20:37:17 steve Exp $";
 extern long ttycaught;
 
 static void catchsig(int signo);
+static void retitle(GUIWIN *gw, char *name);
+static BOOLEAN clipopen(BOOLEAN forwrite);
+static int clipwrite(CHAR *text, int len);
+static int clipread(CHAR *text, int len);
+static void clipclose(void);
+static void switchcsbi(HANDLE which);
+static int optisttyrows(OPTDESC *opt, OPTVAL *val, CHAR *newval);
+static int optisttycols(OPTDESC *opt, OPTVAL *val, CHAR *newval);
+static void ttyresize(int rows, int cols);
 
-/* This variable is used to indicate that the BIOS interface is being used */
 static BOOLEAN	useconsole = True;
-static HANDLE	inConsole, outConsole, myConsole, console;
-static CONSOLE_SCREEN_BUFFER_INFO consinfo;
-static DWORD	inMode, outMode;
-static int	prevWidth, prevHeight;
-static BOOLEAN	resized;
-static WORD	origattr;
+static HANDLE	inConsole, outConsole;	/* the DOS console buffer */
+static HANDLE	myConsole;		/* elvis' console buffer */
+static HANDLE	console;		/* the current console buffer */
+static CONSOLE_SCREEN_BUFFER_INFO consinfo;/* info about the console */
+static DWORD	inMode, outMode;	/* I/O modes of DOS console buffer */
+static int	prevWidth, prevHeight;	/* size of DOS console buffer */
+static BOOLEAN	resized;		/* has screen size changed lately? */
+static WORD	origattr;		/* DOS console attributes */
+static WORD	myattr;			/* elvis' console attributes */
 static WORD	attr;	/* attribute byte for writing subsequent text */
+static int	iniWidth, iniHeight;	/* init size of DOS console buffer */
+static int	curWidth, curHeight;	/* curr size of DOS console buffer */
+
+/* These store info about the GUI's clip buffer */
+static HGLOBAL  clip_hGlob = NULL;
+static char     *clip_data = 0;
+static int      clip_len = 0;
+static int      clip_offset = 0;
+
+/* The window's original title is stored here */
+static char	orig_title[256];
 
 /* The codepage option stores the code page */
 static OPTVAL win32val[1];
@@ -68,6 +90,53 @@ static OPTDESC win32desc[] =
 };
 
 
+static int optisttyrows (opt, val, newval)
+	OPTDESC		*opt;
+	OPTVAL		*val;
+	CHAR		*newval;
+{
+	int	lines;
+	int	cols;
+        long	value = atol ((char *)newval);
+
+        if (value < 2)
+                return -1;
+        else if (value == val->value.number)
+                return 0;
+	switchcsbi(myConsole);
+        ttyresize(value, -1);
+        ttysize(&lines, &cols);
+	o_ttyrows = lines;
+	o_ttycolumns = cols;
+	if (windefault)
+		resized = True;
+
+        return 1;
+}
+
+static int optisttycols (opt, val, newval)
+	OPTDESC		*opt;
+	OPTVAL		*val;
+	CHAR		*newval;
+{
+	int	lines;
+	int	cols;
+        long	value = atol ((char *)newval);
+
+        if (value < 30)
+                return -1;
+        else if (value == val->value.number)
+                return 0;
+	switchcsbi(myConsole);
+        ttyresize(-1, value);
+        ttysize(&lines, &cols);
+	o_ttyrows = lines;
+	o_ttycolumns = cols;
+	if (windefault)
+		resized = True;
+
+        return 1;
+}
 /* This function catches signals, especially SIGINT */
 static void catchsig(signo)
 	int	signo;
@@ -83,6 +152,7 @@ void ttyinit()
 	COORD			size;
 	COORD			home;
 	DWORD			dummy;
+	OPTDESC			*desc;
 
 	/* get handles of the console */
 	inConsole = GetStdHandle(STD_INPUT_HANDLE);
@@ -112,19 +182,36 @@ void ttyinit()
 	SetConsoleCP((UINT)o_codepage);
 	optinsert("win32", QTY(win32val), win32desc, win32val);
 
+	/* make the ttyrows and ttycolumns global options use win32-specific
+	 * functions for changing their values.
+	 */
+	if (optgetstr("ttyrows", &desc))
+		desc->isvalid = optisttyrows;
+	if (optgetstr("ttycolumns", &desc))
+		desc->isvalid = optisttycols;
+
 	/* change the new buffer's size to match the current buffer's window */
-	prevWidth = size.X = consinfo.srWindow.Right - consinfo.srWindow.Left + 1;
-	prevHeight = size.Y = consinfo.srWindow.Bottom - consinfo.srWindow.Top + 1;
+	iniWidth = curWidth = prevWidth = size.X = consinfo.srWindow.Right - consinfo.srWindow.Left + 1;
+	iniHeight = curHeight = prevHeight = size.Y = consinfo.srWindow.Bottom - consinfo.srWindow.Top + 1;
 	SetConsoleScreenBufferSize(myConsole, size);
 
 	/* make the default colors of the new console buffer be the same as the
 	 * old console buffer.
 	 */
-	attr = origattr = consinfo.wAttributes;
-	SetConsoleTextAttribute(myConsole, attr);
+	attr = myattr = origattr = consinfo.wAttributes;
 	home.X = home.Y = 0;
-	FillConsoleOutputAttribute(myConsole, attr, size.X * size.Y, home, &dummy);
+	FillConsoleOutputAttribute(myConsole, myattr, size.X * size.Y, home, &dummy);
 	FillConsoleOutputCharacter(myConsole, ' ', size.X * size.Y, home, &dummy);
+
+	/* remember the window's original title */
+	GetConsoleTitle (orig_title, sizeof orig_title);
+
+	/* enable the retitle and clip operations */
+	guitermcap.retitle = retitle;
+	guitermcap.clipopen = clipopen;
+	guitermcap.clipwrite = clipwrite;
+	guitermcap.clipread = clipread;
+	guitermcap.clipclose = clipclose;
 }
 
 
@@ -143,10 +230,17 @@ void ttyraw(erasekey)
 		assert(outConsole != INVALID_HANDLE_VALUE);
 
 		/* switch to "raw" mode, and allow the window to be resized */
+#if 0
 		newmode = ENABLE_PROCESSED_INPUT | ENABLE_MOUSE_INPUT | ENABLE_WINDOW_INPUT | ENABLE_WRAP_AT_EOL_OUTPUT;
 		SetConsoleMode(inConsole, newmode);
 		SetConsoleMode(outConsole, newmode|ENABLE_PROCESSED_OUTPUT);
 		SetConsoleMode(myConsole, newmode);
+#else
+		newmode = ENABLE_PROCESSED_INPUT | ENABLE_MOUSE_INPUT | ENABLE_WINDOW_INPUT;
+		SetConsoleMode(inConsole, newmode);
+		SetConsoleMode(outConsole, newmode);
+		SetConsoleMode(myConsole, newmode);
+#endif
 	}
 	else
 	{
@@ -165,6 +259,7 @@ void ttynormal()
 	if (useconsole)
 	{
 		/* switch back to the original mode */
+		switchcsbi(outConsole);
 		SetConsoleMode(inConsole, inMode);
 		SetConsoleMode(outConsole, outMode);
 	}
@@ -179,13 +274,46 @@ void ttynormal()
 /* This function switches between screen buffers. */
 static void switchcsbi(HANDLE which)
 {
+	int	savedHeight;
+	int	savedWidth;
+
+#if 1
 	/* if no change, then do nothing */
 	if (which == console)
 		return;
+#endif
+	/* resize to original size if switching to original console */
+	if (which == outConsole &&
+		(iniHeight != curHeight || iniWidth != curWidth))
+	{
+		/* resize, buf save current size in case of subshell */
+		savedHeight = curHeight;
+		savedWidth = curWidth;
+		ttyresize (iniHeight, iniWidth);
+		curHeight = savedHeight;
+		curWidth = savedWidth;
+	}
 
 	/* switch to the requested console */
 	SetConsoleActiveScreenBuffer(which);
 	console = which;
+
+	/* if switching to non-elvis screen, then restore the title */
+	if (console == outConsole)
+	{
+		SetConsoleTitle(orig_title);
+		attr = origattr;
+	}
+	else
+	{
+		/* resize if switching to private console */
+		if (iniHeight != curHeight || iniWidth != curWidth)
+		{
+			ttyresize (curHeight, curWidth);
+			ttysize (&savedHeight, &savedWidth);
+		}
+		attr = myattr;
+	}
 }
 
 
@@ -201,10 +329,10 @@ int ttyread(buf, len, timeout)
 	int	len;	/* maximum number of characters to read */
 	int	timeout;/* timeout (0 for none) */
 {
-	INPUT_RECORD event[5];/* buffer, holds an input record */
+	INPUT_RECORD event;/* buffer, holds an input record */
 	DWORD	mode;	/* Console mode */
-	DWORD	nevents;/* number of events read into event[] */
-	int	e;	/* for counting through event[] */
+	DWORD	nevents;/* number of events read into event */
+	int	e;	/* for counting through event */
 	int	got;	/* character counter, for keystrokes */
 static	DWORD	prevmb;	/* previous mouse button state */
 	DWORD	press;	/* bitmap of new button presses */
@@ -224,7 +352,7 @@ static	BOOLEAN	justdbl;/* between double-click & bogus single-click */
 	 */
 	if (timeout > 0
 	 && timeout <= 5
-	 && (!useconsole || (PeekConsoleInput(inConsole, event, 1, &nevents)
+	 && (!useconsole || (PeekConsoleInput(inConsole, &event, 1, &nevents)
 			     && nevents == 0)))
 	{
 		return 0;
@@ -259,46 +387,40 @@ static	BOOLEAN	justdbl;/* between double-click & bogus single-click */
 	got = nevents = 0;
 	do
 	{
-		/* remove the event from the input queue */
-		if (nevents > 0)
-		{
-			for (e = 0; e < nevents; e++)
-				event[e] = event[e + 1];
-		}
-		else if (!ReadConsoleInput(inConsole, event, QTY(event), &nevents))
+		if (!ReadConsoleInput(inConsole, &event, 1, &nevents))
 		{
 			/* How could ReadConsoleInput() fail? */
 			return -1;
 		}
 
 		/* process the event */
-		switch (event[0].EventType)
+		switch (event.EventType)
 		{
 		  case KEY_EVENT:
-			if (event[0].Event.KeyEvent.bKeyDown)
+			if (event.Event.KeyEvent.bKeyDown)
 			{
-				for (x = event[0].Event.KeyEvent.wRepeatCount;
-				     x > 0 && got + 2 < QTY(buf);
+				for (x = event.Event.KeyEvent.wRepeatCount;
+				     x > 0 && got + 2 < len;
 				     x--)
 				{
-					if (event[0].Event.KeyEvent.uChar.AsciiChar)
+					if (event.Event.KeyEvent.uChar.AsciiChar)
 					{
-						buf[got++] = event[0].Event.KeyEvent.uChar.AsciiChar;
+						buf[got++] = event.Event.KeyEvent.uChar.AsciiChar;
 					}
-					else if (3 == (char)event[0].Event.KeyEvent.wVirtualScanCode)
+					else if (3 == (char)event.Event.KeyEvent.wVirtualScanCode)
 					{
 						/* Ctrl-2 should be a NUL character */
 						buf[got++] = '\0';
 					}
-					else if (7 == (char)event[0].Event.KeyEvent.wVirtualScanCode)
+					else if (7 == (char)event.Event.KeyEvent.wVirtualScanCode)
 					{
 						/* Ctrl-6 should be a ^^ character */
 						buf[got++] = ELVCTRL('^');
 					}
-					else if (!strchr("68*:\x1d", (char)event[0].Event.KeyEvent.wVirtualScanCode))
+					else if (!strchr("EF68*:\x1d", (char)event.Event.KeyEvent.wVirtualScanCode))
 					{
 						buf[got++] = '#';
-						buf[got++] = (char)event[0].Event.KeyEvent.wVirtualScanCode;
+						buf[got++] = (char)event.Event.KeyEvent.wVirtualScanCode;
 					}
 				}
 			}
@@ -310,35 +432,35 @@ static	BOOLEAN	justdbl;/* between double-click & bogus single-click */
 			 */
 			if (justdbl)
 			{
-				prevmb = event[0].Event.MouseEvent.dwButtonState;
+				prevmb = event.Event.MouseEvent.dwButtonState;
 				if (prevmb == 0)
 					justdbl = False;
 				break;
 			}
-			else if (event[0].Event.MouseEvent.dwButtonState == 0
+			else if (event.Event.MouseEvent.dwButtonState == 0
 				&& prevmb == 0)
 			{
 				break;
 			}
 
 			/* Figure out which window the event occurred in */
-			gw = ttywindow(event[0].Event.MouseEvent.dwMousePosition.Y,
-				       event[0].Event.MouseEvent.dwMousePosition.X,
+			gw = ttywindow(event.Event.MouseEvent.dwMousePosition.Y,
+				       event.Event.MouseEvent.dwMousePosition.X,
 				       &y, &x);
 			if (!gw || (selgw && selgw != gw))
 				break;
-			press = (event[0].Event.MouseEvent.dwButtonState & ~prevmb);
-			prevmb = event[0].Event.MouseEvent.dwButtonState;
+			press = (event.Event.MouseEvent.dwButtonState & ~prevmb);
+			prevmb = event.Event.MouseEvent.dwButtonState;
 
 			/* Make the window become the current window */
 			(*gui->focusgw)(gw);
 			eventfocus(gw);
 
 			/* process the event */
-			if (event[0].Event.MouseEvent.dwEventFlags & DOUBLE_CLICK)
+			if (event.Event.MouseEvent.dwEventFlags & DOUBLE_CLICK)
 			{
 				/* DOUBLE CLICK */
-				if (event[0].Event.MouseEvent.dwButtonState & 1)
+				if (event.Event.MouseEvent.dwButtonState & 1)
 					eventclick(gw, y, x, CLICK_TAG);
 				else
 					eventclick(gw, y, x, CLICK_UNTAG);
@@ -347,10 +469,10 @@ static	BOOLEAN	justdbl;/* between double-click & bogus single-click */
 				justdbl = True;
 				return -2;
 			}
-			if ((event[0].Event.MouseEvent.dwEventFlags & MOUSE_MOVED) != 0 && justpressed && (x != prevx || y != prevy))
+			if ((event.Event.MouseEvent.dwEventFlags & MOUSE_MOVED) != 0 && justpressed && (x != prevx || y != prevy))
 			{
 				/* starting a draw-through */
-				switch (event[0].Event.MouseEvent.dwButtonState)
+				switch (event.Event.MouseEvent.dwButtonState)
 				{
 				  case 1:
 					eventclick(gw, prevy, prevx, CLICK_SELCHAR);
@@ -400,7 +522,7 @@ static	BOOLEAN	justdbl;/* between double-click & bogus single-click */
 
 	} while (got == 0 || (got < len - 2 &&
 		(nevents > 0 ||
-			(PeekConsoleInput(inConsole, event, 1, &e) && e > 0))));
+			(PeekConsoleInput(inConsole, &event, 1, &e) && e > 0))));
 	SetConsoleMode(inConsole, mode);
 	return got;
 }
@@ -444,16 +566,17 @@ void ttywrite(buf, len)
 		else if (console == outConsole && argno == -1)
 		{
 			/* most characters written literally to shell console */
-			for (j = 1; j < len && buf[i + j] != '\033'; j++)
+			for (j = 1; i + j < len && buf[i + j] != '\033'; j++)
 			{
 			}
+			SetConsoleCursorPosition(console, coord);
 			WriteConsole(console, &buf[i], j, &dummy, NULL);
 			i += j - 1; /* "- 1" because of "i++" at top of loop */
 		}
 		else if (buf[i] == '\007')
 		{
-			/* write the bell character */
-			WriteConsole(console, &buf[i], 1, &dummy, NULL);
+			/* ring the bell */
+			MessageBeep(MB_OK);
 		}
 		else if (buf[i] == '\b')
 		{
@@ -464,7 +587,6 @@ void ttywrite(buf, len)
 				if (coord.Y > 0)
 					coord.Y--;
 			}
-			SetConsoleCursorPosition(console, coord);
 		}
 		else if (buf[i] == '\n')
 		{
@@ -472,7 +594,6 @@ void ttywrite(buf, len)
 			{
 				/* move cursor down on line */
 				coord.Y++;
-				SetConsoleCursorPosition(console, coord);
 			}
 			else
 			{
@@ -491,7 +612,6 @@ void ttywrite(buf, len)
 		else if (buf[i] == '\r')
 		{
 			coord.X = 0;
-			SetConsoleCursorPosition(console, coord);
 		}
 		else if ((unsigned)buf[i] < ' ')
 		{
@@ -506,13 +626,19 @@ void ttywrite(buf, len)
 			{
 			}
 
-			/* write the normal characters all at once. Note
-			 * that the attribute is set on myConsole, regardless
-			 * of which console buffer is currently active.
-			 */
+			/* write the normal characters all at once. */
+#if 0
 			SetConsoleCursorPosition(console, coord);
-			SetConsoleTextAttribute(myConsole, attr);
+			if (console == myConsole)
+				SetConsoleTextAttribute(console, myattr);
 			WriteConsole(console, &buf[i], j, &dummy, NULL);
+#else
+			if (console == myConsole)
+				FillConsoleOutputAttribute(myConsole, myattr,
+					j, coord, &dummy);
+			WriteConsoleOutputCharacter(console, &buf[i],
+				j, coord, &dummy);
+#endif
 
 			/* move "i" past all but the last character.  The "i++"
 			 * in the for() loop will take care of that last one.
@@ -537,6 +663,7 @@ void ttywrite(buf, len)
 			}
 			coord.X += j;
 #endif
+
 			/* check for scrolling */
 			j = coord.Y - consinfo.dwSize.Y + 1;
 			if (j > 0)
@@ -550,7 +677,7 @@ void ttywrite(buf, len)
 				dest.Y = 0;
 				ci.Char.AsciiChar = ' ';
 				ci.Attributes = attr;
-				ScrollConsoleScreenBuffer(outConsole, &rect, NULL, dest, &ci);
+				ScrollConsoleScreenBuffer(console, &rect, NULL, dest, &ci);
 
 				/* this leaves the cursor on the last row */
 				coord.Y = consinfo.dwSize.Y - 1;
@@ -589,7 +716,6 @@ void ttywrite(buf, len)
 				j = (arg[0] ? arg[0] : 1);
 				if (coord.Y >= j)
 					coord.Y -= j;
-				SetConsoleCursorPosition(console, coord);
 				argno = -1;
 				break;
 
@@ -597,7 +723,6 @@ void ttywrite(buf, len)
 				j = (arg[0] ? arg[0] : 1);
 				if (coord.Y + j < consinfo.dwSize.Y)
 					coord.Y += j;
-				SetConsoleCursorPosition(console, coord);
 				argno = -1;
 				break;
 
@@ -605,7 +730,6 @@ void ttywrite(buf, len)
 				j = (arg[0] ? arg[0] : 1);
 				if (coord.X + j < consinfo.dwSize.X)
 					coord.X += j;
-				SetConsoleCursorPosition(console, coord);
 				argno = -1;
 				break;
 
@@ -613,7 +737,6 @@ void ttywrite(buf, len)
 				j = (arg[0] ? arg[0] : 1);
 				if (coord.X >= j)
 					coord.X -= j;
-				SetConsoleCursorPosition(console, coord);
 				argno = -1;
 				break;
 
@@ -621,7 +744,6 @@ void ttywrite(buf, len)
 				/* move the cursor */
 				coord.X = (arg[1] ? arg[1] - 1 : 0);
 				coord.Y = (arg[0] ? arg[0] - 1 : 0);
-				SetConsoleCursorPosition(console, coord);
 				argno = -1;
 				break;
 
@@ -715,30 +837,30 @@ void ttywrite(buf, len)
 					switch (arg[j])
 					{
 					  case 0:
-						attr = origattr;
+						myattr = origattr;
 						bgset = False;
 						boldset = False;
 						break;
 
 					  case 1:
-						if (attr == origattr
-						 && (attr & FOREGROUND_INTENSITY) != 0)
-							attr |= FOREGROUND_RED|FOREGROUND_GREEN|FOREGROUND_BLUE;
+						if (myattr == origattr
+						 && (myattr & FOREGROUND_INTENSITY) != 0)
+							myattr |= FOREGROUND_RED|FOREGROUND_GREEN|FOREGROUND_BLUE;
 						else
-							attr |= FOREGROUND_INTENSITY;
+							myattr |= FOREGROUND_INTENSITY;
 						boldset = True;
 						break;
 
 					  case 4:
 						if (!bgset)
-							attr ^= BACKGROUND_RED;
+							myattr ^= BACKGROUND_RED;
 						break;
 
 					  case 7:
-						attr ^= FOREGROUND_RED|FOREGROUND_GREEN|FOREGROUND_BLUE
+						myattr ^= FOREGROUND_RED|FOREGROUND_GREEN|FOREGROUND_BLUE
 							| BACKGROUND_RED|BACKGROUND_GREEN|BACKGROUND_BLUE;
 						if (!boldset)
-							attr &= ~FOREGROUND_INTENSITY;
+							myattr &= ~FOREGROUND_INTENSITY;
 						break;
 
 					  case 30: 
@@ -749,15 +871,15 @@ void ttywrite(buf, len)
 					  case 35:
 					  case 36:
 					  case 37:
-						attr &= ~(FOREGROUND_RED|FOREGROUND_GREEN|FOREGROUND_BLUE);
+						myattr &= ~(FOREGROUND_RED|FOREGROUND_GREEN|FOREGROUND_BLUE);
 						if (!boldset)
-							attr &= ~FOREGROUND_INTENSITY;
+							myattr &= ~FOREGROUND_INTENSITY;
 						if ((arg[j] - 30) & 1)
-							attr |= FOREGROUND_RED;
+							myattr |= FOREGROUND_RED;
 						if ((arg[j] - 30) & 2)
-							attr |= FOREGROUND_GREEN;
+							myattr |= FOREGROUND_GREEN;
 						if ((arg[j] - 30) & 4)
-							attr |= FOREGROUND_BLUE;
+							myattr |= FOREGROUND_BLUE;
 						break;
 
 					  case 40:
@@ -768,23 +890,25 @@ void ttywrite(buf, len)
 					  case 45:
 					  case 46:
 					  case 47:
-						attr &= ~(BACKGROUND_RED|BACKGROUND_GREEN|BACKGROUND_BLUE);
+						myattr &= ~(BACKGROUND_RED|BACKGROUND_GREEN|BACKGROUND_BLUE);
 						if ((arg[j] - 40) & 1)
-							attr |= BACKGROUND_RED;
+							myattr |= BACKGROUND_RED;
 						if ((arg[j] - 40) & 2)
-							attr |= BACKGROUND_GREEN;
+							myattr |= BACKGROUND_GREEN;
 						if ((arg[j] - 40) & 4)
-							attr |= BACKGROUND_BLUE;
+							myattr |= BACKGROUND_BLUE;
 						bgset = True;
 						break;
 					}
 				}
 
-				/* note that we always set the attribute of
-				 * myConsole, regardless of which console buffer
-				 * is currently active.
+				/* note that we only set the attribute of
+				 * myConsole
 				 */
-				SetConsoleTextAttribute(myConsole, attr);
+				if (console == myConsole)
+				{
+					attr = myattr;
+				}
 				argno = -1;
 				break;
 
@@ -797,7 +921,7 @@ void ttywrite(buf, len)
 			}
 		}
 	}
-
+	SetConsoleCursorPosition(console, coord);
 }
 
 
@@ -840,8 +964,13 @@ BOOLEAN ttysize(linesptr, colsptr)
 	/* Get the console buffer size */
 	if (!GetConsoleScreenBufferInfo(myConsole, &consinfo))
 		return False;
+#if 0
 	prevHeight = *linesptr = consinfo.dwSize.Y;
 	prevWidth = *colsptr = consinfo.dwSize.X;
+#else
+	*linesptr = consinfo.dwSize.Y;
+	*colsptr = consinfo.dwSize.X;
+#endif
 
 	/* make the window as large as the console buffer */
 	size.Top = 0;
@@ -861,5 +990,160 @@ BOOLEAN ttypoll(reset)
 	BOOLEAN reset;
 {
 	return (BOOLEAN)((ttycaught & (1 << SIGINT)) != 0);
+}
+
+/* This function resizes the terminal */
+static void ttyresize(rows, cols)
+	int	rows;
+	int	cols;
+{
+        SMALL_RECT	rect;
+        COORD		coord;
+	BOOL		b;
+
+        if (!useconsole)
+        	return;
+
+#if 0
+	if (console != myConsole)
+		SetConsoleActiveScreenBuffer(myConsole);
+#endif
+
+        coord = GetLargestConsoleWindowSize(myConsole);
+        GetConsoleScreenBufferInfo(myConsole, &consinfo);
+        rect.Left = 0;
+        rect.Top = 0;
+        if (rows > 0)
+                rect.Bottom = min(coord.Y, rows) - 1;
+        else
+                rect.Bottom = consinfo.srWindow.Bottom - consinfo.srWindow.Top;
+        if (cols > 0)
+                rect.Right = min(coord.X, cols) - 1;
+        else
+                rect.Right = consinfo.srWindow.Right - consinfo.srWindow.Left;
+        coord.X = rect.Right + 1;
+        coord.Y = rect.Bottom + 1;
+        b = SetConsoleWindowInfo(myConsole, TRUE, &rect);
+        b = SetConsoleScreenBufferSize(myConsole, coord);
+        if (curHeight != coord.Y)
+                curHeight = coord.Y;
+        if (curWidth != coord.X)
+                curWidth = coord.X;
+}
+
+/* This function sets the new console title */
+static void retitle(GUIWIN *gw, char *name)
+{
+	char	title[_MAX_PATH + 20];
+
+	sprintf(title, "Elvis - [%s]", name);
+	SetConsoleTitle(title);
+}
+
+
+/* This function opens the clipboard */
+static BOOLEAN clipopen(BOOLEAN forwrite)
+{
+	BUFFER	buf = cutbuffer ('>', False);
+
+	/* check if something to do */
+	if (!forwrite &&
+	    !IsClipboardFormatAvailable (CF_TEXT) &&
+	    !IsClipboardFormatAvailable (CF_OEMTEXT))
+		return False;
+
+	if (forwrite && buf == NULL)
+		return False;
+
+	/* open the clipboard */
+	if (!OpenClipboard (GetActiveWindow ()))
+		return False;
+
+	/* allocate memory if writing */
+	if (forwrite) {
+		clip_len = o_bufchars (buf) + o_buflines(buf) + 1;
+		clip_hGlob = GlobalAlloc (GMEM_MOVEABLE | GMEM_DDESHARE,
+						(DWORD)clip_len + 1);
+		if (clip_hGlob == NULL)
+			return False;
+
+		clip_data = (char *)GlobalLock (clip_hGlob);
+		clip_offset = 0;
+		EmptyClipboard ();
+	}
+
+	/* indicate success */
+	return True;
+}
+
+/* This function writes to the clipboard */
+static int clipwrite(CHAR *text, int len)
+{
+	register char	*p = clip_data + clip_offset;
+	register int	numchars = len;
+
+	/* fill the allocated memory block */
+	while (numchars-- > 0) {
+		if (*text == '\n') {
+			*p++ = '\r';
+			clip_offset++;
+		}
+		*p++ = *text++;
+		clip_offset++;
+	}
+
+	return len;
+}
+
+/* This function reads from the clipboard */
+static int clipread(CHAR *text, int len)
+{
+	register char	*p;
+	register int	numchars = 0;
+
+	/* first time, rerieve memory block */
+	if (clip_hGlob == NULL) {
+		if ((clip_hGlob = GetClipboardData (CF_TEXT)) == NULL && 
+			(clip_hGlob = GetClipboardData (CF_OEMTEXT)) == NULL)
+			return 0;
+
+		clip_data = (char *)GlobalLock (clip_hGlob);
+		clip_len = strlen (clip_data) - 1;
+		clip_offset = 0;
+	}
+
+	/* fill caller's data */
+	for (p = clip_data + clip_offset; *p != '\0'; p++) {
+		if (numchars == len)
+			break;
+		if (*p != '\r') {
+			*text++ = *p;
+			numchars++;
+		}
+		clip_offset++;
+	}
+
+	/* unlock global memory when done */
+	if (numchars == 0) {
+		GlobalUnlock (clip_hGlob);
+		clip_hGlob = 0;
+	}
+
+	return numchars;
+}
+
+/* This function closes the clipboard */
+static void clipclose(void)
+{
+	/* write to clipboard if writing */
+	if (clip_hGlob != NULL) {
+		clip_data[clip_offset] = '\0'; /* !!! */
+		GlobalUnlock (clip_hGlob);
+		SetClipboardData (CF_TEXT, clip_hGlob);
+		clip_hGlob = NULL;
+	}
+
+	/* close the clipboard */
+	CloseClipboard ();
 }
 #endif /* GUI_TERMCAP */

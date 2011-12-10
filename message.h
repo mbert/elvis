@@ -1,9 +1,6 @@
 /* msg.h */
 /* Copyright 1995 by Steve Kirkendall */
 
-
-
-
 /* This data type is used to denote the importance and class of a message. */
 typedef enum
 {
@@ -15,13 +12,10 @@ typedef enum
 } MSGIMP;
 
 
-/* This function is used to display messages.  It translates terse messages
- * into verbose message via the "elvis messages" buffer, and then calls the
- * GUI's msg() function with the expanded text.
- */
 BEGIN_EXTERNC
+extern void msglog P_((char *filename));
 extern void msg P_((MSGIMP imp, char *terse, ...));
-
-/* This function flushes queued message to the screen */
 extern void msgflush P_((void));
+extern CHAR *msgtranslate P_((char *word));
+extern BOOLEAN msghide P_((BOOLEAN hide));
 END_EXTERNC

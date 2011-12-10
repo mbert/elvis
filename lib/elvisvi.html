@@ -1,6 +1,6 @@
 <html><head>
-<title>Elvis 2.0 Visual Command Mode</title>
-<head><body>
+<title>Elvis 2.1 Visual Command Mode</title>
+</head><body>
 
 <h1>2. VISUAL COMMAND MODE</h1>
 Most visual mode commands are one keystroke long.
@@ -44,6 +44,7 @@ See the section on <a href="#operators">operators</a> for more information.
 <dt>inp<dd>
 Many commands allow the user to interactively enter text.
 See the discussion of "input mode" in the following chapter.
+</dl>
 
 <h2><a name="group"></a><a name="GROUP"></a>2.2 Visual Commands, Grouped by Function</h2>
 <menu>
@@ -70,7 +71,7 @@ See the discussion of "input mode" in the following chapter.
 | count <a href="#J">J</a>      | Join lines, to form one big line                     |
 | count <a href="#X">X</a>      | Delete the character(s) to the left of the cursor    |
 | count <a href="#x">x</a>      | Delete the character that the cursor's on            |
-| count <a href="#~">~</a>      | Switch a character between uppercase & lowercase     |
+| count <a href="#~">~</a>      | Switch a character between uppercase &amp; lowercase     |
 | count <a href="#r">r</a> key  | Replace "count" chars by a given character           |
 |       <a href="#R">R</a> inp  | Overtype                                             |
 | count <a href="#a">a</a> inp  | Insert text after the cursor                         |
@@ -220,7 +221,7 @@ line since the cursor was moved onto it.
 ^--------------^------------------------------------------------------^
 </pre>
 
-These command all affect text between the cursor's current position and
+These commands all affect text between the cursor's current position and
 some other position.
 There are three ways that you can specify that other position:
 <ul>
@@ -249,6 +250,8 @@ The <kbd>&lt;</kbd> command reduces indentation by <a href="elvisopt.html#shiftw
 columns, and the <kbd>&gt;</kbd> command increases indentation by the same amount.
 The type of whitespace used for the new indentation is determined by the
 <a href="elvisopt.html#autotab">autotab</a> option.
+The doubled-up <kbd>&lt;&lt;</kbd> and <kbd>&gt;&gt;</kbd> commands reduce or
+increase the indentation for the current line, respectively.
 
 <dt>! <var> mv text</var>
 <dd><a name="bang"></a>
@@ -268,17 +271,19 @@ will always execute the program specified via the
 If you expect to be running the same filter program over and over again,
 then <kbd>=</kbd> is more convenient.
 
-<p>When applied to characters, the <kbd>=</kbd> command uses elvis' built-in
+<p>When applied to characters selected via the <a href="#v">v</a> command,
+the <kbd>=</kbd> command uses elvis' built-in
 calculator to evaluate the characters, and then replaces the original text
 with the result of that evaluation.
 For example, if you move the cursor to the start of a parenthesized 
-arithmetic expression and hit <kbd>=%</kbd>
+arithmetic expression and hit <kbd>v%=</kbd>
 then the expression will be simplified.
 
 <dt>c <var>mv inp</var>
 <dd><a name="c"></a>
 This command puts you in <a href="elvisinp.html">input mode</a> so you
 can replace the selected text with new, manually-entered text.
+The doubled-up <kbd>cc</kbd> command changes the current line.
 
 <dt>d <var>mv</var>
 <br>y <var>mv</var>
@@ -286,6 +291,8 @@ can replace the selected text with new, manually-entered text.
 These commands copy the selected text into a cut buffer.
 The <kbd>d</kbd> command then deletes the text from the edit buffer,
 but <kbd>y</kbd> leaves the original text intact.
+The doubled-up <kbd>dd</kbd> and <kbd>yy</kbd> commands delete or yank the
+current line, respectively.
 
 </dl>
 
@@ -305,8 +312,8 @@ but <kbd>y</kbd> leaves the original text intact.
 
 <dt>C <var>inp</var>
 <br>D
-<br><var>count</var> S </var>inp</var>
-<br><var>count</var> s </var>int</var>
+<br><var>count</var> S <var>inp</var>
+<br><var>count</var> s <var>int</var>
 <br><var>count</var> Y
 <dd><a name="C"></a><a name="D"></a><a name="S"></a><a name="s"></a><a name="Y"></a>
 All of these commands are shortcuts for particular operator/movement
@@ -437,8 +444,10 @@ of the cursor if possible.
 
 <dt><var>count</var> _
 <dd><a name="_"></a>
-The <kbd>_</kbd> command moves the cursor down <var>count-1</var>
-whole lines.
+The <kbd>_</kbd> command moves the cursor down <var>count-1</var> lines.
+This command is used internally to implement the double-operators; for
+example, <a href="#lt">&lt;&lt;</a> is interpreted as <kbd>&lt;_</kbd>.
+By itself the <kbd>_</kbd> command is pretty useless.
 
 </dl>
 
@@ -503,7 +512,17 @@ at the bottom of the window.
 When you have entered it, elvis will search forward (for <kbd>/</kbd>) or
 backward (for <kbd>?</kbd>) for text which matches the regular expression.
 Normally the cursor is positioned at the start of the matching text.
+If you want to include a <kbd>/</kbd> or <kbd>?</kbd> character
+in the regular expression, you must precede it with a backslash;
+otherwise it will be interpreted as a closing delimiter.
 
+<p>When entering the regular expression, you can append a closing delimiter
+(<kbd>/</kbd> or <kbd>?</kbd>, as appropriate) followed by a line delta
+(<kbd>+</kbd> or <kbd>-</kbd> followed by a line number) to move the cursor
+to the start of a line after or before the matching text.
+You can also use <kbd>v</kbd> or <kbd>n</kbd> flags to temporarily force the
+<a href="elvisopt.html#autoselect">autoselect</a> option on or off for that
+one search.
 <dt>^A
 <dd><a name="^A"></a>
 This command searches forward for the next instance of the word under the
@@ -538,11 +557,17 @@ search, and <kbd>N</kbd> repeats it in the opposite direction.
 <dd><a name="pct"></a>
 This command actually performs one of two totally separate movements,
 depending on whether a <var>count</var> was supplied.
-With no <var>count</var>, it moves the cursor to a matching parenthesis,
-bracket, or brace character.
-(If the cursor isn't on a parenthesis, bracket, or brace to begin with,
-then elvis will scan forward until it finds one, and then move to its match.)
-However, if a count is supplied, then it is used as a percentage from 1 to
+With no <var>count</var>, if the cursor is on a parenthesis
+character from the <a href="elvisopt.html#matchchar">matchchar</a> list, then
+it moves the cursor to the opposite parenthesis.
+If the cursor isn't on a parenthesis to begin with,
+then elvis will scan forward on the current line until it finds one,
+and then move to its opposite.
+It can also show matching preprocessor directives, if the window is in the
+<a href="elvisdm.html#syntax">syntax display mode</a> for a language which
+has a <a href="elvisdm.html#preprocessor">preprocessor</a>.
+
+<p>However, if a count is supplied, then it is used as a percentage from 1 to
 100, and the cursor is moved to that percentage of the way into the buffer.
 For example, typing <kbd>50%</kbd> will move the cursor to the middle of the buffer.
 
@@ -768,7 +793,7 @@ The cursor is moved if necessary to keep it on the screen.
 
 <dt>^B
 <dd><a name="^B"></a>
-This command moves backward one screen, by moving line at the top of the
+This command moves backward one screen, by moving the line at the top of the
 window to the bottom.
 It is the opposite of the ^F command.
 
@@ -784,7 +809,7 @@ or bottom (if <var>key</var> is "-") of the window.
 <dd><a name="^D"></a><a name="^E"></a>
 These commands scroll the window forward by <var>count</var> lines.
 If no <var>count</var> is given, then <kbd>^E</kbd> defaults to 1 line,
-and <kbd>^D</kbd> defaults to the value of the <a href="scroll">scroll</a> option.
+and <kbd>^D</kbd> defaults to the value of the <a href="#scroll">scroll</a> option.
 Supplying a <var>count</var> to the <kbd>^D</kbd> option has the side-effect of setting
 the scroll option to <var>count.</var>
 
@@ -794,7 +819,7 @@ the scroll option to <var>count.</var>
 These commands scroll the window backward by <var>count</var> lines.
 If no <var>count</var> is given, then <kbd>^Y</kbd> defaults to 1 line,
 and <kbd>^U</kbd> defaults
-to the value of the <a href="scroll">scroll</a> option.
+to the value of the <a href="#scroll">scroll</a> option.
 Supplying a <var>count</var> to the <kbd>^U</kbd> option has the side-effect of setting
 the scroll option to <var>count.</var>
 
@@ -807,8 +832,8 @@ the scroll option to <var>count.</var>
 |       <a href="#^Ws">^W s</a>   | Split current window                                 |
 |       <a href="#^W]">^W ]</a>   | Split window, then look up tag at cursor             |
 |       <a href="#^Wn">^W n</a>   | Split window, and create a new buffer                |
-|       <a href="#^Wq">^W q</a>   | Save buffer & close window, like ZZ                  |
-|       <a href="#^Wc">^W c</a>   | Hide buffer & close window                           |
+|       <a href="#^Wq">^W q</a>   | Save buffer &amp; close window, like ZZ                  |
+|       <a href="#^Wc">^W c</a>   | Hide buffer &amp; close window                           |
 |       <a href="#^Wd">^W d</a>   | Toggle the display mode                              |
 |       <a href="#^WS">^W S</a>   | Toggle the sidescroll option                         |
 |       <a href="#^Wj">^W j</a>   | Move down to next window                             |
@@ -822,8 +847,8 @@ the scroll option to <var>count.</var>
 <dt>^W s
 <dd><a name="^Ws"></a>
 This creates a new window, showing the same buffer as the current window.
-It is equivalent to the ex <a href="#split">:split</a> command with no
-arguments.
+It is equivalent to the ex <a href="elvisex.html#split">:split</a> command
+with no arguments.
 
 <dt>^W ]
 <dd><a name="^W]"></a>
@@ -850,17 +875,19 @@ This command is like the ex <a href="elvisex.html#close">:close</a> command.
 
 <dt>^W d
 <dd><a name="^Wd"></a>
-This toggles the windows display mode between "normal" and the buffer's
-usual display mode,
-as stored in the <a href="elvisopt.html#bufdisplay">bufdisplay</a> option.
-If bufdisplay is also "normal", then this command toggles between "normal"
-and "hex" modes.
+This toggles the windows display mode between two different modes.
+If the buffer's <a href="elvisopt.html#bufdisplay">bufdisplay</a> option
+is set to "html", "man", or "tex", then it will toggle between that mode
+and the syntax coloring mode.
+If <code>bufdisplay</code> is set to a syntax-coloring mode or "hex" then
+it toggles between that mode and "normal".
+If <code>bufdisplay</code> is "normal", then this command toggles between
+that mode and the "hex" mode.
 
 <dt>^W S
 <dd><a name="^WS"></a>
-This toggles the <a href="elvisopt.html#sidescroll">sidescroll</a> option
-between the values 0 and 8, causing sideways scrolling to be alternately
-disabled and enabled.
+This toggles the <a href="elvisopt.html#wrap">wrap</a> option off or on,
+causing sideways scrolling to be alternately disabled and enabled.
 
 <dt>^W j
 <br>^W k
@@ -890,13 +917,14 @@ For example, the termcap interface uses
 |       <a href="#colon">:</a> text | Run single EX cmd                                    |
 |       <a href="#Q">Q</a>      | Quit to EX mode                                      |
 |       <a href="#K">K</a>      | Run keywordprg on the word at the cursor             |
-|       <a href="#Z">Z Z</a>    | Save the file & exit                                 |
+|       <a href="#Z">Z Z</a>    | Save the file &amp; exit                                 |
 |       <a href="#^Z">^Z</a>     | Either suspend elvis, or fork a shell                |
 |       <a href="#^G">^G</a>     | Show file status, and the current line #             |
 |       <a href="#^L">^L</a>     | Redraw the screen                                    |
 |       <a href="#*">*</a>      | Go to the next error in the errlist                  |
+|       <a href="#^I">^I</a>     | In HTML mode, move forward to next link              |
 |       <a href="#^T">^T</a>     | Return to source of previous :tag or ^] command.     |
-|       <a href="#^]">^]</a>     | If the cursor is on a tag name, go to that tag       |
+|       <a href="#^cbra">^]</a>     | If the cursor is on a tag name, go to that tag       |
 |       <a href="#^^">^^</a>     | Switch to the previous file, like ":e #"             |
 | count <a href="#hash">#</a> key  | Increment a number                                   |
 | count <a href="#amp">&amp;</a>      | Repeat the previous ":s//" command here              |
@@ -945,7 +973,7 @@ until you give the ex <a href="elvisex.html#visual">:vi</a> command.
 <dd><a name="K"></a>
 This command executes the program named in the
 <a href="elvisopt.html#keywordprg">keywordprg</a> option,
-passing it the word at the cursor as the program's only argument.
+passing it the word at the cursor.
 This is intended to provide an easy way to run on-line manuals and the like.
 
 <dt>ZZ
@@ -971,13 +999,18 @@ with no arguments.
 <dd><a name="^L"></a>
 The <kbd>^L</kbd> command causes the current window to be redrawn from scratch.
 This is handy when another program or line noise changes the screen in a
-way that elvis can't detect & correct automatically.
+way that elvis can't detect &amp; correct automatically.
 
 <dt>*
 <dd><a name="*"></a>
 The <kbd>*</kbd> command moves the cursor to the next error reported by
 the compiler.
-It is equivalent to the ex <a href="errlist">:errlist</a> command.
+It is equivalent to the ex <a href="#errlist">:errlist</a> command.
+
+<dt>^I
+<dd><a name="^I"></a>
+The <kbd>^I</kbd> command (the <kbd>Tab</kbd> key) moves the cursor forward
+to the next hypertext link, if you're in the "html" display mode.
 
 <dt>^]
 <br>^T
@@ -991,7 +1024,8 @@ like <a href="elvisex.html#pop">:pop</a>.
 
 <dt>^^
 <dd><a name="^^"></a>
-After you've switched edit buffers in a window, the <kbd>^^</kbd> command
+After you've switched edit buffers in a window, the <kbd>^^</kbd>
+(Control-Carat) command
 switches back to the previous buffer, and moves the cursor to its previous
 position within that buffer.
 It is like the ex <a href="elvisex.html#edit">:e#</a> command.
@@ -1006,6 +1040,7 @@ If the <var>key</var> is "-" then <var>count</var> is subtracted from the
 number.
 If the <var>key</var> is "+" or "#" then <var>count</var> is added to the
 number.
+If the <var>key</var> is "=" then the word is changed to <var>count</var>.
 Any other <var>key</var> causes the command to fail.
 
 <dt><var>count</var> &amp;
@@ -1029,7 +1064,7 @@ If <var>count</var> is given, then also apply it to each of the
 |       <a href="#^F">^F</a>     | Move toward the bottom of the file by 1 screen full  |
 |       <a href="#^G">^G</a>     | Show file status, and the current line #             |
 | count <a href="#^H">^H</a>     | Move left                                            |
-|       ^I</a>     | (Tab) In "html" display mode, move to next hyperlink |
+|       <a href="#^I">^I</a>     | (Tab) In "html" display mode, move to next hyperlink |
 | count <a href="#^J">^J</a>     | Move down                                            |
 |       ^K     | (undefined)                                          |
 |       <a href="#^L">^L</a>     | Redraw the screen                                    |
@@ -1046,12 +1081,12 @@ If <var>count</var> is given, then also apply it to each of the
 | count <a href="#^W^W">^W ^W</a>  | Move to next window, or to the "count" window        |
 |       <a href="#^WS">^W S</a>   | Toggle the sidescroll option                         |
 |       <a href="#^W]">^W ]</a>   | Split window, then look up tag at cursor             |
-|       <a href="#^Wc">^W c</a>   | Hide buffer & close window                           |
+|       <a href="#^Wc">^W c</a>   | Hide buffer &amp; close window                           |
 |       <a href="#^Wd">^W d</a>   | Toggle the display mode                              |
 |       <a href="#^Wj">^W j</a>   | Move down to next window                             |
 |       <a href="#^Wk">^W k</a>   | Move up to previous window                           |
 |       <a href="#^Wn">^W n</a>   | Split window, and create a new buffer                |
-|       <a href="#^Wq">^W q</a>   | Save buffer & close window, like ZZ                  |
+|       <a href="#^Wq">^W q</a>   | Save buffer &amp; close window, like ZZ                  |
 |       <a href="#^Ws">^W s</a>   | Split current window                                 |
 | count <a href="#^X">^X</a>     | Move to column "count" (defaulting to the right edge)|
 | count <a href="#^Y">^Y</a>     | Scroll backward "count" lines (default 1 line)       |
@@ -1119,7 +1154,7 @@ If <var>count</var> is given, then also apply it to each of the
 | count <a href="#W">W</a>      | Move forward "count" Words                           |
 | count <a href="#X">X</a>      | Delete the character(s) to the left of the cursor    |
 | count <a href="#Y">Y</a>      | Yank text line(s) (copy them into a cut buffer)      |
-|       <a href="#Z">Z Z</a>    | Save the file & exit                                 |
+|       <a href="#Z">Z Z</a>    | Save the file &amp; exit                                 |
 |       <a href="#obra">[ [</a>    | Move back 1 section                                  |
 |       <a href="#recbegin">[</a> key  | Start recording keystrokes into a cut-buffer         |
 |       \      | (undefined)                                          |
@@ -1157,7 +1192,7 @@ If <var>count</var> is given, then also apply it to each of the
 | count <a href="#ocur">{</a>      | Move back "count" paragraphs                         |
 | count <a href="#bar">|</a>      | Move to column "count" (defaulting to column 1)      |
 | count <a href="#ccur">}</a>      | Move forward "count" paragraphs                      |
-| count <a href="#~">~</a>      | Switch a character between uppercase & lowercase     |
+| count <a href="#~">~</a>      | Switch a character between uppercase &amp; lowercase     |
 |       DEL    | (undefined)                                          |
 ^--------------^------------------------------------------------------^
 </pre>

@@ -74,6 +74,9 @@ LINK32_FLAGS=kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib\
  /PDB:$(OUTDIR)/"ref.pdb" /MACHINE:I386 /OUT:$(OUTDIR)/"ref.exe" 
 DEF_FILE=
 LINK32_OBJS= \
+	$(INTDIR)/"tag.obj" \
+	$(INTDIR)/"tagsrch.obj" \
+	$(INTDIR)/"safe.obj" \
 	$(INTDIR)/"ref.obj"
 
 $(OUTDIR)/"ref.exe" : $(OUTDIR)  $(DEF_FILE) $(LINK32_OBJS)
@@ -128,6 +131,9 @@ LINK32_FLAGS=kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib\
  /PDB:$(OUTDIR)/"ref.pdb" /DEBUG /MACHINE:I386 /OUT:$(OUTDIR)/"ref.exe" 
 DEF_FILE=
 LINK32_OBJS= \
+	$(INTDIR)/"tag.obj" \
+	$(INTDIR)/"tagsrch.obj" \
+	$(INTDIR)/"safe.obj" \
 	$(INTDIR)/"ref.obj"
 
 $(OUTDIR)/"ref.exe" : $(OUTDIR)  $(DEF_FILE) $(LINK32_OBJS)
@@ -152,9 +158,33 @@ $(OUTDIR)/"ref.exe" : $(OUTDIR)  $(DEF_FILE) $(LINK32_OBJS)
 ################################################################################
 # Begin Source File
 
+SOURCE=.\tag.c
+
+$(INTDIR)/"tag.obj" :  $(SOURCE)  $(INTDIR)
+
+# End Source File
+################################################################################
+# Begin Source File
+
+SOURCE=.\tagsrch.c
+
+$(INTDIR)/"tagsrch.obj" :  $(SOURCE)  $(INTDIR)
+
+# End Source File
+################################################################################
+# Begin Source File
+
+SOURCE=.\safe.c
+
+$(INTDIR)/"safe.obj" :  $(SOURCE)  $(INTDIR)
+
+# End Source File
+################################################################################
+# Begin Source File
+
 SOURCE=.\ref.c
 
-$(INTDIR)/"ref.obj" :  $(SOURCE)  $(INTDIR)
+$(INTDIR)/"ref.obj" :  $(SOURCE) oswin32\osdir.c $(INTDIR)
 
 # End Source File
 # End Group

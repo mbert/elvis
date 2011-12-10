@@ -1,7 +1,7 @@
 /* lpovrtyp.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_lpovrtyp[] = "$Id: lpovrtyp.c,v 2.11 1996/07/11 15:33:20 steve Exp $";
+char id_lpovrtyp[] = "$Id: lpovrtyp.c,v 2.12 1997/10/05 19:06:12 steve Exp $";
 
 
 /* This file contains a driver for printer types which use overtyping to
@@ -13,6 +13,7 @@ char id_lpovrtyp[] = "$Id: lpovrtyp.c,v 2.11 1996/07/11 15:33:20 steve Exp $";
  */
 
 #include "elvis.h"
+#ifdef FEATURE_LPR
 
 #if USE_PROTOTYPES
 static void outcr(void);
@@ -203,3 +204,5 @@ static void after(linesleft)
 /* These describe the printer types supported by these functions */
 LPTYPE lpcr =	{"cr", 0, True, before, fontch, page, after};
 LPTYPE lpbs =	{"bs", 1, True, before, fontch, page, after};
+
+#endif /* FEATURE_LPR */

@@ -1,7 +1,7 @@
 /* exedit.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_exedit[] = "$Id: exedit.c,v 2.36 1996/10/01 19:46:29 steve Exp $";
+char id_exedit[] = "$Id: exedit.c,v 2.48 1998/10/04 00:45:29 steve Exp $";
 
 #include "elvis.h"
 
@@ -14,13 +14,6 @@ RESULT	ex_append(xinf)
 
 	assert(xinf->command == EX_APPEND || xinf->command == EX_CHANGE
 		|| xinf->command == EX_INSERT);
-
-	/* this only works on the window's main buffer */
-	if (!xinf->window->state->acton)
-	{
-		msg(MSG_ERROR, "not main buffer");
-		return RESULT_ERROR;
-	}
 
 	/* different behavior, depending on the command... */
 	if (xinf->command == EX_CHANGE)
@@ -43,8 +36,6 @@ RESULT	ex_append(xinf)
 		/* yes, insert the new text at the appropriate place */
 		bufreplace(where, where, xinf->rhs, (long)CHARlen(xinf->rhs));
 		markaddoffset(where, CHARlen(xinf->rhs));
-		bufreplace(where, where, toCHAR("\n"), 1);
-		markaddoffset(where, 1);
 	}
 	xinf->newcurs = where;
 	return RESULT_COMPLETE;
@@ -56,7 +47,8 @@ RESULT	ex_delete(xinf)
 	EXINFO	*xinf;
 {
 	/* check the cut buffer name */
-	if (xinf->cutbuf && !isalnum(xinf->cutbuf) && xinf->cutbuf != '<' && xinf->cutbuf != '>')
+	if (xinf->cutbuf && !isalnum(xinf->cutbuf) &&
+	    xinf->cutbuf != '^' && xinf->cutbuf != '<' && xinf->cutbuf != '>')
 	{
 		msg(MSG_ERROR, "bad cut buffer");
 		return RESULT_ERROR;
@@ -80,6 +72,9 @@ RESULT	ex_global(xinf)
 
 	assert(xinf->command == EX_GLOBAL || xinf->command == EX_VGLOBAL);
 
+	/* Default command is p, which should NOT be required */
+	if (!xinf->rhs)
+		xinf->rhs = CHARdup(toCHAR("p")); 
 	/* a command is required */
 	if (!xinf->rhs)
 	{
@@ -131,8 +126,8 @@ RESULT	ex_global(xinf)
 
 		/* move "fromaddr" to end of this line (start of next line) */
 		thisln = *xinf->fromaddr;
-		marksetoffset(xinf->fromaddr,
-		    cp ? markoffset(scanmark(&cp)) : markoffset(xinf->toaddr));
+		endln = cp ? markoffset(scanmark(&cp)) : markoffset(xinf->toaddr);
+		marksetoffset(xinf->fromaddr, endln);
 
 		/* is this a selected line? */
 		if ((regexec(xinf->re, &thisln, True) ? EX_GLOBAL : EX_VGLOBAL)
@@ -140,7 +135,6 @@ RESULT	ex_global(xinf)
 		{
 
 			/* move the cursor to the matching line */
-			endln = markoffset(scanmark(&cp));
 			marksetoffset(cursor, endln - lenln);
 
 			/* free the scan pointer -- can't make changes
@@ -183,6 +177,7 @@ RESULT	ex_join(xinf)
 {
 	CHAR	prevchar;	/* character before newline */
 	CHAR	*cp;		/* used while scanning for newlines */
+	long	njoined;	/* number of lines joined */
 	long	newlines;	/* number of newlines to be clobbered */
 	long	nspaces;	/* number of spaces to insert */
 	MARK	start, end;	/* region around a newline */
@@ -201,12 +196,13 @@ RESULT	ex_join(xinf)
 	 * minus one... except that if the user requested a "join" of a single
 	 * line then we should assume we're supposed to join two lines.
 	 */
-	newlines = (xinf->from == xinf->to) ? 1 : (xinf->to - xinf->from);
+	newlines = xinf->to - xinf->from;
 	if (xinf->from + newlines > o_buflines(markbuffer(xinf->fromaddr)))
 	{
 		msg(MSG_ERROR, "nothing to join with this line");
 		return RESULT_ERROR;;
 	}
+	njoined = newlines + 1;
 
 	/* scan the text for newlines */
 	prevchar = ' ';
@@ -280,6 +276,12 @@ RESULT	ex_join(xinf)
 	/* Choose a new cursor position: at the start of last joint */
 	xinf->newcurs = markalloc(markbuffer(xinf->fromaddr), offset);
 
+	/* Report it */
+	if (o_report != 0 && njoined >= o_report)
+	{
+		msg(MSG_INFO, "[d]$1 lines joined", njoined);
+	}
+
 	return RESULT_COMPLETE;
 }
 
@@ -287,43 +289,39 @@ RESULT	ex_join(xinf)
 RESULT	ex_move(xinf)
 	EXINFO	*xinf;
 {
-	long	oldto;
+	long	oldfrom, oldto, olddest, len;
 
 	/* detect errors */
+	oldfrom = markoffset(xinf->fromaddr);
+	oldto = markoffset(xinf->toaddr);
+	olddest = markoffset(xinf->destaddr);
 	if (markbuffer(xinf->fromaddr) == markbuffer(xinf->destaddr)
-	 && markoffset(xinf->fromaddr) <= markoffset(xinf->destaddr)
-	 && markoffset(xinf->destaddr) < markoffset(xinf->toaddr))
+	 && oldfrom < olddest
+	 && olddest < oldto)
 	{
 		msg(MSG_ERROR, "destination can't be inside source");
 		return RESULT_ERROR;
 	}
 
-	/* copy the text */
-	xinf->newcurs = markdup(xinf->destaddr);
-	markaddoffset(xinf->newcurs, 1);
-	oldto = markoffset(xinf->toaddr);
+	/* copy the text.  Adjust the offsets explicitly */
 	bufpaste(xinf->destaddr, xinf->fromaddr, xinf->toaddr);
+	len = oldto - oldfrom;
+	if (olddest <= oldfrom)
+	{
+		oldfrom += len;
+		oldto += len;
+	}
 
 	/* leave the cursor on the last line of the destination */
-	if (markoffset(xinf->newcurs) > 1)
-		markaddoffset(xinf->newcurs, -2);
+	xinf->newcurs = markalloc(markbuffer(xinf->fromaddr), olddest+len-1);
 	marksetoffset(xinf->newcurs, markoffset(
 		(*dmnormal.move)(xinf->window, xinf->newcurs, 0L, 0L, False)));
 
 	/* If moving (not copying) then delete source */
 	if (xinf->command == EX_MOVE)
 	{
-		/* be careful about the "to" offset.  If the destination was
-		 * immediately after the source, then we just inserted the
-		 * text at "to", so "to" was adjusted... but we only want to
-		 * delete up to the old value of "to".
-		 */
-		if (markbuffer(xinf->toaddr) == markbuffer(xinf->destaddr)
-		 && markoffset(xinf->toaddr) == markoffset(xinf->destaddr))
-		{
-			marksetoffset(xinf->toaddr, oldto);
-		}
-
+		marksetoffset(xinf->fromaddr, oldfrom);
+		marksetoffset(xinf->toaddr, oldto);
 		bufreplace(xinf->fromaddr, xinf->toaddr, NULL, 0);
 	}
 
@@ -342,18 +340,18 @@ RESULT	ex_print(xinf)
 	{
 	  case PF_NONE:
 	  case PF_PRINT:
-		pflag = (xinf->command == EX_NUMBER
-			    ? (xinf->command == EX_LIST ? PF_NUMLIST : PF_NUMBER)
-			    : (xinf->command == EX_LIST ? PF_LIST : PF_PRINT));
+		pflag = (xinf->command == EX_NUMBER || o_number(xinf->window))
+			    ? ((xinf->command == EX_LIST || o_list(xinf->window)) ? PF_NUMLIST : PF_NUMBER)
+			    : ((xinf->command == EX_LIST || o_list(xinf->window)) ? PF_LIST : PF_PRINT);
 		break;
 
 	  case PF_LIST:
-		pflag = (xinf->command == EX_NUMBER ? PF_NUMLIST : PF_LIST);
+		pflag = (xinf->command == EX_NUMBER || o_number(xinf->window)) ? PF_NUMLIST : PF_LIST;
 		break;
 
 	  case PF_NUMBER:
-		pflag = (xinf->command == EX_LIST ? PF_NUMLIST : PF_NUMBER);
-		break;	/* !!it B4: this break seems to be needed here */
+		pflag = (xinf->command == EX_LIST || o_list(xinf->window))? PF_NUMLIST : PF_NUMBER;
+		break;
 
 	  default:
 		pflag = PF_NUMLIST;
@@ -362,6 +360,9 @@ RESULT	ex_print(xinf)
 
 	/* print the lines */
 	last = exprintlines(xinf->window, xinf->fromaddr, xinf->to - xinf->from + 1, pflag);
+
+	/* disable autoprinting for this command */
+	xinf->pflag = PF_NONE;
 
 	/* leave the cursor at the start of the last line */
 	xinf->newcurs = markalloc(markbuffer(xinf->fromaddr), last);
@@ -511,246 +512,10 @@ RESULT	ex_shift(xinf)
 		}
 	}
 
-	if (xinf->to - xinf->from + 1 >= o_report)	/* !!it E5: report on shift */
-		msg(MSG_INFO,"[dC]$1 lines $2ed",xinf->to - xinf->from + 1,(xinf->command == EX_SHIFTL)? '<' : '>');
+	if (o_report != 0 && xinf->to - xinf->from + 1 >= o_report)
+		msg(MSG_INFO,"[ds]$1 lines $2ed",
+			xinf->to - xinf->from + 1, xinf->cmdname);
 
-	return RESULT_COMPLETE;
-}
-
-
-/* This function implements the :substitute command, and the :& and :~
- * variations of that command.  It is also used to perform the real work
- * of visual <&> command.
- */
-RESULT	ex_substitute(xinf)
-	EXINFO	*xinf;
-{
-	CHAR	*opt;	/* substitution options */
-	long	chline;	/* # of lines changed */
-	long	chsub;	/* # of substitutions made */
-	long	cursoff;/* offset where cursor should be moved to */
- static PFLAG	pflag;	/* printing flag */
- static BOOLEAN	optg;	/* boolean option: substitute globally in line? */
- static BOOLEAN	optx;	/* boolean option: execute instead of substitute? */
- static long	count;	/* numeric option: which instance in each line to sub */
-	MARKBUF	posn;	/* position within a line to be replaced */
-	long	instance;/* number of instances matched so far within line */
-	CHAR	*newp;	/* replacement text */
-	CHAR	*scan;	/* used for scanning to find end of line */
-	int	match;
-
-
-	assert(xinf->command == EX_SUBSTITUTE || xinf->command == EX_SUBAGAIN);
-
-	/* initialize "cursoff" just to silence a compiler warning */
-	cursoff = 0;
-
-	/* ":s" is equivalent to ":&". */
-	if (!xinf->re)
-		xinf->command = EX_SUBAGAIN;
-
-	if (xinf->command == EX_SUBAGAIN)
-	{
-		/* same regular expression as last time */
-		xinf->re = regcomp(toCHAR(""), xinf->window->state->cursor);
-		if (!xinf->re)
-		{
-			/* error message already given by regcomp() */
-			return RESULT_ERROR;
-		}
-
-		/* same replacement text as last time */
-		newp = regtilde(toCHAR(o_magic ? "~" : "\\~"));
-
-		/* if visual "&", then turn off the "p" and "c" options */
-		if (xinf->bang)
-		{
-			pflag= PF_NONE;
-		}
-	}
-	else /* xinf->command == CMD_SUBSTITUTE */
-	{
-		/* generate the new text */
-		newp = regtilde(xinf->lhs ? xinf->lhs : toCHAR(""));
-
-		/* analyse the option string */
-		if (!o_edcompatible)
-		{
-			pflag = xinf->pflag;
-			optg = optx = False;
-			count = 0;
-		}
-		for (opt = xinf->rhs; opt && *opt; opt++)
-		{
-			switch (*opt)
-			{
-			  case 'g':
-				optg = (BOOLEAN)!optg;
-				break;
-
-			  case 'x':
-				optx = (BOOLEAN)!optx;
-				break;
-
-			  case 'p':
-				pflag = (pflag==PF_PRINT) ? PF_PRINT : PF_NONE;
-				break;
-
-			  case 'l':
-				pflag = (pflag==PF_LIST) ? PF_LIST : PF_NONE;
-				break;
-
-			  case '#':
-				pflag = (pflag==PF_NUMBER) ? PF_NUMBER : PF_NONE;
-				break;
-
-			  case '0':
-			  case '1':
-			  case '2':
-			  case '3':
-			  case '4':
-			  case '5':
-			  case '6':
-			  case '7':
-			  case '8':
-			  case '9':
-				count = 0;
-				do
-				{
-					count = count * 10 + *opt++ - '0';
-				} while (isdigit(*opt));
-				opt--;
-				break;
-
-			  default:
-				if (!isspace(*opt))
-				{
-					msg(MSG_ERROR, "[C]unsupported flag '$1'", *opt);
-					return RESULT_ERROR;
-				}
-			}
-		}
-
-		/* sanity checks */
-		if (count != 0 && optg)
-		{
-			msg(MSG_ERROR, "can't mix number and 'g' flag");
-			return RESULT_ERROR;
-		}
-
-		/* default behavior is to either replace only first instance,
-		 * or all instances, depending on the "gdefault" option.
-		 */
-		if (count == 0 && !optg)
-		{
-			if (o_gdefault && !o_edcompatible)
-				optg = True;
-			else
-				count = 1;
-		}
-	}
-
-	/* if no replacement text, fail */
-	if (!newp)
-	{
-		return RESULT_ERROR;
-	}
-
-	/* this command does its own printing; disable auto printing */
-	xinf->pflag = PF_NONE;
-
-	/* reset the change counters */
-	chline = chsub = 0L;
-
-	/* for each line in the range... */
-	for (posn = *xinf->fromaddr; markoffset(&posn) < markoffset(xinf->toaddr); )
-	{
-		/* for each instance within the line... */
-		for (instance = 0, match = regexec(xinf->re, &posn, True);
-		     match && (optg || instance < count);
-		     match = regexec(xinf->re, &posn, False))
-		{
-			/* increment the substitution change counter */
-			chsub++;
-			instance++;
-
-			/* if this is an instance we care about... */
-			if (optg || instance == count)
-			{
-				/* Either execute the replacement, or perform
-				 * the substitution
-				 */
-				opt = regsub(xinf->re, newp, (BOOLEAN)!optx);
-				if (!opt)
-				{
-					return RESULT_ERROR;
-				}
-				if (optx)
-				{
-					exstring(xinf->window, opt);
-				}
-				safefree(opt);
-
-				/* remember the offset of this change so we can
-				 * move the cursor there later.
-				 */
-				cursoff = xinf->re->startp[0];
-			}
-
-			/* Move "posn" to the end of the matched region.  If
-			 * the regexp could conceivably match a zero-length
-			 * string, then skip one character.
-			 */
-			marksetoffset(&posn, xinf->re->endp[0]);
-			if (xinf->re->minlen == 0)
-			{
-				/* markaddoffset(&posn, 1);*/
-				if (scanchar(&posn) == '\n')
-					break;
-			}
-		}
-
-		/* if any changes were made, then increment chline */
-		if (optg ? instance > 0 : instance == count)
-		{
-			chline++;
-		}
-
-		/* scan forward for the end of the line */
-		for (scanalloc(&scan, &posn); scan && *scan != '\n'; scannext(&scan))
-		{
-		}
-		if (scan)
-			scannext(&scan);
-		if (scan)
-			posn = *scanmark(&scan);
-		else
-			marksetoffset(&posn, o_bufchars(markbuffer(xinf->fromaddr)));
-		scanfree(&scan);
-	}
-
-	/* If done from within a ":g" command, or used with "x" flag,
-	 * then finish silently.
-	 */
-	if (xinf->global || optx)
-	{
-#if 0
-		rptlines = chline;
-		rptlabel = "changed";
-#endif
-		return RESULT_COMPLETE;
-	}
-
-	/* Reporting */
-	if (chsub == 0)
-	{
-		msg(MSG_WARNING, "substitution failed");
-	}
-	else if (chline >= o_report)
-	{
-		msg(MSG_INFO, "[dd]$1 substitutions on $2 lines", chsub, chline);
-		xinf->newcurs = markalloc(xinf->re->buffer, cursoff);
-	}
 	return RESULT_COMPLETE;
 }
 
@@ -820,7 +585,10 @@ RESULT	ex_write(xinf)
 	 && o_filename(markbuffer(xinf->fromaddr))
 	 && CHARcmp(name, o_filename(markbuffer(xinf->fromaddr))))
 	{
-		optprevfile(toCHAR(name), 1);
+		if (name[0] == '>' && name[1] == '>')
+			optprevfile(toCHAR(name + 2), 1);
+		else
+			optprevfile(toCHAR(name), 1);
 	}
 
 	/* actually write the file */
@@ -834,10 +602,22 @@ RESULT	ex_z(xinf)
 {
 	CHAR	type = '+';		/* type of window to show */
 	long	count = o_window;	/* number of lines to show */
-	PFLAG	pflag = PF_PRINT;	/* how to show */
+	PFLAG	pflag;			/* how to show */
 	long	line = xinf->from;	/* first line to show */
 	long	offset;
 	CHAR	*scan;
+
+	/* choose a default printing style, from options */
+	if (o_number(xinf->window))
+		if (o_list(xinf->window))
+			pflag = PF_NUMLIST;
+		else
+			pflag = PF_NUMBER;
+	else
+		if (o_list(xinf->window))
+			pflag = PF_LIST;
+		else
+			pflag = PF_NUMBER;
 
 	/* If we were given arguments, then parse them */
 	for (scan = xinf->rhs; scan && *scan; scan++)

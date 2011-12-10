@@ -10,7 +10,7 @@
 BEGIN_EXTERNC
 extern BOOLEAN	bufread P_((MARK mark, char *rname));
 extern BOOLEAN	bufwrite P_((MARK from, MARK to, char *wname, BOOLEAN force));
-extern void	bufwilldo P_((MARK cursor));
+extern void	bufwilldo P_((MARK cursor, BOOLEAN will));
 extern long	bufundo P_((MARK cursor, long back));
 extern void	bufreplace P_((MARK from, MARK to, CHAR *newp, long newlen));
 extern void	bufpaste P_((MARK dst, MARK from, MARK to));

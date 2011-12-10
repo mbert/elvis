@@ -35,6 +35,8 @@
 
 #define iswhite(c)	((c) == ' ' || (c) == '\t')
 
+#include "ctypetbl.h"
+
 #if USE_PROTOTYPES
 void usage(void);
 void putword(int shortlines);
@@ -269,8 +271,7 @@ int main(argc, argv)
 	/* detect special GNU flags */
 	if (argc >= 2)
 	{
-		if (!strcmp(argv[1], "-v")
-		 || !strcmp(argv[1], "-version")
+		if (!strcmp(argv[1], "-version")
 		 || !strcmp(argv[1], "--version"))
 		{
 			printf("fmt (elvis) %s\n", VERSION);
@@ -286,7 +287,17 @@ int main(argc, argv)
 #ifdef COPY4
 			puts(COPY4);
 #endif
+#ifdef COPY5
+			puts(COPY5);
+#endif
+#ifdef PORTEDBY
+			puts(PORTEDBY);
+#endif
 			exit(0);
+		}
+		else if (!strcmp(argv[1], "/?"))
+		{
+			usage();
 		}
 	}
 

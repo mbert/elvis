@@ -18,7 +18,7 @@ struct dispmode_s
 	long	(*mark2col) P_((WINDOW w, MARK mark, BOOLEAN cmd));
 	MARK	(*move) P_((WINDOW w, MARK from, long linedelta, long column, BOOLEAN cmd));
 	MARK	(*wordmove) P_((MARK from, long count, BOOLEAN backward, BOOLEAN whitespace));
-	MARK	(*setup) P_((MARK top, long cursor, MARK bottom, DMINFO *info));
+	MARK	(*setup) P_((WINDOW w, MARK top, long cursor, MARK bottom, DMINFO *info));
 	MARK	(*image) P_((WINDOW w, MARK line, DMINFO *info,
 			void (*draw)(CHAR *p, long qty, _char_ font, long offset)));
 	void	(*header) P_((WINDOW w, int pagenum, DMINFO *info,
@@ -36,6 +36,7 @@ extern DISPMODE	dmhex;
 #ifdef DISPLAY_MARKUP
 extern DISPMODE	dmhtml;
 extern DISPMODE	dmman;
+extern DISPMODE	dmtex;
 #endif
 #ifdef DISPLAY_SYNTAX
 extern DISPMODE dmsyntax;
@@ -55,6 +56,8 @@ extern void	dispindent P_((WINDOW w, MARK line, long linedelta));
 extern void	dmmuadjust P_((MARK from, MARK to, long delta));
 #endif
 #ifdef DISPLAY_SYNTAX
-extern BOOLEAN	dmsknown P_((char *filename));
+extern CHAR	*dmsknown P_((char *filename));
+extern CHAR	dmspreprocessor P_((WINDOW win));
+extern BOOLEAN	dmskeyword P_((WINDOW win, CHAR *word));
 #endif
 END_EXTERNC

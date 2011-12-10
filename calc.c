@@ -1,18 +1,69 @@
 /* calc.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_calc[] = "$Id: calc.c,v 2.34 1996/10/01 19:45:25 steve Exp $";
+char id_calc[] = "$Id: calc.c,v 2.61 1998/12/04 23:12:25 steve Exp $";
 
 #include "elvis.h"
+#include <setjmp.h>
 #ifdef TRY
 # include <getopt.h>
+# undef o_true
+# define o_true "True"
+# undef o_false
+# define o_false "False"
+# undef isdigit
+# undef isupper
+# undef islower
+# undef isalnum
+# undef toupper
+# undef tolower
+# if USE_PROTOTYPES
+    extern int isdigit(int c);
+    extern int isupper(int c);
+    extern int islower(int c);
+    extern int isalnum(int c);
+    extern int toupper(int c);
+    extern int tolower(int c);
+# endif
 #endif
+
 
 #if USE_PROTOTYPES
 static int copyname(CHAR *dest, CHAR *src, BOOLEAN num);
 static BOOLEAN func(CHAR *name, CHAR *arg);
 static BOOLEAN apply(void);
 static CHAR *applyall(int prec);
+#endif
+
+#ifndef TRY
+static CHAR *feature[] =
+{
+# ifdef PROTOCOL_HTTP
+	toCHAR("http"),
+# endif
+# ifdef PROTOCOL_FTP
+	toCHAR("ftp"),
+# endif
+# ifdef FEATURE_SHOWTAG
+	toCHAR("showtag"),
+# endif
+# ifdef FEATURE_LPR
+	toCHAR("lpr"),
+# endif
+# ifdef FEATURE_ALIAS
+	toCHAR("alias"),
+# endif
+# ifdef FEATURE_MKEXRC
+	toCHAR("mkexrc"),
+# endif
+# ifdef FEATURE_COMPLETE
+	toCHAR("complete"),
+#endif
+# ifdef FEATURE_RAM
+	toCHAR("ram"),
+# endif
+	NULL
+};
 #endif
 
 /* This array describes the operators */
@@ -25,6 +76,8 @@ static struct
 } opinfo[] =
 {
 	{"Func",1,	'f',	'('},
+	{";",	2,	'c',	';'},
+	{",",	2,	'c',	','},
 	{"||",	4,	'b',	'|'},
 	{"&&",	5,	'b',	'&'},
 	{"!=",	9,	's',	'!'},
@@ -60,15 +113,22 @@ static struct
 } opstack[10];
 static int	ops;	/* stack pointer for opstack[] */
 
+/* The following variables are used for storing the parenthesis level */
+static CHAR	*parstack[20];
 
 /* ultimately, the result returned by calculate() */
-static	CHAR	result[200];
+static	CHAR	result[1024];
+#define RESULT_END			(&result[QTY(result) - 3])
+#define RESULT_AVAIL(from)		((int)(RESULT_END - (CHAR *)(from)))
+#define RESULT_OVERFLOW(from, need)	(RESULT_AVAIL(from) < (int)(need))
 
 
 /* This function returns True iff a string looks like an integer */
 BOOLEAN calcnumber(str)
 	CHAR	*str;	/* a nul-terminated string to check */
 {
+	BOOLEAN	dp = False;	/* has decimal point been seen yet? */
+
 	/* allow a leading "-" */
 	if (*str == '-')
 		str++;
@@ -80,17 +140,17 @@ BOOLEAN calcnumber(str)
 	/* Require at least one digit, and don't allow any non-digits */
 	do
 	{
-		if (!isdigit(*str))
-		{
+		if (*str == '.' && dp == False && str[1])
+			dp = True;
+		else if (!isdigit(*str))
 			return False;
-		}
 	} while (*++str);
 	return True;
 }
 
 
 /* This function returns True if passed a string which looks like a number,
- * and False if it doesn't.  This function differs from evalnumber() in that
+ * and False if it doesn't.  This function differs from calcnumber() in that
  * this one also converts octal numbers, hex numbers, and literal characters
  * to base ten.  Note that the length of the string may change.
  */
@@ -113,6 +173,7 @@ BOOLEAN calcbase10(str)
 			switch (str[2])
 			{
 			  case '0':	num = 0;	break;
+			  case 'a':	num = '\007';	break;
 			  case 'b':	num = '\b';	break;
 			  case 'E':	num = '\033';	break;
 			  case 'f':	num = '\f';	break;
@@ -166,17 +227,21 @@ BOOLEAN calcbase10(str)
 
 
 /* This function returns False if the string looks like any kind of "false"
- * value, and True otherwise.  The false values are "", "0", and "false".
+ * value, and True otherwise.  The false values are "", "0", "false", "no",
+ * and the value of the `false' option.
  */
 BOOLEAN calctrue(str)
 	CHAR	*str;	/* the sting to be checked */
 {
-	if (!*str || !CHARcmp(str, "0") || !CHARcmp(str, "false"))
+	if (!str || !*str || !CHARcmp(str, toCHAR("0"))
+		|| !CHARcmp(str, toCHAR("false")) || !CHARcmp(str, toCHAR("no"))
+		|| (o_false && !CHARcmp(str, o_false)))
 	{
 		return False;
 	}
 	return True;
 }
+
 
 /* This function copies characters up to the next non-alphanumeric character,
  * nul-terminates the copy, and returns the number of characters copied.
@@ -193,13 +258,15 @@ static int copyname(dest, src, num)
 	{
 		for (i = 0; isdigit(*src); i++)
 		{
+			if (RESULT_OVERFLOW(dest, 2)) return 0;
 			*dest++ = *src++;
 		}
 	}
 	else
 	{
-		for (i = 0; isalnum(*src); i++)
+		for (i = 0; isalnum(*src) || *src == '_'; i++)
 		{
+			if (RESULT_OVERFLOW(dest, 2)) return 0;
 			*dest++ = *src++;
 		}
 	}
@@ -214,34 +281,40 @@ static int copyname(dest, src, num)
  * any reason, func() should emit an error message and return False.
  *
  * The functions supported are:
- *	strlen(string)	return the number of characters in the string.
- *	tolower(string)	returns a lowercase version of string.
- *	toupper(string)	returns an uppercase version of string.
- *	isnumber(string)return "true" iff string is a decimal number
- *	hex(number)	return a string representing the hex value of number
- *	octal(number)	return a string representing the octal value of number
- *	char(number)	return a single-character string
- *	exists(file)	return "true" iff file exists
- *	dirperm(file)	return a string indicating file attributes.
- *	dirfile(file)	return the filename part of a pathname (including ext)
- *	dirname(file)	return the directory part of a pathname.
- *	dirdir(file)	return the directory, like dirname(file).
- *	dirext(file)	return the filename extension.
- *	basename(file)	return the filename without extension.
- *	elvispath(file)	return the pathname of a file in elvis' path, or ""
- *	buffer(buf)	return "true" iff buffer exist
- *	feature(name)	return "true" iff the named feature is supported
- *	knownsyntax(file)return "true" iff the file's extension is in elvis.syn
+ *   strlen(string)	return the number of characters in the string.
+ *   tolower(string)	returns a lowercase version of string.
+ *   toupper(string)	returns an uppercase version of string.
+ *   isnumber(string)	return "true" iff string is a decimal number
+ *   htmlsafe(string)	return an HTML-encoded version of string
+ *   quote(chars,str)	return a copy of str with backslashes before chars
+ *   unquote(chars,str)	return a copy of str with backslashes before chars
+ *   hex(number)	return a string representing the hex value of number
+ *   octal(number)	return a string representing the octal value of number
+ *   char(number)	return a single-character string
+ *   exists(file)	return "true" iff file exists
+ *   dirperm(file)	return a string indicating file attributes.
+ *   dirfile(file)	return the filename part of a pathname (including ext)
+ *   dirname(file)	return the directory part of a pathname.
+ *   dirdir(file)	return the directory, like dirname(file).
+ *   dirext(file)	return the filename extension.
+ *   basename(file)	return the filename without extension.
+ *   elvispath(file)	return the pathname of a file in elvis' path, or ""
+ *   buffer(buf)	return "true" iff buffer exist
+ *   feature(name)	return "true" iff the named feature is supported
+ *   knownsyntax(file)	return language if the file's extension is in elvis.syn
+ *   current(what)	return line, column, word, mode, next, prev, or tag
  */
 static BOOLEAN func(name, arg)
 	CHAR	*name;	/* name of function to apply */
 	CHAR	*arg;	/* the argument to the function */
 {
 	CHAR	*tmp;
+#ifndef TRY
 	char	*c;
 	int	i;
 	MARK	begin;
 	MARKBUF	end;
+#endif
 
 	if (!CHARcmp(name, toCHAR("strlen")))
 	{
@@ -264,18 +337,49 @@ static BOOLEAN func(name, arg)
 	}
 	else if (!CHARcmp(name, toCHAR("isnumber")))
 	{
-		CHARcpy(name, toCHAR(calcnumber(arg) ? "true" : "false"));
+		if (RESULT_OVERFLOW(name, 6)) goto Overflow;
+		CHARcpy(name, calcnumber(arg) ? o_true : o_false);
 		return True;
 	}
+#ifndef TRY
+	else if (!CHARcmp(name, toCHAR("htmlsafe")))
+	{
+		for (i = 0, tmp = NULL; arg[i]; i++)
+		{
+			switch (arg[i])
+			{
+			  case '&':	buildstr(&tmp, "&amp;");	break;
+			  case '<':	buildstr(&tmp, "&lt;");		break;
+			  case '>':	buildstr(&tmp, "&gt;");		break;
+			  case '"':	buildstr(&tmp, "&quot;");	break;
+			  case '\t':	buildCHAR(&tmp, ' ');		break;
+			  default:	buildCHAR(&tmp, arg[i]);
+			}
+		}
+		if (tmp)
+		{
+			if (RESULT_OVERFLOW(name, CHARlen(tmp))) goto Overflow;
+			CHARcpy(name, tmp);
+			safefree(tmp);
+		}
+		else
+		{
+			*name = '\0';
+		}
+		return True;
+	}
+#endif
 	else if (!CHARcmp(name, toCHAR("hex")))
 	{
 		if (!calcnumber(arg)) goto NeedNumber;
+		if (RESULT_OVERFLOW(name, 10)) goto Overflow;
 		sprintf((char *)name, "0x%lx", CHAR2long(arg));
 		return True;
 	}
 	else if (!CHARcmp(name, toCHAR("octal")))
 	{
 		if (!calcnumber(arg)) goto NeedNumber;
+		if (RESULT_OVERFLOW(name, 12)) goto Overflow;
 		sprintf((char *)name, "0%lo", CHAR2long(arg));
 		return True;
 	}
@@ -300,26 +404,64 @@ static BOOLEAN func(name, arg)
 		return True;
 	}
 #ifndef TRY
+	else if (!CHARcmp(name, toCHAR("quote")))
+	{
+		/* divide the arg into "chars" and "str" fields */
+		tmp = CHARchr(arg, (CHAR)',');
+		if (!tmp)
+		{
+			goto Need2Args;
+		}
+		*tmp++ = '\0';
+
+		/* build a copy with backslashes */
+		tmp = addquotes(arg, tmp);
+
+		/* if the resulting string fits in buffer, then store it */
+		if (RESULT_OVERFLOW(name, CHARlen(tmp)))
+			goto Overflow;
+		CHARcpy(name, tmp);
+		safefree(tmp);
+		return True;
+	}
+	else if (!CHARcmp(name, toCHAR("unquote")))
+	{
+		/* divide the arg into "chars" and "str" fields */
+		tmp = CHARchr(arg, (CHAR)',');
+		if (!tmp)
+		{
+			goto Need2Args;
+		}
+		*tmp++ = '\0';
+
+		/* build a copy with backslashes */
+		tmp = removequotes(arg, tmp);
+
+		/* store the resulting string (it *will* fit) */
+		CHARcpy(name, tmp);
+		safefree(tmp);
+		return True;
+	}
 	else if (!CHARcmp(name, toCHAR("exists")))
 	{
-		switch (dirperm(tochar8(arg)))
+		switch (urlperm(tochar8(arg)))
 		{
 		  case DIR_INVALID:
 		  case DIR_BADPATH:
 		  case DIR_NOTFILE:
 		  case DIR_NEW:
-			CHARcpy(name, toCHAR("false"));
+			CHARcpy(name, o_false);
 			break;
 
 		  default:
-			CHARcpy(name, toCHAR("true"));
+			CHARcpy(name, o_true);
 			break;
 		}
 		return True;
 	}
 	else if (!CHARcmp(name, toCHAR("dirperm")))
 	{
-		switch (dirperm(tochar8(arg)))
+		switch (urlperm(tochar8(arg)))
 		{
 		  case DIR_INVALID:
 			CHARcpy(name, toCHAR("invalid"));
@@ -374,37 +516,96 @@ static BOOLEAN func(name, arg)
 		}
 		return True;
 	}
+	else if (!CHARcmp(name, toCHAR("fileeol")))
+	{
+		CHARcpy(name, toCHAR(ioeol(tochar8(arg))));
+		return True;
+	}
 	else if (!CHARcmp(name, toCHAR("elvispath")))
 	{
 		tmp = toCHAR(iopath(tochar8(o_elvispath), tochar8(arg), False));
 		if (!tmp)
 			*name = '\0';
 		else
+		{
+			if (RESULT_OVERFLOW(name, CHARlen(tmp))) goto Overflow;
 			CHARcpy(name, tmp);
+		}
+		return True;
+	}
+	else if (!CHARcmp(name, toCHAR("getcwd")))
+	{
+		c = dircwd();
+		if (RESULT_OVERFLOW(name, strlen(c))) goto Overflow;
+		CHARcpy(name, toCHAR(c));
+		return True;
+	}
+	else if (!CHARcmp(name, toCHAR("absolute")))
+	{
+		c = urllocal(tochar8(arg));
+		if (c)
+			c = dirpath(dircwd(), c);
+		else
+			c = tochar8(arg);
+		if (RESULT_OVERFLOW(name, strlen(c))) goto Overflow;
+		CHARcpy(name, toCHAR(c));
 		return True;
 	}
 	else if (!CHARcmp(name, toCHAR("buffer")))
 	{
-		CHARcpy(name, toCHAR(buffind(arg) ? "true" : "false"));
+		CHARcpy(name, buffind(arg) ? o_true : o_false);
+		return True;
+	}
+	else if (!CHARcmp(name, toCHAR("alias")))
+	{
+# ifdef FEATURE_ALIAS
+		c = exisalias(tochar8(arg), True);
+		tmp = (c ? o_true : o_false);
+# else
+		tmp = o_false;
+# endif
+		if (RESULT_OVERFLOW(name, CHARlen(tmp))) goto Overflow;
+		CHARcpy(name, tmp);
 		return True;
 	}
 	else if (!CHARcmp(name, toCHAR("feature")))
 	{
+		/* for now */
+		CHARcpy(name, o_false);
+
 		/* is it the name of a supported display mode? */
-		for (i = 0; CHARcmp(toCHAR(allmodes[i]->name), arg); i++)
+		i = 0;
+		do
 		{
-			if (allmodes[i] == &dmnormal)
+			if (!CHARcmp(toCHAR(allmodes[i]->name), arg))
 			{
-				CHARcpy(name, toCHAR("false"));
+				CHARcpy(name, o_true);
 				return True;
 			}
+		} while (allmodes[i++] != &dmnormal);
+
+		/* is it the name of a supported protocol */
+		for (i = 0; feature[i] && CHARcmp(feature[i], arg); i++)
+		{
 		}
-		CHARcpy(name, toCHAR("true"));
+		if (feature[i])
+			CHARcpy(name, o_true);
+
 		return True;
 	}
 	else if (!CHARcmp(name, toCHAR("knownsyntax")))
 	{
-		CHARcpy(name, dmsknown(tochar8(arg)) ? "true" : "false");
+#ifdef DISPLAY_SYNTAX
+		tmp = dmsknown(tochar8(arg));
+		if (!tmp)
+			*name = '\0';
+		else if (RESULT_OVERFLOW(name, CHARlen(tmp)))
+			goto Overflow;
+		else
+			CHARcpy(name, tmp);
+#else
+		*name = '\0'; /* no syntax modes are supported */
+#endif
 		return True;
 	}
 	else if (!CHARcmp(name, toCHAR("current")))
@@ -430,6 +631,8 @@ static BOOLEAN func(name, arg)
 		  	{
 				end = *windefault->cursor;
 				begin = wordatcursor(&end);
+				if (begin && RESULT_OVERFLOW(name, markoffset(&end) - markoffset(begin)))
+					goto Overflow;
 				if (begin)
 				{
 					scanalloc(&tmp, begin);
@@ -477,6 +680,8 @@ static BOOLEAN func(name, arg)
 		  case 'n':	/* next arg */
 			if (arglist[argnext])
 			{
+				if (RESULT_OVERFLOW(name, strlen(arglist[argnext])))
+					goto Overflow;
 				for (c = arglist[argnext]; *c; )
 				{
 					*name++ = *c++;
@@ -488,6 +693,8 @@ static BOOLEAN func(name, arg)
 		  case 'p':	/* previous arg */
 			if (argnext >= 2)
 			{
+				if (RESULT_OVERFLOW(name, strlen(arglist[argnext - 2])))
+					goto Overflow;
 				for (c = arglist[argnext - 2]; *c; )
 				{
 					*name++ = *c++;
@@ -496,10 +703,20 @@ static BOOLEAN func(name, arg)
 			}
 			break;
 
-		  case 't':	/* tagstack */
+		  case 't':	/* tag or tagstack */
+			tmp = NULL;
+#ifdef FEATURE_SHOWTAG
+			if (!CHARcmp(arg, "tag"))
+				tmp = telabel(windefault->cursor);
+			else
+#endif
 			if (windefault && windefault->tagstack->origin)
+				tmp = o_bufname(markbuffer(windefault->tagstack->origin));
+			if (tmp)
 			{
-				CHARcpy(name, o_bufname(markbuffer(windefault->tagstack->origin)));
+				if (RESULT_OVERFLOW(name, CHARlen(tmp)))
+					goto Overflow;
+				CHARcpy(name, tmp);
 			}
 			break;
 		}
@@ -510,7 +727,7 @@ static BOOLEAN func(name, arg)
 #ifdef TRY
 	msg(MSG_ERROR, "unknown function %s", name);
 #else
-	msg(MSG_ERROR, "[s]unknown function $1", name);
+	msg(MSG_ERROR, "[S]unknown function $1", name);
 #endif
 	return False;
 
@@ -520,6 +737,16 @@ NeedNumber:
 #else
 	msg(MSG_ERROR, "[S]$1 requires a numeric argument", name);
 #endif
+	return False;
+
+#ifndef TRY
+Need2Args:
+	msg(MSG_ERROR, "[S]$1 requires two arguments", name);
+	return False;
+#endif
+
+Overflow:
+	msg(MSG_ERROR, "result too long");
 	return False;
 }
 
@@ -547,7 +774,7 @@ static BOOLEAN apply()
 		 */
 		if (subcode == '!')
 		{
-			(void)CHARcat(first, toCHAR(calctrue(second) ? "false" : "true"));
+			(void)CHARcat(first, calctrue(second) ? o_false : o_true);
 		}
 		else /* '~' */
 		{
@@ -588,9 +815,9 @@ static BOOLEAN apply()
 					/* make sure this width wouldn't
 					 * overflow the result buffer.
 					 */
-					if (j < 0 || &first[j] >= &result[QTY(result)])
+					if (RESULT_OVERFLOW(first, j))
 					{
-						msg(MSG_ERROR, "bad width");
+						msg(MSG_ERROR, "result too long");
 						return False;
 					}
 
@@ -636,6 +863,7 @@ static BOOLEAN apply()
 				}
 				msg(MSG_WARNING, "<< and >> only partially implemented");
 			}
+#ifndef TRY
 			else if (subcode == '/')
 			{
 				/* When the / operator is passed strings as
@@ -645,6 +873,7 @@ static BOOLEAN apply()
 				CHARcpy(first, toCHAR(dirpath(tochar8(first), tochar8(second))));
 				break;
 			}
+#endif
 			second[-1] = subcode;
 		}
 		else
@@ -691,7 +920,14 @@ static BOOLEAN apply()
 		  case '=':	i = (i == 0);	break;
 		  case '!':	i = (i != 0);	break;
 		}
-		(void)CHARcpy(first, toCHAR(i ? "true" : "false"));
+		(void)CHARcpy(first, toCHAR(i ? o_true : o_false));
+		break;
+
+	  case 'c': /* concatenation operators */
+		if (subcode == ';')
+			memmove(second - 1, second, sizeof(CHAR) * (CHARlen(second) + 1));
+		else
+			second[-1] = subcode;
 		break;
 
 	  case 'b': /* boolean operators */
@@ -703,7 +939,7 @@ static BOOLEAN apply()
 		{
 			i = (calctrue(first) || calctrue(second));
 		}
-		(void)CHARcpy(first, toCHAR(i ? "true" : "false"));
+		(void)CHARcpy(first, toCHAR(i ? o_true : o_false));
 		break;
 
 	  case 't': /* ternary operator */
@@ -782,7 +1018,6 @@ CHAR *calculate(expr, arg, asmsg)
 	CHAR	*tmp;
 	int	i, prec;
 
-
 	/* count the args */
 	for (nargs = 0; arg && arg[nargs]; nargs++)
 	{
@@ -797,10 +1032,12 @@ CHAR *calculate(expr, arg, asmsg)
 	/* process the expression from left to right... */
 	while (*expr)
 	{
+		if (RESULT_OVERFLOW(build, 1)) goto Overflow;
 		switch (*expr)
 		{
 		  case ' ':
 		  case '\t':
+		  case '\n':
 			/* whitespace is ignored unless asmsg */
 			if (base == 0 && asmsg)
 			{
@@ -822,7 +1059,30 @@ CHAR *calculate(expr, arg, asmsg)
 				/* quoted text is copied verbatim */
 				while (*++expr && *expr != '"')
 				{
-					*build++ = *expr;
+					if (RESULT_OVERFLOW(build, 1))
+						goto Overflow;
+					if (*expr != '\\')
+					{
+						*build++ = *expr;
+						continue;
+					}
+					switch (*++expr)
+					{
+					  case 0:
+						*build++ = '\\';
+						expr--;
+						break;
+
+					  case '\n': break;
+					  case 'a': *build++ = '\007'; break;
+					  case 'b': *build++ = '\b'; break;
+					  case 'E': *build++ = '\033'; break;
+					  case 'f': *build++ = '\f'; break;
+					  case 'n': *build++ = '\n'; break;
+					  case 'r': *build++ = '\r'; break;
+					  case 't': *build++ = '\t'; break;
+					  default: *build++ = *expr;
+					}
 				}
 				if (*expr == '"')
 				{
@@ -833,24 +1093,42 @@ CHAR *calculate(expr, arg, asmsg)
 			break;
 
 		  case '\\':
-			/* any single character following a \ is copied */
-			if (!*++expr || isalnum(*expr) || *expr == '*' || *expr == '?' || *expr == '.')
+			/* In most contexts, a backslash is treated as a
+			 * literal character.  However, it can also be used to
+			 * quote the special characters of a message string:
+			 * dollar sign, parentheses, and the backslash itself.
+			 */
+			expr++;
+			if (build == result || !*expr || !strchr("$()\\", *expr))
 			{
+				/* at front of expression, or if followed by
+				 * normal character - literal */
 				*build++ = '\\';
 			}
-			if (*expr)
+			else if (*expr)
 			{
+				/* followed by special character - quote */
 				*build++ = *expr++;
-				*build = '\0';
 			}
+			*build = '\0';
 			break;
 
 		  case '$':
+			/* if it isn't followed by an alphanumeric character,
+			 * then treat the '$' as a literal character.
+			 */
+			expr++;
+			if (!isalnum(*expr) && *expr != '_')
+			{
+				*build++ = '$';
+				break;
+			}
+
 			/* copy the name into the result buffer temporarily,
 			 * just so we have a nul-terminated copy of it.
 			 */
-			expr++;
 			i = copyname(build, expr, True);
+			if (i == 0) goto Overflow;
 			expr += i;
 
 			/* if number instead of a name, then use arg[i] */
@@ -866,6 +1144,8 @@ CHAR *calculate(expr, arg, asmsg)
 #endif
 					return (CHAR *)0;
 				}
+				if (RESULT_OVERFLOW(build, CHARlen(arg[i - 1])))
+					goto Overflow;
 				(void)CHARcpy(build, arg[i - 1]);
 				build += CHARlen(build);
 			}
@@ -875,8 +1155,17 @@ CHAR *calculate(expr, arg, asmsg)
 				 * empty string) into the result buffer.
 				 */
 				tmp = toCHAR(getenv(tochar8(build)));
+				if (!tmp)
+				{
+					/* convert to uppercase & try again */
+					for (tmp = build; *tmp; tmp++)
+						*tmp = toupper(*tmp);
+					tmp = toCHAR(getenv(tochar8(build)));
+				}
 				if (tmp)
 				{
+					if (RESULT_OVERFLOW(build, CHARlen(tmp)))
+						goto Overflow;
 					(void)CHARcpy(build, tmp);
 					build += CHARlen(build);
 				}
@@ -889,6 +1178,7 @@ CHAR *calculate(expr, arg, asmsg)
 
 		  case '(':
 			/* increment the precedence base */
+			parstack[base / 20] = opstack[ops].first;
 			base += 20;
 
 			/* adjust the start of arguments */
@@ -913,6 +1203,7 @@ CHAR *calculate(expr, arg, asmsg)
 
 			/* decrement the precedence base */
 			base -= 20;
+			opstack[ops].first = parstack[base / 20];
 
 			expr++;
 			break;
@@ -922,10 +1213,11 @@ CHAR *calculate(expr, arg, asmsg)
 			 * If it appears to be alphanumeric, then assume it
 			 * is either a number or a name.
 			 */
-			if (isalnum(*expr))
+			if (isalnum(*expr) || *expr == '_')
 			{
 				/* Copy the string into the result buffer. */
 				i = copyname(build, expr, False);
+				if (i == 0) goto Overflow;
 				expr += i;
 
 				/* if asmsg, then do no further processing of it */
@@ -953,6 +1245,7 @@ CHAR *calculate(expr, arg, asmsg)
 					 * so that next ')' will cause it
 					 * to be evaluated.
 					 */
+					parstack[base / 20] = opstack[ops].first;
 					opstack[ops].first = build;
 
 					/* keep the function name */
@@ -976,7 +1269,7 @@ CHAR *calculate(expr, arg, asmsg)
 				else
 				{
 					/* option name -- look it up */
-					tmp = optgetstr(build);
+					tmp = optgetstr(build, NULL);
 					if (!tmp)
 					{
 #ifdef TRY
@@ -986,6 +1279,8 @@ CHAR *calculate(expr, arg, asmsg)
 #endif
 						return (CHAR *)0;
 					}
+					if (RESULT_OVERFLOW(build, CHARlen(tmp)))
+						goto Overflow;
 					(void)CHARcpy(build, tmp);
 					build += CHARlen(build);
 				}
@@ -1084,6 +1379,10 @@ Mismatch:
 
 	/* return the result */
 	return result;
+
+Overflow:
+	msg(MSG_ERROR, "result too long");
+	return (CHAR *)0;
 }
 
 #ifndef TRY
@@ -1111,8 +1410,9 @@ BOOLEAN calcsel(from, to)
 # include <stdarg.h>
 BUFFER bufdefault;
 
-CHAR *optgetstr(name)
+CHAR *optgetstr(name, desc)
 	CHAR	*name;
+	OPTDESC	**desc;
 {
 	return name;
 }
@@ -1121,15 +1421,13 @@ void msg(MSGIMP imp, char *format, ...)
 {
 	va_list	argptr;
 
-	va_start(argptr, terse);
+	va_start(argptr, format);
 	vprintf(format, argptr);
 	putchar('\n');
 	va_end(argptr);
 }
 
-void main(argc, argv)
-	int	argc;
-	char	**argv;
+void main(int argc, char **argv)
 {
 	CHAR	expr[200];
 	CHAR	*result;

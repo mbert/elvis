@@ -6,6 +6,9 @@
 #include <errno.h>
 #include <fcntl.h>
 #include "elvis.h"
+#ifdef FEATURE_RAM
+# include <vmemory.h>
+#endif
 #ifndef DEFAULT_SESSION
 # define DEFAULT_SESSION "ELVIS%d.SES"
 #endif
@@ -24,6 +27,37 @@
 
 static int fd = -1; /* file descriptor of the session file */
 
+#ifdef FEATURE_RAM
+static int nramblocks;
+static _vmhnd_t *ramblock;
+
+/* Increase the size of the ramblock array, which stores the _vmhnd_t values
+ * for each block.
+ */
+static void growram(void)
+{
+	_vmhnd_t	*newrb;
+	int		nnewrbs;
+
+	/* allocate a new ramblock buffer */
+	nnewrbs = nramblocks + 128;
+	newrb = (_vmhnd_t *)safealloc(nnewrbs, sizeof(_vmhnd_t));
+	if (nramblocks > 0)
+		memcpy(newrb, ramblock, nramblocks * sizeof(_vmhnd_t));
+	for (; nramblocks < nnewrbs; nramblocks++)
+		newrb[nramblocks] = _VM_NULL;
+	ramblock = newrb;
+
+	/* if this is about as big as it can get, then give a warning.
+	 * Note that this doesn't detect all errors; it only detects when
+	 * its own table is nearly as large as it can get.
+	 */
+	if ((long)nnewrbs * (long)sizeof(_vmhnd_t) > 64000L)
+		msg(MSG_WARNING, "warning: almost out of memory");
+}
+#endif
+
+
 /* This function creates a new block file, and returns True if successful,
  * or False if failed because the file was already busy.
  */
@@ -32,6 +66,25 @@ BOOLEAN blkopen(BOOLEAN force, BLK *buf)
 	char	sesname[100];
 	char	*sespath;
 	int	len, i;
+
+#ifdef FEATURE_RAM
+	/* if "ram" session file was explicitly requested, then initialize
+	 * the virtual memory handler.
+	 */
+	if (o_session && (!strcmp(tochar8(o_session), "ram")
+		       || !strcmp(tochar8(o_session), "RAM")))
+	{
+		char	*vm;
+
+		if (!_vheapinit(0, 520, _VM_EMS|_VM_XMS))
+			msg(MSG_FATAL, "no EMS/XMS -- can't use \"ram\" for session file");
+		growram();
+		ramblock[0] = _vmalloc((size_t)o_blksize);
+		vm = _vload(ramblock[0], _VM_DIRTY);
+		memcpy(vm, buf, (size_t)o_blksize);
+		return True;
+	}
+#endif
 
 	/* If no session file was explicitly requested, use the default */
 	if (!o_session)
@@ -67,7 +120,7 @@ BOOLEAN blkopen(BOOLEAN force, BLK *buf)
 		} while ((i = open(sesname, O_RDWR|O_CREAT, 0666)) < 0 && *sespath++);
 		if (i < 0)
 		{
-			msg(MSG_FATAL, "set \\$SESSIONPATH to a writable directory");
+			msg(MSG_FATAL, "set SESSIONPATH to a writable directory");
 		}
 		close(i);
 		remove(sesname);
@@ -156,13 +209,20 @@ BOOLEAN blkopen(BOOLEAN force, BLK *buf)
 /* This function closes the session file, given its handle */
 void blkclose(BLK *buf)
 {
-	blkread(buf, 0);
-	buf->super.inuse = 0L;
-	blkwrite(buf, 0);
-	close(fd);
-	fd = -1;
-	if (o_tempsession)
-		remove(tochar8(o_session));
+#ifdef FEATURE_RAM
+	if (nramblocks > 0)
+		_vheapterm();
+	else
+#endif
+	{
+		blkread(buf, 0);
+		buf->super.inuse = 0L;
+		blkwrite(buf, 0);
+		close(fd);
+		fd = -1;
+		if (o_tempsession)
+			remove(tochar8(o_session));
+	}
 }
 
 /* Write the contents of buf into record # blkno, for the block file
@@ -172,11 +232,36 @@ void blkclose(BLK *buf)
  */
 void blkwrite(BLK *buf, _BLKNO_ blkno)
 {
-	/* write the block */
-	lseek(fd, (long)blkno * (long)o_blksize, 0);
-	if (write(fd, buf, (unsigned)o_blksize) != o_blksize)
+#ifdef FEATURE_RAM
+	char	*vm;
+
+	if (nramblocks > 0)
 	{
-		msg(MSG_FATAL, "blkwrite failed");
+		/* if past end of the table, then make the table larger */
+		if (blkno >= nramblocks)
+			growram();
+
+		/* if new block, then allocate it now */
+		if (ramblock[blkno] == _VM_NULL)
+		{
+			ramblock[blkno] = _vmalloc((unsigned long)o_blksize);
+			if (ramblock[blkno] == _VM_NULL)
+				msg(MSG_FATAL, "blkwrite failed -- not enough EMS/XMS memory");
+		}
+
+		/* copy the block to EMS/XMS */
+		vm = _vload(ramblock[blkno], _VM_DIRTY);
+		memcpy(vm, buf, (size_t)o_blksize);
+	}
+	else
+#endif
+	{
+		/* write the block */
+		lseek(fd, (long)blkno * (long)o_blksize, 0);
+		if (write(fd, buf, (unsigned)o_blksize) != o_blksize)
+		{
+			msg(MSG_FATAL, "blkwrite failed");
+		}
 	}
 }
 
@@ -186,17 +271,35 @@ void blkwrite(BLK *buf, _BLKNO_ blkno)
  */
 void blkread(BLK *buf, _BLKNO_ blkno)
 {
-	/* read the block */
-	lseek(fd, (long)blkno * o_blksize, 0);
-	if (read(fd, buf, (unsigned)o_blksize) != o_blksize)
+#ifdef FEATURE_RAM
+	char	*vm;
+
+	if (nramblocks > 0)
 	{
-		msg(MSG_FATAL, "blkread failed");
+		/* copy the block from EMS/XMS */
+		vm = _vload(ramblock[blkno], _VM_DIRTY);
+		memcpy(buf, vm, (size_t)o_blksize);
+	}
+	else
+#endif
+	{
+		/* read the block */
+		lseek(fd, (long)blkno * o_blksize, 0);
+		if (read(fd, buf, (unsigned)o_blksize) != o_blksize)
+		{
+			msg(MSG_FATAL, "blkread failed");
+		}
 	}
 }
 
 /* Force changes out to disk. */
 void blksync P_((void))
 {
-	close(fd);
-	fd = open(tochar8(o_session), O_RDWR|O_BINARY);
+#ifdef FEATURE_RAM
+	if (nramblocks == 0)
+#endif
+	{
+		close(fd);
+		fd = open(tochar8(o_session), O_RDWR|O_BINARY);
+	}
 }

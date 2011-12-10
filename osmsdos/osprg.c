@@ -6,6 +6,45 @@
 #include <fcntl.h>
 #include <io.h>
 
+/* Use "#if 1" for a plain old system() call, or "#if 0" to use the fancy
+ * version which swaps elvis out to EMS/XMS memory or disk while the child
+ * process runs.
+ */
+#if 0
+# define swapsystem system
+#else
+# include "doexec.h"
+
+static int swapsystem(char *cmd)
+{
+	char	*prog, *args;
+	int	retcode;
+
+	for (; isspace(*cmd); cmd++)
+	{
+	}
+	prog = safedup(cmd);
+	for (args = prog; *args && !isspace(*args); args++)
+	{
+	}
+	if (*args)
+		*args++ = '\0';
+	retcode = do_exec(prog, args, USE_ALL|HIDE_FILE, 0xFFFF, NULL);
+	if (retcode == RC_NOFILE)
+	{
+		safefree(prog);
+		prog = safealloc(strlen(cmd) + 4, sizeof(char));
+		strcpy(prog, "/c ");
+		strcat(prog, cmd);
+		retcode = do_exec(tochar8(o_shell), prog,
+					USE_ALL|HIDE_FILE, 0xFFFF, NULL);
+	}
+	safefree(prog);
+	return retcode;
+}
+#endif
+
+
 /* Microsoft has an annoying habit of adding underscores to the front of
  * conventional names.
  */
@@ -154,7 +193,7 @@ BOOLEAN prggo(void)
 #endif
 
 	/* run the program */
-	status = system(cmd);
+	status = swapsystem(cmd);
 
 	/* if we redirected stdin, undo it now */
 	if (tempwrite[0])

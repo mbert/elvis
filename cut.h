@@ -2,9 +2,6 @@
 /* Copyright 1995 by Steve Kirkendall */
 
 
-/* Number of CHARs at start of buffer used internally for storing type */
-#define CUT_TYPELEN	10
-
 BEGIN_EXTERNC
 extern BUFFER cutbuffer P_((_CHAR_ cbname, BOOLEAN create));
 extern void cutyank P_((_CHAR_ cbname, MARK from, MARK to, _CHAR_ type, BOOLEAN del));

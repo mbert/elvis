@@ -1,7 +1,7 @@
 /* verify.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_verify[] = "$Id: verify.c,v 1.5 1996/06/28 03:39:18 steve Exp $";
+char id_verify[] = "$Id: verify.c,v 1.8 1998/09/20 18:09:28 steve Exp $";
 
 /* This file contains a replacement for elvis' main() function.  The resulting
  * program will test each component of elvis.
@@ -9,6 +9,14 @@ char id_verify[] = "$Id: verify.c,v 1.5 1996/06/28 03:39:18 steve Exp $";
 
 #include <stdio.h>
 #include "elvis.h"
+
+#ifdef FEATURE_COMPLETE
+# error You must #undef FEATURE_COMPLETE in config.h to compile this program
+#endif
+#ifdef FEATURE_SHOWTAG
+# error You must #undef FEATURE_SHOWTAG in config.h to compile this program
+#endif
+
 
 static BLK blkbuf;
 
@@ -28,13 +36,29 @@ extern WINDOW winalloc(GUIWIN *gw, OPTVAL *gvals, BUFFER buf, long rows, long co
 extern void msg(MSGIMP imp, char *terse, ...);
 extern void drawchar(CHAR *cp, long qty, _char_ font, long offset);
 extern void draw1ch(CHAR c, _char_ font, long offset);
+extern void drawopencomplete(WINDOW win);
 extern char *perm2str(DIRPERM perm);
 extern char *bool2str(BOOLEAN bool);
+extern void urlbytes(long totbytes);
+extern void urlclose(void);
+extern char *urllocal(char *url);
+extern BOOLEAN urlopen(char *url, BOOLEAN force, _char_ rwa);
+extern DIRPERM urlperm(char *url);
+extern int urlread(CHAR *buf, int bytes);
+extern BOOLEAN urlremote(char *url);
+extern int urlwrite(CHAR *buf, int bytes);
+extern CHAR *msgtranslate(char *word);
+extern TAG *tetag(CHAR *select);
+extern BUFFER cutbuffer(_CHAR_ cbname, BOOLEAN	create);
 #endif /* USE_PROTOTYPES */
 
 /*****************************************************************************
  * Start of stub functions
  */
+
+BOOLEAN exthenflag;
+long eventcounter;
+GUI dummygui, *chosengui = &dummygui;
 
 char *bool2str(BOOLEAN bool)
 {
@@ -86,6 +110,10 @@ void drawchar(CHAR *cp, long qty, _char_ font, long offset)
 		cp += delta;
 		offset += delta;
 	}
+}
+
+void drawopencomplete(WINDOW win)
+{
 }
 
 void msg(MSGIMP imp, char *terse, ...)
@@ -163,6 +191,61 @@ RESULT _viperform(WINDOW win)
 {
 	return RESULT_ERROR;
 }
+
+void urlbytes(long totbytes)
+{
+}
+
+void urlclose(void)
+{
+}
+
+char *urllocal(char *url)
+{
+	return url;
+}
+
+BOOLEAN urlopen(char *url, BOOLEAN force, _char_ rwa)
+{
+	return False;
+}
+
+DIRPERM urlperm(char *url)
+{
+	return dirperm(url);
+}
+
+int urlread(CHAR *buf, int bytes)
+{
+	return 0;
+}
+
+BOOLEAN urlremote(char *url)
+{
+	return False;
+}
+
+int urlwrite(CHAR *buf, int bytes)
+{
+	return 0;
+}
+
+CHAR *msgtranslate(char *word)
+{
+	return toCHAR(word);
+}
+
+TAG *tetag(CHAR *select)
+{
+	return NULL;
+}
+
+BUFFER cutbuffer(_CHAR_ cbname, BOOLEAN	create)
+{
+	abort();
+}
+
+
 
 /*
  * End of stubs
@@ -438,7 +521,7 @@ BOOLEAN session(void)
 	sesunlock(0, True);
 
 	/* allocate another block */
-	blkno1 = sesalloc(0);
+	blkno1 = sesalloc(0, SES_CHARS);
 	if (blkno1 != 1)
 	{
 		printf("\tbad allocation of first block -- got %d (expect 1)\n", blkno1);
@@ -451,7 +534,7 @@ BOOLEAN session(void)
 		passed = False;
 	}
 	sesunlock(blkno1, False);
-	blkno2 = sesalloc(blkno1);
+	blkno2 = sesalloc(blkno1, SES_CHARS);
 	if (blkno2 != 1)
 	{
 		printf("\tsesalloc of block 1 failed -- got %d (expect 1)\n", blkno2);
@@ -536,12 +619,8 @@ BOOLEAN buffer(void)
 	int	i;
 
 	o_session = toCHAR("verify.ses");
-#if 1
 	bufinit();
-#else
-	sesopen(False);
-#endif
-	buf = bufalloc(toCHAR("buffer"), 0);
+	buf = bufalloc(toCHAR("buffer"), 0, False);
 	(void)marktmp(mark, buf, 0);
 	for (i = 0; i < 200; i++)
 	{

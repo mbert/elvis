@@ -1,0 +1,58 @@
+Elvis 2.1 for OS/2
+==================
+
+The installation
+----------------
+
+To install Elvis three steps are necessary:
+
+1. Install all that is in the lib/ subdirectory somewhere on your system.
+2. Set the environment variable ELVISPATH to that directory.
+3. Put all executable files somewhere they get found, preferrably some
+   directory mentioned in your PATH environment variable.
+
+To see if all worked well I suggest starting Elvis from the command line
+and then entering the command ":help". If now the window gets split to
+show the online documentation in the upper half everything is OK.
+
+
+The files
+---------
+
+The Elvis OS/2 port supports various different environments since not all
+users may have TCP/IP or XFree86/2 installed. So there are four different 
+versions of the Elvis executable:
+
+elvis.exe         is the regular executable with TCP/IP (e.g. ftp and http)
+                  support. TCP/IP for OS/2 is needed to run this file.
+elvis-no-tcp.exe  is the elvis executable for systems with no TCP/IP 
+                  support, e.g. older versions than Warp 3.0 Connect.
+elvisemx.exe      is Elvis compiled for EMX. It requires the EMX runtime 
+                  and provides Termcap support in addition to the regular 
+                  OS/2 VIO interface used by the regular version.
+elvisx11.exe      is like elvisemx.exe but with additional X11 support 
+                  allowing the X11 interface to be used under XFree86/2.
+                  The X11 version also runs with PMX if you install the
+                  x11.dll from the XFree86 package.
+
+The misc programs are all regular OS/2 programs provided only in one
+version: 
+
+  vi.exe, ex.exe, ctags.exe, ref.exe, fmt.exe
+
+
+The authors
+-----------
+
+This port has been done by Lee Johnson and Martin "Herbert" Dietze (me). 
+Since Lee has stopped working on the project, please, send all comments
+and / or bug reports specific to the OS/2 version to me:
+
+  herbert@paulina.shnet.org 
+or
+  herbert@fh-wedel.de
+
+I am not yet sure whether I will continue Lee's work on a PM version of
+elvis. Maybe someone wants to port Serge's Win32 version via Open32?
+
+Herbert in October 1998

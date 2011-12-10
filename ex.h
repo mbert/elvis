@@ -13,31 +13,31 @@ typedef enum
  
 typedef enum
 {
-	EX_ABBR, EX_ALL, EX_APPEND, EX_ARGS, EX_AT,
-	EX_BANG, EX_BREAK, EX_BUFFER,
+	EX_ABBR, EX_ALIAS, EX_ALL, EX_APPEND, EX_ARGS, EX_AT,
+	EX_BANG, EX_BBROWSE, EX_BREAK, EX_BROWSE, EX_BUFFER,
 	EX_CALC, EX_CC, EX_CD, EX_CHANGE, EX_CLOSE, EX_COLOR, EX_COMMENT,
 		EX_COPY,
-	EX_DELETE, EX_DIGRAPH, EX_DISPLAY,
-	EX_ECHO, EX_EDIT, EX_ELSE, EX_EQUAL, EX_ERRLIST, EX_EVAL,
+	EX_DELETE, EX_DIGRAPH, EX_DISPLAY, EX_DO, EX_DOALIAS,
+	EX_ECHO, EX_EDIT, EX_ELSE, EX_EQUAL, EX_ERRLIST, EX_ERROR, EX_EVAL,
 	EX_FILE,
 	EX_GOTO, EX_GLOBAL, EX_GUI,
 	EX_HELP,
 	EX_IF, EX_INSERT,
-	EX_LAST, EX_LET, EX_LIST, EX_LPR,
-	EX_MAKE, EX_MAP, EX_MARK, EX_MKEXRC, EX_MOVE,
+	EX_LAST, EX_LET, EX_LIST, EX_LOCAL, EX_LPR,
+	EX_MAKE, EX_MAP, EX_MARK, EX_MESSAGE, EX_MKEXRC, EX_MOVE,
 	EX_NEXT, EX_NORMAL, EX_NUMBER,
-	EX_OPEN,
+	EX_ONLY, EX_OPEN,
 	EX_POP, EX_PRESERVE, EX_PREVIOUS, EX_PRINT, EX_PUT,
 	EX_QALL, EX_QUIT,
 	EX_READ, EX_REDO, EX_REWIND,
-	EX_SALL, EX_SAFER, EX_SET, EX_SHELL, EX_SHIFTL, EX_SHIFTR, EX_SLAST,
-		EX_SNEW, EX_SNEXT, EX_SOURCE, EX_SPLIT, EX_SPREVIOUS,
-		EX_SREWIND, EX_STAG, EX_STACK, EX_STOP, EX_SUBAGAIN,
-		EX_SUBSTITUTE, EX_SUSPEND,
-	EX_TAG, EX_THEN,
-	EX_UNABBR, EX_UNBREAK, EX_UNDO, EX_UNMAP,
+	EX_SALL, EX_SAFER, EX_SBBROWSE, EX_SBROWSE, EX_SET, EX_SHELL,
+		EX_SHIFTL, EX_SHIFTR, EX_SLAST, EX_SNEW, EX_SNEXT, EX_SOURCE,
+		EX_SPLIT, EX_SPREVIOUS, EX_SREWIND, EX_STAG, EX_STACK, EX_STOP,
+		EX_SUBAGAIN, EX_SUBRECENT, EX_SUBSTITUTE, EX_SUSPEND,
+	EX_TAG, EX_THEN, EX_TRY,
+	EX_UNABBR, EX_UNALIAS, EX_UNBREAK, EX_UNDO, EX_UNMAP,
 	EX_VERSION, EX_VGLOBAL, EX_VISUAL,
-	EX_WINDOW, EX_WNEXT, EX_WQUIT, EX_WRITE,
+	EX_WARNING, EX_WHILE, EX_WINDOW, EX_WNEXT, EX_WQUIT, EX_WRITE,
 	EX_XIT,
 	EX_YANK,
 	EX_Z
@@ -73,6 +73,12 @@ typedef struct
 	MARK	newcurs;	/* where cursor should be left (NULL to not move) */
 } EXINFO;
 
+
+/* defined in exconfig.h */
+extern BOOLEAN	exthenflag;
+extern CHAR	*exdotest;
+
+
 BEGIN_EXTERNC
 extern BOOLEAN	exparseaddress P_((CHAR **refp, EXINFO *xinf));
 extern RESULT	experform P_((WINDOW win, MARK from, MARK to));
@@ -80,14 +86,20 @@ extern RESULT	exstring P_((WINDOW win, CHAR *str));
 extern CHAR	*exname P_((CHAR *name));
 extern RESULT	exenter P_((WINDOW win));
 extern long	exprintlines P_((WINDOW win, MARK line, long qty, PFLAG pflag));
+extern CHAR	*excomplete P_((WINDOW win, MARK from, MARK to));
 extern void	exfree P_((EXINFO *xinf));
 extern BOOLEAN	exaddfilearg P_((char ***file, int *nfiles, char *filename, BOOLEAN wild));
 
+extern char	*exisalias P_((char *name, BOOLEAN inuse));
+
+extern RESULT	ex_alias P_((EXINFO *xinf));
+extern RESULT	ex_doalias P_((EXINFO *xinf));
 extern RESULT	ex_all P_((EXINFO *xinf));
 extern RESULT	ex_append P_((EXINFO *xinf));
 extern RESULT	ex_args P_((EXINFO *xinf));
 extern RESULT	ex_at P_((EXINFO *xinf));
 extern RESULT	ex_bang P_((EXINFO *xinf));
+extern RESULT	ex_browse P_((EXINFO *xinf));
 extern RESULT	ex_buffer P_((EXINFO *xinf));
 extern RESULT	ex_cd P_((EXINFO *xinf));
 extern RESULT	ex_color P_((EXINFO *xinf));
@@ -95,6 +107,7 @@ extern RESULT	ex_comment P_((EXINFO *xinf));
 extern RESULT	ex_delete P_((EXINFO *xinf));
 extern RESULT	ex_digraph P_((EXINFO *xinf));
 extern RESULT	ex_display P_((EXINFO *xinf));
+extern RESULT	ex_do P_((EXINFO *xinf));
 extern RESULT	ex_edit P_((EXINFO *xinf));
 extern RESULT	ex_errlist P_((EXINFO *xinf));
 extern RESULT	ex_file P_((EXINFO *xinf));
@@ -107,6 +120,7 @@ extern RESULT	ex_lpr P_((EXINFO *xinf));
 extern RESULT	ex_make P_((EXINFO *xinf));
 extern RESULT	ex_map P_((EXINFO *xinf));
 extern RESULT	ex_mark P_((EXINFO *xinf));
+extern RESULT	ex_message P_((EXINFO *xinf));
 extern RESULT	ex_mkexrc P_((EXINFO *xinf));
 extern RESULT	ex_move P_((EXINFO *xinf));
 extern RESULT	ex_next P_((EXINFO *xinf));
@@ -127,6 +141,7 @@ extern RESULT	ex_then P_((EXINFO *xinf));
 extern RESULT	ex_undo P_((EXINFO *xinf));
 extern RESULT	ex_version P_((EXINFO *xinf));
 extern RESULT	ex_split P_((EXINFO *xinf));
+extern RESULT	ex_while P_((EXINFO *xinf));
 extern RESULT	ex_window P_((EXINFO *xinf));
 extern RESULT	ex_write P_((EXINFO *xinf));
 extern RESULT	ex_xit P_((EXINFO *xinf));

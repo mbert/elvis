@@ -1,7 +1,7 @@
 /* event.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_event[] = "$Id: event.c,v 2.38 1996/09/21 01:21:36 steve Exp $";
+char id_event[] = "$Id: event.c,v 2.50 1998/01/02 20:05:18 steve Exp $";
 
 #include "elvis.h"
 
@@ -23,7 +23,7 @@ char id_event[] = "$Id: event.c,v 2.38 1996/09/21 01:21:36 steve Exp $";
     } }
 #endif
 
-#ifdef USE_PROTOTYPES
+#if USE_PROTOTYPES
 static void setcursor(WINDOW win, long offset, BOOLEAN clean);
 #endif
 
@@ -112,7 +112,10 @@ WATCH(fprintf(stderr, "eventcreate(..., name=\"%s\", rows=%d, columns=%d)\n", na
 	/* create a WINDOW */
 	win = winalloc(gw, guivals, buf, rows, columns);
 
-	USUAL_SUSPECTS
+#ifndef NDEBUG
+	if (gui->moveto) USUAL_SUSPECTS
+#endif
+
 	return (BOOLEAN)(win != NULL);
 }
 
@@ -124,7 +127,9 @@ void eventdestroy(gw)
 	BUFFER	msgq;
 
 WATCH(fprintf(stderr, "eventdestroy(...)\n"));
-	USUAL_SUSPECTS
+#ifndef NDEBUG
+	if (gui->moveto) USUAL_SUSPECTS
+#endif
 	eventcounter++;
 
 	/* find the window */
@@ -160,6 +165,12 @@ void eventresize(gw, rows, columns)
 	USUAL_SUSPECTS
 WATCH(fprintf(stderr, "eventresize(..., rows=%d, columns=%d\n", rows, columns));
 	eventcounter++;
+
+	/* if too small, then ignore the change */
+	if (rows < 2 || columns < 30)
+	{
+		return; /* False? */
+	}
 
 	/* find the window */
 	win = winofgw(gw);
@@ -383,9 +394,12 @@ WATCH(fprintf(stderr, "eventclick(..., row=%d, column=%d,...)\n", row, column));
 		vinfbuf.command = ELVCTRL('[');
 		(void)v_visible(win, &vinfbuf);
 
-#if 1
+		/* delete any superfluous text after the cursor */
+		setcursor(win, markoffset(win->state->cursor), True);
+
 		/* set the buffer's "willdo" flag so this paste is undoable */
-		bufwilldo(win->state->cursor);
+		if (!win->state->pop)
+			bufwilldo(win->state->cursor, True);
 
 		/* paste the text */
 		newcurs = cutput((_CHAR_)'<', win, win->state->cursor, False, True, True);
@@ -393,11 +407,6 @@ WATCH(fprintf(stderr, "eventclick(..., row=%d, column=%d,...)\n", row, column));
 		{
 			setcursor(win, markoffset(newcurs) + 1, True);
 		}
-#else
-		vinfbuf.command = '@';
-		vinfbuf.key2 = '<';
-		(void)v_at(win, &vinfbuf);
-#endif
 		USUAL_SUSPECTS
 		return 0;
 
@@ -406,11 +415,6 @@ WATCH(fprintf(stderr, "eventclick(..., row=%d, column=%d,...)\n", row, column));
 		vinfbuf.command = ELVCTRL(']');
 		tmp = *win->state->cursor;
 		(void)v_tag(win, &vinfbuf);
-#if 0
-		offset = markoffset(win->state->cursor);
-		marksetoffset(win->state->cursor, markoffset(&tmp));
-		setcursor(win, offset, True);
-#endif
 		USUAL_SUSPECTS
 		return 0;
 		
@@ -419,11 +423,6 @@ WATCH(fprintf(stderr, "eventclick(..., row=%d, column=%d,...)\n", row, column));
 	  	vinfbuf.command = ELVCTRL('T');
 		tmp = *win->state->cursor;
 		(void)v_tag(win, &vinfbuf);
-#if 0
-		offset = markoffset(win->state->cursor);
-		marksetoffset(win->state->cursor, markoffset(&tmp));
-		setcursor(win, offset, True);
-#endif
 		USUAL_SUSPECTS
 	  	return 0;
 
@@ -454,6 +453,8 @@ WATCH(fprintf(stderr, "eventclick(..., row=%d, column=%d,...)\n", row, column));
 
 	/* move the cursor to the click-on cell */
 	win->wantcol = column;
+	if (o_number(win))
+		win->wantcol -= 8;
 	setcursor(win, offset, False);
 
 	/* perform the requested operation */
@@ -603,22 +604,37 @@ BOOLEAN eventscroll(gw, scroll, count, denom)
 	  case SCROLL_PERCENT:
 		if (count > 0)
 		{
-			if (win->md->move == dmnormal.move && denom > 0)
+			if (win->md->move == dmnormal.move && denom != 0)
 			{
 				cmd.command = 'G';
-				cmd.count = o_buflines(markbuffer(win->cursor)) * count / denom;
-				if (cmd.count == 0)
-					cmd.count = 1;
+				cmd.count = 1 + o_buflines(markbuffer(win->cursor)) * count / denom;
+				if (cmd.count > o_buflines(markbuffer(win->cursor)))
+					cmd.count = o_buflines(markbuffer(win->cursor));
 				result = m_absolute(win, &cmd);
+			}
+			else if (o_bufchars(markbuffer(win->cursor)) == denom)
+			{
+				/* Move the cursor by setting its offset */
+				marksetoffset(win->cursor, count);
+				result = RESULT_COMPLETE;
 			}
 			else
 			{
+				/* Prescale so we don't overflow 32-bit math */
+				while (0x7fffffff / o_bufchars(markbuffer(win->cursor)) < count)
+				{
+					count >>= 1;
+					denom >>= 1;
+				}
+
+				/* Move the cursor by setting its offset */
 				if (o_bufchars(markbuffer(win->cursor)) != 0)
 					marksetoffset(win->cursor, (o_bufchars(markbuffer(win->cursor)) - 1) * count / denom);
 				result = RESULT_COMPLETE;
 			}
 			if (result == RESULT_COMPLETE)
 			{
+				/* Scroll the cursor's line to top of window */
 				cmd.count = cmd.count2 = 0L;
 				cmd.command = 'z';
 				cmd.key2 = '+';
@@ -680,7 +696,7 @@ void eventsuspend()
 	}
 
 	/* save all user buffers */
-	for (buf = buffers; buf; buf = buf->next)
+	for (buf = elvis_buffers; buf; buf = buf->next)
 	{
 		if (!o_internal(buf))
 			bufsave(buf, False, False);
@@ -701,6 +717,7 @@ void eventex(gw, cmd, safer)
 {
 	BOOLEAN	origsafer;
 
+	eventcounter++;
 	USUAL_SUSPECTS
 
 	/* reset the poll frequency counter */
@@ -709,7 +726,8 @@ void eventex(gw, cmd, safer)
 
 	/* temporarily set the "safer" option appropriately */
 	origsafer = o_safer;
-	o_safer |= safer;
+	if (safer)
+		o_safer = True;
 
 	/* Make this the default thing, if it isn't already */
 	winoptions(winofgw(gw));

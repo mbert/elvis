@@ -6,6 +6,9 @@ digraph Y$ %
 digraph cO ©
 digraph rO ®
 digraph ~? ?
+digraph << +
+digraph >> ;
+digraph ** 0
 digraph A` @
 digraph A' A
 digraph A^ B
@@ -33,7 +36,7 @@ digraph O/ X
 digraph U` Y
 digraph U' Z
 digraph U^ [
-digraph U" \
+digraph U" \\
 digraph Y' ]
 digraph TP ^
 digraph sz _

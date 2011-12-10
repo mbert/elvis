@@ -1,7 +1,7 @@
 /* search.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_search[] = "$Id: search.c,v 2.17 1996/07/17 01:32:27 steve Exp $";
+char id_search[] = "$Id: search.c,v 2.23 1998/11/28 17:02:13 steve Exp $";
 
 #include "elvis.h"
 
@@ -12,8 +12,6 @@ static RESULT backward(WINDOW win);
 #endif
 
 
-#define REGEXSIZE	150
-
 /* This is the previous regular expression.  We need to remember it after
  * it has been used, so we can implement the <n> and <shift-N> commands.
  */
@@ -21,6 +19,7 @@ regexp	*searchre;	/* the regular expression itself */
 BOOLEAN searchforward;	/* is the searching being done in a forward direction? */
 BOOLEAN	searchhasdelta;	/* is the regular expression followed by a line delta? */
 long	searchdelta;	/* if searchhasdelta, then this is the line offset value */
+static BOOLEAN autoselect;/* select the matching text? */
 
 /* This function is called when the user hits <Enter> after typing in a
  * regular expression for the visual </> and <?> commands.  It compiles
@@ -30,74 +29,49 @@ long	searchdelta;	/* if searchhasdelta, then this is the line offset value */
 static RESULT	searchenter(win)
 	WINDOW	win;	/* window where a regexp search line has been entered */
 {
-	CHAR	regex[REGEXSIZE];	/* holds regular expression, as string */
-	CHAR	delim;			/* delimiter, either '?' or '/' */
-	CHAR	*cp;			/* used when copying */
+	CHAR	*regex;	/* holds regular expression, as string */
+	CHAR	delim;	/* delimiter, either '?' or '/' */
+	CHAR	*cp;	/* used when copying */
 	STATE	*state = win->state;
-	int	i;
 
 	assert(markoffset(state->top) <= markoffset(state->cursor));
 	assert(markoffset(state->cursor) <= markoffset(state->bottom));
 
-	/* copy the command line into a buffer */
-	for (scanalloc(&cp, state->top), i = 0;
-	     cp != NULL && i < markoffset(state->bottom) - markoffset(state->top);
-	     scannext(&cp), i++)
-	{
-		regex[i] = *cp;
-	}
-	regex[i] = '\0';
-	scanfree(&cp);
-
-	/* skip leading '/' or '?' character, but remember which */
-	delim = regex[0];
-	if (delim != '/' && delim != '?')
-	{
-		msg(MSG_ERROR, "bad search");
-		return RESULT_ERROR;
-	}
-
-	/* locate terminating delimiter, if any */
-	for (cp = &regex[1]; *cp && *cp != delim; cp++)
-	{
-		/* skip backslash-quoted characters */
-		if (*cp == '\\' && *(cp + 1))
-		{
-			cp++;
-		}
-	}
-
-	/* If there was a terminator, then mark the end of the regular
-	 * expression with a '\0' and leave cp pointing to whatever came
-	 * after the regular expression.
-	 */
-	if (*cp)
-	{
-		*cp++ = '\0';
-	}
+	/* copy the regexp into a buffer */
+	scanalloc(&cp, state->top);
+	if (!cp)
+		goto Error;
+	delim = *cp;
+	if ((delim != '/' && delim != '?') || !scannext(&cp))
+		goto Error;
+	regex = regbuild(delim, &cp);
 
 	/* Compile the regular expression.  An empty regular expression is
 	 * identical to the current regular expression, so we don't need to
 	 * compile it in that case.  If there are any errors, then fail.
 	 * The regcomp function will have already output an error message.
 	 */
-	if (regex[1])
+	if (*regex)
 	{
 		/* free the previous regular expression, if any */
 		if (searchre)
-		{
 			safefree((void *)searchre);
-		}
 
 		/* compile the new one */
-		searchre = regcomp(&regex[1], win->cursor);
+		searchre = regcomp(regex, win->cursor);
 	}
 	else if (!searchre)
 	{
 		msg(MSG_ERROR, "no previous RE");
 	}
+
+	/* we don't need the text version of the regex any more */
+	safefree(regex);
+
+	/* detect errors in compilation */
 	if (!searchre)
 	{
+		scanfree(&cp);
 		return RESULT_ERROR;
 	}
 
@@ -105,43 +79,51 @@ static RESULT	searchenter(win)
 	searchforward = (BOOLEAN)(delim == '/');
 
 	/* Check for 'v' to force "autoselect" on, or 'n' to force it off.
-	 * Also force it off if it was turned on by a previous 'v' but never
-	 * explicitly addressed by the :set command, and there is no 'v'.
+	 * If neither 'v' nor 'n' then use the value of the autoselect option.
 	 */
-	switch (*cp)
+	switch (cp ? *cp : '\0')
 	{
 	  case 'v':
-		o_autoselect = True;
-		cp++;
+		autoselect = True;
+		scannext(&cp);
 		break;
 
 	  case 'n':
-		o_autoselect = False;
-		cp++;
+		autoselect = False;
+		scannext(&cp);
 		break;
 
 	  default:
-		if ((optflags(o_autoselect) & OPT_SET) == 0)
-		{
-			o_autoselect = False;
-		}
+		autoselect = o_autoselect;
 	}
 
 	/* check for a line delta after the regular expression */
-	if (*cp == '+' || *cp == '-')
+	if (cp && (*cp == '+' || *cp == '-'))
 	{
 		searchhasdelta = True;
-		searchdelta = atol(tochar8(cp));
+		delim = *cp;
+		for (searchdelta = 0; scannext(&cp) && isdigit(*cp); )
+			searchdelta = searchdelta * 10 + *cp - '0';
+		if (delim == '-')
+			searchdelta = -searchdelta;
 	}
 	else
 	{
 		searchhasdelta = False;
 	}
 
+	/* free the scan context */
+	scanfree(&cp);
+
 	/* Now we can do this search exactly like an <n> search command, except
 	 * that it'll be applied to the previous stratum instead of this one.
 	 */
 	return RESULT_COMPLETE;
+
+Error:
+	scanfree(&cp);
+	msg(MSG_ERROR, "bad search");
+	return RESULT_ERROR;
 }
 
 /* search forward from the cursor position for the previously compiled
@@ -156,6 +138,7 @@ static RESULT forward(win)
 	BOOLEAN	bol;	/* are we at the beginning of a line? */
 	BOOLEAN	wrapped;/* True if we've wrapped at the end of the buffer */
 	long	start;	/* line where we started (detects failure after wrap) */
+	CHAR	*cp;
 
 	/* setup: determine the line number, whether the cursor is at the
 	 * beginning of the line, and where the buffer ends.
@@ -172,6 +155,7 @@ static RESULT forward(win)
 	start = lnum;
 
 	/* search */
+	scanalloc(&cp, &sbuf);
 	for (;
 	     !regexec(searchre, &sbuf, bol);
 	     marksetoffset(&sbuf, searchre->nextlinep), bol = True)
@@ -179,6 +163,7 @@ static RESULT forward(win)
 		/* If user gives up, then fail */
 		if (guipoll(False))
 		{
+			scanfree(&cp);
 			return RESULT_ERROR;
 		}
 
@@ -188,6 +173,7 @@ static RESULT forward(win)
 		lnum++;
 		if (wrapped && lnum > start)
 		{
+			scanfree(&cp);
 			msg(MSG_ERROR, "no match");
 			return RESULT_ERROR;
 		}
@@ -201,11 +187,14 @@ static RESULT forward(win)
 			}
 			else
 			{
+				scanfree(&cp);
 				msg(MSG_ERROR, "no match below");
 				return RESULT_ERROR;
 			}
 		}
+		scanseek(&cp, &sbuf);
 	}
+	scanfree(&cp);
 
 	/* if we get here, then the search succeded */
 	assert(searchre->leavep >= 0);
@@ -328,7 +317,6 @@ static RESULT backward(win)
 		}
 
 	} while (!regexec(searchre, &sbuf, True));
-	scanfree(&cp);
 
 	/* If we get here, then the search succeded -- meaning we have found
 	 * a line which contains at least one match.  Now we need to locate
@@ -342,6 +330,7 @@ static RESULT backward(win)
 		marksetoffset(&sbuf, last + 1);
 	} while (last + 1 < endln
 		&& regexec(searchre, &sbuf, False));
+	scanfree(&cp);
 
 	/* move to the last match */
 	marksetoffset(win->state->cursor, last);
@@ -422,7 +411,6 @@ RESULT m_search(win, vinf)
 			break;
 		}
 		statestratum(win, toCHAR(REGEXP_BUF), vinf->command, searchenter);
-		o_internal(markbuffer(win->state->cursor)) = True;
 		return RESULT_MORE;
 	}
 
@@ -436,7 +424,7 @@ RESULT m_search(win, vinf)
 	}
 
 	/* give a hint that we're searching, if necessary */
-	if (hint)
+	if (hint && (win->state->flags & ELVIS_BOTTOM) == 0)
 	{
 		msg(MSG_STATUS, fwd ? "/" : "?");
 	}
@@ -455,7 +443,7 @@ RESULT m_search(win, vinf)
 	if (rc == RESULT_COMPLETE)
 	{
 		/* autoselect, maybe with line delta */
-		if (o_autoselect)
+		if (autoselect)
 		{
 			/* Cancel any previous selection */
 			vinfbuf.command = ELVCTRL('[');

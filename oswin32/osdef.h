@@ -18,9 +18,15 @@
 #endif
 
 /*=============================================================================
- * This is the default printer, as report by ":set lpout?".
+ * OSLPOUT is the default printer port, as reported by ":set lpout?".
+ * OSLPTYPE is the default printer type, as reported by ":set lptype?".
+ * Note that the "windows" lptype doesn't use lpout, but we set lpout anyway
+ * to provide a reasonable default in case the user changes lptype.
  */
 #define OSLPOUT "prn"
+#ifdef GUI_WIN32
+# define OSLPTYPE "windows"
+#endif
 
 /*=============================================================================
  * These are the default values of the ccprg and makeprg options
@@ -29,7 +35,7 @@
 # define OSCCPRG	"cl /c ($1?$1:$2)"
 #endif
 #ifndef OSMAKEPRG
-# define OSMAKEPRG	"nmake -f ($1?$1:basename($2)\".mak\")"
+# define OSMAKEPRG	"make"
 #endif
 
 /*=============================================================================
@@ -66,3 +72,8 @@
  * Use Prototypes, even though __STDC__ is undefined
  */
 #define USE_PROTOTYPES	1
+
+/*=============================================================================
+ * This determines whether filename completion should ignore case differences.
+ */
+#define FILES_IGNORE_CASE 1

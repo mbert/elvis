@@ -1,7 +1,7 @@
 /* safe.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_safe[] = "$Id: safe.c,v 2.11 1996/05/30 17:39:04 steve Exp $";
+char id_safe[] = "$Id: safe.c,v 2.12 1997/12/24 03:12:52 steve Exp $";
 
 #include "elvis.h"
 
@@ -157,15 +157,6 @@ void _safefree(file, line, mem)
 			file, (long)line);
 		return;
 	}
-
-#if 0
-	/* if freed from different source than allocated, give warning */
-	if (strcmp(file, scan->file))
-	{
-		fprintf(stderr, "memory allocated from %s:%ld, freed from %s:%ld\n",
-			scan->file, (long)scan->line, file, (long)line);
-	}
-#endif
 
 	/* delete the memory from the allocated list */
 	if (lag)

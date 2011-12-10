@@ -19,11 +19,11 @@ CCREATEPCHFLAG =
 CPPCREATEPCHFLAG = 
 CUSEPCHFLAG = 
 CPPUSEPCHFLAG = 
-FIRSTC = OSMSDOS\ALIAS.C       
+FIRSTC = ALIAS.C       
 FIRSTCPP =             
 RC = rc
-CFLAGS_D_DEXE = /nologo /G2 /Zi /Od /D "_DEBUG" /D "_DOS" /I "osmsdos" /I "." /FR /Fd"VI.PDB"
-CFLAGS_R_DEXE = /nologo /Gs /G2 /Ox /D "NDEBUG" /D "_DOS" /I "osmsdos" /I "." /FR 
+CFLAGS_D_DEXE = /nologo /G2 /Zi /Od /D "_DEBUG" /D "_DOS" /I "." /I "osmsdos" /FR /Fd"VI.PDB"
+CFLAGS_R_DEXE = /nologo /Gs /G2 /Ox /D "NDEBUG" /D "_DOS" /I "." /I "osmsdos" /FR 
 LFLAGS_D_DEXE = /NOLOGO /ONERROR:NOEXE /NOI /CO /STACK:5120
 LFLAGS_R_DEXE = /NOLOGO /ONERROR:NOEXE /NOI /STACK:5120
 LIBS_D_DEXE = oldnames slibce
@@ -53,8 +53,8 @@ SBRS = VI.SBR
 
 all:	$(PROJ).EXE
 
-ALIAS.OBJ:	OSMSDOS\ALIAS.C
-	$(CC) $(CFLAGS) $(CCREATEPCHFLAG) /c OSMSDOS\ALIAS.C
+ALIAS.OBJ:	ALIAS.C
+	$(CC) $(CFLAGS) $(CCREATEPCHFLAG) /c ALIAS.C
 
 $(PROJ).EXE::	ALIAS.OBJ $(OBJS_EXT) $(DEFFILE)
 	echo >NUL @<<$(PROJ).CRF

@@ -1,7 +1,7 @@
 /* lowbuf.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_lowbuf[] = "$Id: lowbuf.c,v 2.22 1996/09/21 03:50:57 steve Exp $";
+char id_lowbuf[] = "$Id: lowbuf.c,v 2.31 1998/11/25 01:28:06 steve Exp $";
 
 /* This file contains functions which divide the session file into several
  * buffers.  These functions use session.c, and are used by buffer.c
@@ -10,7 +10,8 @@ char id_lowbuf[] = "$Id: lowbuf.c,v 2.22 1996/09/21 03:50:57 steve Exp $";
 #include "elvis.h"
 
 /* These control the sizes of some tiny caches for storing line offsets and
- * info about random offsets.  You can disable these by making them 0
+ * info about random offsets.  You can disable these by making them 0.  This
+ * is intended to make lowline() run faster.
  */
 #define LINECACHE	4
 
@@ -21,10 +22,10 @@ static BLKNO insblock(_BLKNO_ blklist, _LBLKNO_ before, _BLKNO_ chars, _COUNT_ n
 static BLKNO lockchars(_BLKNO_ bufinfo, _LBLKNO_ lblkno, _BLKNO_ blkno);
 static void unlockchars(_BLKNO_ bufinfo, _LBLKNO_ lblkno, _BLKNO_ blkno, int chgchars, int chglines);
 static void helpinit(_BLKNO_ bufinfo, void (*bufproc)(_BLKNO_ bufinfo, long nchars, long nlines, long changes, long prevloc, CHAR *name));
+#endif
 
-# if LINECACHE
-static void clobbercache(_BLKNO_ dst);
-# endif
+#if LINECACHE
+static void clobbercache P_((_BLKNO_ dst));
 #endif
 
 /******************************************************************************/
@@ -182,7 +183,7 @@ static BLKNO insblock(blklist, before, chars, nchars, nlines)
 		assert(before == 0);
 
 		/* give the buffer its first blkno */
-		blklist = sesalloc(0);
+		blklist = sesalloc(0, SES_BLKLIST);
 
 		/* make the new CHARS block be its first entry */
 		(void)seslock(blklist, True, SES_BLKLIST);
@@ -366,7 +367,7 @@ static void helpinit(bufinfo, bufproc)
 	int	i;
 
 	/* mark the bufinfo block as being "allocated", and lock it in memory */
-	next = sesalloc(bufinfo);
+	next = sesalloc(bufinfo, SES_BUFINFO);
 	assert(next == bufinfo);
 	(void)seslock(bufinfo, False, SES_BUFINFO);
 	binfo = sesblk(bufinfo);
@@ -377,7 +378,7 @@ static void helpinit(bufinfo, bufproc)
 	for (blklist = binfo->bufinfo.first; blklist; blklist = next)
 	{
 		/* mark the blklist block as being "allocated", & lock it */
-		(void)seslock(sesalloc(blklist), False, SES_BLKLIST);
+		(void)seslock(sesalloc(blklist, SES_BLKLIST), False, SES_BLKLIST);
 		blist = sesblk(blklist);
 
 		/* For each chars block mentioned in the BLKLIST... */
@@ -387,7 +388,7 @@ static void helpinit(bufinfo, bufproc)
 			assert(blist->blklist.blk[i].nlines <= blist->blklist.blk[i].nchars);
 
 			/* mark the CHARS block as being "allocated" */
-			next = sesalloc(blist->blklist.blk[i].blkno);
+			next = sesalloc(blist->blklist.blk[i].blkno, SES_CHARS);
 			assert(next == blist->blklist.blk[i].blkno);
 
 			/* count lines & chars in block */
@@ -446,7 +447,7 @@ void lowinit(bufproc)
 	while (blkno)
 	{
 		/* mark the block as allocated, and lock it into memory */
-		(void)seslock(sesalloc(blkno), False, SES_SUPER2);
+		(void)seslock(sesalloc(blkno, SES_SUPER2), False, SES_SUPER2);
 
 		/* for each buffer mentioned in the superblock... */
 		for (i = 0; i < SES_MAXSUPER2; i++)
@@ -483,7 +484,7 @@ BLKNO lowalloc(name)
 	safeinspect();
 
 	/* Allocate a block, and lock it for writing */
-	bufinfo = seslock(sesalloc(0), True, SES_BUFINFO);
+	bufinfo = seslock(sesalloc(0, SES_BUFINFO), True, SES_BUFINFO);
 
 	/* Fill in the block's info */
 	blk = sesblk(bufinfo);
@@ -516,7 +517,7 @@ BLKNO lowalloc(name)
 				/* need to allocate a new super2 */
 				next = seslock(super, True, SES_SUPER);
 				assert(next == super);
-				next = sesalloc(0);
+				next = sesalloc(0, SES_SUPER2);
 				if (super == 0)
 				{
 					blk->super.buf[i] = next;
@@ -559,6 +560,10 @@ BLKNO lowdup(originfo)
 	BLK	*blk, *dupblk = NULL, *dupbiblk;
 	int	i;
 
+#if LINECACHE
+	clobbercache(originfo);
+#endif
+
 	/* Lock the originfo block */
 	(void)seslock(originfo, False, SES_BUFINFO);
 	blk = sesblk(originfo);
@@ -582,7 +587,7 @@ BLKNO lowdup(originfo)
 	while (scan)
 	{
 		/* allocate a new blklist block, for the new buffer */
-		dupblklist = sesalloc(0);
+		dupblklist = sesalloc(0, SES_BLKLIST);
 
 		/* link the new blklist block into the new buffer's list */
 		if (prevdup != 0)
@@ -610,7 +615,7 @@ BLKNO lowdup(originfo)
 		for (i = 0; i < SES_MAXBLKLIST && blk->blklist.blk[i].blkno; i++)
 		{
 			/* Increment allocation count on the chars block */
-			(void)sesalloc(blk->blklist.blk[i].blkno);
+			(void)sesalloc(blk->blklist.blk[i].blkno, SES_CHARS);
 		}
 		assert(i == SES_MAXBLKLIST || !blk->blklist.next);
 
@@ -640,6 +645,9 @@ void lowfree(bufinfo)
 	BLK	*blk;
 	int	i;
 
+#if LINECACHE
+	clobbercache(bufinfo);
+#endif
 	/* Lock the superblock for writing */
 	scan = seslock(0, True, SES_SUPER);
 	assert(scan == 0);
@@ -670,8 +678,15 @@ void lowfree(bufinfo)
 		blk->super2.buf[i] = 0;
 	}
 	
-	/* Unlock the superblock for writing */
+	/* Unlock the superblock for writing, and then flush it to disk.
+	 * Flushing it is important because we're about to free the blocks
+	 * from this buffer, and those blocks are likely to be reallocated
+	 * right away for some other purpose.  If elvis crashed at that time
+	 * and the super block had never been flushed, then the session file
+	 * might be too scrambled for elvis to read it successfully.
+	 */
 	sesunlock(scan, True);
+	sesflush(scan);
 
 	/* Lock the bufinfo block */
 	(void)seslock(bufinfo, False, SES_BUFINFO);
@@ -706,6 +721,27 @@ void lowfree(bufinfo)
 	sesfree(bufinfo);
 }
 
+/* Change the title of a buffer */
+void lowtitle(bufinfo, title)
+	_BLKNO_	bufinfo;	/* bufinfo block whose title is to be changed */
+	CHAR	*title;		/* the new title */
+{
+	BLK	*blk;
+#ifdef DEBUG_SESSION
+	BLKNO	blkno;
+
+	blkno = seslock(bufinfo, True, SES_BUFINFO);
+	assert(blkno == bufinfo);
+#else
+	(void)seslock(bufinfo, True, SES_BUFINFO);
+#endif
+
+	blk = sesblk(bufinfo);
+	assert(blk);
+	CHARncpy(blk->bufinfo.name, title, (size_t)SES_MAXBUFINFO);
+	sesunlock(bufinfo, True);
+}
+
 /******************************************************************************/
 
 #if LINECACHE
@@ -726,7 +762,9 @@ static void clobbercache(dst)
 	register int	i;
 
 	for (i = 0; i < LINECACHE; i++)
+#if 0
 		if (linecache[i].bufinfo == dst)
+#endif
 			linecache[i].bufinfo = 0;
 }
 #endif /* LINECACHE */
@@ -964,7 +1002,7 @@ register CHAR	*newp;	/* new text to be inserted */
 	LBLKNO	lblkno;
 	BLK	*biblk;
 	BLK	*cblk;
-	COUNT	nlines;
+	int	nlines;
 register BLKNO	newblkno;	/* a new block */
 	BLKNO	blklist;
 	BLK	*newblk;
@@ -1012,7 +1050,7 @@ register int	i;
 		if (blkno != 0 && left != 0 && right != 0)
 		{
 			/* allocate a new block */
-			newblkno = seslock(sesalloc(0), True, SES_CHARS);
+			newblkno = seslock(sesalloc(0, SES_CHARS), True, SES_CHARS);
 			newblk = sesblk(newblkno);
 
 			/* copy the second half of the characters into it */
@@ -1070,7 +1108,7 @@ register int	i;
 		while (newlen > 0)
 		{
 			/* allocate a new block */
-			newblkno = seslock(sesalloc(0), True, SES_CHARS);
+			newblkno = seslock(sesalloc(0, SES_CHARS), True, SES_CHARS);
 			newblk = sesblk(newblkno);
 
 			/* copy text into it */
@@ -1141,6 +1179,7 @@ long lowdelete(dst, dsttop, dstbottom)
 	/* If both ends are in the same block */
 	first = lowoffset(dst, dsttop, &firstleft, &firstright, &firstlblk, (long *)0);
 	last = lowoffset(dst, dstbottom, &lastleft, &lastright, &lastlblk, (long *)0);
+
 	if (first == last || (firstlblk + 1 == lastlblk && lastleft == 0))
 	{
 		safeinspect();
@@ -1318,27 +1357,28 @@ long lowpaste(dst, dsttop, src, srctop, srcbottom)
 	clobbercache(dst);
 #endif
 
-	/* Small problem: If the destination is in the same buffer as the source,
-	 * and happens to be located before the source in the same block, then
-	 * when inserting the new text we'll be altering the block cache which
-	 * could messes up our pointers.
+	/* Small problem: If the destination is in the same buffer as the
+	 * source, and happens to be located before the source in the same
+	 * block, then when inserting the new text we'll be altering the block
+	 * cache which messes up our pointers.
 	 *
 	 * Solution: If source & dest are in the same buffer, and dest comes
 	 * before source, then we need to use a private copy of each source
 	 * block.
 	 */
-	if (src == dst && src <= dst)
+	if (dst == src && dsttop <= srctop)
 	{
-		tmpblk = safealloc((int)o_blksize, 1);
+		tmpblk = (BLK *)safealloc((int)o_blksize, 1);
 	}
 
 	/* we'll do this in chunks -- transfering text from each block of the
-	 * source into the destination, until all text has been teansferred.
+	 * source into the destination, until all text has been transferred.
 	 */
 	while (srctop < srcbottom)
 	{
 		/* read the text block, and find the start of source text in it */
 		blkno = lowoffset(src, srctop, &left, &right, (LBLKNO *)0, (long *)0);
+
 		seslock(blkno, False, SES_CHARS);
 		blk = sesblk(blkno);
 		if (tmpblk)
@@ -1358,7 +1398,7 @@ long lowpaste(dst, dsttop, src, srctop, srcbottom)
 		}
 
 		/* Copy the chunk of text into the destination. */
-		totlines += lowinsert(dst, dsttop, &blk->chars.chars[left], right);
+		totlines += lowinsert(dst, dsttop, &blk->chars.chars[left], (long)right);
 		srctop += right;
 		dsttop += right;
 

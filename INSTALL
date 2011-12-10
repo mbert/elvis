@@ -1,7 +1,7 @@
-HOW TO COMPILE & INSTALL ELVIS 2.0
+HOW TO COMPILE & INSTALL ELVIS 2.1
 
-Separate sets of instructions are provided below for UNIX, Windows-NT, and
-MS-DOS.
+Separate sets of instructions are provided below for UNIX, Windows-NT,
+MS-DOS, and OS/2.
 
 For Win32 and MS-DOS, I've constructed batch files which, when run, cause
 the programs to be compiled.  This is the preferred way to compile elvis
@@ -10,13 +10,13 @@ development environment if you prefer.  Separate instructions are given
 for both compilation methods, for both operating systems.
 
 All of these instructions assume that you have already unpacked the files
-from the source code archive, "elvis-2.0.tgz".  That's a gzipped tar archive.
-If you don't have the gzip and tar utilities, then the easiest way for you
-to unpack them is to compile the "untar.c" program (available via anonymous
-FTP from ftp://ftp.cs.pdx.edu/pub/elvis/unreleased/untar.c).  The files will
-be placed in a subdirectory named "elvis-2.0".  The MS-DOS *.MAK files
+from the source code archive, "elvis-2.1.tar.gz".  That's a gzipped tar
+archive.  If you don't have the gzip and tar utilities, then the easiest
+way for you to unpack them is to compile the "untar.c" program (available
+via anonymous FTP from ftp://ftp.cs.pdx.edu/pub/elvis/untar.c).  The files
+will be placed in a subdirectory named "elvis-2.1".  The MS-DOS *.MAK files
 assume that you've unpacked them while in C:\MSVC, so the files themselves
-should end up in C:\MSVC\elvis-2.0.
+should end up in C:\MSVC\elvis-2.1.
 
 ================================================================================
 
@@ -26,7 +26,13 @@ UNIX
 	as GNU ones.  For a complete list of options, run "configure -?"
 	Here's a list of some of the more important ones, but YOU PROBABLY
 	DON'T NEED TO USE ANY OF THEM because the defaults are pretty smart.
-	
+
+	    --verbose
+		    This causes "configure" to output an explanation for each
+		    decision that it makes.  If "configure" isn't configuring
+		    elvis correctly for your system, then you should rerun it
+		    with "--verbose" to see why.
+
 	    --with-x[=no]
 		    This forces elvis to include support for X-windows, or
 		    (with "=no") forces it not to support X-windows.  If you
@@ -89,7 +95,7 @@ UNIX
 
 	Exception: Linux gets all four programs by default, because the
 	versions of "ctags" and "fmt" distributed with Linux actually came
-	from elvis 1.8, so the 2.0 versions are newer.
+	from elvis 1.8, so the 2.1 versions are newer.
 
      3)	You should be able to run "elvis" in the source code directory now.
 	Try "e2 README.html" or "e2 config.h".
@@ -120,13 +126,23 @@ UNIX
 
 ================================================================================
 
+NOTE FOR WINDOWS/NT: The "vi.exe", "ex.exe", and "view.exe" programs have been
+reported to cause problems under NT.  If they don't work on your system, then
+I suggest you replace them with the equivalent batch files.  Each batch file
+would be just one line long:
+
+	vi.bat:    elvis %1 %2 %3 %4 %4 %5 %6 %7 %8 %9
+	ex.bat:    elvis -e %1 %2 %3 %4 %4 %5 %6 %7 %8 %9
+	view.bat:  elvis -R %1 %2 %3 %4 %4 %5 %6 %7 %8 %9
+
+
 MS-Windows/NT (or Windows95?), with Visual C++ 2.0 (Method #1):
      1)	Run the "makwin32.bat" file.
 
 		makwin32
 
      2) You can install elvis.exe by copying it into some directory in your
-	executation path, and the "lib" files into a subdirectory named "lib"
+	execution path, and the "lib" files into a subdirectory named "lib"
 	under the directory where you installed elvis.exe.  The following
 	commands are APPROXIMATELY what you need to do:
 
@@ -159,7 +175,7 @@ MS-Windows/NT (or Windows95?), with Visual C++ 2.0 (Method #2):
 	files.
 
      6) You can install elvis.exe by copying it into some directory in your
-	executation path, and the "lib" files into a subdirectory named "lib"
+	execution path, and the "lib" files into a subdirectory named "lib"
 	under the execution directory.  The following commands are
 	APPROXIMATELY what you need to do:
 
@@ -173,12 +189,13 @@ MS-Windows/NT (or Windows95?), with Visual C++ 2.0 (Method #2):
 ================================================================================
 
 MS-DOS, using Visual C++ 1.5 (Method #1):
-     REMINDER: MSVC++ 1.5 always puts the complete pathnames of all files into
-	its NMAKE files.  Because of this, you *MUST* install the source code
-	into a directory named "C:\MSVC\elvis-2.0".  The "elvis-2.0" component
-	of that directory name is stored in the "elvis-2.0r.tgz" archive file,
-	so you should be in the C:\MSVC directory when you extract the files.
-	After extracting the files, do a "cd elvis-2.0"
+     REMINDER: MSVC++ 1.5 always puts the complete pathnames of all files
+        into its NMAKE files.  Because of this, you *MUST* install the
+        source code into a directory named "C:\MSVC\elvis-2.1".  The
+        "elvis-2.1" component of that directory name is stored in the
+        "elvis-2.1.tar.gz" archive file, so you should be in the C:\MSVC
+        directory when you extract the files.  After extracting the files,
+        do a "cd elvis-2.1"
 
      1) Run the "makmsdos.bat" file
 
@@ -195,23 +212,23 @@ MS-DOS, using Visual C++ 1.5 (Method #1):
 		copy \lib\*.* \localbin\lib
 		path {OLD PATH HERE};\localbin
 
-
 MS-DOS, using Visual C++ 1.5 (Method #2):
-     REMINDER: MSVC++ 1.5 always puts the complete pathnames of all files into
-	its NMAKE files.  Because of this, you *MUST* install the source code
-	into a directory named "C:\MSVC\elvis-2.0".  The "elvis-2.0" component
-	of that directory name is stored in the "elvis-2.0.tgz" archive file,
-	so you should be in the C:\MSVC directory when you extract the files.
+     REMINDER: MSVC++ 1.5 always puts the complete pathnames of all files
+        into its NMAKE files.  Because of this, you *MUST* install the
+        source code into a directory named "C:\MSVC\elvis-2.1".  The
+        "elvis-2.1" component of that directory name is stored in the
+        "elvis-2.1.tar.gz" archive file, so you should be in the C:\MSVC
+        directory when you extract the files.
 
-     1) Copy all of the "C:\MSVC\elvis-2.0\OSMSDOS\*.MAK" files into the
-	"C:\MSVC\elvis-2.0" directory.
+     1) Copy all of the "C:\MSVC\elvis-2.1\OSMSDOS\*.MAK" files into the
+	"C:\MSVC\elvis-2.1" directory.
 
 		c:
-		cd \msvc\elvis-2.0
+		cd \msvc\elvis-2.1
 		copy osmsdos\*.mak
 
-     2)	Copy the "\MSVC\elvis-2.0\OSMSDOS\OSCONFIG.H" file to
-	"\MSVC\elvis-2.0\CONFIG.H" Note that the "OS" is dropped from the
+     2)	Copy the "\MSVC\elvis-2.1\OSMSDOS\OSCONFIG.H" file to
+	"\MSVC\elvis-2.1\CONFIG.H" Note that the "OS" is dropped from the
 	filename.
 
 		copy osmsdos\osconfig.h config.h
@@ -233,5 +250,60 @@ MS-DOS, using Visual C++ 1.5 (Method #2):
 		mkdir \localbin
 		copy *.exe \localbin
 		mkdir \localbin\lib
-		copy \lib\*.* \localbin\lib
+		copy lib\*.* \localbin\lib
 		path {OLD PATH HERE};\localbin
+
+================================================================================
+
+OS/2, using IBM VisualAge C++ 3.0, IBM CSet++ 2.01 or emx/gcc and GNU
+     "make".  To use IBM's nmake instead of GNU make, edit the "makos2.cmd"
+     file and replace "make" with "nmake".
+
+     To use a different compiler... good luck.  Basically you need to change
+     the setting of the "CC" macro in the Makefile, but there also come
+     compiler flags which you may need to change, and that's going to be a
+     challenge.
+
+     1) Run "makos2.cmd" with no arguments to compile elvis with TCP/IP
+	support.  If your system doesn't have TCP/IP software installed,
+        then you can skip this step.
+
+		makos2
+
+     2) Run "makos2.cmd" with "--no-tcp" as an argument to compile elvis
+	without TCP/IP support.  The resulting binary will be named
+	"elvis-no-tcp.exe".  If you do have TCP/IP installed on your
+	computer, and never expect to use elvis on a non-TCP/IP system,
+	then you can skip this step.
+
+		makeos2 --no-tcp
+
+     3) To compile Elvis using emx/gcc linked against emx.dll providing
+        additional Termcap support use the "--with-emx" switch.  The
+        resulting binaries will all end "emx.exe", like "refemx.exe":
+
+                makeos2 --with-emx
+
+     4) To compile Elvis using emx/gcc not needing emx.dll and not
+        providing TCP/IP support use the "--with-gcc" switch.  The
+        resulting binaries will all end "gcc.exe", like "refgcc.exe":
+
+                makeos2 --with-gcc
+
+     5) You can install elvis by copying the *.exe files into some directory
+	in your execution path, and copying the "lib" files into a subdirectory
+	named "lib" under the directory where you installed the *.exe files.
+	The following commands are APPROXIMATELY what you need to do:
+
+		mkdir \localbin
+		copy *.exe \localbin
+		mkdir \localbin\lib
+		copy lib\*.* \localbin\lib
+		path {OLD PATH HERE};\localbin
+
+        After installing the files you should set the ELVISPATH environment
+        variable in your CONFIG.SYS file to the directory containing all the
+        stuff from the lib\ directory. This could look like:
+
+                set ELVISPATH=c:\localbin\lib
+

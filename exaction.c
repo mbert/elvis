@@ -1,7 +1,7 @@
 /* exaction.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_exaction[] = "$Id: exaction.c,v 2.59 1996/09/04 18:30:16 steve Exp $";
+char id_exaction[] = "$Id: exaction.c,v 2.84 1998/10/06 16:11:02 steve Exp $";
 
 #include "elvis.h"
 
@@ -21,14 +21,14 @@ RESULT	ex_at(xinf)
 
 	/* find the cut buffer */
 	cutbuf = cutbuffer(xinf->cutbuf, False);
-	if (!cutbuf || o_bufchars(cutbuf) <= CUT_TYPELEN)
+	if (!cutbuf || o_bufchars(cutbuf) == 0L)
 	{
 		msg(MSG_ERROR, "[C]cut buffer $1 empty", xinf->cutbuf);
 		return RESULT_ERROR;
 	}
 
 	/* execute the cut buffer */
-	return experform(xinf->window, marktmp(top, cutbuf, CUT_TYPELEN),
+	return experform(xinf->window, marktmp(top, cutbuf, 0L),
 		marktmp(bottom, cutbuf, o_bufchars(cutbuf)));
 }
 
@@ -37,61 +37,135 @@ RESULT	ex_at(xinf)
 RESULT	ex_buffer(xinf)
 	EXINFO	*xinf;
 {
+	BUFFER	html;		/* an html document, for browing */
+	MARKBUF	tmp, tmp2;	/* a temporary mark, for adding to html */
+	long	first;		/* offset of first buffer name in html */
 	BUFFER	buf;		/* a buffer */
 	WINDOW	win;		/* a window that shows a given buffer */
-	CHAR	winlist[100];	/* buffer, holds string containing output line */
+	CHAR	winlist[200];	/* buffer, holds string containing output line */
 	int	len;		/* length of string in winlist[] */
 	int	bnlen;		/* length of buffer name */
+	CHAR	*htmlhead = toCHAR("\
+<html><head>\n\
+<title>Buffer List</title>\n\
+</head><body>\n\
+<h1>Buffer List</h1>\n\
+<menu>\n");
+	CHAR	*htmltail = toCHAR("</menu></body></html>\n");
 
-	assert(xinf->command == EX_BUFFER);
+	assert(xinf->command == EX_BUFFER || xinf->command == EX_BBROWSE || xinf->command == EX_SBBROWSE);
 
 	/* do we have an argument? */
 	if (xinf->rhs)
 	{
-		/* can't change the name of an internal buffer */
-		buf = markbuffer(&xinf->defaddr);
-		if (o_internal(buf))
+		/* switch to the named buffer */
+		buf = buffind(xinf->rhs);
+		if (!buf)
 		{
-			msg(MSG_ERROR, "can't retitle internal buffers");
+			msg(MSG_ERROR, "[S]no buffer named $1", xinf->rhs);
 			return RESULT_ERROR;
 		}
-
-		/* change the name of this buffer */
-		buftitle(markbuffer(&xinf->defaddr), xinf->rhs);
+		xinf->newcurs = markalloc(buf, buf->docursor);
 	}
 	else
 	{
+		/* if browsing, then create a buffer */
+		html = NULL;
+		first = 0L;
+		if (xinf->command != EX_BUFFER)
+		{
+			html = bufalloc(toCHAR(BBROWSE_BUF), 0, True);
+			bufreplace(marktmp(tmp, html, 0),
+				   marktmp(tmp2, html, o_bufchars(html)),
+				   htmlhead,
+				   CHARlen(htmlhead));
+			o_bufdisplay(html) = toCHAR("html");
+			o_readonly(html) = True;
+		}
+
 		/* no arguments -- list the buffers */
 		for (buf = buflist((BUFFER)0); buf; buf = buflist(buf))
 		{
-			/* if no ! given, then ignore internal buffers */
-			if (o_internal(buf) && !xinf->bang)
+			/* If no ! given, then ignore internal buffers.
+			 * And always ignore the buffer list itself
+			 */
+			if (buf == html || (o_internal(buf) && !xinf->bang))
 			{
 				continue;
 			}
 
 			/* make a list of the windows showing that editor */
 			bnlen = CHARlen(o_bufname(buf));
-			for (len = 0, win = winofbuf((WINDOW)0, buf);
-			     len < (int)(QTY(winlist) - 5 - bnlen) && win;
-			     win = winofbuf(win, buf))
+			len = 0;
+			if (!html)
 			{
-				/* add this window to the list */
-				sprintf((char *)winlist + len, "%ld: ", o_windowid(win));
-				len = CHARlen(winlist);
-			}
-			while (len < 6)
-			{
-				winlist[len] = ' ';
-				len++;
+				for (win = winofbuf((WINDOW)0, buf);
+				     len < (int)(QTY(winlist) - 5 - bnlen) && win;
+				     win = winofbuf(win, buf))
+				{
+					/* add this window to the list */
+					sprintf((char *)winlist + len, "%ld: ", o_windowid(win));
+					len = CHARlen(winlist);
+				}
+				while (len < 6)
+				{
+					winlist[len] = ' ';
+					len++;
+				}
 			}
 			winlist[len++] = (o_internal(buf) ? '-' : o_modified(buf) ? '*' : ' ');
 			(void)CHARncpy(&winlist[len], o_bufname(buf), (size_t)bnlen);
 			len += bnlen;
-			winlist[len++] = '\n';
+			if (o_bufid(buf) && len < QTY(winlist) - 10)
+			{
+				sprintf((char *)&winlist[len], " (%ld)", o_bufid(buf));
+				len = CHARlen(winlist);
+			}
 
 			/* output a line of info about the buffer */
-			drawextext(windefault, winlist, len);
+			if (html)
+			{
+				marksetoffset(&tmp, o_bufchars(html));
+				bufreplace(&tmp, &tmp, toCHAR("<li><a href=\"buffer:"), 20L);
+				marksetoffset(&tmp, o_bufchars(html));
+				bufreplace(&tmp, &tmp, o_bufname(buf), CHARlen(o_bufname(buf)));
+				marksetoffset(&tmp, o_bufchars(html));
+				bufreplace(&tmp, &tmp, toCHAR("\">"), 2L);
+
+				if (first == 0L)
+					first = o_bufchars(html);
+				marksetoffset(&tmp, o_bufchars(html));
+				bufreplace(&tmp, &tmp, winlist, len);
+				marksetoffset(&tmp, o_bufchars(html));
+				bufreplace(&tmp, &tmp, toCHAR("</a>\n"), 5L);
+			}
+			else
+			{
+				winlist[len++] = '\n';
+				drawextext(windefault, winlist, len);
+			}
+		}
+
+		/* if generating html document */
+		if (html)
+		{
+			/* finish off the HTML document */
+			marksetoffset(&tmp, o_bufchars(html));
+			bufreplace(&tmp, &tmp, htmltail, CHARlen(htmltail));
+			o_modified(html) = False;
+
+			/* if :sbbrowse, try to create a new window.  If that
+			 * fails, or if :bbrowse, then replace current window.
+			 */
+			bufwilldo(marktmp(tmp, html, first), False);
+			if (xinf->command == EX_BBROWSE
+			 || !(*gui->creategw)(tochar8(o_bufname(html)), ""))
+			{
+				/* :bb -- replace current buffer */
+				tepush(xinf->window, o_previoustag);
+				o_previoustag = NULL;
+				xinf->newcurs = markalloc(html, first);
+			}
 		}
 	}
 	return RESULT_COMPLETE;
@@ -219,7 +293,7 @@ RESULT ex_window(xinf)
 		buf = buffind(xinf->lhs);
 		if (!buf)
 		{
-			msg(MSG_ERROR, "no such buffer");
+			msg(MSG_ERROR, "[S]no buffer named $1", xinf->lhs);
 			return RESULT_ERROR;
 		}
 		win = winofbuf(xinf->window, buf);
@@ -253,6 +327,7 @@ RESULT	ex_cd(xinf)
 	EXINFO	*xinf;
 {
 	BUFFER	buf;
+	CHAR	oldpwd[256];
 
 	assert(xinf->command == EX_CD);
 
@@ -278,12 +353,21 @@ RESULT	ex_cd(xinf)
 		}
 	}
 
+	/* remember the old directory name */
+	CHARcpy(oldpwd, toCHAR(dircwd()));
+
 	/* try to switch to that directory */
 	if (!dirchdir(xinf->file[0]))
 	{
 		msg(MSG_ERROR, "can't change directory");
 		return RESULT_ERROR;
 	}
+
+	/* store the old directory name as "previousdir" option */
+	if (optflags(o_previousdir) & OPT_FREE)
+		safefree(o_previousdir);
+	o_previousdir = CHARkdup(oldpwd);
+	optflags(o_previousdir) |= OPT_FREE;
 
 	/* turn off the "edited" flag for all user buffers */
 	for (buf = NULL; (buf = buflist(buf)) != NULL; )
@@ -371,7 +455,9 @@ RESULT	ex_edit(xinf)
 		 * fail (if no ! given) or reset the "modified" flag (if !)
 		 */
 		oldbuf = markbuffer(xinf->window->cursor);
-		if (o_modified(oldbuf))
+		if (winofbuf(NULL, oldbuf) == xinf->window
+		 && winofbuf(xinf->window, oldbuf) == NULL
+		 && o_modified(oldbuf))
 		{
 			if (xinf->bang)
 				o_modified(oldbuf) = False;
@@ -454,7 +540,7 @@ RESULT	ex_file(xinf)
 		}
 		else
 		{
-			msg(MSG_INFO, "[d]$1", xinf->from);
+			msg(MSG_INFO, "(buflines) lines");
 		}
 		break;
 
@@ -500,6 +586,7 @@ RESULT	ex_file(xinf)
 RESULT	ex_lpr(xinf)
 	EXINFO	*xinf;
 {
+#ifdef FEATURE_LPR
 	RESULT	ret;
 	CHAR	*origlp;
 	
@@ -522,6 +609,10 @@ RESULT	ex_lpr(xinf)
 	o_lpout = origlp;
 
 	return ret;
+#else /* not FEATURE_LPR */
+	msg(MSG_INFO, "[s]the :$1 command is disabled", xinf->cmdname);
+	return RESULT_COMPLETE;
+#endif
 }
 
 
@@ -551,6 +642,7 @@ RESULT	ex_mark(xinf)
 RESULT	ex_mkexrc(xinf)
 	EXINFO	*xinf;
 {
+#ifdef FEATURE_MKEXRC
 	BUFFER	buf = buffind(toCHAR(CUSTOM_BUF));
 	MARKBUF	top, bottom;
 
@@ -569,6 +661,10 @@ RESULT	ex_mkexrc(xinf)
 		return RESULT_COMPLETE;
 	}
 	return RESULT_ERROR;
+#else
+	msg(MSG_INFO, "[s]the :$1 command is disabled", xinf->cmdname);
+	return RESULT_COMPLETE;
+#endif
 }
 
 
@@ -713,8 +809,8 @@ RESULT	ex_pop(xinf)
 	/* set the "previous tag" back to what it was when this stack entry
 	 * was pushed.
 	 */
-	assert(o_previoustag);
-	safefree(o_previoustag);
+	if (o_previoustag)
+		safefree(o_previoustag);
 	o_previoustag = xinf->window->tagstack[0].prevtag;
 
 	/* change this window's display mode to what it was when tag pushed */
@@ -730,6 +826,13 @@ RESULT	ex_pop(xinf)
 	}
 	xinf->window->tagstack[i].origin = NULL;
 	xinf->window->tagstack[i].prevtag = NULL;
+
+	/* clobber the list of matching tags -- this search is done */
+	if (taglist)
+	{
+		tsadjust(taglist, '+');
+		tagdelete(True);
+	}
 
 	return RESULT_COMPLETE;
 }
@@ -764,15 +867,11 @@ RESULT	ex_bang(xinf)
 		 */
 		if (gui->prgopen)
 		{
-#if 0
-			origrefresh = o_exrefresh;
-			o_exrefresh = True;
-#endif
-			drawopencomplete(xinf->window);
-			assert(xinf->window->di->drawstate == DRAW_OPENOUTPUT);
-#if 0
-			o_exrefresh = origrefresh;
-#endif
+			if (xinf->window)
+			{
+				drawopencomplete(xinf->window);
+				assert(xinf->window->di->drawstate == DRAW_OPENOUTPUT);
+			}
 
 			assert(gui->prgclose);
 			if (gui->flush)
@@ -793,13 +892,15 @@ RESULT	ex_bang(xinf)
 			bangcmd = (char *)safealloc((int)CHARlen(xinf->rhs) + 2, sizeof(char));
 			bangcmd[0] = '!';
 			strcpy(bangcmd + 1, tochar8(xinf->rhs));
-			if (!ioopen(bangcmd, 'r', False, False, False))
+			if (!ioopen(bangcmd, 'r', False, False, 't'))
 			{
 				o_exrefresh = origrefresh;
 				return RESULT_ERROR;
 			}
+			safeinspect();
 			while ((len = ioread(iobuf, QTY(iobuf))) > 0)
 			{
+				safeinspect();
 				drawextext(xinf->window, iobuf, len);
 			}
 			safefree(bangcmd);
@@ -892,15 +993,15 @@ RESULT	ex_source(xinf)
 	}
 
 	/* open the file */
-	if (!ioopen(xinf->file[0], 'r', False, False, False))
+	if (!ioopen(xinf->file[0], 'r', False, False, 't'))
 		return RESULT_ERROR;
 
 	/* create a temp buffer */
-	buf = bufalloc(NULL, 0);
+	buf = bufalloc(NULL, 0, True);
 	assert(buf != NULL);
 
 	/* fill the temp buffer with text read from the file */
-	io = safealloc(1024, sizeof(CHAR));
+	io = (CHAR *)safealloc(1024, sizeof(CHAR));
 	while ((nbytes = ioread(io, 1024)) > 0)
 	{
 		bufreplace(marktmp(end, buf, o_bufchars(buf)), &end, io, nbytes);
@@ -981,29 +1082,23 @@ RESULT	ex_tag(xinf)
 	MARK	tagdefn;
 	RESULT	result = RESULT_COMPLETE;
 	BUFFER	oldbuf;
-	int	i;
 
 	assert(xinf->command == EX_TAG || xinf->command == EX_STAG);
 
 	/* save a copy of the previous tag, if there was one */
 	fromtag = o_previoustag ? CHARdup(o_previoustag) : NULL;
 
-	/* if a tagname was given, use it (else use previous tag name) */
-	if (xinf->lhs)
-	{
-		if (o_previoustag)
-			safefree(o_previoustag);
-		o_previoustag = CHARkdup(xinf->lhs);
-	}
-	else if (!o_previoustag)
-	{
-		msg(MSG_ERROR, "no previous tag");
-		result = RESULT_ERROR;
-		goto Finish;
-	}
-
-	/* search for the tag */
-	tagdefn = (*xinf->window->md->tagload)(o_previoustag, xinf->window->cursor);
+	/* Search for the tag.  If the current buffer has no filename, then
+	 * we're probably in a browser.  When in a browser, we want to use the
+	 * normal tag search instead of the HTML tag search.
+	 */
+	if (o_filename(markbuffer(xinf->window->cursor))
+	 || (xinf->rhs && (CHARchr(xinf->rhs, '#')
+			|| CHARchr(xinf->rhs, '?')
+			|| !CHARncmp(xinf->rhs, toCHAR("buffer:"), 7))))
+		tagdefn = (*xinf->window->md->tagload)(xinf->rhs, xinf->window->cursor);
+	else
+		tagdefn = (*dmnormal.tagload)(xinf->rhs, xinf->window->cursor);
 	if (!tagdefn)
 	{
 		result = RESULT_ERROR;
@@ -1011,7 +1106,7 @@ RESULT	ex_tag(xinf)
 	}
 
 	/* maybe split off a new window at the tag's definition */
-	markbuffer(tagdefn)->changepos = markoffset(tagdefn);
+	bufwilldo(tagdefn, False);
 	if (xinf->command == EX_STAG
 	 && (*gui->creategw)(tochar8(o_bufname(markbuffer(tagdefn))), ""))
 	{
@@ -1033,6 +1128,7 @@ RESULT	ex_tag(xinf)
 		{
 			msg(MSG_ERROR, "[S]$1 modified, not saved", o_bufname(oldbuf));
 			result = RESULT_ERROR;
+			tesametag();
 			goto Finish;
 		}
 		else if (!bufsave(oldbuf, False, False))
@@ -1043,25 +1139,8 @@ RESULT	ex_tag(xinf)
 	}
 
 	/* push the current cursor position and display mode onto tag stack */
-	if (o_tagstack)
-	{
-		/* The oldest tag will be lost.  If it had pointers to any
-		 * dynamically allocated memory, then free that memory now.
-		 */
-		if (xinf->window->tagstack[TAGSTK - 1].prevtag)
-			safefree(xinf->window->tagstack[TAGSTK - 1].prevtag);
-		if (xinf->window->tagstack[TAGSTK - 1].origin)
-			markfree(xinf->window->tagstack[TAGSTK - 1].origin);
-
-		for (i = TAGSTK - 1; i > 0; i--)
-		{
-			xinf->window->tagstack[i] = xinf->window->tagstack[i - 1];
-		}
-		xinf->window->tagstack[0].origin = markdup(xinf->window->cursor);
-		xinf->window->tagstack[0].display = xinf->window->md->name;
-		xinf->window->tagstack[0].prevtag = fromtag;
-		fromtag = NULL;
-	}
+	tepush(xinf->window, fromtag);
+	fromtag = NULL;
 
 	/* arrange for the cursor to move to the tag position */
 	xinf->newcurs = markdup(tagdefn);
@@ -1070,6 +1149,91 @@ Finish:
 	if (fromtag)
 		safefree(fromtag);
 	return result;
+}
+
+
+RESULT	ex_browse(xinf)
+	EXINFO	*xinf;
+{
+	BUFFER	buf;	/* the browser document */
+	CHAR	*tmp;
+	DIRPERM	perms;
+
+	assert(xinf->command == EX_BROWSE || xinf->command == EX_SBROWSE);
+
+	/* build the tags document */
+	if (o_tagprg || o_tagprgonce)
+	{
+		/* using an external search program */
+		buf = tebrowse(xinf->bang, xinf->rhs);
+	}
+	else if (xinf->rhs || xinf->bang)
+	{
+		/* either ! or restrictions were given */
+
+		/* prepare an alternative, just in case! */
+		tmp = NULL;
+		if (xinf->rhs && !CHARchr(xinf->rhs, ' ') && !CHARchr(xinf->rhs, ':'))
+		{
+			perms = dirperm(tochar8(xinf->rhs));
+			if (perms == DIR_READONLY || perms == DIR_READWRITE)
+			{
+				tmp = (CHAR *)safealloc(CHARlen(xinf->rhs) + 9, sizeof(CHAR));
+				CHARcpy(tmp, toCHAR("tagfile:"));
+				CHARcat(tmp, xinf->rhs);
+			}
+			else
+			{
+				tmp = (CHAR *)safealloc(CHARlen(xinf->rhs) + 8, sizeof(CHAR));
+				CHARcpy(tmp, toCHAR("class:/"));
+				CHARcat(tmp, xinf->rhs);
+			}
+		}
+
+		/* first try it as a normal restrictions string */
+		buf = tebrowse(xinf->bang, xinf->rhs);
+
+		/* if that didn't work, try the alternative */
+		if (!buf && tmp)
+			buf = tebrowse(xinf->bang, tmp);
+
+		/* free the tmp string */
+		if (tmp)
+			safefree(tmp);
+	}
+	else if (o_filename(markbuffer(xinf->window->cursor)))
+	{
+		/* no args given, but we know our filename */
+		buf = markbuffer(xinf->window->cursor);
+		tmp = (CHAR *)safealloc(CHARlen(o_filename(buf)) + 9, sizeof(CHAR));
+		CHARcpy(tmp, "tagfile:");
+		CHARcat(tmp, o_filename(buf));
+		buf = tebrowse(False, tmp);
+		safefree(tmp);
+	}
+	else
+	{
+		/* can't do anything smart */
+		buf = NULL;
+	}
+	if (!buf)
+	{
+		msg(MSG_ERROR, "tag not found");
+		return RESULT_ERROR;
+	}
+
+	/* maybe try to split off a new window.  If that isn't right, then
+	 * switch windows here.
+	 */
+	if (xinf->command == EX_BROWSE
+	 || !(*gui->creategw)(tochar8(o_bufname(buf)), ""))
+	{
+		tepush(xinf->window, o_previoustag);
+		o_previoustag = NULL;
+		xinf->newcurs = markalloc(buf, 0L);
+	}
+
+	return RESULT_COMPLETE;
 }
 
 
@@ -1082,20 +1246,30 @@ RESULT	ex_split(xinf)
 
 	/* decide which buffer should appear in the new window */
 	if (xinf->command == EX_SNEW)
-		buffer = bufalloc(NULL, 0);
+		buffer = bufalloc(NULL, 0, False);
 	else if (xinf->nfiles == 1)
 		buffer = bufload(NULL, xinf->file[0], False);
+	else if (xinf->rhs)
+	{
+		buffer = bufalloc(NULL, 0, False);
+		xinf->command = EX_READ;
+		xinf->toaddr = markalloc(buffer, 0L);
+		xinf->defaddr = *xinf->toaddr;
+		ex_read(xinf);
+		o_modified(buffer) = False;
+	}
 	else
 		buffer = markbuffer(&xinf->defaddr);
 
 	/* ask the GUI to create the window */
-	if (!(*gui->creategw)(tochar8(o_bufname(buffer)), ""))
+	if (!(*gui->creategw)(tochar8(o_bufname(buffer)), tochar8(xinf->lhs)))
 	{
 		/* failed! */
 		if (xinf->command == EX_SNEW)
 			buffree(buffer);
 		return RESULT_ERROR;
 	}
+	eventfocus(xinf->window->gw);
 	return RESULT_COMPLETE;
 }
 

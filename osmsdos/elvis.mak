@@ -10,7 +10,7 @@ D_RCDEFINES = -d_DEBUG
 R_RCDEFINES = -dNDEBUG
 ORIGIN = MSVC
 ORIGIN_VER = 1.00
-PROJPATH = 
+PROJPATH = .\
 USEMFC = 0
 CC = cl
 CPP = cl
@@ -23,7 +23,7 @@ FIRSTC = BUFFER.C
 FIRSTCPP =             
 RC = rc
 CFLAGS_D_DEXE = /nologo /G2 /Zi /ALu /Od /D "_DEBUG" /D "_DOS" /I "osmsdos" /I "." /Fd"ELVIS.PDB"
-CFLAGS_R_DEXE = /nologo /Gs /G3 /ALu /O2 /Ob2 /D "NDEBUG" /D "_DOS" /I "osmsdos" /I "." /FR 
+CFLAGS_R_DEXE = /nologo /Gs /G2 /Gf /ALu /O2 /Ob1 /D "NDEBUG" /D "_DOS" /I "osmsdos" /I "." 
 LFLAGS_D_DEXE = /NOLOGO /NOI /STACK:10240 /ONERROR:NOEXE /CO 
 LFLAGS_R_DEXE = /NOLOGO /NOI /STACK:10240 /EXEPACK /ONERROR:NOEXE 
 LIBS_D_DEXE = oldnames llibce 
@@ -32,7 +32,7 @@ RCFLAGS = /nologo
 RESFLAGS = /nologo
 RUNFLAGS = 
 OBJS_EXT = 
-LIBS_EXT = 
+LIBS_EXT = OSMSDOS\DOEXEC.LIB 
 !if "$(DEBUG)" == "1"
 CFLAGS = $(CFLAGS_D_DEXE)
 LFLAGS = $(LFLAGS_D_DEXE)
@@ -64,6 +64,7 @@ SBRS = BUFFER.SBR \
 		EXCONFIG.SBR \
 		EXEDIT.SBR \
 		EXMAKE.SBR \
+		EXSUBST.SBR \
 		GUI.SBR \
 		GUICURS.SBR \
 		GUIOPEN.SBR \
@@ -94,6 +95,7 @@ SBRS = BUFFER.SBR \
 		SESSION.SBR \
 		STATE.SBR \
 		TINYTCAP.SBR \
+		URL.SBR \
 		VI.SBR \
 		VICMD.SBR \
 		WINDOW.SBR \
@@ -101,2068 +103,2564 @@ SBRS = BUFFER.SBR \
 		OSDIR.SBR \
 		OSPRG.SBR \
 		OSTEXT.SBR \
-		TCAPHELP.SBR
-
-
-BUFFER_DEP = elvis.h \
-	config.h \
-	version.h \
-	safe.h \
-	options.h \
-	optglob.h \
-	session.h \
-	lowbuf.h \
-	buffer.h \
-	mark.h \
-	buffer2.h \
-	scan.h \
-	message.h \
-	opsys.h \
-	map.h \
-	gui.h \
-	display.h \
-	draw.h \
-	state.h \
-	window.h \
-	gui2.h \
-	display2.h \
-	draw2.h \
-	state2.h \
-	event.h \
-	input.h \
-	vi.h \
-	regexp.h \
-	ex.h \
-	move.h \
-	vicmd.h \
-	operator.h \
-	cut.h \
-	elvisio.h \
-	lp.h \
-	calc.h \
-	more.h \
-	digraph.h \
-	need.h \
-	misc.h
-
-
-CALC_DEP = elvis.h \
-	config.h \
-	version.h \
-	safe.h \
-	options.h \
-	optglob.h \
-	session.h \
-	lowbuf.h \
-	buffer.h \
-	mark.h \
-	buffer2.h \
-	scan.h \
-	message.h \
-	opsys.h \
-	map.h \
-	gui.h \
-	display.h \
-	draw.h \
-	state.h \
-	window.h \
-	gui2.h \
-	display2.h \
-	draw2.h \
-	state2.h \
-	event.h \
-	input.h \
-	vi.h \
-	regexp.h \
-	ex.h \
-	move.h \
-	vicmd.h \
-	operator.h \
-	cut.h \
-	elvisio.h \
-	lp.h \
-	calc.h \
-	more.h \
-	digraph.h \
-	need.h \
-	misc.h
-
-
-CUT_DEP = elvis.h \
-	config.h \
-	version.h \
-	safe.h \
-	options.h \
-	optglob.h \
-	session.h \
-	lowbuf.h \
-	buffer.h \
-	mark.h \
-	buffer2.h \
-	scan.h \
-	message.h \
-	opsys.h \
-	map.h \
-	gui.h \
-	display.h \
-	draw.h \
-	state.h \
-	window.h \
-	gui2.h \
-	display2.h \
-	draw2.h \
-	state2.h \
-	event.h \
-	input.h \
-	vi.h \
-	regexp.h \
-	ex.h \
-	move.h \
-	vicmd.h \
-	operator.h \
-	cut.h \
-	elvisio.h \
-	lp.h \
-	calc.h \
-	more.h \
-	digraph.h \
-	need.h \
-	misc.h
-
-
-DIGRAPH_DEP = elvis.h \
-	config.h \
-	version.h \
-	safe.h \
-	options.h \
-	optglob.h \
-	session.h \
-	lowbuf.h \
-	buffer.h \
-	mark.h \
-	buffer2.h \
-	scan.h \
-	message.h \
-	opsys.h \
-	map.h \
-	gui.h \
-	display.h \
-	draw.h \
-	state.h \
-	window.h \
-	gui2.h \
-	display2.h \
-	draw2.h \
-	state2.h \
-	event.h \
-	input.h \
-	vi.h \
-	regexp.h \
-	ex.h \
-	move.h \
-	vicmd.h \
-	operator.h \
-	cut.h \
-	elvisio.h \
-	lp.h \
-	calc.h \
-	more.h \
-	digraph.h \
-	need.h \
-	misc.h
-
-
-DISPLAY_DEP = elvis.h \
-	config.h \
-	version.h \
-	safe.h \
-	options.h \
-	optglob.h \
-	session.h \
-	lowbuf.h \
-	buffer.h \
-	mark.h \
-	buffer2.h \
-	scan.h \
-	message.h \
-	opsys.h \
-	map.h \
-	gui.h \
-	display.h \
-	draw.h \
-	state.h \
-	window.h \
-	gui2.h \
-	display2.h \
-	draw2.h \
-	state2.h \
-	event.h \
-	input.h \
-	vi.h \
-	regexp.h \
-	ex.h \
-	move.h \
-	vicmd.h \
-	operator.h \
-	cut.h \
-	elvisio.h \
-	lp.h \
-	calc.h \
-	more.h \
-	digraph.h \
-	need.h \
-	misc.h
-
-
-DMHEX_DEP = elvis.h \
-	config.h \
-	version.h \
-	safe.h \
-	options.h \
-	optglob.h \
-	session.h \
-	lowbuf.h \
-	buffer.h \
-	mark.h \
-	buffer2.h \
-	scan.h \
-	message.h \
-	opsys.h \
-	map.h \
-	gui.h \
-	display.h \
-	draw.h \
-	state.h \
-	window.h \
-	gui2.h \
-	display2.h \
-	draw2.h \
-	state2.h \
-	event.h \
-	input.h \
-	vi.h \
-	regexp.h \
-	ex.h \
-	move.h \
-	vicmd.h \
-	operator.h \
-	cut.h \
-	elvisio.h \
-	lp.h \
-	calc.h \
-	more.h \
-	digraph.h \
-	need.h \
-	misc.h
-
-
-DMMARKUP_DEP = elvis.h \
-	config.h \
-	version.h \
-	safe.h \
-	options.h \
-	optglob.h \
-	session.h \
-	lowbuf.h \
-	buffer.h \
-	mark.h \
-	buffer2.h \
-	scan.h \
-	message.h \
-	opsys.h \
-	map.h \
-	gui.h \
-	display.h \
-	draw.h \
-	state.h \
-	window.h \
-	gui2.h \
-	display2.h \
-	draw2.h \
-	state2.h \
-	event.h \
-	input.h \
-	vi.h \
-	regexp.h \
-	ex.h \
-	move.h \
-	vicmd.h \
-	operator.h \
-	cut.h \
-	elvisio.h \
-	lp.h \
-	calc.h \
-	more.h \
-	digraph.h \
-	need.h \
-	misc.h
-
-
-DMNORMAL_DEP = elvis.h \
-	config.h \
-	version.h \
-	safe.h \
-	options.h \
-	optglob.h \
-	session.h \
-	lowbuf.h \
-	buffer.h \
-	mark.h \
-	buffer2.h \
-	scan.h \
-	message.h \
-	opsys.h \
-	map.h \
-	gui.h \
-	display.h \
-	draw.h \
-	state.h \
-	window.h \
-	gui2.h \
-	display2.h \
-	draw2.h \
-	state2.h \
-	event.h \
-	input.h \
-	vi.h \
-	regexp.h \
-	ex.h \
-	move.h \
-	vicmd.h \
-	operator.h \
-	cut.h \
-	elvisio.h \
-	lp.h \
-	calc.h \
-	more.h \
-	digraph.h \
-	need.h \
-	misc.h
-
-
-DMSYNTAX_DEP = elvis.h \
-	config.h \
-	version.h \
-	safe.h \
-	options.h \
-	optglob.h \
-	session.h \
-	lowbuf.h \
-	buffer.h \
-	mark.h \
-	buffer2.h \
-	scan.h \
-	message.h \
-	opsys.h \
-	map.h \
-	gui.h \
-	display.h \
-	draw.h \
-	state.h \
-	window.h \
-	gui2.h \
-	display2.h \
-	draw2.h \
-	state2.h \
-	event.h \
-	input.h \
-	vi.h \
-	regexp.h \
-	ex.h \
-	move.h \
-	vicmd.h \
-	operator.h \
-	cut.h \
-	elvisio.h \
-	lp.h \
-	calc.h \
-	more.h \
-	digraph.h \
-	need.h \
-	misc.h
-
-
-DRAW_DEP = elvis.h \
-	config.h \
-	version.h \
-	safe.h \
-	options.h \
-	optglob.h \
-	session.h \
-	lowbuf.h \
-	buffer.h \
-	mark.h \
-	buffer2.h \
-	scan.h \
-	message.h \
-	opsys.h \
-	map.h \
-	gui.h \
-	display.h \
-	draw.h \
-	state.h \
-	window.h \
-	gui2.h \
-	display2.h \
-	draw2.h \
-	state2.h \
-	event.h \
-	input.h \
-	vi.h \
-	regexp.h \
-	ex.h \
-	move.h \
-	vicmd.h \
-	operator.h \
-	cut.h \
-	elvisio.h \
-	lp.h \
-	calc.h \
-	more.h \
-	digraph.h \
-	need.h \
-	misc.h
-
-
-EVENT_DEP = elvis.h \
-	config.h \
-	version.h \
-	safe.h \
-	options.h \
-	optglob.h \
-	session.h \
-	lowbuf.h \
-	buffer.h \
-	mark.h \
-	buffer2.h \
-	scan.h \
-	message.h \
-	opsys.h \
-	map.h \
-	gui.h \
-	display.h \
-	draw.h \
-	state.h \
-	window.h \
-	gui2.h \
-	display2.h \
-	draw2.h \
-	state2.h \
-	event.h \
-	input.h \
-	vi.h \
-	regexp.h \
-	ex.h \
-	move.h \
-	vicmd.h \
-	operator.h \
-	cut.h \
-	elvisio.h \
-	lp.h \
-	calc.h \
-	more.h \
-	digraph.h \
-	need.h \
-	misc.h
-
-
-EX_DEP = elvis.h \
-	config.h \
-	version.h \
-	safe.h \
-	options.h \
-	optglob.h \
-	session.h \
-	lowbuf.h \
-	buffer.h \
-	mark.h \
-	buffer2.h \
-	scan.h \
-	message.h \
-	opsys.h \
-	map.h \
-	gui.h \
-	display.h \
-	draw.h \
-	state.h \
-	window.h \
-	gui2.h \
-	display2.h \
-	draw2.h \
-	state2.h \
-	event.h \
-	input.h \
-	vi.h \
-	regexp.h \
-	ex.h \
-	move.h \
-	vicmd.h \
-	operator.h \
-	cut.h \
-	elvisio.h \
-	lp.h \
-	calc.h \
-	more.h \
-	digraph.h \
-	need.h \
-	misc.h
-
-
-EXACTION_DEP = elvis.h \
-	config.h \
-	version.h \
-	safe.h \
-	options.h \
-	optglob.h \
-	session.h \
-	lowbuf.h \
-	buffer.h \
-	mark.h \
-	buffer2.h \
-	scan.h \
-	message.h \
-	opsys.h \
-	map.h \
-	gui.h \
-	display.h \
-	draw.h \
-	state.h \
-	window.h \
-	gui2.h \
-	display2.h \
-	draw2.h \
-	state2.h \
-	event.h \
-	input.h \
-	vi.h \
-	regexp.h \
-	ex.h \
-	move.h \
-	vicmd.h \
-	operator.h \
-	cut.h \
-	elvisio.h \
-	lp.h \
-	calc.h \
-	more.h \
-	digraph.h \
-	need.h \
-	misc.h
-
-
-EXCONFIG_DEP = elvis.h \
-	config.h \
-	version.h \
-	safe.h \
-	options.h \
-	optglob.h \
-	session.h \
-	lowbuf.h \
-	buffer.h \
-	mark.h \
-	buffer2.h \
-	scan.h \
-	message.h \
-	opsys.h \
-	map.h \
-	gui.h \
-	display.h \
-	draw.h \
-	state.h \
-	window.h \
-	gui2.h \
-	display2.h \
-	draw2.h \
-	state2.h \
-	event.h \
-	input.h \
-	vi.h \
-	regexp.h \
-	ex.h \
-	move.h \
-	vicmd.h \
-	operator.h \
-	cut.h \
-	elvisio.h \
-	lp.h \
-	calc.h \
-	more.h \
-	digraph.h \
-	need.h \
-	misc.h
-
-
-EXEDIT_DEP = elvis.h \
-	config.h \
-	version.h \
-	safe.h \
-	options.h \
-	optglob.h \
-	session.h \
-	lowbuf.h \
-	buffer.h \
-	mark.h \
-	buffer2.h \
-	scan.h \
-	message.h \
-	opsys.h \
-	map.h \
-	gui.h \
-	display.h \
-	draw.h \
-	state.h \
-	window.h \
-	gui2.h \
-	display2.h \
-	draw2.h \
-	state2.h \
-	event.h \
-	input.h \
-	vi.h \
-	regexp.h \
-	ex.h \
-	move.h \
-	vicmd.h \
-	operator.h \
-	cut.h \
-	elvisio.h \
-	lp.h \
-	calc.h \
-	more.h \
-	digraph.h \
-	need.h \
-	misc.h
-
-
-EXMAKE_DEP = elvis.h \
-	config.h \
-	version.h \
-	safe.h \
-	options.h \
-	optglob.h \
-	session.h \
-	lowbuf.h \
-	buffer.h \
-	mark.h \
-	buffer2.h \
-	scan.h \
-	message.h \
-	opsys.h \
-	map.h \
-	gui.h \
-	display.h \
-	draw.h \
-	state.h \
-	window.h \
-	gui2.h \
-	display2.h \
-	draw2.h \
-	state2.h \
-	event.h \
-	input.h \
-	vi.h \
-	regexp.h \
-	ex.h \
-	move.h \
-	vicmd.h \
-	operator.h \
-	cut.h \
-	elvisio.h \
-	lp.h \
-	calc.h \
-	more.h \
-	digraph.h \
-	need.h \
-	misc.h
-
-
-GUI_DEP = elvis.h \
-	config.h \
-	version.h \
-	safe.h \
-	options.h \
-	optglob.h \
-	session.h \
-	lowbuf.h \
-	buffer.h \
-	mark.h \
-	buffer2.h \
-	scan.h \
-	message.h \
-	opsys.h \
-	map.h \
-	gui.h \
-	display.h \
-	draw.h \
-	state.h \
-	window.h \
-	gui2.h \
-	display2.h \
-	draw2.h \
-	state2.h \
-	event.h \
-	input.h \
-	vi.h \
-	regexp.h \
-	ex.h \
-	move.h \
-	vicmd.h \
-	operator.h \
-	cut.h \
-	elvisio.h \
-	lp.h \
-	calc.h \
-	more.h \
-	digraph.h \
-	need.h \
-	misc.h
-
-
-GUICURS_DEP = elvis.h \
-	config.h \
-	version.h \
-	safe.h \
-	options.h \
-	optglob.h \
-	session.h \
-	lowbuf.h \
-	buffer.h \
-	mark.h \
-	buffer2.h \
-	scan.h \
-	message.h \
-	opsys.h \
-	map.h \
-	gui.h \
-	display.h \
-	draw.h \
-	state.h \
-	window.h \
-	gui2.h \
-	display2.h \
-	draw2.h \
-	state2.h \
-	event.h \
-	input.h \
-	vi.h \
-	regexp.h \
-	ex.h \
-	move.h \
-	vicmd.h \
-	operator.h \
-	cut.h \
-	elvisio.h \
-	lp.h \
-	calc.h \
-	more.h \
-	digraph.h \
-	need.h \
-	misc.h
-
-
-GUIOPEN_DEP = elvis.h \
-	config.h \
-	version.h \
-	safe.h \
-	options.h \
-	optglob.h \
-	session.h \
-	lowbuf.h \
-	buffer.h \
-	mark.h \
-	buffer2.h \
-	scan.h \
-	message.h \
-	opsys.h \
-	map.h \
-	gui.h \
-	display.h \
-	draw.h \
-	state.h \
-	window.h \
-	gui2.h \
-	display2.h \
-	draw2.h \
-	state2.h \
-	event.h \
-	input.h \
-	vi.h \
-	regexp.h \
-	ex.h \
-	move.h \
-	vicmd.h \
-	operator.h \
-	cut.h \
-	elvisio.h \
-	lp.h \
-	calc.h \
-	more.h \
-	digraph.h \
-	need.h \
-	misc.h
-
-
-GUITCAP_DEP = elvis.h \
-	config.h \
-	version.h \
-	safe.h \
-	options.h \
-	optglob.h \
-	session.h \
-	lowbuf.h \
-	buffer.h \
-	mark.h \
-	buffer2.h \
-	scan.h \
-	message.h \
-	opsys.h \
-	map.h \
-	gui.h \
-	display.h \
-	draw.h \
-	state.h \
-	window.h \
-	gui2.h \
-	display2.h \
-	draw2.h \
-	state2.h \
-	event.h \
-	input.h \
-	vi.h \
-	regexp.h \
-	ex.h \
-	move.h \
-	vicmd.h \
-	operator.h \
-	cut.h \
-	elvisio.h \
-	lp.h \
-	calc.h \
-	more.h \
-	digraph.h \
-	need.h \
-	misc.h
-
-
-INPUT_DEP = elvis.h \
-	config.h \
-	version.h \
-	safe.h \
-	options.h \
-	optglob.h \
-	session.h \
-	lowbuf.h \
-	buffer.h \
-	mark.h \
-	buffer2.h \
-	scan.h \
-	message.h \
-	opsys.h \
-	map.h \
-	gui.h \
-	display.h \
-	draw.h \
-	state.h \
-	window.h \
-	gui2.h \
-	display2.h \
-	draw2.h \
-	state2.h \
-	event.h \
-	input.h \
-	vi.h \
-	regexp.h \
-	ex.h \
-	move.h \
-	vicmd.h \
-	operator.h \
-	cut.h \
-	elvisio.h \
-	lp.h \
-	calc.h \
-	more.h \
-	digraph.h \
-	need.h \
-	misc.h
-
-
-IO_DEP = elvis.h \
-	config.h \
-	version.h \
-	safe.h \
-	options.h \
-	optglob.h \
-	session.h \
-	lowbuf.h \
-	buffer.h \
-	mark.h \
-	buffer2.h \
-	scan.h \
-	message.h \
-	opsys.h \
-	map.h \
-	gui.h \
-	display.h \
-	draw.h \
-	state.h \
-	window.h \
-	gui2.h \
-	display2.h \
-	draw2.h \
-	state2.h \
-	event.h \
-	input.h \
-	vi.h \
-	regexp.h \
-	ex.h \
-	move.h \
-	vicmd.h \
-	operator.h \
-	cut.h \
-	elvisio.h \
-	lp.h \
-	calc.h \
-	more.h \
-	digraph.h \
-	need.h \
-	misc.h
-
-
-LOWBUF_DEP = elvis.h \
-	config.h \
-	version.h \
-	safe.h \
-	options.h \
-	optglob.h \
-	session.h \
-	lowbuf.h \
-	buffer.h \
-	mark.h \
-	buffer2.h \
-	scan.h \
-	message.h \
-	opsys.h \
-	map.h \
-	gui.h \
-	display.h \
-	draw.h \
-	state.h \
-	window.h \
-	gui2.h \
-	display2.h \
-	draw2.h \
-	state2.h \
-	event.h \
-	input.h \
-	vi.h \
-	regexp.h \
-	ex.h \
-	move.h \
-	vicmd.h \
-	operator.h \
-	cut.h \
-	elvisio.h \
-	lp.h \
-	calc.h \
-	more.h \
-	digraph.h \
-	need.h \
-	misc.h
-
-
-LP_DEP = elvis.h \
-	config.h \
-	version.h \
-	safe.h \
-	options.h \
-	optglob.h \
-	session.h \
-	lowbuf.h \
-	buffer.h \
-	mark.h \
-	buffer2.h \
-	scan.h \
-	message.h \
-	opsys.h \
-	map.h \
-	gui.h \
-	display.h \
-	draw.h \
-	state.h \
-	window.h \
-	gui2.h \
-	display2.h \
-	draw2.h \
-	state2.h \
-	event.h \
-	input.h \
-	vi.h \
-	regexp.h \
-	ex.h \
-	move.h \
-	vicmd.h \
-	operator.h \
-	cut.h \
-	elvisio.h \
-	lp.h \
-	calc.h \
-	more.h \
-	digraph.h \
-	need.h \
-	misc.h
-
-
-LPESCAPE_DEP = elvis.h \
-	config.h \
-	version.h \
-	safe.h \
-	options.h \
-	optglob.h \
-	session.h \
-	lowbuf.h \
-	buffer.h \
-	mark.h \
-	buffer2.h \
-	scan.h \
-	message.h \
-	opsys.h \
-	map.h \
-	gui.h \
-	display.h \
-	draw.h \
-	state.h \
-	window.h \
-	gui2.h \
-	display2.h \
-	draw2.h \
-	state2.h \
-	event.h \
-	input.h \
-	vi.h \
-	regexp.h \
-	ex.h \
-	move.h \
-	vicmd.h \
-	operator.h \
-	cut.h \
-	elvisio.h \
-	lp.h \
-	calc.h \
-	more.h \
-	digraph.h \
-	need.h \
-	misc.h
-
-
-LPOVRTYP_DEP = elvis.h \
-	config.h \
-	version.h \
-	safe.h \
-	options.h \
-	optglob.h \
-	session.h \
-	lowbuf.h \
-	buffer.h \
-	mark.h \
-	buffer2.h \
-	scan.h \
-	message.h \
-	opsys.h \
-	map.h \
-	gui.h \
-	display.h \
-	draw.h \
-	state.h \
-	window.h \
-	gui2.h \
-	display2.h \
-	draw2.h \
-	state2.h \
-	event.h \
-	input.h \
-	vi.h \
-	regexp.h \
-	ex.h \
-	move.h \
-	vicmd.h \
-	operator.h \
-	cut.h \
-	elvisio.h \
-	lp.h \
-	calc.h \
-	more.h \
-	digraph.h \
-	need.h \
-	misc.h
-
-
-LPPS_DEP = elvis.h \
-	config.h \
-	version.h \
-	safe.h \
-	options.h \
-	optglob.h \
-	session.h \
-	lowbuf.h \
-	buffer.h \
-	mark.h \
-	buffer2.h \
-	scan.h \
-	message.h \
-	opsys.h \
-	map.h \
-	gui.h \
-	display.h \
-	draw.h \
-	state.h \
-	window.h \
-	gui2.h \
-	display2.h \
-	draw2.h \
-	state2.h \
-	event.h \
-	input.h \
-	vi.h \
-	regexp.h \
-	ex.h \
-	move.h \
-	vicmd.h \
-	operator.h \
-	cut.h \
-	elvisio.h \
-	lp.h \
-	calc.h \
-	more.h \
-	digraph.h \
-	need.h \
-	misc.h
-
-
-MAIN_DEP = elvis.h \
-	config.h \
-	version.h \
-	safe.h \
-	options.h \
-	optglob.h \
-	session.h \
-	lowbuf.h \
-	buffer.h \
-	mark.h \
-	buffer2.h \
-	scan.h \
-	message.h \
-	opsys.h \
-	map.h \
-	gui.h \
-	display.h \
-	draw.h \
-	state.h \
-	window.h \
-	gui2.h \
-	display2.h \
-	draw2.h \
-	state2.h \
-	event.h \
-	input.h \
-	vi.h \
-	regexp.h \
-	ex.h \
-	move.h \
-	vicmd.h \
-	operator.h \
-	cut.h \
-	elvisio.h \
-	lp.h \
-	calc.h \
-	more.h \
-	digraph.h \
-	need.h \
-	misc.h
-
-
-MAP_DEP = elvis.h \
-	config.h \
-	version.h \
-	safe.h \
-	options.h \
-	optglob.h \
-	session.h \
-	lowbuf.h \
-	buffer.h \
-	mark.h \
-	buffer2.h \
-	scan.h \
-	message.h \
-	opsys.h \
-	map.h \
-	gui.h \
-	display.h \
-	draw.h \
-	state.h \
-	window.h \
-	gui2.h \
-	display2.h \
-	draw2.h \
-	state2.h \
-	event.h \
-	input.h \
-	vi.h \
-	regexp.h \
-	ex.h \
-	move.h \
-	vicmd.h \
-	operator.h \
-	cut.h \
-	elvisio.h \
-	lp.h \
-	calc.h \
-	more.h \
-	digraph.h \
-	need.h \
-	misc.h
-
-
-MARK_DEP = elvis.h \
-	config.h \
-	version.h \
-	safe.h \
-	options.h \
-	optglob.h \
-	session.h \
-	lowbuf.h \
-	buffer.h \
-	mark.h \
-	buffer2.h \
-	scan.h \
-	message.h \
-	opsys.h \
-	map.h \
-	gui.h \
-	display.h \
-	draw.h \
-	state.h \
-	window.h \
-	gui2.h \
-	display2.h \
-	draw2.h \
-	state2.h \
-	event.h \
-	input.h \
-	vi.h \
-	regexp.h \
-	ex.h \
-	move.h \
-	vicmd.h \
-	operator.h \
-	cut.h \
-	elvisio.h \
-	lp.h \
-	calc.h \
-	more.h \
-	digraph.h \
-	need.h \
-	misc.h
-
-
-MESSAGE_DEP = elvis.h \
-	config.h \
-	version.h \
-	safe.h \
-	options.h \
-	optglob.h \
-	session.h \
-	lowbuf.h \
-	buffer.h \
-	mark.h \
-	buffer2.h \
-	scan.h \
-	message.h \
-	opsys.h \
-	map.h \
-	gui.h \
-	display.h \
-	draw.h \
-	state.h \
-	window.h \
-	gui2.h \
-	display2.h \
-	draw2.h \
-	state2.h \
-	event.h \
-	input.h \
-	vi.h \
-	regexp.h \
-	ex.h \
-	move.h \
-	vicmd.h \
-	operator.h \
-	cut.h \
-	elvisio.h \
-	lp.h \
-	calc.h \
-	more.h \
-	digraph.h \
-	need.h \
-	misc.h
-
-
-MISC_DEP = elvis.h \
-	config.h \
-	version.h \
-	safe.h \
-	options.h \
-	optglob.h \
-	session.h \
-	lowbuf.h \
-	buffer.h \
-	mark.h \
-	buffer2.h \
-	scan.h \
-	message.h \
-	opsys.h \
-	map.h \
-	gui.h \
-	display.h \
-	draw.h \
-	state.h \
-	window.h \
-	gui2.h \
-	display2.h \
-	draw2.h \
-	state2.h \
-	event.h \
-	input.h \
-	vi.h \
-	regexp.h \
-	ex.h \
-	move.h \
-	vicmd.h \
-	operator.h \
-	cut.h \
-	elvisio.h \
-	lp.h \
-	calc.h \
-	more.h \
-	digraph.h \
-	need.h \
-	misc.h
-
-
-MORE_DEP = elvis.h \
-	config.h \
-	version.h \
-	safe.h \
-	options.h \
-	optglob.h \
-	session.h \
-	lowbuf.h \
-	buffer.h \
-	mark.h \
-	buffer2.h \
-	scan.h \
-	message.h \
-	opsys.h \
-	map.h \
-	gui.h \
-	display.h \
-	draw.h \
-	state.h \
-	window.h \
-	gui2.h \
-	display2.h \
-	draw2.h \
-	state2.h \
-	event.h \
-	input.h \
-	vi.h \
-	regexp.h \
-	ex.h \
-	move.h \
-	vicmd.h \
-	operator.h \
-	cut.h \
-	elvisio.h \
-	lp.h \
-	calc.h \
-	more.h \
-	digraph.h \
-	need.h \
-	misc.h
-
-
-MOVE_DEP = elvis.h \
-	config.h \
-	version.h \
-	safe.h \
-	options.h \
-	optglob.h \
-	session.h \
-	lowbuf.h \
-	buffer.h \
-	mark.h \
-	buffer2.h \
-	scan.h \
-	message.h \
-	opsys.h \
-	map.h \
-	gui.h \
-	display.h \
-	draw.h \
-	state.h \
-	window.h \
-	gui2.h \
-	display2.h \
-	draw2.h \
-	state2.h \
-	event.h \
-	input.h \
-	vi.h \
-	regexp.h \
-	ex.h \
-	move.h \
-	vicmd.h \
-	operator.h \
-	cut.h \
-	elvisio.h \
-	lp.h \
-	calc.h \
-	more.h \
-	digraph.h \
-	need.h \
-	misc.h
-
-
-NEED_DEP = elvis.h \
-	config.h \
-	version.h \
-	safe.h \
-	options.h \
-	optglob.h \
-	session.h \
-	lowbuf.h \
-	buffer.h \
-	mark.h \
-	buffer2.h \
-	scan.h \
-	message.h \
-	opsys.h \
-	map.h \
-	gui.h \
-	display.h \
-	draw.h \
-	state.h \
-	window.h \
-	gui2.h \
-	display2.h \
-	draw2.h \
-	state2.h \
-	event.h \
-	input.h \
-	vi.h \
-	regexp.h \
-	ex.h \
-	move.h \
-	vicmd.h \
-	operator.h \
-	cut.h \
-	elvisio.h \
-	lp.h \
-	calc.h \
-	more.h \
-	digraph.h \
-	need.h \
-	misc.h
-
-
-OPERATOR_DEP = elvis.h \
-	config.h \
-	version.h \
-	safe.h \
-	options.h \
-	optglob.h \
-	session.h \
-	lowbuf.h \
-	buffer.h \
-	mark.h \
-	buffer2.h \
-	scan.h \
-	message.h \
-	opsys.h \
-	map.h \
-	gui.h \
-	display.h \
-	draw.h \
-	state.h \
-	window.h \
-	gui2.h \
-	display2.h \
-	draw2.h \
-	state2.h \
-	event.h \
-	input.h \
-	vi.h \
-	regexp.h \
-	ex.h \
-	move.h \
-	vicmd.h \
-	operator.h \
-	cut.h \
-	elvisio.h \
-	lp.h \
-	calc.h \
-	more.h \
-	digraph.h \
-	need.h \
-	misc.h
-
-
-OPTGLOB_DEP = elvis.h \
-	config.h \
-	version.h \
-	safe.h \
-	options.h \
-	optglob.h \
-	session.h \
-	lowbuf.h \
-	buffer.h \
-	mark.h \
-	buffer2.h \
-	scan.h \
-	message.h \
-	opsys.h \
-	map.h \
-	gui.h \
-	display.h \
-	draw.h \
-	state.h \
-	window.h \
-	gui2.h \
-	display2.h \
-	draw2.h \
-	state2.h \
-	event.h \
-	input.h \
-	vi.h \
-	regexp.h \
-	ex.h \
-	move.h \
-	vicmd.h \
-	operator.h \
-	cut.h \
-	elvisio.h \
-	lp.h \
-	calc.h \
-	more.h \
-	digraph.h \
-	need.h \
-	misc.h
-
-
-OPTIONS_DEP = elvis.h \
-	config.h \
-	version.h \
-	safe.h \
-	options.h \
-	optglob.h \
-	session.h \
-	lowbuf.h \
-	buffer.h \
-	mark.h \
-	buffer2.h \
-	scan.h \
-	message.h \
-	opsys.h \
-	map.h \
-	gui.h \
-	display.h \
-	draw.h \
-	state.h \
-	window.h \
-	gui2.h \
-	display2.h \
-	draw2.h \
-	state2.h \
-	event.h \
-	input.h \
-	vi.h \
-	regexp.h \
-	ex.h \
-	move.h \
-	vicmd.h \
-	operator.h \
-	cut.h \
-	elvisio.h \
-	lp.h \
-	calc.h \
-	more.h \
-	digraph.h \
-	need.h \
-	misc.h
-
-
-REGEXP_DEP = elvis.h \
-	config.h \
-	version.h \
-	safe.h \
-	options.h \
-	optglob.h \
-	session.h \
-	lowbuf.h \
-	buffer.h \
-	mark.h \
-	buffer2.h \
-	scan.h \
-	message.h \
-	opsys.h \
-	map.h \
-	gui.h \
-	display.h \
-	draw.h \
-	state.h \
-	window.h \
-	gui2.h \
-	display2.h \
-	draw2.h \
-	state2.h \
-	event.h \
-	input.h \
-	vi.h \
-	regexp.h \
-	ex.h \
-	move.h \
-	vicmd.h \
-	operator.h \
-	cut.h \
-	elvisio.h \
-	lp.h \
-	calc.h \
-	more.h \
-	digraph.h \
-	need.h \
-	misc.h
-
-
-REGSUB_DEP = elvis.h \
-	config.h \
-	version.h \
-	safe.h \
-	options.h \
-	optglob.h \
-	session.h \
-	lowbuf.h \
-	buffer.h \
-	mark.h \
-	buffer2.h \
-	scan.h \
-	message.h \
-	opsys.h \
-	map.h \
-	gui.h \
-	display.h \
-	draw.h \
-	state.h \
-	window.h \
-	gui2.h \
-	display2.h \
-	draw2.h \
-	state2.h \
-	event.h \
-	input.h \
-	vi.h \
-	regexp.h \
-	ex.h \
-	move.h \
-	vicmd.h \
-	operator.h \
-	cut.h \
-	elvisio.h \
-	lp.h \
-	calc.h \
-	more.h \
-	digraph.h \
-	need.h \
-	misc.h
-
-
-SAFE_DEP = elvis.h \
-	config.h \
-	version.h \
-	safe.h \
-	options.h \
-	optglob.h \
-	session.h \
-	lowbuf.h \
-	buffer.h \
-	mark.h \
-	buffer2.h \
-	scan.h \
-	message.h \
-	opsys.h \
-	map.h \
-	gui.h \
-	display.h \
-	draw.h \
-	state.h \
-	window.h \
-	gui2.h \
-	display2.h \
-	draw2.h \
-	state2.h \
-	event.h \
-	input.h \
-	vi.h \
-	regexp.h \
-	ex.h \
-	move.h \
-	vicmd.h \
-	operator.h \
-	cut.h \
-	elvisio.h \
-	lp.h \
-	calc.h \
-	more.h \
-	digraph.h \
-	need.h \
-	misc.h
-
-
-SCAN_DEP = elvis.h \
-	config.h \
-	version.h \
-	safe.h \
-	options.h \
-	optglob.h \
-	session.h \
-	lowbuf.h \
-	buffer.h \
-	mark.h \
-	buffer2.h \
-	scan.h \
-	message.h \
-	opsys.h \
-	map.h \
-	gui.h \
-	display.h \
-	draw.h \
-	state.h \
-	window.h \
-	gui2.h \
-	display2.h \
-	draw2.h \
-	state2.h \
-	event.h \
-	input.h \
-	vi.h \
-	regexp.h \
-	ex.h \
-	move.h \
-	vicmd.h \
-	operator.h \
-	cut.h \
-	elvisio.h \
-	lp.h \
-	calc.h \
-	more.h \
-	digraph.h \
-	need.h \
-	misc.h
-
-
-SEARCH_DEP = elvis.h \
-	config.h \
-	version.h \
-	safe.h \
-	options.h \
-	optglob.h \
-	session.h \
-	lowbuf.h \
-	buffer.h \
-	mark.h \
-	buffer2.h \
-	scan.h \
-	message.h \
-	opsys.h \
-	map.h \
-	gui.h \
-	display.h \
-	draw.h \
-	state.h \
-	window.h \
-	gui2.h \
-	display2.h \
-	draw2.h \
-	state2.h \
-	event.h \
-	input.h \
-	vi.h \
-	regexp.h \
-	ex.h \
-	move.h \
-	vicmd.h \
-	operator.h \
-	cut.h \
-	elvisio.h \
-	lp.h \
-	calc.h \
-	more.h \
-	digraph.h \
-	need.h \
-	misc.h
-
-
-SESSION_DEP = elvis.h \
-	config.h \
-	version.h \
-	safe.h \
-	options.h \
-	optglob.h \
-	session.h \
-	lowbuf.h \
-	buffer.h \
-	mark.h \
-	buffer2.h \
-	scan.h \
-	message.h \
-	opsys.h \
-	map.h \
-	gui.h \
-	display.h \
-	draw.h \
-	state.h \
-	window.h \
-	gui2.h \
-	display2.h \
-	draw2.h \
-	state2.h \
-	event.h \
-	input.h \
-	vi.h \
-	regexp.h \
-	ex.h \
-	move.h \
-	vicmd.h \
-	operator.h \
-	cut.h \
-	elvisio.h \
-	lp.h \
-	calc.h \
-	more.h \
-	digraph.h \
-	need.h \
-	misc.h
-
-
-STATE_DEP = elvis.h \
-	config.h \
-	version.h \
-	safe.h \
-	options.h \
-	optglob.h \
-	session.h \
-	lowbuf.h \
-	buffer.h \
-	mark.h \
-	buffer2.h \
-	scan.h \
-	message.h \
-	opsys.h \
-	map.h \
-	gui.h \
-	display.h \
-	draw.h \
-	state.h \
-	window.h \
-	gui2.h \
-	display2.h \
-	draw2.h \
-	state2.h \
-	event.h \
-	input.h \
-	vi.h \
-	regexp.h \
-	ex.h \
-	move.h \
-	vicmd.h \
-	operator.h \
-	cut.h \
-	elvisio.h \
-	lp.h \
-	calc.h \
-	more.h \
-	digraph.h \
-	need.h \
-	misc.h
-
-
-TINYTCAP_DEP = elvis.h \
-	config.h \
-	version.h \
-	safe.h \
-	options.h \
-	optglob.h \
-	session.h \
-	lowbuf.h \
-	buffer.h \
-	mark.h \
-	buffer2.h \
-	scan.h \
-	message.h \
-	opsys.h \
-	map.h \
-	gui.h \
-	display.h \
-	draw.h \
-	state.h \
-	window.h \
-	gui2.h \
-	display2.h \
-	draw2.h \
-	state2.h \
-	event.h \
-	input.h \
-	vi.h \
-	regexp.h \
-	ex.h \
-	move.h \
-	vicmd.h \
-	operator.h \
-	cut.h \
-	elvisio.h \
-	lp.h \
-	calc.h \
-	more.h \
-	digraph.h \
-	need.h \
-	misc.h
-
-
-VI_DEP = elvis.h \
-	config.h \
-	version.h \
-	safe.h \
-	options.h \
-	optglob.h \
-	session.h \
-	lowbuf.h \
-	buffer.h \
-	mark.h \
-	buffer2.h \
-	scan.h \
-	message.h \
-	opsys.h \
-	map.h \
-	gui.h \
-	display.h \
-	draw.h \
-	state.h \
-	window.h \
-	gui2.h \
-	display2.h \
-	draw2.h \
-	state2.h \
-	event.h \
-	input.h \
-	vi.h \
-	regexp.h \
-	ex.h \
-	move.h \
-	vicmd.h \
-	operator.h \
-	cut.h \
-	elvisio.h \
-	lp.h \
-	calc.h \
-	more.h \
-	digraph.h \
-	need.h \
-	misc.h
-
-
-VICMD_DEP = elvis.h \
-	config.h \
-	version.h \
-	safe.h \
-	options.h \
-	optglob.h \
-	session.h \
-	lowbuf.h \
-	buffer.h \
-	mark.h \
-	buffer2.h \
-	scan.h \
-	message.h \
-	opsys.h \
-	map.h \
-	gui.h \
-	display.h \
-	draw.h \
-	state.h \
-	window.h \
-	gui2.h \
-	display2.h \
-	draw2.h \
-	state2.h \
-	event.h \
-	input.h \
-	vi.h \
-	regexp.h \
-	ex.h \
-	move.h \
-	vicmd.h \
-	operator.h \
-	cut.h \
-	elvisio.h \
-	lp.h \
-	calc.h \
-	more.h \
-	digraph.h \
-	need.h \
-	misc.h
-
-
-WINDOW_DEP = elvis.h \
-	config.h \
-	version.h \
-	safe.h \
-	options.h \
-	optglob.h \
-	session.h \
-	lowbuf.h \
-	buffer.h \
-	mark.h \
-	buffer2.h \
-	scan.h \
-	message.h \
-	opsys.h \
-	map.h \
-	gui.h \
-	display.h \
-	draw.h \
-	state.h \
-	window.h \
-	gui2.h \
-	display2.h \
-	draw2.h \
-	state2.h \
-	event.h \
-	input.h \
-	vi.h \
-	regexp.h \
-	ex.h \
-	move.h \
-	vicmd.h \
-	operator.h \
-	cut.h \
-	elvisio.h \
-	lp.h \
-	calc.h \
-	more.h \
-	digraph.h \
-	need.h \
-	misc.h
-
-
-TCAPHELP_DEP = osmsdos\pcvideo.h
+		TCAPHELP.SBR \
+		TAG.SBR \
+		TAGELVIS.SBR \
+		TAGSRCH.SBR
+
+
+DOEXEC_DEP = 
+
+BUFFER_DEP = .\elvis.h \
+	.\config.h \
+	.\version.h \
+	.\elvctype.h \
+	.\safe.h \
+	.\options.h \
+	.\optglob.h \
+	.\session.h \
+	.\lowbuf.h \
+	.\message.h \
+	.\buffer.h \
+	.\mark.h \
+	.\buffer2.h \
+	.\options2.h \
+	.\scan.h \
+	.\opsys.h \
+	.\map.h \
+	.\gui.h \
+	.\display.h \
+	.\draw.h \
+	.\state.h \
+	.\window.h \
+	.\gui2.h \
+	.\display2.h \
+	.\draw2.h \
+	.\state2.h \
+	.\event.h \
+	.\input.h \
+	.\vi.h \
+	.\regexp.h \
+	.\ex.h \
+	.\move.h \
+	.\vicmd.h \
+	.\operator.h \
+	.\cut.h \
+	.\elvisio.h \
+	.\lp.h \
+	.\calc.h \
+	.\more.h \
+	.\digraph.h \
+	.\tag.h \
+	.\tagsrch.h \
+	.\tagelvis.h \
+	.\need.h \
+	.\misc.h
+
+
+CALC_DEP = .\elvis.h \
+	.\config.h \
+	.\version.h \
+	.\elvctype.h \
+	.\safe.h \
+	.\options.h \
+	.\optglob.h \
+	.\session.h \
+	.\lowbuf.h \
+	.\message.h \
+	.\buffer.h \
+	.\mark.h \
+	.\buffer2.h \
+	.\options2.h \
+	.\scan.h \
+	.\opsys.h \
+	.\map.h \
+	.\gui.h \
+	.\display.h \
+	.\draw.h \
+	.\state.h \
+	.\window.h \
+	.\gui2.h \
+	.\display2.h \
+	.\draw2.h \
+	.\state2.h \
+	.\event.h \
+	.\input.h \
+	.\vi.h \
+	.\regexp.h \
+	.\ex.h \
+	.\move.h \
+	.\vicmd.h \
+	.\operator.h \
+	.\cut.h \
+	.\elvisio.h \
+	.\lp.h \
+	.\calc.h \
+	.\more.h \
+	.\digraph.h \
+	.\tag.h \
+	.\tagsrch.h \
+	.\tagelvis.h \
+	.\need.h \
+	.\misc.h
+
+
+CUT_DEP = .\elvis.h \
+	.\config.h \
+	.\version.h \
+	.\elvctype.h \
+	.\safe.h \
+	.\options.h \
+	.\optglob.h \
+	.\session.h \
+	.\lowbuf.h \
+	.\message.h \
+	.\buffer.h \
+	.\mark.h \
+	.\buffer2.h \
+	.\options2.h \
+	.\scan.h \
+	.\opsys.h \
+	.\map.h \
+	.\gui.h \
+	.\display.h \
+	.\draw.h \
+	.\state.h \
+	.\window.h \
+	.\gui2.h \
+	.\display2.h \
+	.\draw2.h \
+	.\state2.h \
+	.\event.h \
+	.\input.h \
+	.\vi.h \
+	.\regexp.h \
+	.\ex.h \
+	.\move.h \
+	.\vicmd.h \
+	.\operator.h \
+	.\cut.h \
+	.\elvisio.h \
+	.\lp.h \
+	.\calc.h \
+	.\more.h \
+	.\digraph.h \
+	.\tag.h \
+	.\tagsrch.h \
+	.\tagelvis.h \
+	.\need.h \
+	.\misc.h
+
+
+DIGRAPH_DEP = .\elvis.h \
+	.\config.h \
+	.\version.h \
+	.\elvctype.h \
+	.\safe.h \
+	.\options.h \
+	.\optglob.h \
+	.\session.h \
+	.\lowbuf.h \
+	.\message.h \
+	.\buffer.h \
+	.\mark.h \
+	.\buffer2.h \
+	.\options2.h \
+	.\scan.h \
+	.\opsys.h \
+	.\map.h \
+	.\gui.h \
+	.\display.h \
+	.\draw.h \
+	.\state.h \
+	.\window.h \
+	.\gui2.h \
+	.\display2.h \
+	.\draw2.h \
+	.\state2.h \
+	.\event.h \
+	.\input.h \
+	.\vi.h \
+	.\regexp.h \
+	.\ex.h \
+	.\move.h \
+	.\vicmd.h \
+	.\operator.h \
+	.\cut.h \
+	.\elvisio.h \
+	.\lp.h \
+	.\calc.h \
+	.\more.h \
+	.\digraph.h \
+	.\tag.h \
+	.\tagsrch.h \
+	.\tagelvis.h \
+	.\need.h \
+	.\misc.h
+
+
+DISPLAY_DEP = .\elvis.h \
+	.\config.h \
+	.\version.h \
+	.\elvctype.h \
+	.\safe.h \
+	.\options.h \
+	.\optglob.h \
+	.\session.h \
+	.\lowbuf.h \
+	.\message.h \
+	.\buffer.h \
+	.\mark.h \
+	.\buffer2.h \
+	.\options2.h \
+	.\scan.h \
+	.\opsys.h \
+	.\map.h \
+	.\gui.h \
+	.\display.h \
+	.\draw.h \
+	.\state.h \
+	.\window.h \
+	.\gui2.h \
+	.\display2.h \
+	.\draw2.h \
+	.\state2.h \
+	.\event.h \
+	.\input.h \
+	.\vi.h \
+	.\regexp.h \
+	.\ex.h \
+	.\move.h \
+	.\vicmd.h \
+	.\operator.h \
+	.\cut.h \
+	.\elvisio.h \
+	.\lp.h \
+	.\calc.h \
+	.\more.h \
+	.\digraph.h \
+	.\tag.h \
+	.\tagsrch.h \
+	.\tagelvis.h \
+	.\need.h \
+	.\misc.h
+
+
+DMHEX_DEP = .\elvis.h \
+	.\config.h \
+	.\version.h \
+	.\elvctype.h \
+	.\safe.h \
+	.\options.h \
+	.\optglob.h \
+	.\session.h \
+	.\lowbuf.h \
+	.\message.h \
+	.\buffer.h \
+	.\mark.h \
+	.\buffer2.h \
+	.\options2.h \
+	.\scan.h \
+	.\opsys.h \
+	.\map.h \
+	.\gui.h \
+	.\display.h \
+	.\draw.h \
+	.\state.h \
+	.\window.h \
+	.\gui2.h \
+	.\display2.h \
+	.\draw2.h \
+	.\state2.h \
+	.\event.h \
+	.\input.h \
+	.\vi.h \
+	.\regexp.h \
+	.\ex.h \
+	.\move.h \
+	.\vicmd.h \
+	.\operator.h \
+	.\cut.h \
+	.\elvisio.h \
+	.\lp.h \
+	.\calc.h \
+	.\more.h \
+	.\digraph.h \
+	.\tag.h \
+	.\tagsrch.h \
+	.\tagelvis.h \
+	.\need.h \
+	.\misc.h
+
+
+DMMARKUP_DEP = .\elvis.h \
+	.\config.h \
+	.\version.h \
+	.\elvctype.h \
+	.\safe.h \
+	.\options.h \
+	.\optglob.h \
+	.\session.h \
+	.\lowbuf.h \
+	.\message.h \
+	.\buffer.h \
+	.\mark.h \
+	.\buffer2.h \
+	.\options2.h \
+	.\scan.h \
+	.\opsys.h \
+	.\map.h \
+	.\gui.h \
+	.\display.h \
+	.\draw.h \
+	.\state.h \
+	.\window.h \
+	.\gui2.h \
+	.\display2.h \
+	.\draw2.h \
+	.\state2.h \
+	.\event.h \
+	.\input.h \
+	.\vi.h \
+	.\regexp.h \
+	.\ex.h \
+	.\move.h \
+	.\vicmd.h \
+	.\operator.h \
+	.\cut.h \
+	.\elvisio.h \
+	.\lp.h \
+	.\calc.h \
+	.\more.h \
+	.\digraph.h \
+	.\tag.h \
+	.\tagsrch.h \
+	.\tagelvis.h \
+	.\need.h \
+	.\misc.h
+
+
+DMNORMAL_DEP = .\elvis.h \
+	.\config.h \
+	.\version.h \
+	.\elvctype.h \
+	.\safe.h \
+	.\options.h \
+	.\optglob.h \
+	.\session.h \
+	.\lowbuf.h \
+	.\message.h \
+	.\buffer.h \
+	.\mark.h \
+	.\buffer2.h \
+	.\options2.h \
+	.\scan.h \
+	.\opsys.h \
+	.\map.h \
+	.\gui.h \
+	.\display.h \
+	.\draw.h \
+	.\state.h \
+	.\window.h \
+	.\gui2.h \
+	.\display2.h \
+	.\draw2.h \
+	.\state2.h \
+	.\event.h \
+	.\input.h \
+	.\vi.h \
+	.\regexp.h \
+	.\ex.h \
+	.\move.h \
+	.\vicmd.h \
+	.\operator.h \
+	.\cut.h \
+	.\elvisio.h \
+	.\lp.h \
+	.\calc.h \
+	.\more.h \
+	.\digraph.h \
+	.\tag.h \
+	.\tagsrch.h \
+	.\tagelvis.h \
+	.\need.h \
+	.\misc.h
+
+
+DMSYNTAX_DEP = .\elvis.h \
+	.\config.h \
+	.\version.h \
+	.\elvctype.h \
+	.\safe.h \
+	.\options.h \
+	.\optglob.h \
+	.\session.h \
+	.\lowbuf.h \
+	.\message.h \
+	.\buffer.h \
+	.\mark.h \
+	.\buffer2.h \
+	.\options2.h \
+	.\scan.h \
+	.\opsys.h \
+	.\map.h \
+	.\gui.h \
+	.\display.h \
+	.\draw.h \
+	.\state.h \
+	.\window.h \
+	.\gui2.h \
+	.\display2.h \
+	.\draw2.h \
+	.\state2.h \
+	.\event.h \
+	.\input.h \
+	.\vi.h \
+	.\regexp.h \
+	.\ex.h \
+	.\move.h \
+	.\vicmd.h \
+	.\operator.h \
+	.\cut.h \
+	.\elvisio.h \
+	.\lp.h \
+	.\calc.h \
+	.\more.h \
+	.\digraph.h \
+	.\tag.h \
+	.\tagsrch.h \
+	.\tagelvis.h \
+	.\need.h \
+	.\misc.h
+
+
+DRAW_DEP = .\elvis.h \
+	.\config.h \
+	.\version.h \
+	.\elvctype.h \
+	.\safe.h \
+	.\options.h \
+	.\optglob.h \
+	.\session.h \
+	.\lowbuf.h \
+	.\message.h \
+	.\buffer.h \
+	.\mark.h \
+	.\buffer2.h \
+	.\options2.h \
+	.\scan.h \
+	.\opsys.h \
+	.\map.h \
+	.\gui.h \
+	.\display.h \
+	.\draw.h \
+	.\state.h \
+	.\window.h \
+	.\gui2.h \
+	.\display2.h \
+	.\draw2.h \
+	.\state2.h \
+	.\event.h \
+	.\input.h \
+	.\vi.h \
+	.\regexp.h \
+	.\ex.h \
+	.\move.h \
+	.\vicmd.h \
+	.\operator.h \
+	.\cut.h \
+	.\elvisio.h \
+	.\lp.h \
+	.\calc.h \
+	.\more.h \
+	.\digraph.h \
+	.\tag.h \
+	.\tagsrch.h \
+	.\tagelvis.h \
+	.\need.h \
+	.\misc.h
+
+
+EVENT_DEP = .\elvis.h \
+	.\config.h \
+	.\version.h \
+	.\elvctype.h \
+	.\safe.h \
+	.\options.h \
+	.\optglob.h \
+	.\session.h \
+	.\lowbuf.h \
+	.\message.h \
+	.\buffer.h \
+	.\mark.h \
+	.\buffer2.h \
+	.\options2.h \
+	.\scan.h \
+	.\opsys.h \
+	.\map.h \
+	.\gui.h \
+	.\display.h \
+	.\draw.h \
+	.\state.h \
+	.\window.h \
+	.\gui2.h \
+	.\display2.h \
+	.\draw2.h \
+	.\state2.h \
+	.\event.h \
+	.\input.h \
+	.\vi.h \
+	.\regexp.h \
+	.\ex.h \
+	.\move.h \
+	.\vicmd.h \
+	.\operator.h \
+	.\cut.h \
+	.\elvisio.h \
+	.\lp.h \
+	.\calc.h \
+	.\more.h \
+	.\digraph.h \
+	.\tag.h \
+	.\tagsrch.h \
+	.\tagelvis.h \
+	.\need.h \
+	.\misc.h
+
+
+EX_DEP = .\elvis.h \
+	.\config.h \
+	.\version.h \
+	.\elvctype.h \
+	.\safe.h \
+	.\options.h \
+	.\optglob.h \
+	.\session.h \
+	.\lowbuf.h \
+	.\message.h \
+	.\buffer.h \
+	.\mark.h \
+	.\buffer2.h \
+	.\options2.h \
+	.\scan.h \
+	.\opsys.h \
+	.\map.h \
+	.\gui.h \
+	.\display.h \
+	.\draw.h \
+	.\state.h \
+	.\window.h \
+	.\gui2.h \
+	.\display2.h \
+	.\draw2.h \
+	.\state2.h \
+	.\event.h \
+	.\input.h \
+	.\vi.h \
+	.\regexp.h \
+	.\ex.h \
+	.\move.h \
+	.\vicmd.h \
+	.\operator.h \
+	.\cut.h \
+	.\elvisio.h \
+	.\lp.h \
+	.\calc.h \
+	.\more.h \
+	.\digraph.h \
+	.\tag.h \
+	.\tagsrch.h \
+	.\tagelvis.h \
+	.\need.h \
+	.\misc.h
+
+
+EXACTION_DEP = .\elvis.h \
+	.\config.h \
+	.\version.h \
+	.\elvctype.h \
+	.\safe.h \
+	.\options.h \
+	.\optglob.h \
+	.\session.h \
+	.\lowbuf.h \
+	.\message.h \
+	.\buffer.h \
+	.\mark.h \
+	.\buffer2.h \
+	.\options2.h \
+	.\scan.h \
+	.\opsys.h \
+	.\map.h \
+	.\gui.h \
+	.\display.h \
+	.\draw.h \
+	.\state.h \
+	.\window.h \
+	.\gui2.h \
+	.\display2.h \
+	.\draw2.h \
+	.\state2.h \
+	.\event.h \
+	.\input.h \
+	.\vi.h \
+	.\regexp.h \
+	.\ex.h \
+	.\move.h \
+	.\vicmd.h \
+	.\operator.h \
+	.\cut.h \
+	.\elvisio.h \
+	.\lp.h \
+	.\calc.h \
+	.\more.h \
+	.\digraph.h \
+	.\tag.h \
+	.\tagsrch.h \
+	.\tagelvis.h \
+	.\need.h \
+	.\misc.h
+
+
+EXCONFIG_DEP = .\elvis.h \
+	.\config.h \
+	.\version.h \
+	.\elvctype.h \
+	.\safe.h \
+	.\options.h \
+	.\optglob.h \
+	.\session.h \
+	.\lowbuf.h \
+	.\message.h \
+	.\buffer.h \
+	.\mark.h \
+	.\buffer2.h \
+	.\options2.h \
+	.\scan.h \
+	.\opsys.h \
+	.\map.h \
+	.\gui.h \
+	.\display.h \
+	.\draw.h \
+	.\state.h \
+	.\window.h \
+	.\gui2.h \
+	.\display2.h \
+	.\draw2.h \
+	.\state2.h \
+	.\event.h \
+	.\input.h \
+	.\vi.h \
+	.\regexp.h \
+	.\ex.h \
+	.\move.h \
+	.\vicmd.h \
+	.\operator.h \
+	.\cut.h \
+	.\elvisio.h \
+	.\lp.h \
+	.\calc.h \
+	.\more.h \
+	.\digraph.h \
+	.\tag.h \
+	.\tagsrch.h \
+	.\tagelvis.h \
+	.\need.h \
+	.\misc.h
+
+
+EXEDIT_DEP = .\elvis.h \
+	.\config.h \
+	.\version.h \
+	.\elvctype.h \
+	.\safe.h \
+	.\options.h \
+	.\optglob.h \
+	.\session.h \
+	.\lowbuf.h \
+	.\message.h \
+	.\buffer.h \
+	.\mark.h \
+	.\buffer2.h \
+	.\options2.h \
+	.\scan.h \
+	.\opsys.h \
+	.\map.h \
+	.\gui.h \
+	.\display.h \
+	.\draw.h \
+	.\state.h \
+	.\window.h \
+	.\gui2.h \
+	.\display2.h \
+	.\draw2.h \
+	.\state2.h \
+	.\event.h \
+	.\input.h \
+	.\vi.h \
+	.\regexp.h \
+	.\ex.h \
+	.\move.h \
+	.\vicmd.h \
+	.\operator.h \
+	.\cut.h \
+	.\elvisio.h \
+	.\lp.h \
+	.\calc.h \
+	.\more.h \
+	.\digraph.h \
+	.\tag.h \
+	.\tagsrch.h \
+	.\tagelvis.h \
+	.\need.h \
+	.\misc.h
+
+
+EXMAKE_DEP = .\elvis.h \
+	.\config.h \
+	.\version.h \
+	.\elvctype.h \
+	.\safe.h \
+	.\options.h \
+	.\optglob.h \
+	.\session.h \
+	.\lowbuf.h \
+	.\message.h \
+	.\buffer.h \
+	.\mark.h \
+	.\buffer2.h \
+	.\options2.h \
+	.\scan.h \
+	.\opsys.h \
+	.\map.h \
+	.\gui.h \
+	.\display.h \
+	.\draw.h \
+	.\state.h \
+	.\window.h \
+	.\gui2.h \
+	.\display2.h \
+	.\draw2.h \
+	.\state2.h \
+	.\event.h \
+	.\input.h \
+	.\vi.h \
+	.\regexp.h \
+	.\ex.h \
+	.\move.h \
+	.\vicmd.h \
+	.\operator.h \
+	.\cut.h \
+	.\elvisio.h \
+	.\lp.h \
+	.\calc.h \
+	.\more.h \
+	.\digraph.h \
+	.\tag.h \
+	.\tagsrch.h \
+	.\tagelvis.h \
+	.\need.h \
+	.\misc.h
+
+
+EXSUBST_DEP = .\elvis.h \
+	.\config.h \
+	.\version.h \
+	.\elvctype.h \
+	.\safe.h \
+	.\options.h \
+	.\optglob.h \
+	.\session.h \
+	.\lowbuf.h \
+	.\message.h \
+	.\buffer.h \
+	.\mark.h \
+	.\buffer2.h \
+	.\options2.h \
+	.\scan.h \
+	.\opsys.h \
+	.\map.h \
+	.\gui.h \
+	.\display.h \
+	.\draw.h \
+	.\state.h \
+	.\window.h \
+	.\gui2.h \
+	.\display2.h \
+	.\draw2.h \
+	.\state2.h \
+	.\event.h \
+	.\input.h \
+	.\vi.h \
+	.\regexp.h \
+	.\ex.h \
+	.\move.h \
+	.\vicmd.h \
+	.\operator.h \
+	.\cut.h \
+	.\elvisio.h \
+	.\lp.h \
+	.\calc.h \
+	.\more.h \
+	.\digraph.h \
+	.\tag.h \
+	.\tagsrch.h \
+	.\tagelvis.h \
+	.\need.h \
+	.\misc.h
+
+
+GUI_DEP = .\elvis.h \
+	.\config.h \
+	.\version.h \
+	.\elvctype.h \
+	.\safe.h \
+	.\options.h \
+	.\optglob.h \
+	.\session.h \
+	.\lowbuf.h \
+	.\message.h \
+	.\buffer.h \
+	.\mark.h \
+	.\buffer2.h \
+	.\options2.h \
+	.\scan.h \
+	.\opsys.h \
+	.\map.h \
+	.\gui.h \
+	.\display.h \
+	.\draw.h \
+	.\state.h \
+	.\window.h \
+	.\gui2.h \
+	.\display2.h \
+	.\draw2.h \
+	.\state2.h \
+	.\event.h \
+	.\input.h \
+	.\vi.h \
+	.\regexp.h \
+	.\ex.h \
+	.\move.h \
+	.\vicmd.h \
+	.\operator.h \
+	.\cut.h \
+	.\elvisio.h \
+	.\lp.h \
+	.\calc.h \
+	.\more.h \
+	.\digraph.h \
+	.\tag.h \
+	.\tagsrch.h \
+	.\tagelvis.h \
+	.\need.h \
+	.\misc.h
+
+
+GUICURS_DEP = .\elvis.h \
+	.\config.h \
+	.\version.h \
+	.\elvctype.h \
+	.\safe.h \
+	.\options.h \
+	.\optglob.h \
+	.\session.h \
+	.\lowbuf.h \
+	.\message.h \
+	.\buffer.h \
+	.\mark.h \
+	.\buffer2.h \
+	.\options2.h \
+	.\scan.h \
+	.\opsys.h \
+	.\map.h \
+	.\gui.h \
+	.\display.h \
+	.\draw.h \
+	.\state.h \
+	.\window.h \
+	.\gui2.h \
+	.\display2.h \
+	.\draw2.h \
+	.\state2.h \
+	.\event.h \
+	.\input.h \
+	.\vi.h \
+	.\regexp.h \
+	.\ex.h \
+	.\move.h \
+	.\vicmd.h \
+	.\operator.h \
+	.\cut.h \
+	.\elvisio.h \
+	.\lp.h \
+	.\calc.h \
+	.\more.h \
+	.\digraph.h \
+	.\tag.h \
+	.\tagsrch.h \
+	.\tagelvis.h \
+	.\need.h \
+	.\misc.h
+
+
+GUIOPEN_DEP = .\elvis.h \
+	.\config.h \
+	.\version.h \
+	.\elvctype.h \
+	.\safe.h \
+	.\options.h \
+	.\optglob.h \
+	.\session.h \
+	.\lowbuf.h \
+	.\message.h \
+	.\buffer.h \
+	.\mark.h \
+	.\buffer2.h \
+	.\options2.h \
+	.\scan.h \
+	.\opsys.h \
+	.\map.h \
+	.\gui.h \
+	.\display.h \
+	.\draw.h \
+	.\state.h \
+	.\window.h \
+	.\gui2.h \
+	.\display2.h \
+	.\draw2.h \
+	.\state2.h \
+	.\event.h \
+	.\input.h \
+	.\vi.h \
+	.\regexp.h \
+	.\ex.h \
+	.\move.h \
+	.\vicmd.h \
+	.\operator.h \
+	.\cut.h \
+	.\elvisio.h \
+	.\lp.h \
+	.\calc.h \
+	.\more.h \
+	.\digraph.h \
+	.\tag.h \
+	.\tagsrch.h \
+	.\tagelvis.h \
+	.\need.h \
+	.\misc.h
+
+
+GUITCAP_DEP = .\elvis.h \
+	.\config.h \
+	.\version.h \
+	.\elvctype.h \
+	.\safe.h \
+	.\options.h \
+	.\optglob.h \
+	.\session.h \
+	.\lowbuf.h \
+	.\message.h \
+	.\buffer.h \
+	.\mark.h \
+	.\buffer2.h \
+	.\options2.h \
+	.\scan.h \
+	.\opsys.h \
+	.\map.h \
+	.\gui.h \
+	.\display.h \
+	.\draw.h \
+	.\state.h \
+	.\window.h \
+	.\gui2.h \
+	.\display2.h \
+	.\draw2.h \
+	.\state2.h \
+	.\event.h \
+	.\input.h \
+	.\vi.h \
+	.\regexp.h \
+	.\ex.h \
+	.\move.h \
+	.\vicmd.h \
+	.\operator.h \
+	.\cut.h \
+	.\elvisio.h \
+	.\lp.h \
+	.\calc.h \
+	.\more.h \
+	.\digraph.h \
+	.\tag.h \
+	.\tagsrch.h \
+	.\tagelvis.h \
+	.\need.h \
+	.\misc.h
+
+
+INPUT_DEP = .\elvis.h \
+	.\config.h \
+	.\version.h \
+	.\elvctype.h \
+	.\safe.h \
+	.\options.h \
+	.\optglob.h \
+	.\session.h \
+	.\lowbuf.h \
+	.\message.h \
+	.\buffer.h \
+	.\mark.h \
+	.\buffer2.h \
+	.\options2.h \
+	.\scan.h \
+	.\opsys.h \
+	.\map.h \
+	.\gui.h \
+	.\display.h \
+	.\draw.h \
+	.\state.h \
+	.\window.h \
+	.\gui2.h \
+	.\display2.h \
+	.\draw2.h \
+	.\state2.h \
+	.\event.h \
+	.\input.h \
+	.\vi.h \
+	.\regexp.h \
+	.\ex.h \
+	.\move.h \
+	.\vicmd.h \
+	.\operator.h \
+	.\cut.h \
+	.\elvisio.h \
+	.\lp.h \
+	.\calc.h \
+	.\more.h \
+	.\digraph.h \
+	.\tag.h \
+	.\tagsrch.h \
+	.\tagelvis.h \
+	.\need.h \
+	.\misc.h
+
+
+IO_DEP = .\elvis.h \
+	.\config.h \
+	.\version.h \
+	.\elvctype.h \
+	.\safe.h \
+	.\options.h \
+	.\optglob.h \
+	.\session.h \
+	.\lowbuf.h \
+	.\message.h \
+	.\buffer.h \
+	.\mark.h \
+	.\buffer2.h \
+	.\options2.h \
+	.\scan.h \
+	.\opsys.h \
+	.\map.h \
+	.\gui.h \
+	.\display.h \
+	.\draw.h \
+	.\state.h \
+	.\window.h \
+	.\gui2.h \
+	.\display2.h \
+	.\draw2.h \
+	.\state2.h \
+	.\event.h \
+	.\input.h \
+	.\vi.h \
+	.\regexp.h \
+	.\ex.h \
+	.\move.h \
+	.\vicmd.h \
+	.\operator.h \
+	.\cut.h \
+	.\elvisio.h \
+	.\lp.h \
+	.\calc.h \
+	.\more.h \
+	.\digraph.h \
+	.\tag.h \
+	.\tagsrch.h \
+	.\tagelvis.h \
+	.\need.h \
+	.\misc.h
+
+
+LOWBUF_DEP = .\elvis.h \
+	.\config.h \
+	.\version.h \
+	.\elvctype.h \
+	.\safe.h \
+	.\options.h \
+	.\optglob.h \
+	.\session.h \
+	.\lowbuf.h \
+	.\message.h \
+	.\buffer.h \
+	.\mark.h \
+	.\buffer2.h \
+	.\options2.h \
+	.\scan.h \
+	.\opsys.h \
+	.\map.h \
+	.\gui.h \
+	.\display.h \
+	.\draw.h \
+	.\state.h \
+	.\window.h \
+	.\gui2.h \
+	.\display2.h \
+	.\draw2.h \
+	.\state2.h \
+	.\event.h \
+	.\input.h \
+	.\vi.h \
+	.\regexp.h \
+	.\ex.h \
+	.\move.h \
+	.\vicmd.h \
+	.\operator.h \
+	.\cut.h \
+	.\elvisio.h \
+	.\lp.h \
+	.\calc.h \
+	.\more.h \
+	.\digraph.h \
+	.\tag.h \
+	.\tagsrch.h \
+	.\tagelvis.h \
+	.\need.h \
+	.\misc.h
+
+
+LP_DEP = .\elvis.h \
+	.\config.h \
+	.\version.h \
+	.\elvctype.h \
+	.\safe.h \
+	.\options.h \
+	.\optglob.h \
+	.\session.h \
+	.\lowbuf.h \
+	.\message.h \
+	.\buffer.h \
+	.\mark.h \
+	.\buffer2.h \
+	.\options2.h \
+	.\scan.h \
+	.\opsys.h \
+	.\map.h \
+	.\gui.h \
+	.\display.h \
+	.\draw.h \
+	.\state.h \
+	.\window.h \
+	.\gui2.h \
+	.\display2.h \
+	.\draw2.h \
+	.\state2.h \
+	.\event.h \
+	.\input.h \
+	.\vi.h \
+	.\regexp.h \
+	.\ex.h \
+	.\move.h \
+	.\vicmd.h \
+	.\operator.h \
+	.\cut.h \
+	.\elvisio.h \
+	.\lp.h \
+	.\calc.h \
+	.\more.h \
+	.\digraph.h \
+	.\tag.h \
+	.\tagsrch.h \
+	.\tagelvis.h \
+	.\need.h \
+	.\misc.h
+
+
+LPESCAPE_DEP = .\elvis.h \
+	.\config.h \
+	.\version.h \
+	.\elvctype.h \
+	.\safe.h \
+	.\options.h \
+	.\optglob.h \
+	.\session.h \
+	.\lowbuf.h \
+	.\message.h \
+	.\buffer.h \
+	.\mark.h \
+	.\buffer2.h \
+	.\options2.h \
+	.\scan.h \
+	.\opsys.h \
+	.\map.h \
+	.\gui.h \
+	.\display.h \
+	.\draw.h \
+	.\state.h \
+	.\window.h \
+	.\gui2.h \
+	.\display2.h \
+	.\draw2.h \
+	.\state2.h \
+	.\event.h \
+	.\input.h \
+	.\vi.h \
+	.\regexp.h \
+	.\ex.h \
+	.\move.h \
+	.\vicmd.h \
+	.\operator.h \
+	.\cut.h \
+	.\elvisio.h \
+	.\lp.h \
+	.\calc.h \
+	.\more.h \
+	.\digraph.h \
+	.\tag.h \
+	.\tagsrch.h \
+	.\tagelvis.h \
+	.\need.h \
+	.\misc.h
+
+
+LPOVRTYP_DEP = .\elvis.h \
+	.\config.h \
+	.\version.h \
+	.\elvctype.h \
+	.\safe.h \
+	.\options.h \
+	.\optglob.h \
+	.\session.h \
+	.\lowbuf.h \
+	.\message.h \
+	.\buffer.h \
+	.\mark.h \
+	.\buffer2.h \
+	.\options2.h \
+	.\scan.h \
+	.\opsys.h \
+	.\map.h \
+	.\gui.h \
+	.\display.h \
+	.\draw.h \
+	.\state.h \
+	.\window.h \
+	.\gui2.h \
+	.\display2.h \
+	.\draw2.h \
+	.\state2.h \
+	.\event.h \
+	.\input.h \
+	.\vi.h \
+	.\regexp.h \
+	.\ex.h \
+	.\move.h \
+	.\vicmd.h \
+	.\operator.h \
+	.\cut.h \
+	.\elvisio.h \
+	.\lp.h \
+	.\calc.h \
+	.\more.h \
+	.\digraph.h \
+	.\tag.h \
+	.\tagsrch.h \
+	.\tagelvis.h \
+	.\need.h \
+	.\misc.h
+
+
+LPPS_DEP = .\elvis.h \
+	.\config.h \
+	.\version.h \
+	.\elvctype.h \
+	.\safe.h \
+	.\options.h \
+	.\optglob.h \
+	.\session.h \
+	.\lowbuf.h \
+	.\message.h \
+	.\buffer.h \
+	.\mark.h \
+	.\buffer2.h \
+	.\options2.h \
+	.\scan.h \
+	.\opsys.h \
+	.\map.h \
+	.\gui.h \
+	.\display.h \
+	.\draw.h \
+	.\state.h \
+	.\window.h \
+	.\gui2.h \
+	.\display2.h \
+	.\draw2.h \
+	.\state2.h \
+	.\event.h \
+	.\input.h \
+	.\vi.h \
+	.\regexp.h \
+	.\ex.h \
+	.\move.h \
+	.\vicmd.h \
+	.\operator.h \
+	.\cut.h \
+	.\elvisio.h \
+	.\lp.h \
+	.\calc.h \
+	.\more.h \
+	.\digraph.h \
+	.\tag.h \
+	.\tagsrch.h \
+	.\tagelvis.h \
+	.\need.h \
+	.\misc.h
+
+
+MAIN_DEP = .\elvis.h \
+	.\config.h \
+	.\version.h \
+	.\elvctype.h \
+	.\safe.h \
+	.\options.h \
+	.\optglob.h \
+	.\session.h \
+	.\lowbuf.h \
+	.\message.h \
+	.\buffer.h \
+	.\mark.h \
+	.\buffer2.h \
+	.\options2.h \
+	.\scan.h \
+	.\opsys.h \
+	.\map.h \
+	.\gui.h \
+	.\display.h \
+	.\draw.h \
+	.\state.h \
+	.\window.h \
+	.\gui2.h \
+	.\display2.h \
+	.\draw2.h \
+	.\state2.h \
+	.\event.h \
+	.\input.h \
+	.\vi.h \
+	.\regexp.h \
+	.\ex.h \
+	.\move.h \
+	.\vicmd.h \
+	.\operator.h \
+	.\cut.h \
+	.\elvisio.h \
+	.\lp.h \
+	.\calc.h \
+	.\more.h \
+	.\digraph.h \
+	.\tag.h \
+	.\tagsrch.h \
+	.\tagelvis.h \
+	.\need.h \
+	.\misc.h
+
+
+MAP_DEP = .\elvis.h \
+	.\config.h \
+	.\version.h \
+	.\elvctype.h \
+	.\safe.h \
+	.\options.h \
+	.\optglob.h \
+	.\session.h \
+	.\lowbuf.h \
+	.\message.h \
+	.\buffer.h \
+	.\mark.h \
+	.\buffer2.h \
+	.\options2.h \
+	.\scan.h \
+	.\opsys.h \
+	.\map.h \
+	.\gui.h \
+	.\display.h \
+	.\draw.h \
+	.\state.h \
+	.\window.h \
+	.\gui2.h \
+	.\display2.h \
+	.\draw2.h \
+	.\state2.h \
+	.\event.h \
+	.\input.h \
+	.\vi.h \
+	.\regexp.h \
+	.\ex.h \
+	.\move.h \
+	.\vicmd.h \
+	.\operator.h \
+	.\cut.h \
+	.\elvisio.h \
+	.\lp.h \
+	.\calc.h \
+	.\more.h \
+	.\digraph.h \
+	.\tag.h \
+	.\tagsrch.h \
+	.\tagelvis.h \
+	.\need.h \
+	.\misc.h
+
+
+MARK_DEP = .\elvis.h \
+	.\config.h \
+	.\version.h \
+	.\elvctype.h \
+	.\safe.h \
+	.\options.h \
+	.\optglob.h \
+	.\session.h \
+	.\lowbuf.h \
+	.\message.h \
+	.\buffer.h \
+	.\mark.h \
+	.\buffer2.h \
+	.\options2.h \
+	.\scan.h \
+	.\opsys.h \
+	.\map.h \
+	.\gui.h \
+	.\display.h \
+	.\draw.h \
+	.\state.h \
+	.\window.h \
+	.\gui2.h \
+	.\display2.h \
+	.\draw2.h \
+	.\state2.h \
+	.\event.h \
+	.\input.h \
+	.\vi.h \
+	.\regexp.h \
+	.\ex.h \
+	.\move.h \
+	.\vicmd.h \
+	.\operator.h \
+	.\cut.h \
+	.\elvisio.h \
+	.\lp.h \
+	.\calc.h \
+	.\more.h \
+	.\digraph.h \
+	.\tag.h \
+	.\tagsrch.h \
+	.\tagelvis.h \
+	.\need.h \
+	.\misc.h
+
+
+MESSAGE_DEP = .\elvis.h \
+	.\config.h \
+	.\version.h \
+	.\elvctype.h \
+	.\safe.h \
+	.\options.h \
+	.\optglob.h \
+	.\session.h \
+	.\lowbuf.h \
+	.\message.h \
+	.\buffer.h \
+	.\mark.h \
+	.\buffer2.h \
+	.\options2.h \
+	.\scan.h \
+	.\opsys.h \
+	.\map.h \
+	.\gui.h \
+	.\display.h \
+	.\draw.h \
+	.\state.h \
+	.\window.h \
+	.\gui2.h \
+	.\display2.h \
+	.\draw2.h \
+	.\state2.h \
+	.\event.h \
+	.\input.h \
+	.\vi.h \
+	.\regexp.h \
+	.\ex.h \
+	.\move.h \
+	.\vicmd.h \
+	.\operator.h \
+	.\cut.h \
+	.\elvisio.h \
+	.\lp.h \
+	.\calc.h \
+	.\more.h \
+	.\digraph.h \
+	.\tag.h \
+	.\tagsrch.h \
+	.\tagelvis.h \
+	.\need.h \
+	.\misc.h
+
+
+MISC_DEP = .\elvis.h \
+	.\config.h \
+	.\version.h \
+	.\elvctype.h \
+	.\safe.h \
+	.\options.h \
+	.\optglob.h \
+	.\session.h \
+	.\lowbuf.h \
+	.\message.h \
+	.\buffer.h \
+	.\mark.h \
+	.\buffer2.h \
+	.\options2.h \
+	.\scan.h \
+	.\opsys.h \
+	.\map.h \
+	.\gui.h \
+	.\display.h \
+	.\draw.h \
+	.\state.h \
+	.\window.h \
+	.\gui2.h \
+	.\display2.h \
+	.\draw2.h \
+	.\state2.h \
+	.\event.h \
+	.\input.h \
+	.\vi.h \
+	.\regexp.h \
+	.\ex.h \
+	.\move.h \
+	.\vicmd.h \
+	.\operator.h \
+	.\cut.h \
+	.\elvisio.h \
+	.\lp.h \
+	.\calc.h \
+	.\more.h \
+	.\digraph.h \
+	.\tag.h \
+	.\tagsrch.h \
+	.\tagelvis.h \
+	.\need.h \
+	.\misc.h
+
+
+MORE_DEP = .\elvis.h \
+	.\config.h \
+	.\version.h \
+	.\elvctype.h \
+	.\safe.h \
+	.\options.h \
+	.\optglob.h \
+	.\session.h \
+	.\lowbuf.h \
+	.\message.h \
+	.\buffer.h \
+	.\mark.h \
+	.\buffer2.h \
+	.\options2.h \
+	.\scan.h \
+	.\opsys.h \
+	.\map.h \
+	.\gui.h \
+	.\display.h \
+	.\draw.h \
+	.\state.h \
+	.\window.h \
+	.\gui2.h \
+	.\display2.h \
+	.\draw2.h \
+	.\state2.h \
+	.\event.h \
+	.\input.h \
+	.\vi.h \
+	.\regexp.h \
+	.\ex.h \
+	.\move.h \
+	.\vicmd.h \
+	.\operator.h \
+	.\cut.h \
+	.\elvisio.h \
+	.\lp.h \
+	.\calc.h \
+	.\more.h \
+	.\digraph.h \
+	.\tag.h \
+	.\tagsrch.h \
+	.\tagelvis.h \
+	.\need.h \
+	.\misc.h
+
+
+MOVE_DEP = .\elvis.h \
+	.\config.h \
+	.\version.h \
+	.\elvctype.h \
+	.\safe.h \
+	.\options.h \
+	.\optglob.h \
+	.\session.h \
+	.\lowbuf.h \
+	.\message.h \
+	.\buffer.h \
+	.\mark.h \
+	.\buffer2.h \
+	.\options2.h \
+	.\scan.h \
+	.\opsys.h \
+	.\map.h \
+	.\gui.h \
+	.\display.h \
+	.\draw.h \
+	.\state.h \
+	.\window.h \
+	.\gui2.h \
+	.\display2.h \
+	.\draw2.h \
+	.\state2.h \
+	.\event.h \
+	.\input.h \
+	.\vi.h \
+	.\regexp.h \
+	.\ex.h \
+	.\move.h \
+	.\vicmd.h \
+	.\operator.h \
+	.\cut.h \
+	.\elvisio.h \
+	.\lp.h \
+	.\calc.h \
+	.\more.h \
+	.\digraph.h \
+	.\tag.h \
+	.\tagsrch.h \
+	.\tagelvis.h \
+	.\need.h \
+	.\misc.h
+
+
+NEED_DEP = .\elvis.h \
+	.\config.h \
+	.\version.h \
+	.\elvctype.h \
+	.\safe.h \
+	.\options.h \
+	.\optglob.h \
+	.\session.h \
+	.\lowbuf.h \
+	.\message.h \
+	.\buffer.h \
+	.\mark.h \
+	.\buffer2.h \
+	.\options2.h \
+	.\scan.h \
+	.\opsys.h \
+	.\map.h \
+	.\gui.h \
+	.\display.h \
+	.\draw.h \
+	.\state.h \
+	.\window.h \
+	.\gui2.h \
+	.\display2.h \
+	.\draw2.h \
+	.\state2.h \
+	.\event.h \
+	.\input.h \
+	.\vi.h \
+	.\regexp.h \
+	.\ex.h \
+	.\move.h \
+	.\vicmd.h \
+	.\operator.h \
+	.\cut.h \
+	.\elvisio.h \
+	.\lp.h \
+	.\calc.h \
+	.\more.h \
+	.\digraph.h \
+	.\tag.h \
+	.\tagsrch.h \
+	.\tagelvis.h \
+	.\need.h \
+	.\misc.h
+
+
+OPERATOR_DEP = .\elvis.h \
+	.\config.h \
+	.\version.h \
+	.\elvctype.h \
+	.\safe.h \
+	.\options.h \
+	.\optglob.h \
+	.\session.h \
+	.\lowbuf.h \
+	.\message.h \
+	.\buffer.h \
+	.\mark.h \
+	.\buffer2.h \
+	.\options2.h \
+	.\scan.h \
+	.\opsys.h \
+	.\map.h \
+	.\gui.h \
+	.\display.h \
+	.\draw.h \
+	.\state.h \
+	.\window.h \
+	.\gui2.h \
+	.\display2.h \
+	.\draw2.h \
+	.\state2.h \
+	.\event.h \
+	.\input.h \
+	.\vi.h \
+	.\regexp.h \
+	.\ex.h \
+	.\move.h \
+	.\vicmd.h \
+	.\operator.h \
+	.\cut.h \
+	.\elvisio.h \
+	.\lp.h \
+	.\calc.h \
+	.\more.h \
+	.\digraph.h \
+	.\tag.h \
+	.\tagsrch.h \
+	.\tagelvis.h \
+	.\need.h \
+	.\misc.h
+
+
+OPTGLOB_DEP = .\elvis.h \
+	.\config.h \
+	.\version.h \
+	.\elvctype.h \
+	.\safe.h \
+	.\options.h \
+	.\optglob.h \
+	.\session.h \
+	.\lowbuf.h \
+	.\message.h \
+	.\buffer.h \
+	.\mark.h \
+	.\buffer2.h \
+	.\options2.h \
+	.\scan.h \
+	.\opsys.h \
+	.\map.h \
+	.\gui.h \
+	.\display.h \
+	.\draw.h \
+	.\state.h \
+	.\window.h \
+	.\gui2.h \
+	.\display2.h \
+	.\draw2.h \
+	.\state2.h \
+	.\event.h \
+	.\input.h \
+	.\vi.h \
+	.\regexp.h \
+	.\ex.h \
+	.\move.h \
+	.\vicmd.h \
+	.\operator.h \
+	.\cut.h \
+	.\elvisio.h \
+	.\lp.h \
+	.\calc.h \
+	.\more.h \
+	.\digraph.h \
+	.\tag.h \
+	.\tagsrch.h \
+	.\tagelvis.h \
+	.\need.h \
+	.\misc.h
+
+
+OPTIONS_DEP = .\elvis.h \
+	.\config.h \
+	.\version.h \
+	.\elvctype.h \
+	.\safe.h \
+	.\options.h \
+	.\optglob.h \
+	.\session.h \
+	.\lowbuf.h \
+	.\message.h \
+	.\buffer.h \
+	.\mark.h \
+	.\buffer2.h \
+	.\options2.h \
+	.\scan.h \
+	.\opsys.h \
+	.\map.h \
+	.\gui.h \
+	.\display.h \
+	.\draw.h \
+	.\state.h \
+	.\window.h \
+	.\gui2.h \
+	.\display2.h \
+	.\draw2.h \
+	.\state2.h \
+	.\event.h \
+	.\input.h \
+	.\vi.h \
+	.\regexp.h \
+	.\ex.h \
+	.\move.h \
+	.\vicmd.h \
+	.\operator.h \
+	.\cut.h \
+	.\elvisio.h \
+	.\lp.h \
+	.\calc.h \
+	.\more.h \
+	.\digraph.h \
+	.\tag.h \
+	.\tagsrch.h \
+	.\tagelvis.h \
+	.\need.h \
+	.\misc.h
+
+
+REGEXP_DEP = .\elvis.h \
+	.\config.h \
+	.\version.h \
+	.\elvctype.h \
+	.\safe.h \
+	.\options.h \
+	.\optglob.h \
+	.\session.h \
+	.\lowbuf.h \
+	.\message.h \
+	.\buffer.h \
+	.\mark.h \
+	.\buffer2.h \
+	.\options2.h \
+	.\scan.h \
+	.\opsys.h \
+	.\map.h \
+	.\gui.h \
+	.\display.h \
+	.\draw.h \
+	.\state.h \
+	.\window.h \
+	.\gui2.h \
+	.\display2.h \
+	.\draw2.h \
+	.\state2.h \
+	.\event.h \
+	.\input.h \
+	.\vi.h \
+	.\regexp.h \
+	.\ex.h \
+	.\move.h \
+	.\vicmd.h \
+	.\operator.h \
+	.\cut.h \
+	.\elvisio.h \
+	.\lp.h \
+	.\calc.h \
+	.\more.h \
+	.\digraph.h \
+	.\tag.h \
+	.\tagsrch.h \
+	.\tagelvis.h \
+	.\need.h \
+	.\misc.h
+
+
+REGSUB_DEP = .\elvis.h \
+	.\config.h \
+	.\version.h \
+	.\elvctype.h \
+	.\safe.h \
+	.\options.h \
+	.\optglob.h \
+	.\session.h \
+	.\lowbuf.h \
+	.\message.h \
+	.\buffer.h \
+	.\mark.h \
+	.\buffer2.h \
+	.\options2.h \
+	.\scan.h \
+	.\opsys.h \
+	.\map.h \
+	.\gui.h \
+	.\display.h \
+	.\draw.h \
+	.\state.h \
+	.\window.h \
+	.\gui2.h \
+	.\display2.h \
+	.\draw2.h \
+	.\state2.h \
+	.\event.h \
+	.\input.h \
+	.\vi.h \
+	.\regexp.h \
+	.\ex.h \
+	.\move.h \
+	.\vicmd.h \
+	.\operator.h \
+	.\cut.h \
+	.\elvisio.h \
+	.\lp.h \
+	.\calc.h \
+	.\more.h \
+	.\digraph.h \
+	.\tag.h \
+	.\tagsrch.h \
+	.\tagelvis.h \
+	.\need.h \
+	.\misc.h
+
+
+SAFE_DEP = .\elvis.h \
+	.\config.h \
+	.\version.h \
+	.\elvctype.h \
+	.\safe.h \
+	.\options.h \
+	.\optglob.h \
+	.\session.h \
+	.\lowbuf.h \
+	.\message.h \
+	.\buffer.h \
+	.\mark.h \
+	.\buffer2.h \
+	.\options2.h \
+	.\scan.h \
+	.\opsys.h \
+	.\map.h \
+	.\gui.h \
+	.\display.h \
+	.\draw.h \
+	.\state.h \
+	.\window.h \
+	.\gui2.h \
+	.\display2.h \
+	.\draw2.h \
+	.\state2.h \
+	.\event.h \
+	.\input.h \
+	.\vi.h \
+	.\regexp.h \
+	.\ex.h \
+	.\move.h \
+	.\vicmd.h \
+	.\operator.h \
+	.\cut.h \
+	.\elvisio.h \
+	.\lp.h \
+	.\calc.h \
+	.\more.h \
+	.\digraph.h \
+	.\tag.h \
+	.\tagsrch.h \
+	.\tagelvis.h \
+	.\need.h \
+	.\misc.h
+
+
+SCAN_DEP = .\elvis.h \
+	.\config.h \
+	.\version.h \
+	.\elvctype.h \
+	.\safe.h \
+	.\options.h \
+	.\optglob.h \
+	.\session.h \
+	.\lowbuf.h \
+	.\message.h \
+	.\buffer.h \
+	.\mark.h \
+	.\buffer2.h \
+	.\options2.h \
+	.\scan.h \
+	.\opsys.h \
+	.\map.h \
+	.\gui.h \
+	.\display.h \
+	.\draw.h \
+	.\state.h \
+	.\window.h \
+	.\gui2.h \
+	.\display2.h \
+	.\draw2.h \
+	.\state2.h \
+	.\event.h \
+	.\input.h \
+	.\vi.h \
+	.\regexp.h \
+	.\ex.h \
+	.\move.h \
+	.\vicmd.h \
+	.\operator.h \
+	.\cut.h \
+	.\elvisio.h \
+	.\lp.h \
+	.\calc.h \
+	.\more.h \
+	.\digraph.h \
+	.\tag.h \
+	.\tagsrch.h \
+	.\tagelvis.h \
+	.\need.h \
+	.\misc.h
+
+
+SEARCH_DEP = .\elvis.h \
+	.\config.h \
+	.\version.h \
+	.\elvctype.h \
+	.\safe.h \
+	.\options.h \
+	.\optglob.h \
+	.\session.h \
+	.\lowbuf.h \
+	.\message.h \
+	.\buffer.h \
+	.\mark.h \
+	.\buffer2.h \
+	.\options2.h \
+	.\scan.h \
+	.\opsys.h \
+	.\map.h \
+	.\gui.h \
+	.\display.h \
+	.\draw.h \
+	.\state.h \
+	.\window.h \
+	.\gui2.h \
+	.\display2.h \
+	.\draw2.h \
+	.\state2.h \
+	.\event.h \
+	.\input.h \
+	.\vi.h \
+	.\regexp.h \
+	.\ex.h \
+	.\move.h \
+	.\vicmd.h \
+	.\operator.h \
+	.\cut.h \
+	.\elvisio.h \
+	.\lp.h \
+	.\calc.h \
+	.\more.h \
+	.\digraph.h \
+	.\tag.h \
+	.\tagsrch.h \
+	.\tagelvis.h \
+	.\need.h \
+	.\misc.h
+
+
+SESSION_DEP = .\elvis.h \
+	.\config.h \
+	.\version.h \
+	.\elvctype.h \
+	.\safe.h \
+	.\options.h \
+	.\optglob.h \
+	.\session.h \
+	.\lowbuf.h \
+	.\message.h \
+	.\buffer.h \
+	.\mark.h \
+	.\buffer2.h \
+	.\options2.h \
+	.\scan.h \
+	.\opsys.h \
+	.\map.h \
+	.\gui.h \
+	.\display.h \
+	.\draw.h \
+	.\state.h \
+	.\window.h \
+	.\gui2.h \
+	.\display2.h \
+	.\draw2.h \
+	.\state2.h \
+	.\event.h \
+	.\input.h \
+	.\vi.h \
+	.\regexp.h \
+	.\ex.h \
+	.\move.h \
+	.\vicmd.h \
+	.\operator.h \
+	.\cut.h \
+	.\elvisio.h \
+	.\lp.h \
+	.\calc.h \
+	.\more.h \
+	.\digraph.h \
+	.\tag.h \
+	.\tagsrch.h \
+	.\tagelvis.h \
+	.\need.h \
+	.\misc.h
+
+
+STATE_DEP = .\elvis.h \
+	.\config.h \
+	.\version.h \
+	.\elvctype.h \
+	.\safe.h \
+	.\options.h \
+	.\optglob.h \
+	.\session.h \
+	.\lowbuf.h \
+	.\message.h \
+	.\buffer.h \
+	.\mark.h \
+	.\buffer2.h \
+	.\options2.h \
+	.\scan.h \
+	.\opsys.h \
+	.\map.h \
+	.\gui.h \
+	.\display.h \
+	.\draw.h \
+	.\state.h \
+	.\window.h \
+	.\gui2.h \
+	.\display2.h \
+	.\draw2.h \
+	.\state2.h \
+	.\event.h \
+	.\input.h \
+	.\vi.h \
+	.\regexp.h \
+	.\ex.h \
+	.\move.h \
+	.\vicmd.h \
+	.\operator.h \
+	.\cut.h \
+	.\elvisio.h \
+	.\lp.h \
+	.\calc.h \
+	.\more.h \
+	.\digraph.h \
+	.\tag.h \
+	.\tagsrch.h \
+	.\tagelvis.h \
+	.\need.h \
+	.\misc.h
+
+
+TINYTCAP_DEP = .\elvis.h \
+	.\config.h \
+	.\version.h \
+	.\elvctype.h \
+	.\safe.h \
+	.\options.h \
+	.\optglob.h \
+	.\session.h \
+	.\lowbuf.h \
+	.\message.h \
+	.\buffer.h \
+	.\mark.h \
+	.\buffer2.h \
+	.\options2.h \
+	.\scan.h \
+	.\opsys.h \
+	.\map.h \
+	.\gui.h \
+	.\display.h \
+	.\draw.h \
+	.\state.h \
+	.\window.h \
+	.\gui2.h \
+	.\display2.h \
+	.\draw2.h \
+	.\state2.h \
+	.\event.h \
+	.\input.h \
+	.\vi.h \
+	.\regexp.h \
+	.\ex.h \
+	.\move.h \
+	.\vicmd.h \
+	.\operator.h \
+	.\cut.h \
+	.\elvisio.h \
+	.\lp.h \
+	.\calc.h \
+	.\more.h \
+	.\digraph.h \
+	.\tag.h \
+	.\tagsrch.h \
+	.\tagelvis.h \
+	.\need.h \
+	.\misc.h
+
+
+URL_DEP = .\elvis.h \
+	.\config.h \
+	.\version.h \
+	.\elvctype.h \
+	.\safe.h \
+	.\options.h \
+	.\optglob.h \
+	.\session.h \
+	.\lowbuf.h \
+	.\message.h \
+	.\buffer.h \
+	.\mark.h \
+	.\buffer2.h \
+	.\options2.h \
+	.\scan.h \
+	.\opsys.h \
+	.\map.h \
+	.\gui.h \
+	.\display.h \
+	.\draw.h \
+	.\state.h \
+	.\window.h \
+	.\gui2.h \
+	.\display2.h \
+	.\draw2.h \
+	.\state2.h \
+	.\event.h \
+	.\input.h \
+	.\vi.h \
+	.\regexp.h \
+	.\ex.h \
+	.\move.h \
+	.\vicmd.h \
+	.\operator.h \
+	.\cut.h \
+	.\elvisio.h \
+	.\lp.h \
+	.\calc.h \
+	.\more.h \
+	.\digraph.h \
+	.\tag.h \
+	.\tagsrch.h \
+	.\tagelvis.h \
+	.\need.h \
+	.\misc.h
+
+
+VI_DEP = .\elvis.h \
+	.\config.h \
+	.\version.h \
+	.\elvctype.h \
+	.\safe.h \
+	.\options.h \
+	.\optglob.h \
+	.\session.h \
+	.\lowbuf.h \
+	.\message.h \
+	.\buffer.h \
+	.\mark.h \
+	.\buffer2.h \
+	.\options2.h \
+	.\scan.h \
+	.\opsys.h \
+	.\map.h \
+	.\gui.h \
+	.\display.h \
+	.\draw.h \
+	.\state.h \
+	.\window.h \
+	.\gui2.h \
+	.\display2.h \
+	.\draw2.h \
+	.\state2.h \
+	.\event.h \
+	.\input.h \
+	.\vi.h \
+	.\regexp.h \
+	.\ex.h \
+	.\move.h \
+	.\vicmd.h \
+	.\operator.h \
+	.\cut.h \
+	.\elvisio.h \
+	.\lp.h \
+	.\calc.h \
+	.\more.h \
+	.\digraph.h \
+	.\tag.h \
+	.\tagsrch.h \
+	.\tagelvis.h \
+	.\need.h \
+	.\misc.h
+
+
+VICMD_DEP = .\elvis.h \
+	.\config.h \
+	.\version.h \
+	.\elvctype.h \
+	.\safe.h \
+	.\options.h \
+	.\optglob.h \
+	.\session.h \
+	.\lowbuf.h \
+	.\message.h \
+	.\buffer.h \
+	.\mark.h \
+	.\buffer2.h \
+	.\options2.h \
+	.\scan.h \
+	.\opsys.h \
+	.\map.h \
+	.\gui.h \
+	.\display.h \
+	.\draw.h \
+	.\state.h \
+	.\window.h \
+	.\gui2.h \
+	.\display2.h \
+	.\draw2.h \
+	.\state2.h \
+	.\event.h \
+	.\input.h \
+	.\vi.h \
+	.\regexp.h \
+	.\ex.h \
+	.\move.h \
+	.\vicmd.h \
+	.\operator.h \
+	.\cut.h \
+	.\elvisio.h \
+	.\lp.h \
+	.\calc.h \
+	.\more.h \
+	.\digraph.h \
+	.\tag.h \
+	.\tagsrch.h \
+	.\tagelvis.h \
+	.\need.h \
+	.\misc.h
+
+
+WINDOW_DEP = .\elvis.h \
+	.\config.h \
+	.\version.h \
+	.\elvctype.h \
+	.\safe.h \
+	.\options.h \
+	.\optglob.h \
+	.\session.h \
+	.\lowbuf.h \
+	.\message.h \
+	.\buffer.h \
+	.\mark.h \
+	.\buffer2.h \
+	.\options2.h \
+	.\scan.h \
+	.\opsys.h \
+	.\map.h \
+	.\gui.h \
+	.\display.h \
+	.\draw.h \
+	.\state.h \
+	.\window.h \
+	.\gui2.h \
+	.\display2.h \
+	.\draw2.h \
+	.\state2.h \
+	.\event.h \
+	.\input.h \
+	.\vi.h \
+	.\regexp.h \
+	.\ex.h \
+	.\move.h \
+	.\vicmd.h \
+	.\operator.h \
+	.\cut.h \
+	.\elvisio.h \
+	.\lp.h \
+	.\calc.h \
+	.\more.h \
+	.\digraph.h \
+	.\tag.h \
+	.\tagsrch.h \
+	.\tagelvis.h \
+	.\need.h \
+	.\misc.h
+
+
+OSPRG_DEP = .\osmsdos\doexec.h
+
+
+TCAPHELP_DEP = .\osmsdos\pcvideo.h
+
+
+TCAPHELP_DEP = .\osmsdos\mouse.c
+
+
+TCAPHELP_DEP = .\osmsdos\mouse.h
+
+
+TAG_DEP = .\elvis.h
+
+
+TAG_DEP = .\config.h \
+	.\version.h \
+	.\elvctype.h \
+	.\safe.h \
+	.\options.h \
+	.\optglob.h \
+	.\session.h \
+	.\lowbuf.h \
+	.\message.h \
+	.\buffer.h \
+	.\mark.h \
+	.\buffer2.h \
+	.\options2.h \
+	.\scan.h \
+	.\opsys.h \
+	.\map.h \
+	.\gui.h \
+	.\display.h \
+	.\draw.h \
+	.\state.h \
+	.\window.h \
+	.\gui2.h \
+	.\display2.h \
+	.\draw2.h \
+	.\state2.h \
+	.\event.h \
+	.\input.h \
+	.\vi.h \
+	.\regexp.h \
+	.\ex.h \
+	.\move.h \
+	.\vicmd.h \
+	.\operator.h \
+	.\cut.h \
+	.\elvisio.h \
+	.\lp.h \
+	.\calc.h \
+	.\more.h \
+	.\digraph.h \
+	.\tag.h \
+	.\tagsrch.h \
+	.\tagelvis.h \
+	.\need.h \
+	.\misc.h
+
+
+TAGELVIS_DEP = .\elvis.h \
+	.\config.h \
+	.\version.h \
+	.\elvctype.h \
+	.\safe.h \
+	.\options.h \
+	.\optglob.h \
+	.\session.h \
+	.\lowbuf.h \
+	.\message.h \
+	.\buffer.h \
+	.\mark.h \
+	.\buffer2.h \
+	.\options2.h \
+	.\scan.h \
+	.\opsys.h \
+	.\map.h \
+	.\gui.h \
+	.\display.h \
+	.\draw.h \
+	.\state.h \
+	.\window.h \
+	.\gui2.h \
+	.\display2.h \
+	.\draw2.h \
+	.\state2.h \
+	.\event.h \
+	.\input.h \
+	.\vi.h \
+	.\regexp.h \
+	.\ex.h \
+	.\move.h \
+	.\vicmd.h \
+	.\operator.h \
+	.\cut.h \
+	.\elvisio.h \
+	.\lp.h \
+	.\calc.h \
+	.\more.h \
+	.\digraph.h \
+	.\tag.h \
+	.\tagsrch.h \
+	.\tagelvis.h \
+	.\need.h \
+	.\misc.h
+
+
+TAGSRCH_DEP = .\elvis.h \
+	.\config.h \
+	.\version.h \
+	.\elvctype.h \
+	.\safe.h \
+	.\options.h \
+	.\optglob.h \
+	.\session.h \
+	.\lowbuf.h \
+	.\message.h \
+	.\buffer.h \
+	.\mark.h \
+	.\buffer2.h \
+	.\options2.h \
+	.\scan.h \
+	.\opsys.h \
+	.\map.h \
+	.\gui.h \
+	.\display.h \
+	.\draw.h \
+	.\state.h \
+	.\window.h \
+	.\gui2.h \
+	.\display2.h \
+	.\draw2.h \
+	.\state2.h \
+	.\event.h \
+	.\input.h \
+	.\vi.h \
+	.\regexp.h \
+	.\ex.h \
+	.\move.h \
+	.\vicmd.h \
+	.\operator.h \
+	.\cut.h \
+	.\elvisio.h \
+	.\lp.h \
+	.\calc.h \
+	.\more.h \
+	.\digraph.h \
+	.\tag.h \
+	.\tagsrch.h \
+	.\tagelvis.h \
+	.\need.h \
+	.\misc.h
 
 
 all:	$(PROJ).EXE
@@ -2214,6 +2712,9 @@ EXEDIT.OBJ:	EXEDIT.C $(EXEDIT_DEP)
 
 EXMAKE.OBJ:	EXMAKE.C $(EXMAKE_DEP)
 	$(CC) $(CFLAGS) $(CUSEPCHFLAG) /c EXMAKE.C
+
+EXSUBST.OBJ:	EXSUBST.C $(EXSUBST_DEP)
+	$(CC) $(CFLAGS) $(CUSEPCHFLAG) /c EXSUBST.C
 
 GUI.OBJ:	GUI.C $(GUI_DEP)
 	$(CC) $(CFLAGS) $(CUSEPCHFLAG) /c GUI.C
@@ -2305,6 +2806,9 @@ STATE.OBJ:	STATE.C $(STATE_DEP)
 TINYTCAP.OBJ:	TINYTCAP.C $(TINYTCAP_DEP)
 	$(CC) $(CFLAGS) $(CUSEPCHFLAG) /c TINYTCAP.C
 
+URL.OBJ:	URL.C $(URL_DEP)
+	$(CC) $(CFLAGS) $(CUSEPCHFLAG) /c URL.C
+
 VI.OBJ:	VI.C $(VI_DEP)
 	$(CC) $(CFLAGS) $(CUSEPCHFLAG) /c VI.C
 
@@ -2329,13 +2833,23 @@ OSTEXT.OBJ:	OSMSDOS\OSTEXT.C $(OSTEXT_DEP)
 TCAPHELP.OBJ:	OSMSDOS\TCAPHELP.C $(TCAPHELP_DEP)
 	$(CC) $(CFLAGS) $(CUSEPCHFLAG) /c OSMSDOS\TCAPHELP.C
 
-$(PROJ).EXE::	BUFFER.OBJ CALC.OBJ CUT.OBJ DIGRAPH.OBJ DISPLAY.OBJ DMHEX.OBJ \
-	DMMARKUP.OBJ DMNORMAL.OBJ DMSYNTAX.OBJ DRAW.OBJ EVENT.OBJ EX.OBJ EXACTION.OBJ EXCONFIG.OBJ EXEDIT.OBJ \
-	EXMAKE.OBJ GUI.OBJ GUICURS.OBJ GUIOPEN.OBJ GUITCAP.OBJ INPUT.OBJ IO.OBJ LOWBUF.OBJ \
-	LP.OBJ LPESCAPE.OBJ LPOVRTYP.OBJ LPPS.OBJ MAIN.OBJ MAP.OBJ MARK.OBJ MESSAGE.OBJ MISC.OBJ \
-	MORE.OBJ MOVE.OBJ NEED.OBJ OPERATOR.OBJ OPTGLOB.OBJ OPTIONS.OBJ REGEXP.OBJ REGSUB.OBJ \
-	SAFE.OBJ SCAN.OBJ SEARCH.OBJ SESSION.OBJ STATE.OBJ TINYTCAP.OBJ VI.OBJ VICMD.OBJ \
-	WINDOW.OBJ OSBLOCK.OBJ OSDIR.OBJ OSPRG.OBJ OSTEXT.OBJ TCAPHELP.OBJ $(OBJS_EXT) $(DEFFILE)
+TAG.OBJ:	TAG.C $(TAG_DEP)
+	$(CC) $(CFLAGS) $(CUSEPCHFLAG) /c TAG.C
+
+TAGELVIS.OBJ:	TAGELVIS.C $(TAGELVIS_DEP)
+	$(CC) $(CFLAGS) $(CUSEPCHFLAG) /c TAGELVIS.C
+
+TAGSRCH.OBJ:	TAGSRCH.C $(TAGSRCH_DEP)
+	$(CC) $(CFLAGS) $(CUSEPCHFLAG) /c TAGSRCH.C
+
+$(PROJ).EXE::	BUFFER.OBJ CALC.OBJ CUT.OBJ DIGRAPH.OBJ DISPLAY.OBJ DMHEX.OBJ DMMARKUP.OBJ \
+	DMNORMAL.OBJ DMSYNTAX.OBJ DRAW.OBJ EVENT.OBJ EX.OBJ EXACTION.OBJ EXCONFIG.OBJ EXEDIT.OBJ \
+	EXMAKE.OBJ EXSUBST.OBJ GUI.OBJ GUICURS.OBJ GUIOPEN.OBJ GUITCAP.OBJ INPUT.OBJ IO.OBJ \
+	LOWBUF.OBJ LP.OBJ LPESCAPE.OBJ LPOVRTYP.OBJ LPPS.OBJ MAIN.OBJ MAP.OBJ MARK.OBJ \
+	MESSAGE.OBJ MISC.OBJ MORE.OBJ MOVE.OBJ NEED.OBJ OPERATOR.OBJ OPTGLOB.OBJ OPTIONS.OBJ \
+	REGEXP.OBJ REGSUB.OBJ SAFE.OBJ SCAN.OBJ SEARCH.OBJ SESSION.OBJ STATE.OBJ TINYTCAP.OBJ \
+	URL.OBJ VI.OBJ VICMD.OBJ WINDOW.OBJ OSBLOCK.OBJ OSDIR.OBJ OSPRG.OBJ OSTEXT.OBJ \
+	TCAPHELP.OBJ TAG.OBJ TAGELVIS.OBJ TAGSRCH.OBJ $(OBJS_EXT) $(DEFFILE)
 	echo >NUL @<<$(PROJ).CRF
 BUFFER.OBJ +
 CALC.OBJ +
@@ -2353,6 +2867,7 @@ EXACTION.OBJ +
 EXCONFIG.OBJ +
 EXEDIT.OBJ +
 EXMAKE.OBJ +
+EXSUBST.OBJ +
 GUI.OBJ +
 GUICURS.OBJ +
 GUIOPEN.OBJ +
@@ -2383,6 +2898,7 @@ SEARCH.OBJ +
 SESSION.OBJ +
 STATE.OBJ +
 TINYTCAP.OBJ +
+URL.OBJ +
 VI.OBJ +
 VICMD.OBJ +
 WINDOW.OBJ +
@@ -2391,11 +2907,15 @@ OSDIR.OBJ +
 OSPRG.OBJ +
 OSTEXT.OBJ +
 TCAPHELP.OBJ +
+TAG.OBJ +
+TAGELVIS.OBJ +
+TAGSRCH.OBJ +
 $(OBJS_EXT)
 $(PROJ).EXE
 $(MAPFILE)
-d:\msvc15\lib\+
-d:\msvc15\mfc\lib\+
+c:\msvc\lib\+
+c:\msvc\mfc\lib\+
+OSMSDOS\DOEXEC.LIB+
 $(LIBS)
 $(DEFFILE);
 <<

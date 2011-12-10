@@ -8,6 +8,7 @@ extern void	lowinit P_((void (*bufproc)(_BLKNO_ bufinfo, long nchars, long nline
 extern BLKNO	lowalloc P_((char *name));
 extern BLKNO	lowdup P_((_BLKNO_ originfo));
 extern void	lowfree P_((_BLKNO_ bufinfo));
+extern void	lowtitle P_((_BLKNO_ bufinfo, CHAR *title));
 extern long	lowline P_((_BLKNO_ bufinfo, long lineno));
 extern BLKNO	lowoffset P_((_BLKNO_ bufinfo, long offset, COUNT *left, COUNT *right, LBLKNO *lptr, long *linenum));
 extern long	lowdelete P_((_BLKNO_ dst, long dsttop, long dstbottom));

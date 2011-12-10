@@ -1,7 +1,7 @@
 /* message.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_message[] = "$Id: message.c,v 2.25 1996/06/28 01:37:02 steve Exp $";
+char id_message[] = "$Id: message.c,v 2.35 1998/12/09 22:20:45 steve Exp $";
 
 #include "elvis.h"
 #if USE_PROTOTYPES
@@ -15,6 +15,22 @@ static void translate(char *terse);
 #endif
 
 static CHAR	verbose[200];
+static FILE	*fperr, *fpinfo;
+static BOOLEAN	msghiding;
+
+/* redirect messages to a log file.  If "filename" is NULL then revert to
+ * the normal reporting (stdout and stderr)
+ */
+void msglog(filename)
+	char	*filename;
+{
+	/* if previously redirected, then stop redirection now */
+	if (fperr != NULL && fperr != stderr)
+		fclose(fperr);
+
+	/* open the log file, if any */
+	fperr = fpinfo = filename ? fopen(filename, "w") : NULL;
+}
 
 /* Copy a message into static verbose[] buffer, declared at the top of this
  * file.  If a buffer named "Elvis messages" exists, translate the message via
@@ -144,6 +160,17 @@ static void translate(terse)
 }
 
 
+/* Set the message hiding flag to a given value & return its previous value */
+BOOLEAN msghide(hide)
+	BOOLEAN	hide;	/* should we hide messages? (else reveal them) */
+{
+	BOOLEAN	previous = msghiding;
+
+	msghiding = hide;
+	return previous;
+}
+
+
 /* output a message via the GUI.  Before calling the GUI, it subjects
  * the terse message to a series of transformations.  First, the
  * buffer "Elvis messages" is scanned to perform a user-configurable
@@ -185,9 +212,28 @@ void msg(imp, terse, va_alist)
 	MARKBUF	mark;
 	BOOLEAN	ding;
 
-	/* can't nest msg() calls.  If another call is in progress, exit now */
-	if (*verbose)
+	/* if fperr and fpinfo are NULL, then use stderr and stdout */
+	if (!fperr)
 	{
+		fperr = stderr;
+		fpinfo = stdout;
+	}
+
+	/* can't nest msg() calls.  If another call is in progress, exit now */
+	if (*verbose || (msghiding && (imp == MSG_ERROR || imp == MSG_WARNING)))
+	{
+		if (imp == MSG_FATAL)
+		{
+			fprintf(fperr, "%s\n", terse);
+			o_tempsession = False;
+			sesclose();
+			if (gui) (*gui->term)();
+#ifdef NDEBUG
+			exit(1);
+#else
+			abort();
+#endif
+		}
 		return;
 	}
 
@@ -263,15 +309,23 @@ void msg(imp, terse, va_alist)
 		arg[0] = NULL;
 	}
 
-	/* translate the terse message via "Elvis messages" buffer */
-	translate(terse);
-
-	/* expand any arguments or option names */
-	scan = calculate(verbose, arg, True);
-	if (!scan)
-		scan = calculate(toCHAR(terse), arg, True);
-	if (!scan)
+	if (imp == MSG_FATAL && !arg[0])
+	{
+		/* set "scan" to the message text */
 		scan = toCHAR(terse);
+	}
+	else
+	{
+		/* translate the terse message via "Elvis messages" buffer */
+		translate(terse);
+
+		/* expand any arguments or option names */
+		scan = calculate(verbose, arg, True);
+		if (!scan)
+			scan = calculate(toCHAR(terse), arg, True);
+		if (!scan)
+			scan = toCHAR(terse);
+	}
 
 	/* If it starts with a ^G character, then ring the bell.  Also
 	 * ring the bell if errorbells or warningbells is set
@@ -306,7 +360,7 @@ void msg(imp, terse, va_alist)
 	{
 		/* ignore it.  No output */
 	}
-	else  if ((o_verbose && !windefault) || !gui
+	else  if ((o_verbose >= 1 && !windefault) || !gui
 		|| (eventcounter <= 1 && imp == MSG_ERROR)
 		|| imp == MSG_STATUS || imp == MSG_FATAL)
 	{
@@ -320,27 +374,23 @@ void msg(imp, terse, va_alist)
 				drawmsg(windefault, imp, verbose, (int)CHARlen(verbose));
 			}
 
-			/* For fatal error messages, also write it to stderr */
+			/* For fatal error messages, also write it to fperr */
 			if (imp == MSG_FATAL)
 			{
-				fprintf(stderr, "%s\n", verbose);
+				fprintf(fperr, "%s\n", verbose);
 			}
 		}
-		else
+		else if (!gui || !gui->msg || !gui->exonly || !(*gui->msg)(0, imp, verbose, (int)(scan - verbose)))
 		{
-			/* no GUI yet, so just write it to stdout/stderr */
-#ifdef WIN16
-			fprintf(stderr, "%s\n", verbose);
-#else
+			/* no GUI yet, so just write it to fpinfo/fperr */
 			if (imp == MSG_FATAL)
 			{
-				fprintf(stderr, "%s\n", verbose);
+				fprintf(fperr, "%s\n", verbose);
 			}
 			else
 			{
-				printf("%s\r\n", verbose);
+				fprintf(fpinfo, "%s\r\n", verbose);
 			}
-#endif
 		}
 
 		/* clean up & exit */
@@ -359,8 +409,7 @@ void msg(imp, terse, va_alist)
 	else
 	{
 		/* append the message to the message buffer */
-		buf = bufalloc(toCHAR(MSGQUEUE_BUF), 0);
-		o_internal(buf) = True;
+		buf = bufalloc(toCHAR(MSGQUEUE_BUF), 0, True);
 		(void)marktmp(mark, buf, o_bufchars(buf));
 		bufreplace(&mark, &mark, toCHAR("\n"), 1L);
 		bufreplace(&mark, &mark, verbose, (long)CHARlen(verbose));
@@ -371,7 +420,10 @@ void msg(imp, terse, va_alist)
 	if (imp >= MSG_ERROR)
 	{
 		mapalert();
-		o_exitcode = 1;
+		if ((optflags(o_exitcode) & OPT_SET) == 0 && eventcounter <= 1)
+		{
+			o_exitcode = 1;
+		}
 	}
 
 	/* if we're supposed to ring the bell, and this GUI has a bell,
@@ -440,8 +492,8 @@ void msgflush()
 			}
 			else
 			{
-				/* no GUI yet, so just write it to stdout/stderr */
-				fprintf(imp >= MSG_ERROR ? stderr : stdout,
+				/* no GUI yet, so just write it to fpinfo/fperr */
+				fprintf(imp >= MSG_ERROR ? fperr : fpinfo,
 					"%s\n", verbose + 1);
 			}
 			len = 0;
@@ -459,4 +511,32 @@ void msgflush()
 	markfree(mark);
 	markfree(end);
 	*verbose = '\0';
+}
+
+
+/* Translate a simple word or phrase, and return a dynamically-allocated
+ * copy of the result.  This also has the side-effect of converting a
+ * (char *) to a (CHAR *).
+ *
+ * This is used mostly for setting some options to locale-sensitive defaults
+ */
+CHAR *msgtranslate(word)
+	char	*word;
+{
+	CHAR	*ret;
+
+	/* Translate it */
+	translate(word);
+
+	/* Make a dynamic copy of it */
+	ret = CHARkdup(verbose);
+
+	/* Zero the first byte of verbose[] so msg() doesn't think we're
+	 * doing a message.  That's important because msg() skips translation
+	 * if an error message occurs while evaluating another message.
+	 */
+	verbose[0] = '\0';
+
+	/* return the dynamically-allocated copy */
+	return ret;
 }

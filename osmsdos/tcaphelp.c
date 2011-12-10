@@ -1,6 +1,6 @@
 /* tcaphelp.c */
 
-char id_tcaphelp[] = "$Id: tcaphelp.c,v 2.20 1996/09/18 20:37:17 steve Exp $";
+char id_tcaphelp[] = "$Id: tcaphelp.c,v 2.27 1998/03/02 18:37:27 steve Exp $";
 
 /* This file includes low-level tty control functions used by the termcap
  * user interface.  These are:
@@ -15,7 +15,6 @@ char id_tcaphelp[] = "$Id: tcaphelp.c,v 2.20 1996/09/18 20:37:17 steve Exp $";
  * Also, it contains a small terminal emulator to be used when TERM=bios.
  */
 
-
 #include "elvis.h"
 #ifdef GUI_TERMCAP
 # include <fcntl.h>
@@ -24,14 +23,26 @@ char id_tcaphelp[] = "$Id: tcaphelp.c,v 2.20 1996/09/18 20:37:17 steve Exp $";
 # include <conio.h>
 # include <signal.h>
 # include "pcvideo.h"
+
+# ifdef FEATURE_MOUSE
+#  include "mouse.c"	/* Yes, "mouse.c" not "mouse.h" */
+#  ifndef DBLCLICK
+#   define DBLCLICK	40	/* double-click time, in units of 0.01 second */
+#  endif
+# endif
+
 # ifndef O_TEXT
 #  define O_TEXT	_O_TEXT
 #  define O_BINARY	_O_BINARY
 # endif
 
+typedef enum {EvTimeout, EvSignal, EvKey, EvMouse} dosevent_t;
+
 #if USE_PROTOTYPES
 static long dostime(void);
 static void catchsig(int signo);
+static void yieldslice(void);
+static dosevent_t getevent(int timeout, char str[3], short *x, short *y);
 #endif
 
 /* This is defined in guitcap.c */
@@ -95,6 +106,10 @@ void ttyinit()
 void ttyraw(erasekey)
 	char	*erasekey;	/* where to store the ERASE key */
 {
+#ifdef FEATURE_MOUSE
+	PTRSHAPE ps;
+#endif
+
 	if (!usebios)
 	{
 		setmode(1, O_BINARY);
@@ -103,6 +118,16 @@ void ttyraw(erasekey)
 	}
 	(void)elvioctl(1, SETBRK, 0);
 	signal(SIGINT, catchsig);
+
+#ifdef FEATURE_MOUSE
+	MouseInit();
+	ps.t.chScreen = 255;
+	ps.t.atScreen = 0x70;
+	ps.t.chCursor = 0;
+	ps.t.atCursor = 0x70;
+	SetPtrShape(&ps);
+	SetPtrVis(HIDE);
+#endif
 }
 
 
@@ -142,64 +167,272 @@ static long dostime P_((void))
 }
 
 
+/* yield DOS timeslice, if running in a virtual machine */
+static void yieldslice(void)
+{
+	union REGS	regs;
+	struct SREGS	sregs;
+
+	regs.x.ax = 0x352F;   /* get interrupt vector */
+	int86x(0x0021, &regs, &regs, &sregs); /* Get DOS vector for 0x2F */
+
+	if ((regs.x.ax == 0) && (sregs.es == 0)) 
+	   return;
+
+	regs.x.ax = 0x1680;   /* Release Current VM Time-Slice */
+	int86(0x002f, &regs, &regs);
+
+	return;
+}
+
+
+/* wait for a keyboard event, mouse event, signal, or timeout. */
+static dosevent_t getevent(int timeout, char str[3], short *x, short *y)
+{
+	long	stop;
+#ifdef FEATURE_MOUSE
+	EVENT	mevent;	/* new state of mouse */
+ static	EVENT	mstate;	/* previous state of mouse */
+ static BOOLEAN	middle;	/* simulating middle button? */
+ static	long	dbltime;/* time of last click, for detecting double-click */
+ static char	dblbtn;	/* button of last click, for detecting double-click */
+#endif
+
+	stop = dostime() + timeout * 10L;
+
+#ifdef FEATURE_MOUSE
+	/* the mouse should be visible while we wait for an event */
+	SetPtrVis(SHOW);
+#endif
+
+	/* wait for keystroke, timeout, or signal */
+	do
+	{
+		/* signal? */
+		if (ttycaught)
+		{
+#ifdef FEATURE_MOUSE
+			SetPtrVis(HIDE);
+#endif
+			return EvSignal;
+		}
+
+		/* keystroke? */
+		if (kbhit())
+		{
+			str[0] = getch();
+			if (!str[0])
+			{
+				str[0] = '#';
+				str[1] = getch();
+				*x = 2;
+			}
+			else
+			{
+				*x = 1;
+			}
+#ifdef FEATURE_MOUSE
+			SetPtrVis(HIDE);
+#endif
+			return EvKey;
+		}
+
+#ifdef FEATURE_MOUSE
+		if (GetMouseEvent(&mevent) && (mevent.fsBtn || mstate.fsBtn))
+		{
+			/* which button changed? */
+			switch (mevent.fsBtn == mstate.fsBtn
+					? mstate.fsBtn :
+					mevent.fsBtn ^ mstate.fsBtn)
+			{
+			  case LEFT_DOWN:
+			  	str[0] = 'L';
+			  	break;
+
+			  case RIGHT_DOWN:
+			  	str[0] = 'R';
+			  	break;
+
+			  default:
+			  	str[0] = 'M';
+			  	middle = True;
+			  	break;
+			}
+			if (!middle && mevent.fsBtn != LEFT_DOWN && mevent.fsBtn != RIGHT_DOWN)
+			{
+				middle = True;
+				str[0] = 'M';
+			}
+
+			/* pressed or released? */
+			if (mevent.fsBtn == mstate.fsBtn)
+				str[1] = 'm';
+			else if (!mevent.fsBtn)
+				str[1] = 'r';
+			else
+			{
+				/* click or double-click? */
+				if (str[0] == dblbtn && dostime() < dbltime + DBLCLICK)
+				{
+					/* double-click */
+					str[1] = 'd';
+				}
+				else
+				{
+					/* single click */
+					str[1] = 'p';
+
+					/* to help detect dblclk next time... */
+					if (str[0] != 'M')
+					{
+						dblbtn = str[0];
+						dbltime = dostime();
+					}
+				}
+			}
+
+			/* other stuff */
+			*x = mevent.x - 1;	/* leftmost should be 0 */
+			*y = mevent.y - 1;	/* top row should be 0 */
+			mstate = mevent;
+
+			SetPtrVis(HIDE);
+			return EvMouse;
+		}
+#endif
+
+		/* nothing happening in this VM - give other VMs a shot */
+		yieldslice();
+	} while (timeout == 0 || dostime() < stop);
+
+#ifdef FEATURE_MOUSE
+	SetPtrVis(HIDE);
+#endif
+	return EvTimeout;
+}
+
+
+
 /* Read from keyboard, with timeout.  For DOS, we poll the keyboard in a
  * tight loop until we have a keystroke or the system's clock advances past
  * our timeout time.  If we don't time out, then we loop until there are no
  * more characters, or the buffer is about full.
+ *
+ * Returns -2 if mouse event occured; it also calls eventclick() here.
+ * Returns -1 if screen size may have changed, or other signal received.
+ * Returns 0 if timeout occurred without any other events.
+ * Returns number of characters received otherwise.
  */
 int ttyread(buf, len, timeout)
 	char	*buf;	/* where to place the input characters */
 	int	len;	/* maximum number of characters to read */
 	int	timeout;/* timeout (0 for none) */
 {
-        long	stop;
+	short	x, y;	/* mouse position, for mouse events */
 	int	got;
+#ifdef FEATURE_MOUSE
+	GUIWIN	*gw;	/* window where mouse event occurred */
+ static GUIWIN	*selgw;	/* window where a selection is taking place, or NULL */
+ 	int	wx, wy;	/* current mouse position within the window */
+ static int	px, py;	/* earlier clicked position within the window */
+ static char	pe;	/* previous event */
+	dosevent_t event;/* a mouse or keyboard event */
+
+	/* mouse should be visible while waiting for event */
+	SetPtrVis(SHOW);
+#endif
 
 	signal(SIGINT, catchsig);
 
 	/* reset the "ttycaught" variable */
 	ttycaught = 0;
 
-        /* are we going to timeout? */
-        if (timeout != 0)
-        {
-                /* compute the time when we'll give up */
-                stop = dostime() + timeout * 10L;
-
-                /* wait for keystroke, timeout, or signal */
-                while (!kbhit())
-                {
-			/* signal? */
-			if (ttycaught)
-				return -1;
-
-			/* timeout? */
-                        if (dostime() > stop)
-                        {
-                                /* we couldn't read any characters
-                                 * before timeout
-                                 */
-                                return 0;
-                        }
-                }
-        }
 
         /* get at least one keystroke */
 	got = 0;
-	do
+	while (got + 1 < len &&
+		(event = getevent(timeout, &buf[got], &x, &y)) != EvTimeout)
 	{
-		/* caught a signal lately? */
-		if (ttycaught)
+		switch (event)
+		{
+		  case EvSignal:
 			return -1;
 
-		buf[got] = getch();
-		if (buf[got] == 0) /* function key? */
-		{
-			buf[got++] = '#';
-			buf[got] = getch();
+		  case EvKey:
+			got += x;
+			break;
+
+#ifdef FEATURE_MOUSE
+		  case EvMouse:
+			/* which window was clicked? */
+			gw = ttywindow((int)y, (int)x, &wy, &wx);
+			if (!gw || (selgw && selgw != gw))
+				break;
+
+			/* make it become the current window */
+			(*gui->focusgw)(gw);
+			eventfocus(gw);
+
+			/* handle the event */
+			switch (buf[got + 1])
+			{
+			  case 'd':	/* double-click */
+				if (buf[got] == 'L')
+					eventclick(gw, wy, wx, CLICK_TAG);
+				else
+					eventclick(gw, wy, wx, CLICK_UNTAG);
+				selgw = NULL;
+				pe = 'd';
+				return -2;
+
+			  case 'm':	/* move, with a button pressed */
+				if (pe != 'm')
+				{
+					switch (buf[got])
+					{
+					  case 'L':
+						eventclick(gw, py, px, CLICK_SELCHAR);
+						break;
+
+					  case 'M':
+						eventclick(gw, py, px, CLICK_SELRECT);
+						break;
+
+					  case 'R':
+						eventclick(gw, py, px, CLICK_SELLINE);
+						break;
+					}
+				}
+				eventclick(gw, wy, wx, CLICK_MOVE);
+				pe = 'm';
+				return -2;
+
+			  case 'p':	/* button pressed */
+				if (buf[got] == 'L')
+					eventclick(gw, wy, wx, CLICK_CANCEL);
+				eventclick(gw, wy, wx, CLICK_MOVE);
+				py = wy, px = wx;
+				selgw = gw;
+				pe = 'p';
+				return -2;
+
+			  case 'r':	/* button released */
+			  	selgw = NULL;
+				pe = 'r';
+			}
+			break;
+#endif
 		}
-		got++;
-	} while (kbhit() && got + 2 < len);
+
+		/* After the first pass, we want to use the shorted possible
+		 * timeout.  Since 0 means "never expire", we set timeout to
+		 * -1 meaning "give up immediately".  It'll still make one
+		 * pass through the event checking loop, though.
+		 */
+		timeout = -1;
+	}
+
+	/* timed out -- possibly after reading some characters */
 	return got;
 }
 
@@ -280,6 +513,7 @@ static	BOOLEAN colored;	/* explicit colors set? (disables uvid) */
 				x = 0;
 				y++;
 			}
+			v_move(x, y);
 		}
 		else
 		{
@@ -478,6 +712,7 @@ BOOLEAN ttysize(linesptr, colsptr)
 BOOLEAN ttypoll(reset)
 	BOOLEAN	reset;
 {
+	(void)kbhit();
 	return (BOOLEAN)(ttycaught != 0);
 }
 #endif /* GUI_TERMCAP */

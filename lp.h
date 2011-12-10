@@ -1,6 +1,7 @@
 /* lp.h */
 /* Copyright 1995 by Steve Kirkendall */
 
+#ifdef FEATURE_LPR
 
 typedef struct
 {
@@ -22,3 +23,5 @@ extern LPTYPE lpps, lpps2;
 #ifdef GUI_WIN32
 extern LPTYPE lpwindows;
 #endif
+
+#endif /* FEATURE_LPR */

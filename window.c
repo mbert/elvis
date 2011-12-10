@@ -1,7 +1,7 @@
 /* window.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_window[] = "$Id: window.c,v 2.35 1996/09/24 22:36:33 steve Exp $";
+char id_window[] = "$Id: window.c,v 2.48 1998/11/29 18:53:51 steve Exp $";
 
 #include "elvis.h"
 
@@ -125,14 +125,14 @@ static OPTDESC wdesc[] =
 void wininit()
 {
 	/* initialize the options */
-	optpreset(o_display(&windefopts), toCHAR("normal"), OPT_LOCK);
+	optpreset(o_display(&windefopts), toCHAR("normal"), OPT_HIDE|OPT_LOCK);
 	optflags(o_windowid(&windefopts)) = OPT_LOCK|OPT_HIDE;
 #if defined (GUI_WIN32)
-	optpreset(o_columns(&windefopts), 80, OPT_SET);
-	optpreset(o_lines(&windefopts), 20, OPT_SET);
+	optpreset(o_columns(&windefopts), 80, OPT_SET|OPT_NODFLT);
+	optpreset(o_lines(&windefopts), 25, OPT_SET|OPT_NODFLT);
 #else
-	optpreset(o_columns(&windefopts), 80, OPT_SET|OPT_LOCK);
-	optflags(o_lines(&windefopts)) = OPT_SET|OPT_LOCK;
+	optpreset(o_columns(&windefopts), 80, OPT_SET|OPT_LOCK|OPT_NODFLT);
+	optpreset(o_lines(&windefopts), 24, OPT_SET|OPT_LOCK|OPT_NODFLT);
 #endif
 	o_scroll(&windefopts) = 12;
 	windefopts.wrapmargin.value.pointer = (void *)&windefopts;
@@ -141,6 +141,7 @@ void wininit()
 	optflags(o_number(&windefopts)) = OPT_REDRAW;
 	optpreset(o_wrap(&windefopts), True, OPT_REDRAW);
 	o_sidescroll(&windefopts) = 8;
+	windefopts.wrapmargin.flags = OPT_NODFLT;
 
 	/* make the options accessible to :set */
 	optinsert("defwin", QTY(wdesc), wdesc, &windefopts.windowid);
@@ -168,7 +169,7 @@ WINDOW winalloc(gw, gvals, buf, rows, columns)
 	windows = newp;
 	newp->gw = gw;
 	newp->guivals = gvals;
-	newp->cursor = markalloc(buf, buf->changepos);
+	newp->cursor = markalloc(buf, buf->docursor);
 	newp->wantcol = 0;
 	newp->cursx = newp->cursy = -1;
 
@@ -207,19 +208,36 @@ WINDOW winalloc(gw, gvals, buf, rows, columns)
 	switch (o_initialstate)
 	{
 	  case 'i':
-		bufwilldo(newp->cursor);
-		inputpush(newp, newp->state->flags, 'i');
+		if (!o_locked(markbuffer(newp->cursor)))
+		{
+			bufwilldo(newp->cursor, True);
+			if (o_bufchars(markbuffer(newp->cursor)) == 0L)
+			{
+				assert(markoffset(newp->cursor) == 0L);
+				bufreplace(newp->cursor, newp->cursor, toCHAR("\n"), 1);
+				marksetoffset(newp->cursor, 0L);
+			}
+			inputpush(newp, newp->state->flags, 'i');
+		}
 		break;
 
 	  case 'r':
-		bufwilldo(newp->cursor);
-		inputpush(newp, newp->state->flags, 'R');
+		if (!o_locked(markbuffer(newp->cursor)))
+		{
+			bufwilldo(newp->cursor, True);
+			if (o_bufchars(markbuffer(newp->cursor)) == 0L)
+			{
+				assert(markoffset(newp->cursor) == 0L);
+				bufreplace(newp->cursor, newp->cursor, toCHAR("\n"), 1);
+				marksetoffset(newp->cursor, 0L);
+			}
+			inputpush(newp, newp->state->flags, 'R');
+		}
 		break;
 
 	  case 'e':
 		/* push a whole new stratum! */
 		statestratum(newp, toCHAR(EX_BUF), ':', exenter);
-		o_internal(markbuffer(newp->state->cursor)) = True;
 		newp->state->flags &= ~(ELVIS_POP|ELVIS_ONCE|ELVIS_1LINE);
 		break;
 	}
@@ -231,6 +249,12 @@ WINDOW winalloc(gw, gvals, buf, rows, columns)
 	{
 		winoptions(newp);
 		msgflush();
+	}
+	else if (mapbusy())
+	{
+		/* just make it the default */
+		winoptions(newp);
+		assert(newp && windefault);
 	}
 
 	/* If this is the first window, then peform the -c command or -t tag */
@@ -389,7 +413,7 @@ void winchgbuf(win, buf, force)
 	{
 		/* good!  now switch buffers */
 		marksetbuffer(win->cursor, buf);
-		marksetoffset(win->cursor, 0);
+		marksetoffset(win->cursor, buf->docursor);
 		if (windefault == win)
 		{
 			bufoptions(buf);
@@ -412,6 +436,11 @@ void winchgbuf(win, buf, force)
 void winoptions(win)
 	WINDOW	win;	/* the new default window */
 {
+	/* Delete the default options from the list of settable options.
+	 * It is too late to change them via :set anymore.
+	 */
+	optdelete(&windefopts.windowid);
+
 	/* if this window isn't already the default... */
 	if (windefault != win)
 	{
@@ -506,9 +535,8 @@ WINDOW winofgw(gw)
 	WINDOW	win;
 
 	assert(windows);
-	for (win = windows; win->gw != gw; win = win->next)
+	for (win = windows; win && win->gw != gw; win = win->next)
 	{
-		assert(win->next);
 	}
 	return win;
 }

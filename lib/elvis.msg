@@ -11,6 +11,9 @@ $1 is a boolean option:	     Use "set $1" or "set no$1" to enable or disable $1
 termcap needs $1:	     This termcap entry lacks the :$1: capability
 read $1, $2 lines, $3 chars: Read $1(readonly?" [READONLY]"), $2 lines, $3 chars
 
+# Some words that are stored as options: True False Submit Cancel Help
+Submit:Okay
+
 # This demonstrates how to cause specific messages to beep, regardless of the
 # settings of the "errorbells" and "warningbells" options.  This example is
 # commented out; delete the initial '#' to activate it.

@@ -1,7 +1,7 @@
 /* operator.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_operator[] = "$Id: operator.c,v 2.36 1996/09/21 00:03:19 steve Exp $";
+char id_operator[] = "$Id: operator.c,v 2.39 1997/12/22 20:09:37 steve Exp $";
 
 #include "elvis.h"
 
@@ -68,7 +68,7 @@ RESULT opfilter(from, to, prog)
 	}
 
 	/* read in the new text */
-	for (mark = *to, p = safealloc((int)o_blksize, sizeof(CHAR));
+	for (mark = *to, p = (CHAR *)safealloc((int)o_blksize, sizeof(CHAR));
 	     (nchars = prgread(p, (int)o_blksize)) > 0;
 	     markaddoffset(&mark, nchars))
 	    
@@ -100,14 +100,11 @@ static RESULT	filterenter(win)
 	CHAR	*cmd;	/* used for collecting the characters of the command line */
 	CHAR	*cp;	/* used for scanning the command-line buffer */
 	CHAR	*sub;	/* used for scanning a substitution value (for ! % #) */
-	char	*err;	/* error message (if this is an error) */
+	char	err;	/* error message (if this is an error) */
 	long	i;
 
 	assert(markoffset(win->state->top) <= markoffset(win->state->cursor));
 	assert(markoffset(win->state->cursor) <= markoffset(win->state->bottom));
-
-	/* Initialize "err" just to silence a compiler warning */
-	err = NULL;
 
 	/* skip over the '!' at the beginning of the command line, and any
 	 * whitespace.
@@ -127,21 +124,19 @@ static RESULT	filterenter(win)
 	     cp != NULL && i > 1;
 	     scannext(&cp), i--)
 	{
+		err = *cp;
 		switch (*cp)
 		{
 		  case '!':
 			sub = o_previouscommand;
-			err = "no previous command";
 			break;
 
 		  case '%':
 			sub = o_filename(markbuffer(win->cursor));
-			err = "no file name";
 			break;
 
 		  case '#':
-			sub = o_previousfile;
-			err = "no previous file";
+			sub = buffilenumber(&cp);
 			break;
 
 		  case '\\':
@@ -163,7 +158,7 @@ static RESULT	filterenter(win)
 			(void)buildCHAR(&cmd, *cp);
 		else if (!sub)
 		{
-			msg(MSG_ERROR, err);
+			msg(MSG_ERROR, "[c]no value to substitute for $1", err);
 			goto Fail;
 		}
 		else
@@ -254,7 +249,6 @@ RESULT oper(win, vinf, from, to)
 	if (vinf->oper == '!' && !dot && !(win->state->flags & ELVIS_MORE))
 	{
 		statestratum(win, toCHAR(FILTER_BUF), vinf->oper, filterenter);
-		o_internal(markbuffer(win->state->cursor)) = True;
 		o_inputtab(markbuffer(win->state->cursor)) = 'f'; /* filename */
 
 		/* remember the range */
@@ -326,6 +320,7 @@ RESULT oper(win, vinf, from, to)
 	  case '>':
 		/* build a :< or :> ex command */
 		memset((char *)&xinfb, 0, sizeof xinfb);
+		xinfb.cmdname = (vinf->oper == '<') ? "<" : ">";
 		xinfb.command = (vinf->oper == '<') ? EX_SHIFTL : EX_SHIFTR;
 		xinfb.defaddr = *from;
 		xinfb.fromaddr = from;

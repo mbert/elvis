@@ -18,10 +18,21 @@
 #ifndef W_OK
 # define W_OK	2
 #endif
+#ifndef O_BINARY
+# ifdef _O_BINARY
+#  define O_BINARY _O_BINARY
+# else
+#  define O_BINARY 0
+# endif
+#endif
 
-char id_osblock[] = "$Id: osblock.c,v 2.17 1996/10/01 19:48:23 steve Exp $";
+char id_osblock[] = "$Id: osblock.c,v 2.22 1998/11/28 05:14:22 steve Exp $";
 
 static int fd = -1; /* file descriptor of the session file */
+#ifdef FEATURE_RAM
+static BLK **blklist;
+static int nblks;
+#endif
 
 /* This function creates a new block file, and returns True if successful,
  * or False if failed because the file was already busy.
@@ -34,6 +45,18 @@ BOOLEAN blkopen(force, buf)
 	char	dir[80];
 	struct stat st;
 	int	i, j;
+	long	oldcount;
+
+#ifdef FEATURE_RAM
+	if (o_session && !CHARcmp(o_session, toCHAR("ram")))
+	{
+		nblks = 1024;
+		blklist = (BLK **)calloc(nblks, sizeof(BLK *));
+		blklist[0] = (BLK *)malloc(o_blksize);
+		memcpy(blklist[0], buf, o_blksize);
+		return True;
+	}
+#endif
 
 	/* If no session file was explicitly requested, try successive
 	 * defaults until we find an existing file (if we're trying to
@@ -78,12 +101,13 @@ BOOLEAN blkopen(force, buf)
 		}
 		if (!*dir)
 		{
-			msg(MSG_FATAL, "set \\$SESSIONPATH to a writable directory");
+			msg(MSG_FATAL, "set SESSIONPATH to a writable directory");
 		}
-		optpreset(o_directory, CHARdup(toCHAR(dir)), OPT_FREE);
+		optpreset(o_directory, CHARkdup(toCHAR(dir)), OPT_FREE);
 
 		/* choose the name of a session file */
 		i = 1;
+		oldcount = 0;
 		do
 		{
 			sprintf(dfltname, DEFAULT_SESSION, dir, i++);
@@ -94,7 +118,7 @@ BOOLEAN blkopen(force, buf)
 			 */
 			if (!o_recovering && access(dfltname, W_OK) == 0)
 			{
-				msg(MSG_WARNING, "[s]skipping old session file $1", dfltname);
+				oldcount++;
 			}
 
 			/* if user wants to cancel, then fail */
@@ -105,10 +129,12 @@ BOOLEAN blkopen(force, buf)
 		} while (access(dfltname, F_OK) != (o_recovering ? 0 : -1));
 		o_session = toCHAR(dfltname);
 		o_tempsession = True;
+		if (oldcount > 0)
+			msg(MSG_WARNING, "[d]skipping $1 old session file($1!=1?\"s\")", oldcount);
 	}
 
 	/* Try to open the session file */
-	fd = open(tochar8(o_session), O_RDWR);
+	fd = open(tochar8(o_session), O_RDWR|O_BINARY);
 	if (fd >= 0)
 	{
 		/* we're opening an existing session -- definitely not temporary */
@@ -118,7 +144,7 @@ BOOLEAN blkopen(force, buf)
 	{
 		if (errno == ENOENT)
 		{
-			fd = open(tochar8(o_session), O_RDWR|O_CREAT|O_EXCL, 0600);
+			fd = open(tochar8(o_session), O_RDWR|O_CREAT|O_EXCL|O_BINARY, 0600);
 			if (fd >= 0)
 			{
 				o_newsession = True;
@@ -171,6 +197,8 @@ BOOLEAN blkopen(force, buf)
 void blkclose(buf)
 	BLK	*buf;	/* buffer, holds superblock */
 {
+	if (fd < 0)
+		return;
 	blkread(buf, 0);
 	buf->super.inuse = 0L;
 	blkwrite(buf, 0);
@@ -191,6 +219,24 @@ void blkwrite(buf, blkno)
 	BLK	*buf;	/* buffer, holds contents of block */
 	_BLKNO_	blkno;	/* where to write it */
 {
+#ifdef FEATURE_RAM
+	/* store it in RAM */
+	if (nblks > 0)
+	{
+		if (blkno >= nblks)
+		{
+			blklist = (BLK **)realloc(blklist,
+						(nblks + 1024) * sizeof(BLK *));
+			memset(&blklist[nblks], 0, 1024 * sizeof(BLK *));
+			nblks += 1024;
+		}
+		if (!blklist[blkno])
+			blklist[blkno] = malloc(o_blksize);
+		memcpy(blklist[blkno], buf, o_blksize);
+		return;
+	}
+#endif
+
 	/* write the block */
 	lseek(fd, (off_t)blkno * (off_t)o_blksize, 0);
 	if (write(fd, (char *)buf, (size_t)o_blksize) != o_blksize)
@@ -207,6 +253,14 @@ void blkread(buf, blkno)
 	BLK	*buf;	/* buffer, where buffer should be read into */
 	_BLKNO_	blkno;	/* where to read from */
 {
+#ifdef FEATURE_RAM
+	if (nblks > 0)
+	{
+		memcpy(buf, blklist[blkno], o_blksize);
+		return;
+	}
+#endif
+
 	/* read the block */
 	lseek(fd, (off_t)blkno * o_blksize, 0);
 	if (read(fd, (char *)buf, (size_t)o_blksize) != o_blksize)
@@ -221,5 +275,10 @@ void blkread(buf, blkno)
  */
 void blksync P_((void))
 {
+#ifdef FEATURE_RAM
+	if (nblks > 0)
+		return;
+#endif
+
 	sync();
 }

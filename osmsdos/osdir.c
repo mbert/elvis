@@ -20,6 +20,10 @@
 # include <dir.h>
 extern unsigned _stklen = 16384U;
 #endif
+#ifdef GO32
+# include <dir.h>
+# include <fcntl.h>
+#endif
 #ifdef M_I86
 # include <direct.h>
 # define findfirst(a,b,c)       _dos_findfirst(a,c,b)
@@ -50,6 +54,10 @@ extern unsigned _stklen = 16384U;
 #  define NAME_MAX 255
 # endif
 #endif
+
+
+static char *lastslash(char *str);
+
 
 #if !defined(JUST_DIRPATH)
 /* These are used for communication between dirfirst() and dirnext() */
@@ -84,6 +92,7 @@ char *dirfirst(char *wildexpr, BOOLEAN ispartial)
 	/* combine the directory name with the found file's name */
 	strcpy(found, dirpath(finddir, ff.ff_name));
 
+#ifndef JUST_DIRFIRST
 	/* convert the filename to lowercase */
 	for (wildexpr = found + strlen(found) - 1;
 	     wildexpr >= found && *wildexpr != '\\' && *wildexpr != ':';
@@ -91,6 +100,7 @@ char *dirfirst(char *wildexpr, BOOLEAN ispartial)
 	{
 		*wildexpr = tolower(*wildexpr);
 	}
+#endif
 	return found;
 }
 
@@ -115,6 +125,7 @@ char *dirnext(void)
 	/* combine the directory name with the found file's name */
 	strcpy(found, dirpath(finddir, ff.ff_name));
 
+#ifndef JUST_DIRFIRST
 	/* convert the filename to lowercase */
 	for (scan = found + strlen(found) - 1;
 	     scan >= found && *scan != '\\' && *scan != ':';
@@ -122,6 +133,7 @@ char *dirnext(void)
 	{
 		*scan = tolower(*scan);
 	}
+#endif
 	return found;
 }
 #endif /* !JUST_DIRPATH */
@@ -169,6 +181,20 @@ DIRPERM dirperm(char *filename)
 }
 #endif /* !JUST_DIRFIRST && !JUST_DIRPATH */
 
+static char *lastslash(char *str)
+{
+	char	*slash;
+
+	for (slash = &str[strlen(str)];
+	     slash >= str && *slash != '/' && *slash != '\\';
+	     slash--)
+	{
+	}
+	if (slash < str)
+		slash = NULL;
+	return slash;
+}
+
 /* return the directory part of a pathname */
 char *dirdir(char *pathname)
 {
@@ -176,7 +202,7 @@ char *dirdir(char *pathname)
 	char	*slash;
 
 	strcpy(ret, pathname);
-	slash = strrchr(ret, '\\');
+	slash = lastslash(ret);
 	if (slash == ret)
 	{
 		ret[1] = '\0';
@@ -209,7 +235,7 @@ char *dirfile(char *pathname)
 {
 	char	*slash;
 
-	slash = strrchr(pathname, '\\');
+	slash = lastslash(pathname);
 	if (!slash && isalpha(*pathname) && pathname[1] == ':')
 	{
 		slash = &pathname[1];

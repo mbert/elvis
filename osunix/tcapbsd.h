@@ -1,9 +1,12 @@
 /* tcapbsd.h */
 
-char id_tcapbsd[] = "$Id: tcapbsd.h,v 2.4 1996/04/03 21:43:19 steve Exp $";
+char id_tcapbsd[] = "$Id: tcapbsd.h,v 2.6 1998/11/28 05:15:39 steve Exp $";
 
 #include <sys/types.h>
 #include <sys/time.h>
+#ifdef NEED_SELECT_H
+# include <sys/select.h>
+#endif
 #include <sgtty.h>
 #include <signal.h>
 
@@ -41,7 +44,6 @@ void ttyraw(erasekey)
 #  endif
 
 	/* arrange for signals to be caught or ignored */
-	signal(SIGHUP, catchsig);
 	signal(SIGINT, catchsig);
 	signal(SIGQUIT, SIG_IGN);
 #ifdef SIGWINCH

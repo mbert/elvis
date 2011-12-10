@@ -7,13 +7,15 @@
 #
 # flags: --with-x[=no]		enable/disable support for X-windows interface
 #	 --without-x		disable support for X-windows interface
+#	 --with-gcc[=no]	enable/disable use of GCC
+#	 --without-gcc		disable use of GCC
 #	 --x-includes=DIR	add DIR to path for X-windows include files
 #	 --x-libraries=DIR	add DIR to path for X-windows libraries
 #        --libs=STRING		define the non-X11 part of the LIBS= line
 #	 --bindir=DIR		where to install the executables
 #	 --datadir=DIR		where to install the supporting data files
-#	 --libs=STRING		non-X11 part of the LIBS= string in Makefile
 #	 --ioctl=VARIETY	type of tty ioctl to use: termios, termio, sgtty
+#	 --verbose		explain each decision
 #
 # system: *one* of the following...
 #	 linux			UNIX clone for IBM clones
@@ -29,7 +31,9 @@
 #	 xenix			ancient SCO Xenix-386 systems
 #	 sco			SCO UNIX or Open Desktop systems
 #	 bsd			typical BSD implementations
+#	 freebsd		freebsd is a specific BSD implementation
 #	 posix			generic POSIX implementations
+#	 cygwin			GNU utilities under Windows95/98/NT
 #        (anything else)	generic UNIX, including SysV
 # If no system is specified, this script will attempt to obtain the system
 # type by running the "uname" command.  If it can't recognize the system name
@@ -38,27 +42,19 @@
 # work okay, usually.
 
 # Set some defaults
-XINCPATH="/usr/include /usr/include/X11 /usr/X11/include /usr/local/X11/include /usr/openwin/include"
-XLIBPATH="/lib /usr/lib /usr/X11/lib /usr/local/X11/lib /usr/openwin/lib "`echo "$LD_LIBRARY_PATH" | tr ':' ' '`
+XINCPATH="/usr/include /usr/include/X11 /usr/X11/include /usr/local/X11/include /usr/openwin/include /usr/X11R6/include"
+XLIBPATH="/lib /usr/lib /usr/X11/lib /usr/local/X11/lib /usr/openwin/lib /usr/X11R6/lib "`echo "$LD_LIBRARY_PATH" | tr ':' ' '`
 GNUPATH=`echo "$PATH" | tr ':' ' '`
 BINDIR=/usr/local/bin
 LIBDIR=/usr/local/lib/elvis
-SYS=`uname | tr '[A-Z]' '[a-z]'`
-CC="cc -O"
+SYS=""
+DEFAULT_CC="cc -O"
 IOCTL=""
+WHY=""
 
 # Initialize some variables.  These aren't merely defaults; don't change them!
 args=""
 XLIBS=""
-
-# Solaris 2 masquerades as SunOS.  Check for that, by examining the
-# release number.
-if [ "$SYS" = sunos ]
-then
-	case `uname -r` in
-	  [5-9]*)	SYS=solaris2	;;
-	esac
-fi
 
 # Ultrix has a broken /bin/sh; it doesn't support shell functions.  Try to be
 # clever about running bash instead of /bin/sh there.
@@ -71,6 +67,15 @@ then
 		;;
 	esac
 fi
+
+# This function echoes its arguments, but only if the --verbose flag is given
+why()
+{
+	if [ $WHY ]
+	then
+		echo "$@"
+	fi
+}
 
 # This function is used to look for a file in a path. $1 is the name of the
 # file, and the remaining args are the path.  It write the absolute file file
@@ -95,14 +100,17 @@ usage()
 	echo "usage: configure [[flags] system]"
 	echo "flags: --with-x[=no]      enable/disable support for X-windows interface"
 	echo "       --without-x        disable support for X-windows interface"
+	echo "       --with-gcc[=no]    enable/disable use of GCC"
+	echo "       --without-gcc      disable use of GCC"
 	echo "       --x-includes=DIR   add DIR to path for X-windows include files"
 	echo "       --x-libraries=DIR  add DIR to path for X-windows libraries"
 	echo "       --bindir=DIR       where to install the executables"
 	echo "       --datadir=DIR      where to install the supporting data files"
 	echo "       --libs=STRING      non-X11 part of the LIBS= string in Makefile"
 	echo "       --ioctl=VARIETY    type of tty ioctl to use: termios, termio, or sgtty"
-	echo "system: linux, sunos, solaris, solaris2, bsd, posix, aix, osf-1, ultrix,"
-	echo "        hp-ux, qnx, irix, xenix, sco (meaning SCO Unix or Open Desktop)"
+	echo "       --verbose          explain any decisions made during configuration"
+	echo "system: linux, sunos, solaris, solaris2, freebsd, bsd, posix, aix, osf-1, hp-ux"
+	echo "        ultrix, qnx, irix, cygwin, xenix, sco (meaning SCO Unix or OpenDesktop)"
 	if [ "$*" ]
 	then
 		echo "$*"
@@ -122,6 +130,16 @@ do
 		GUI_X11=define
 		args="$args --with-x"
 		;;
+	  --with-gcc=no|--without-gcc)
+		gnu=n
+		forcegcc=n
+		args="$args --with-gcc=no"
+		;;
+	  --with-gcc*)
+		gnu=y
+		forcegcc=y
+		args="$args --with-gcc"
+		;;
 	  --x-includes=*)
 		XINCPATH=`echo "$i"|sed 's/^--x-includes=//'`" $XINCPATH"
 		args="$args $i"
@@ -140,7 +158,7 @@ do
 		;;
 	  --libs=*)
 		LIBS=`echo "$i"|sed 's/^--libs=//'`
-		args="$args $i"
+		# added to args later
 		;;
 	  --ioctl=termios|--ioctl=termio|--ioctl=sgtty)
 		IOCTL=`echo "$i"|sed 's/^--ioctl=//'`
@@ -149,8 +167,16 @@ do
 	  --ioctl=*)
 		usage "bad --ioctl value; must be termios, termio, or sgtty"
 		;;
+	  --verbose)
+		WHY=y
+		;;
 	  --help|-\?)
 		usage
+		;;
+	  --version)
+		sed -n 's/.*VERSION.*"\(.*\)\"/configure (elvis) \1/p' version.h
+		sed -n 's/.*COPY1.*"\(.*\)\"/\1/p' version.h
+		exit 0
 		;;
 	  --*)
 		# Ignore other --symbol flags
@@ -164,25 +190,131 @@ do
 	esac
 done
 
+# If no system specified, then guess by examining output of uname
+if [ "$SYS" = "" ]
+then
+	why "No system type was specified, so I'm running uname(1) to guess it..."
+	SYS=`uname | tr '[A-Z]' '[a-z]'`
+	why "   Apparently this is '$SYS'"
+
+	case "$SYS" in
+	  sunos)
+		# Solaris 2 masquerades as SunOS.  Check for that, by examining
+		# the release number.
+		why "   I know '$SYS'"
+		why "   Solaris claims to be SunOS, but it requires a different configuration."
+		why "   I'm checking the release number to distinguish between them..."
+		case `uname -r` in
+		  [5-9]*)	SYS=solaris2	;;
+		esac
+		why "   This is really '$SYS'"
+		;;
+
+	  linux|solaris|solaris2|aix|osf-1|ultrix|hp-ux|qnx|irix|xenix|sco|bsd|freebsd|posix|cygwin*)
+		why "   I know '$SYS' -- This should be easy!"
+		;;
+
+	  *)
+		# SCO likes to change the OS name to match the system name.
+		# Inspect the files to guess whether that's the case here.
+		if [ -f /etc/hwconfig ]
+		then
+			if [ -f /unix ]
+			then
+				sys2=sco
+			else
+				sys2=xenix
+			fi
+			why "   I don't know '$SYS' but I know '$sys2' and this looks like '$sys2' to me"
+			SYS=$sys2
+		else
+			why "   I don't know '$SYS' so I'll treat this like generic Unix"
+		fi
+	esac
+fi
+
 # Try to locate some files
-xinc=`searchpath X11/Xlib.h $XINCPATH`
-xlib=`searchpath libX11.a $XLIBPATH`
-gnu=`searchpath gcc $GNUPATH`
+why "Looking for some compiler files..."
+inet=`searchpath netinet/in.h $XINCPATH`
+case "$inet" in
+	"") why "   Internet headers not found - maybe need '--x-includes=...' argument?" ;;
+	*) why "   Internet headers found" ;;
+esac
+case "$GUI_X11" in
+  undef)
+	why "   Skipping X11 tests since you specified --with-x=no"
+	;;
+
+  *)
+	xinc=`searchpath X11/Xresource.h $XINCPATH`
+	case "$xinc" in
+		"") why "   X11 headers not found - maybe need '--x-includes=...' argument?" ;;
+		*) why "   X11 headers found" ;;
+	esac
+	xlib=`searchpath libX11.a $XLIBPATH`
+	if [ "$xlib" = "" ]
+	then
+		xlib=`searchpath libX11.so $XLIBPATH`
+	fi
+	case "$xlib" in
+		"") why "   X11 libraries not found - maybe need '--x-libraries=...' argument?" ;;
+		*) why "   X11 libraries found" ;;
+	esac
+	;;
+esac
+case "$CC" in
+  "")	CC="$DEFAULT_CC"
+	case "$gnu" in
+	  y|"")
+		gnu=`searchpath gcc $GNUPATH`
+		case "$inet" in
+			"") why "   GCC not found" ;;
+			*) why "   GCC found" ;;
+		esac
+		;;
+	  *)
+		why "   GCC not searched for because of --gcc=$gcc argument"
+		;;
+	esac
+	;;
+esac
+case "$gnu" in
+ y|n)	gnu="" ;;
+esac
 
 # If X-windows is unspecified, and the X files are present, then assume with-x
 if [ "$GUI_X11" = "" -a "$xinc" ]
 then
+	why "Assuming --with-x because X11 headers were found"
 	GUI_X11=define
 	args="$args --with-x"
 elif [ "$GUI_X11" = "" ]
 then
+	why "Assuming --with-x=no because X11 headers were not found"
 	GUI_X11=undef
 	args="$args --with-x=no"
 fi
 
-# Save these arguments in a "config.stat" script
-echo exec configure $args $SYS >config.stat
-
+# if network protocols are unspecified, and the network header files are
+# present, then assume they should be used.
+if [ "$PROTOCOL_HTTP" = "" -a "$inet" ]
+then
+	why "Assuming HTTP should be supported because Internet headers were found"
+	PROTOCOL_HTTP=define
+elif [ "$PROTOCOL_HTTP" = "" ]
+then
+	why "Assuming HTTP should not be supported because Internet headers were not found"
+	PROTOCOL_HTTP=undef
+fi
+if [ "$PROTOCOL_FTP" = "" -a "$inet" ]
+then
+	why "Assuming FTP should be supported because Internet headers were found"
+	PROTOCOL_FTP=define
+elif [ "$PROTOCOL_FTP" = "" ]
+then
+	why "Assuming FTP should not be supported because Internet headers were not found"
+	PROTOCOL_FTP=undef
+fi
 
 ################################################################################
 
@@ -190,65 +322,146 @@ echo exec configure $args $SYS >config.stat
 # Check for some known system quirks
 if [ -f /usr/include/sys/ptem.h ]
 then
+	why "This system has a <sys/ptem.h> file so I assume elvis needs it" 
 	NEED_WINSIZE=define
 fi
 if [ -f /usr/include/termcap.h ]
 then
+	why "This system has a <termcap.h> file so I assume elvis needs it" 
 	NEED_SPEED_T=define
 fi
 if [ -f /usr/include/sys/wait.h ]
 then
+	why "This system has a <sys/wait.h> file so I assume elvis needs it" 
 	NEED_WAIT_H=define
 fi
 if [ -f /usr/include/sys/select.h ]
 then
+	why "This system has a <sys/select.h> file so I assume elvis needs it" 
 	NEED_SELECT_H=define
 fi
 if [ -f /usr/include/sys/ioctl.h ]
 then
+	why "This system has a <sys/ioctl.h> file so I assume elvis needs it" 
 	NEED_IOCTL_H=define
 fi
-if grep setpgid /usr/include/unistd.h >/dev/null 2>/dev/null
+if [ -f /usr/include/netinet/in.h ]
 then
+	why "This system has a <netinet/in.h> file so I assume elvis needs it" 
+	NEED_IN_H=define
+fi
+if [ -f /usr/include/sys/socket.h ]
+then
+	why "This system has a <sys/socket.h> file so I assume elvis needs it" 
+	NEED_SOCKET_H=define
+fi
+if [ X"$xinc" != X ]
+then
+	if [ -f `dirname $xinc`/Xos.h ]
+	then
+		why "This system has a <X11/Xos.h> file so I assume elvis needs it" 
+		NEED_XOS_H=define
+	fi
+fi
+why "Does this system support setpgid()?"
+if fgrep setpgid /usr/include/unistd.h >/dev/null 2>/dev/null
+then
+	why "   Assuming yes, because it is declared in <unistd.h>"
 	NEED_SETPGID=undef
 else
+	why "   Assuming no, because it isn't declared in <unistd.h>"
 	NEED_SETPGID=define
+fi
+if [ -s "$xinc" ]
+then 
+	why "Does this system support XrmCombineFileDatabase()?"
+	if fgrep XrmCombineFileDatabase $xinc </dev/null >/dev/null
+	then
+		why "   Assuming yes, because it is declared in <X11/Xresource.h>"
+		NEED_XRMCOMBINEFILEDATABASE=undef
+	else
+		why "   Assuming no, because it isn't declared in <X11/Xresource.h>"
+		NEED_XRMCOMBINEFILEDATABASE=define
+	fi
+fi
+if [ $PROTOCOL_HTTP = define -o $PROTOCOL_FTP = define ]
+then
+	why "Does this system support inet_aton()?"
+	if fgrep inet_aton /usr/include/arpa/inet.h </dev/null >/dev/null
+	then
+		why "   Assuming yes, because it is declared in <arpa/inet.h>"
+		NEED_INET_ATON=undef
+	else
+		why "   Assuming no, because it isn't declared in <arpa/inet.h>"
+		NEED_INET_ATON=define
+	fi
+fi
+why "Does this system support memmove()?"
+if fgrep memmove /usr/include/string*.h </dev/null >/dev/null
+then
+	why "   Assuming yes, because it is declared in <string.h> or <strings.h>"
+	NEED_MEMMOVE=undef
+else
+	why "   Assuming no, because it isn't declared in <string.h> or <strings.h>"
+	NEED_MEMMOVE=define
 fi
 case "$IOCTL" in
   termios)	USE=			;;
   termio)	USE=" -DUSE_TERMIO"	;;
   sgtty)	USE=" -DUSE_SGTTY"	;;
   *)
+	why "Choosing a type of ioctl() calls, since no --ioctl=... argument was given"
 	if [ -f /usr/include/termios.h ]
 	then
 		USE=
+		args="$args --ioctl=termios"
+		why "   Assuming --ioctl=termios because <termios.h> exists"
 	else
 		if [ -f /usr/include/termio.h ]
 		then
 			USE=" -DUSE_TERMIO"
+			args="$args --ioctl=termio"
+			why "   Assuming --ioctl=termio because <termio.h> exists"
 		else
 			USE=" -DUSE_SGTTY"
+			args="$args --ioctl=sgtty"
+			why "   Assuming --ioctl=sgtty because neither <termio.h> nor <termios.h> exists"
 		fi
 	fi
 	;;
 esac
 case "$SYS" in
+  *aix*)
+	why "AIX always uses curses because the termcap database has no entry for xterm"
+	TLIBS="-lcurses"
+	;;
   *linux*)
 	if [ ! -f /usr/lib/libtermcap.a -a ! -f /lib/libtermcap.a ]
 	then
 		if [ -f /usr/lib/libncurses.a -o -f /usr/lib/ncurses.a ]
 		then
+			why "For Linux, we're using ncurses because there is no termcap library"
 			TLIBS="-lncurses"
 		else
+			why "For Linux, we're using curses because there is no termcap library"
 			TLIBS="-lcurses"
 		fi
+	else
+		why "For Linux, we're using termcap because I prefer it over curses/terminfo"
 	fi
 	;;
   *osf*)
+	why "OSF is configured to use the bogus 'tinytcap.c' file instead of a real termcap"
+	why "    or terminfo library.  I don't know why.   It also tries to use -ltermcap"
+	why "    which doesn't make much sense here either.  You may want to change this."
 	NEED_TGETENT=define
-	TLIBS="-lucb -lcurses"
+	#TLIBS="-lucb -lcurses"
+	TLIBS="-ltermcap"
 	;;
   *ultrix*)
+	why "Ultrix needs -ldnet to support X11.  Also, it uses both -lcurses and -ltermcap"
+	why "   though I can't imagine why it would need both; elvis doesn't use any fancy"
+	why "   curses functions.  You may want to change this."
 	CC="cc -std"
 	NEED_STRDUP=define
 	TLIBS="-lcurses -ltermcap"
@@ -258,100 +471,168 @@ case "$SYS" in
 	fi
 	;;
   *hp-ux*)
-	CC="cc -Ae"
-	gnu=""
+	why "HP-UX must use its own compiler even if GCC is available, apparently because"
+	why "   GCC doesn't support shared libraries.  Also, it uses both -lcurses and"
+	why "   -ltermcap, though I can't imagine why it would need both."
+	if [ X$forcegcc = Xy ]
+	then
+		why "... but since you used an explicit -with-gcc flag, I'll do that"
+	else
+		CC="cc -Ae"
+		gnu=""
+	fi
 	NEED_OSPEED=define
 	TLIBS="-lcurses -ltermcap"
 	;;
   *solaris2*)
+	why "For Solaris2, the standard system C compiler chokes on some standard system"
+	why "   header files because of an unchecked 'const' keyword, so we add '-Dconst='"
+	why "   to ensure that 'const' is ignored.  Also, if X11 is to be supported then"
+	why "   we also need -lsocket -lnsl.  A -R flag may also be added so the X11"
+	why "   shared libraries can be found at run time."
+	CC="cc -O -Dconst="
 	TLIBS="-lcurses"
 	if [ "$GUI_X11" = "define" ]
 	then
 		XLIBS=" -lsocket -lnsl"
-		if [ "$gnu" ]
-		then
-			xlibdir=`dirname "$xlib"`
-			XLIBS=" -R$xlibdir$XLIBS"
-		fi
+		xlibdir=`dirname "$xlib"`
+		XLIBS=" -R$xlibdir$XLIBS"
 	fi
 	;;
   *solaris*)
-	# This is only for old solaris systems
+	why "For Solaris 1, no really wacky tricks are needed.  A -Dconst= flag is added"
+	why "   to the compiler command to allow it to work around a `const' keyword in a"
+	why "   standard system header."
+	CC="cc -O -Dconst="
 	TLIBS="-L/usr/ucblib -lucb -lcurses -ltermcap"
 	;;
   *sunos*)
+	why "For ancient SunOS, no really wacky tricks are needed.  A -Dconst= flag is added"
+	why "   to the compiler command to allow it to work around a `const' keyword in a"
+	why "   standard system header."
+	CC="cc -O -Dconst="
 	TLIBS="-ltermcap"
 	;;
   *sco*)
+	TLIBS="-lx -ltermcap"
 	tmp=`searchpath icc $GNUPATH`
 	if [ "$tmp" ]
 	then
+		why "For SCO, I like the icc compiler (unless gcc is available)."
 		CC="icc"
 		# but it may be overridden by gcc
 	fi
 	if [ "$GUI_X11" = "define" ]
 	then
+		why "For SCO, X11 requires -lsocket"
 		XLIBS=" -lsocket"
+		why "SCO has an <X11/Xos.h>, but it clashes with <times.h> so we leave it out"
+		NEED_XOS_H="undef"
+	elif [ X"$inet" != X ]
+	then
+		why "For SCO, any network access needs -lsocket"
+		LIBS="$LIBS -lsocket"
 	fi
 	;;
   *xenix*)
 	TLIBS="-lx -ltermcap"
 	if [ "$GUI_X11" = "define" ]
 	then
+		why "For SCO Xenix, X11 requires -lsocket"
 		XLIBS=" -lsocket"
 	fi
 	;;
+  *freebsd*)
+	why "For FreeBSD, no tweaks are required"
+	;;
   *bsd*)
+	why "For BSD we like to use shlicc2 because it supports shared libraries"
 	tmp=`searchpath shlicc2 $GNUPATH`
 	if [ "$tmp" ]
 	then
 		CC="shlicc2"
 		gnu=""
+		why "   Using shlicc2, even in preference to GCC"
+	else
+		why "   Apparently shlicc2 doesn't exist on this system"
 	fi
 	if [ "$GUI_X11" = "define" ]
 	then
+		why "   To support X11, it also requires -lipc"
 		XLIBS=" -lipc"
+		why "FreeBSD requires -I/usr/X11R6/include.  Should be harmless for other BSDs"
+		CC="$CC -I/usr/X11R6/include"
 	fi
 	;;
   *irix*)
   	# If "cc" in installed, use it in preference to "gcc"
+	why "For IRIX, the standard CC is preferable to GCC"
 	tmp=`searchpath cc $GNUPATH`
 	if [ "$tmp" ]
 	then
 		CC="cc"
 		gnu=""
 	fi
+	;;
+
+  *cygwin*)
+	why "Cygwin has no inet_aton() function even though one is declared in the headers"
+	NEED_INET_ATON=define
+	;;
 esac
 if [ -f /usr/bin/lp ]
 then
+	why "Assuming lpout=\"!lp -s\" because /usr/bin/lp exists"
 	LPOUT="!lp -s"
+else
+	why "Assuming lpout=\"!lpr\" because /usr/bin/lp doesn't exist"
 fi
 
+# Add non-X11 libraries to args via the --libs=... flag
+if [ "$TLIBS" ]
+then
+	args="$args --libs='$TLIBS'"
+fi
+
+# If "gcc" is available, and CC didn't come from environment variables, then
+# use "gcc" instead of plain old "cc"
+if [ "$gnu" ]
+then
+	why "Assuming GCC should be used because it exists and the $SYS-specific"
+	why "   tweaks didn't indicate that the standard CC is better."
+	CC="gcc -O2"
+fi
 
 ################################################################################
 
+# Save these arguments in a "config.stat" script
+echo exec configure $args $SYS >config.stat
+
+# Tell the user what we discovered
+echo "System:   $SYS"
+echo "Options: $args"
+echo "Compiler: $CC"
+
+################################################################################
 
 #Set some options that'll be used in the here-files below
-if [ "$gnu" ]
-then
-	CC="gcc -O2"
-fi
 CC="$CC$USE"
 if [ "$GUI_X11" = "define" ]
 then
 	case "$xlib" in
-	  /lib/libX11.a|/usr/lib/libX11.a|"")
+	  /lib/libX11.*|/usr/lib/libX11.*|"")
 		XLIBS="-lX11$XLIBS"
 		;;
 	  *)
-		XLIBS="-L`echo $xlib | sed 's/\/libX11.a$//'` -lX11$XLIBS"
+		XLIBS="-L`dirname $xlib` -lX11$XLIBS"
 		;;
 	esac
 	case "$xinc" in
-	  /usr/include/X11/Xlib.h)
+	  /usr/include/X11/Xresource.h)
 		;;
 	  *)
-		CC="$CC -I"`echo $xinc | sed 's/X11\/Xlib.h$//'`
+		x11subdir=`dirname $xinc`
+		CC="$CC -I"`dirname $x11subdir`
 		;;
 	esac
 fi
@@ -387,27 +668,37 @@ cat >config.h <<eof-config
 #undef	GUI_CURSES	/* curses interface */
 #define	GUI_TERMCAP	/* termcap interface */
 #define	GUI_OPEN	/* open-mode only, does nothing fancy */
-#undef	GUI_MFC  	/* MS-Windows gui interface */
 
 
-/* These allow you to selectively disable the display modes.  If you disable
- * "html" then the help files won't look right.  #define to enable the mode,
- * #undef to exclude it.
+/* These allow you to selectively disable the display modes, network protocols,
+ * and other optional features.  If you disable the markup display modes then
+ * the :help command is disabled because it depends on the "html" markup display
+ * mode.  #define to enable the mode, #undef to exclude it.
  */
 #define	DISPLAY_HEX	/* hex		interactive hex dump */
-#define	DISPLAY_MARKUP	/* html, man	formatted text */
+#define	DISPLAY_MARKUP	/* html/man/tex	formatted text */
 #define	DISPLAY_SYNTAX	/* syntax	generic syntax coloring */
+#${PROTOCOL_HTTP}	PROTOCOL_HTTP	/* define to enable HTTP; undef to disable */
+#${PROTOCOL_FTP}	PROTOCOL_FTP	/* define to enable FTP; undef to disable */
+#define	FEATURE_SHOWTAG	/* the showtag option */
+#define	FEATURE_LPR	/* the :lpr command */
+#define	FEATURE_ALIAS	/* the :alias command */
+#define	FEATURE_MKEXRC	/* the :mkexrc command */
+#define	FEATURE_COMPLETE /* filename completion */
+#define	FEATURE_LITRE	/* accelerate searches for literal strings */
+#undef	FEATURE_RAM	/* store edit buffer in RAM if "-f ram" */
 
 
 /* The following provide custom implementation of some common functions which
  * are either missing or poorly implemented on some systems.
  */
 #undef	NEED_ABORT	/* replaces abort() with a simpler macro */
-#undef	NEED_ASSERT	/* defines an custom assert() macro */
+#undef	NEED_ASSERT	/* defines a custom assert() macro */
 #${NEED_TGETENT:-undef}	NEED_TGETENT	/* causes tinytcap.c to be used instead of library */
 #${NEED_WINSIZE:-undef}	NEED_WINSIZE	/* includes <ptem.h> -- required by SCO */
 #${NEED_SPEED_T:-undef}	NEED_SPEED_T	/* includes <termcap.h> -- common on POSIX systems */
 #${NEED_STRDUP:-undef}	NEED_STRDUP	/* uses a custom version of strdup() */
+#${NEED_MEMMOVE:-undef}	NEED_MEMMOVE	/* uses a custom version of memmove() */
 #${NEED_OSPEED:-undef}	NEED_OSPEED	/* causes guitcap.c to supply an ospeed variable */
 #${NEED_BC:-undef}	NEED_BC		/* causes guitcap.c to supply a BC variable */
 #${NEED_SETPGID:-undef}	NEED_SETPGID	/* use setpgrp() instead of setpgid() */
@@ -415,18 +706,23 @@ cat >config.h <<eof-config
 #${NEED_WAIT_H:-undef}	NEED_WAIT_H	/* must include <sys/wait.h> */
 #${NEED_SELECT_H:-undef}	NEED_SELECT_H	/* must include <sys/select.h> */
 #${NEED_IOCTL_H:-undef}	NEED_IOCTL_H	/* must include <sys/ioctl.h> */
-
+#${NEED_XOS_H:-undef}	NEED_XOS_H	/* must include <X11/Xos.h> */
+#${NEED_IN_H:-undef}	NEED_IN_H	/* must include <netinet/in.h> */
+#${NEED_SOCKET_H:-undef}	NEED_SOCKET_H	/* must include <sys/socket.h> */
+#${NEED_XRMCOMBINEFILEDATABASE:-undef}	NEED_XRMCOMBINEFILEDATABASE	/* X11R4 needs this */
+#${NEED_INET_ATON:-undef}	NEED_INET_ATON	/* SunOS, Solaris, and Cygwin need this */
 
 /* The following control debugging features.  NDEBUG slows elvis down a lot,
  * and the others tend to make it output some confusing messages, so these
  * are all disabled by default.  (Note that NDEBUG is #define'd to disable it)
  */
-#define	NDEBUG		/* undef to enable assert() calls; define to disable */
-#undef	DEBUG_ALLOC	/* define to debug memory allocations; undef to disable */
-#undef	DEBUG_SCAN	/* define to debug character scans; undef to disable */
-#undef	DEBUG_SESSION	/* define to debug the block cache; undef to disable */
-#undef	DEBUG_EVENT	/* define to trace events; undef to disable */
+#define	NDEBUG		/* undef to enable assert() calls */
+#undef	DEBUG_ALLOC	/* define to debug memory allocations */
+#undef	DEBUG_SCAN	/* define to debug character scans */
+#undef	DEBUG_SESSION	/* define to debug the block cache */
+#undef	DEBUG_EVENT	/* define to trace events */
 #undef	DEBUG_MARKUP	/* define to debug markup display modes */
+
 
 
 /* The following macros, and their values, are mostly used to determine the
@@ -515,12 +811,20 @@ s!^CC=.*!CC=$CC -D_POSIX_SOURCE!
 eof-qnx
 ;;
 
+*aix*)
+cat >$tmp <<eof-aix
+s!^# Makefile.in\$!# Makefile - configured for $SYS!
+s!^CC=.*!CC=$CC -D_BSD!
+eof-aix
+;;
+
 *)
 cat >$tmp <<eof-generic
 s!^# Makefile.in\$!# Makefile - configured for generic Unix!
 s!^CC=.*!CC=$CC!
 eof-generic
 ;;
+
 esac
 cat >>$tmp <<eof-all
 s!^LIBS=.*!LIBS=$XLIBS $LIBS!
@@ -538,7 +842,7 @@ case "$SYS" in
 	then
 		xlibdir=`dirname "$xlib"`
 		case "$LD_LIBRARY_PATH" in
-		  *X11*)
+		  *X11*|*openwin*)
 			# Probably do nothing
 			;;
 		  "")

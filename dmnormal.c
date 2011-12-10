@@ -1,9 +1,10 @@
 /* dmnormal.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_dmnormal[] = "$Id: dmnormal.c,v 2.29 1996/09/21 01:21:36 steve Exp $";
+char id_dmnormal[] = "$Id: dmnormal.c,v 2.37 1998/11/25 01:26:42 steve Exp $";
 
 #include "elvis.h"
+#include <time.h>
 
 #if USE_PROTOTYPES
 static DMINFO *init(WINDOW win);
@@ -11,7 +12,10 @@ static void term(DMINFO *info);
 static MARK move(WINDOW w, MARK from, long linedelta, long column, BOOLEAN cmd);
 static MARK wordmove(MARK cursor, long count, BOOLEAN backward, BOOLEAN whitespace);
 static long mark2col(WINDOW w, MARK mark, BOOLEAN cmd);
-static MARK setup(MARK top, long cursor, MARK bottom, DMINFO *info);
+static MARK setup(WINDOW win, MARK top, long cursor, MARK bottom, DMINFO *info);
+# ifdef FEATURE_LPR
+static void header (WINDOW w, int pagenum, DMINFO *info, void (*draw)(CHAR *p, long qty, _char_ font, long offset));
+# endif
 static MARK image(WINDOW w, MARK line, DMINFO *info, void (*draw)(CHAR *p, long qty, _char_ font, long offset));
 static void indent(WINDOW w, MARK line, long linedelta);
 static CHAR *tagatcursor(WINDOW win, MARK cursor);
@@ -131,11 +135,7 @@ static long mark2col(w, mark, cmd)
 		}
 		else if (*cp == '\n')
 		{
-#if 1
 			col++;
-#else
-			/* no change to col */
-#endif
 		}
 		else if (*cp < ' ' || *cp == 127)
 		{
@@ -323,7 +323,8 @@ static MARK wordmove(cursor, count, backward, whitespace)
 /* Choose a line to appear at the top of the screen, and return its mark.
  * Also, initialize the info for the next line.
  */
-static MARK setup(top, cursor, bottom, info)
+static MARK setup(win, top, cursor, bottom, info)
+	WINDOW	win;	/* window to be updated */
 	MARK	top;	/* where previous image started */
 	long	cursor;	/* offset of cursor position */
 	MARK	bottom;	/* where previous image ended */
@@ -365,6 +366,7 @@ static MARK setup(top, cursor, bottom, info)
 		other = 0;
 	}
 	other = markoffset(move((WINDOW)0, marktmp(tmp, markbuffer(top), other), 0, 0, True));
+	win->di->logic=DRAW_CENTER;
 	return marktmp(tmp, markbuffer(top), other);
 }
 
@@ -591,112 +593,30 @@ static MARK tagload(tagname, from)
 	MARK	from;		/* initial position of the cursor */
 {
  static MARKBUF	retmark;	/* the return value */
+	MARKBUF	linemark;	/* start of line */
 	BUFFER	buf;		/* the buffer containing the tag */
-	CHAR	tagline[1000];	/* a line from the tags file */
-	int	bytes;		/* number of bytes in I/O buffer */
-	char	*pathname;	/* full pathname of current "tags" file */
-	int	len;		/* significant length of tagname */
-	BOOLEAN	fulllen;	/* len is the full length of the tag */
-	BOOLEAN	allnext;	/* is the whole next line in the buffer? */
-	char	*loadname;	/* name of file to load */
 	EXINFO	xinfb;		/* dummy ex command, for parsing tag address */
 	BOOLEAN	wasmagic;	/* stores the normal value of o_magic */
-	CHAR	*src, *dst;
+	TAG	*tag;		/* the found tag */
+	CHAR	*cp, prev;	/* for scanning the line */
+	char	*name;		/* for scanning the name */
 
-	/* find the significant length of tagname */
-	len = CHARlen(tagname);
-	fulllen = True;
-	if (len > o_taglength && o_taglength > 0)
-	{
-		len = o_taglength;
-		fulllen = False;
-	}
-
-	/* for each tags file named in the "tags" option... */
-	for (pathname = iopath(tochar8(o_tags), "tags", True);
-	     pathname;
-	     pathname = iopath(NULL, "tags", True))
-	{
-		/* open the tags file */
-		if (!ioopen(pathname, 'r', False, False, False))
-		{
-			return NULL;
-		}
-
-		/* Compare the tag of each line against the tagname */
-		bytes = ioread(tagline, QTY(tagline) - 1);
-		while (bytes > len
-			&& (CHARncmp(tagname, tagline, (size_t)len)
-				|| (fulllen && !isspace(tagline[len]))))
-		{
-			/* delete this line from tagline[] */
-			for (src = tagline; src < &tagline[bytes] && *src != '\n'; src++)
-			{
-			}
-			for (dst = tagline, src++, allnext = False; src < &tagline[bytes]; )
-			{
-				if (*src == '\n')
-					allnext = True;
-				*dst++ = *src++;
-			}
-			bytes = (int)(dst - tagline);
-
-			/* if the next line is incomplete, read some more text
-			 * from the tags file.
-			 */
-			if (!allnext || bytes <= len)
-			{
-				bytes += ioread(dst, (int)QTY(tagline) - bytes - 1);
-			}
-		}
-		(void)ioclose();
-
-		/* did we find the tag? */
-		if (bytes > len)
-		{
-			goto Found;
-		}
-	}
-	msg(MSG_ERROR, "[S]tag $1 not found", tagname);
-	return NULL;
-
-Found:
-	/* skip past the tagname to find the start of the filename */
-	for (src = tagline; src < &tagline[bytes] && !isspace(*src); src++)
-	{
-	}
-	for ( ; src < &tagline[bytes] && isspace(*src); src++)
-	{
-	}
-
-	/* locate the end of the filename, and mark it with a NUL byte */
-	for (dst = src; dst < &tagline[bytes] && !isspace(*dst); dst++)
-	{
-	}
-	*dst++ = '\0';
-
-	/* if the filename isn't a full pathname, then assume it is in the
-	 * same directory as the "tags" file.
-	 */
-	if (!isalnum(*src))
-	{
-		loadname = tochar8(src);
-	}
-	else
-	{
-		loadname = dirpath(dirdir(pathname), tochar8(src));
-	}
+	/* search for the tag[s] */
+	tag = tetag(tagname);
+	if (!tag)
+		/* tetag() already gave an error message */
+		return NULL;
 
 	/* find a buffer containing the file, or load the file into a buffer */
-	buf = buffind(toCHAR(loadname));
+	buf = buffind(toCHAR(tag->TAGFILE));
 	if (!buf)
 	{
-		if (dirperm(loadname) == DIR_NEW)
+		if (dirperm(tag->TAGFILE) == DIR_NEW)
 		{
-			msg(MSG_ERROR, "[s]$1 doesn't exist", loadname);
+			msg(MSG_ERROR, "[s]$1 doesn't exist", tag->TAGFILE);
 			return NULL;
 		}
-		buf = bufload(NULL, loadname, False);
+		buf = bufload(NULL, tag->TAGFILE, False);
 		if (!buf)
 		{
 			/* bufload() already gave error message */
@@ -708,31 +628,62 @@ Found:
 		goto NotFound;
 	}
 
-	/* locate the tag address field */
-	for (src = dst; src < &tagline[bytes] && isspace(*src); src++)
-	{
-	}
-	for (dst = src; dst < &tagline[bytes] && *dst != '\n'; dst++)
-	{
-	}
-	*dst = '\0';
-
 	/* convert the tag address into a line number */
-	scanstring(&dst, src);
+	scanstring(&cp, toCHAR(tag->TAGADDR));
 	memset((char *)&xinfb, 0, sizeof xinfb);
 	(void)marktmp(xinfb.defaddr, buf, 0);
 	wasmagic = o_magic;
 	o_magic = False;
-	if (!exparseaddress(&dst, &xinfb))
+	if (!exparseaddress(&cp, &xinfb))
 	{
-		scanfree(&dst);
+		scanfree(&cp);
 		o_magic = wasmagic;
 		goto NotFound;
 	}
-	scanfree(&dst);
+	scanfree(&cp);
 	o_magic = wasmagic;
 	(void)marktmp(retmark, buf, lowline(bufbufinfo(buf), xinfb.to));
 	exfree(&xinfb);
+
+	/* search for the tagname within the line */
+	linemark = retmark;
+	for (prev = '\n', scanalloc(&cp, &linemark), name = NULL;
+	     cp && *cp != '\n';
+	     prev = *cp, scannext(&cp))
+	{
+		if (!name
+		 && (CHAR)*tag->TAGNAME == *cp
+		 && !(isalnum(prev) || prev == '_'))
+		{
+			/* starting a new name */
+			retmark = *scanmark(&cp);
+			name = tag->TAGNAME + 1;
+		}
+		else if (name && !*name)
+		{
+			/* ending a name? */
+			if (isalnum(*cp) || *cp == '_')
+			{
+				/* word in the line is longer than name */
+				name = NULL;
+			}
+			else
+			{
+				/* found it! */
+				break;
+			}
+		}
+		else if (name && (CHAR)*name++ != *cp)
+		{
+			/* word in line is different than the name */
+			name = NULL;
+		}
+	}
+	scanfree(&cp);
+
+	/* if name not found in line, then return the start of line */
+	if (!name || *name)
+		retmark = linemark;
 
 	return &retmark;
 
@@ -740,6 +691,74 @@ NotFound:
 	msg(MSG_WARNING, "tag address out of date");
 	return marktmp(retmark, buf, 0L);
 }
+
+
+#ifdef FEATURE_LPR
+static void header(w, pagenum, info, draw)
+	WINDOW	w;	/* window from which we're printing */
+	int	pagenum;/* page number */
+	DMINFO	*info;	/* drawing state */
+	void	(*draw)P_((CHAR *p, long qty, _char_ font, long offset));
+{
+	CHAR	pg[20];	/* page number, as a text string */
+	CHAR	*title;	/* title of the document */
+	CHAR	*date;	/* string returned by ctime() */
+	int	tlen;	/* length of title string */
+	int	plen;	/* length of page# string */
+	int	dlen;	/* length of date string */
+	long	gap1;	/* width of gap between left side & middle */
+	long	gap2;	/* width of gap between middle & right side */
+	time_t	now;	/* current time */
+	CHAR	space = ' ';
+	CHAR	newline = '\n';
+
+	/* if the "number" option isn't set, then don't bother. */
+	if (!o_lpheader)
+	{
+		return;
+	}
+
+	/* covert page number to text */
+	long2CHAR(pg, (long)pagenum);
+
+	/* find the title of the document */
+	title = o_filename(markbuffer(w->cursor));
+	if (!title)
+		title = o_bufname(markbuffer(w->cursor));
+
+	/* find the date */
+	time(&now);
+	date = toCHAR(ctime(&now));
+
+	/* find the lengths of things */
+	tlen = CHARlen(title);
+	plen = CHARlen(pg);
+	dlen = CHARlen(date) - 1; /* "- 1" because of terminal '\n' in string */
+	gap1 = (o_lpcolumns - plen) / 2 - tlen;
+	if (gap1 < 1)
+	{
+		title += (gap1 - 1);
+		tlen += (gap1 - 1);
+		gap1 = 1;
+	}
+	gap2 = o_lpcolumns - (tlen + gap1 + plen + dlen);
+	if (gap2 < 1)
+	{
+		gap2 = 1;
+		dlen = o_lpcolumns - (tlen + gap1 + plen + gap2);
+	}
+
+	/* Output the parts of the headings */
+	(*draw)(title, tlen, 'u', -2L);
+	(*draw)(&space, -gap1, 'u', -2L);
+	(*draw)(pg, plen, 'u', -2L);
+	(*draw)(&space, -gap2, 'u', -2L);
+	(*draw)(date, dlen, 'u', -2L);
+
+	/* End the header line, and then skip one more line */
+	(*draw)(&newline, -2L, 'n', -2L);
+}
+#endif /* FEATURE_LPR */
 
 
 DISPMODE dmnormal =
@@ -760,7 +779,11 @@ DISPMODE dmnormal =
 	wordmove,
 	setup,
 	image,
-	NULL,	/* doesn't need a header */
+#ifdef FEATURE_LPR
+	header,
+#else
+	NULL,	/* no header function, since printing is disabled */
+#endif
 	indent,
 	tagatcursor,
 	tagload,

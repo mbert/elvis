@@ -1,7 +1,7 @@
 /* optglob.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_optglob[] = "$Id: optglob.c,v 2.43 1996/10/01 19:46:55 steve Exp $";
+char id_optglob[] = "$Id: optglob.c,v 2.65 1998/12/05 19:31:33 steve Exp $";
 
 /* This file contains gobal options for the portable parts of elvis. */
 
@@ -15,6 +15,9 @@ static OPTDESC ogdesc[] =
 	{"blkcache", "cache",	optnstring,	optisnumber,	"5:200" },
 	{"blkgrow", "bgr",	optnstring,	optisnumber,	"1:32" },
 	{"blkfill", "bfill",	optnstring,	optisnumber	},
+	{"blkhit", "bh",	optnstring,	optisnumber	},
+	{"blkmiss", "bm",	optnstring,	optisnumber	},
+	{"blkwrite", "bw",	optnstring,	optisnumber	},
 	{"version", "ver",	optsstring,	optisstring	},
 	{"bitsperchar", "bits",	optnstring,	optisnumber	},
 	{"gui", "gui",		optsstring,	optisstring	},
@@ -36,6 +39,8 @@ static OPTDESC ogdesc[] =
 	{"taglength", "tl",	optnstring,	optisnumber	},
 	{"tags", "tagpath",	optsstring,	optisstring	},
 	{"tagstack", "tsk",	NULL,		NULL		},
+	{"tagprg", "tp",	optsstring,	optisstring	},
+	{"tagprgonce", "tpo",	optsstring,	optisstring	},
 	{"autoprint", "ap",	NULL,		NULL		},
 	{"autowrite", "aw",	NULL,		NULL		},
 	{"autoselect", "as",	NULL,		NULL,		},
@@ -55,6 +60,7 @@ static OPTDESC ogdesc[] =
 	{"home", "home",	optsstring,	optisstring	},
 	{"elvispath", "epath",	optsstring,	optisstring	},
 	{"terse", "te",		NULL,		NULL		},
+	{"previousdir", "pdir",	optsstring,	optisstring	},
 	{"previousfile", "#",	optsstring,	optisstring	},
 	{"previousfileline","@",optnstring,	optisnumber	},
 	{"previouscommand", "!",optsstring,	optisstring	},
@@ -66,7 +72,7 @@ static OPTDESC ogdesc[] =
 	{"sentenceend", "se",	optsstring,	optisstring	},
 	{"sentencequote", "sq",	optsstring,	optisstring	},
 	{"sentencegap",	"sg",	optnstring,	optisnumber,	"0:3"},
-	{"verbose", "-v",	NULL,		NULL		},
+	{"verbose", "-v",	optnstring,	optisnumber,	"0:9"},
 	{"anyerror", "ae",	NULL,		NULL		},
 	{"directory", "dir",	optsstring,	optisstring	},
 	{"errorbells", "eb",	NULL,		NULL		},
@@ -81,7 +87,22 @@ static OPTDESC ogdesc[] =
 	{"sessionpath", "spath",optsstring,	optisstring	},
 	{"maptrace", "mt",	opt1string,	optisoneof,	"off run step"},
 	{"maplog", "mlog",	opt1string,	optisoneof,	"off reset append"},
-	{"gdefault", "gd",	NULL,		NULL		}
+	{"gdefault", "gd",	NULL,		NULL		},
+	{"matchchar", "mc",	optsstring,	optisstring	},
+	{"showname", "snm",	NULL,		NULL		},
+	{"writeeol", "weol",	opt1string,	optisoneof,	"unix dos mac text binary same"},
+	{"showtag", "st",	NULL,		NULL		},
+	{"saveregexp", "sre",	NULL,		NULL		},
+	{"true", "True",	optsstring,	optisstring	},
+	{"false", "False",	optsstring,	optisstring	},
+	{"animation", "anim",	optnstring,	optisnumber,	"1:100"},
+	{"completebinary", "cob", NULL,		NULL,		"15:100"},
+	{"optionwidth", "ow",	optnstring,	optisnumber,	},
+	/* added these for the sake of backward compatibility : */
+	{"more", "mo",		NULL,		NULL		},
+	{"timeout", "to",       NULL,		NULL		},
+	{"hardtabs", "ht",	optnstring,	optisnumber,	"1:1000"},
+	{"redraw", "red",	NULL,		NULL		}
 };
 
 
@@ -89,6 +110,7 @@ static OPTDESC ogdesc[] =
 OPTVAL optglob[QTY_GLOBAL_OPTS];
 
 
+#ifdef FEATURE_LPR
 /* printer options */
 static OPTDESC lpdesc[] =
 {
@@ -100,11 +122,15 @@ static OPTDESC lpdesc[] =
 	{"lplines", "lprows",	optnstring,	optisnumber,	"0:100"},
 	{"lpconvert", "lpcvt",	NULL,		NULL		},
 	{"lpformfeed", "lpff",	NULL,		NULL		},
-	{"lppaper", "lpp",	optsstring,	optisstring	}
+	{"lppaper", "lpp",	optsstring,	optisstring	},
+	{"lpnumber", "lpn",	NULL,		NULL		},
+	{"lpheader", "lph",	NULL,		NULL		},
+	{"lpcolor", "lpcl",	NULL,		NULL		}
 };
 
 /* where the values are stored */
 OPTVAL lpval[QTY_LP_OPTS];
+#endif /* FEATURE_LPR */
 
 
 #ifndef NO_USERVARS
@@ -154,7 +180,9 @@ void optglobinit()
 	char	*envval;
 
 	assert(QTY(ogdesc) == QTY_GLOBAL_OPTS);
+#ifdef FEATURE_LPR
 	assert(QTY(lpdesc) == QTY_LP_OPTS);
+#endif
 
 	/* set each option to a reasonable default */
 	optpreset(o_blksize, BLKSIZE, OPT_LOCK|OPT_HIDE);
@@ -162,6 +190,9 @@ void optglobinit()
 	optpreset(o_blkcache, BLKCACHE, OPT_HIDE);
 	optpreset(o_blkgrow, BLKGROW, OPT_HIDE);
 	optflags(o_blkfill) = OPT_LOCK|OPT_HIDE;
+	optflags(o_blkhit) = OPT_LOCK|OPT_HIDE;
+	optflags(o_blkmiss) = OPT_LOCK|OPT_HIDE;
+	optflags(o_blkwrite) = OPT_LOCK|OPT_HIDE;
 	optpreset(o_version, toCHAR(VERSION), OPT_LOCK|OPT_HIDE);
 	optpreset(o_bitsperchar, 8 * sizeof(CHAR), OPT_LOCK|OPT_HIDE);
 	optpreset(o_os, toCHAR(OSNAME), OPT_LOCK|OPT_HIDE);
@@ -173,11 +204,12 @@ void optglobinit()
 	o_autoprint = True;
 	o_remap = True;
 	o_report = 5;
-	o_modelines = 5;
+	optpreset(o_modeline, False, OPT_UNSAFE);
+	optpreset(o_modelines, 5, OPT_HIDE);
 #ifdef OSSHELLENV
-	optpreset(o_shell, toCHAR(getenv(OSSHELLENV)), OPT_HIDE);
+	optpreset(o_shell, toCHAR(getenv(OSSHELLENV)), OPT_HIDE | OPT_UNSAFE);
 #else
-	optpreset(o_shell, toCHAR(getenv("SHELL")), OPT_HIDE);
+	optpreset(o_shell, toCHAR(getenv("SHELL")), OPT_HIDE | OPT_UNSAFE);
 #endif
 	if (!o_shell)
 		o_shell = toCHAR(OSSHELL);
@@ -189,7 +221,7 @@ void optglobinit()
 	o_keytime = 3;
 	o_usertime = 15;
 	optflags(o_exitcode) = OPT_HIDE;
-	optflags(o_safer) = OPT_HIDE;
+	optflags(o_safer) = OPT_HIDE | OPT_UNSAFE;
 	optflags(o_tempsession) = OPT_HIDE;
 	optflags(o_newsession) = OPT_HIDE;
 	optpreset(o_nearscroll, 10, OPT_HIDE);
@@ -197,6 +229,8 @@ void optglobinit()
 	optflags(o_previousfileline) = OPT_HIDE|OPT_LOCK;
 	optflags(o_previouscommand) = OPT_HIDE|OPT_LOCK;
 	optflags(o_previoustag) = OPT_HIDE|OPT_LOCK;
+	optflags(o_tagprg) = OPT_HIDE|OPT_UNSAFE;
+	optflags(o_tagprgonce) = OPT_HIDE|OPT_UNSAFE;
 	o_optimize = True;
 	optpreset(o_pollfrequency, 20, OPT_HIDE);
 	optflags(o_sentenceend) = OPT_HIDE;
@@ -221,7 +255,26 @@ void optglobinit()
 	optpreset(o_mesg, True, OPT_HIDE);
 	optpreset(o_maptrace, 'o', OPT_HIDE); /* off */
 	optpreset(o_maplog, 'o', OPT_HIDE); /* off */
+	o_timeout = True;
+	optpreset(o_matchchar, toCHAR("[]{}()"), OPT_HIDE);
+	optflags(o_showname) = OPT_HIDE;
+	o_writeeol = 's'; /* same */
+	optpreset(o_saveregexp, True, OPT_HIDE);
+	optpreset(o_hardtabs, 8, OPT_HIDE);
+	optpreset(o_redraw, False, OPT_HIDE);
+	optpreset(o_true, msgtranslate("True"), OPT_HIDE|OPT_FREE);
+	optpreset(o_false, msgtranslate("False"), OPT_HIDE|OPT_FREE);
+	optpreset(o_animation, 3, OPT_HIDE);
+	optpreset(o_completebinary, False, OPT_HIDE);
+	optpreset(o_optionwidth, 24, OPT_HIDE);
 
+#ifdef FEATURE_SHOWTAG
+	optpreset(o_showtag, False, OPT_HIDE);
+#else
+	optpreset(o_showtag, False, OPT_HIDE|OPT_LOCK);
+#endif
+
+	/* Set the "home" option from $HOME */
 	envval = getenv("HOME");
 	if (envval)
 	{
@@ -233,8 +286,17 @@ void optglobinit()
 	{
 		o_home = toCHAR(".");
 	}
-	optflags(o_home) |= OPT_HIDE;
+	optflags(o_home) |= OPT_HIDE | OPT_UNSAFE;
 
+	/* Set the "previousdir" option from $OLDPWD */
+	envval = getenv("OLDPWD");
+	if (envval)
+		o_previousdir = toCHAR(envval);
+	else
+		o_previousdir = toCHAR(".");
+	optflags(o_previousdir) |= OPT_HIDE;
+
+	/* Set the "tags" option from $TAGPATH */
 	o_tags = toCHAR(getenv("TAGPATH"));
 	if (!o_tags)
 	{
@@ -253,7 +315,7 @@ void optglobinit()
 	{
 		o_elvispath = toCHAR(OSLIBPATH);
 	}
-	optflags(o_elvispath) |= OPT_HIDE;
+	optflags(o_elvispath) |= OPT_HIDE | OPT_UNSAFE;
 
 	/* Generate the default sessionpath value. */
 	envval = getenv("SESSIONPATH");
@@ -273,20 +335,31 @@ void optglobinit()
 	}
 	optflags(o_sessionpath) |= (OPT_HIDE | OPT_LOCK);
 
+#ifdef FEATURE_LPR
 	/* initialize the printing options */
+# ifdef OSLPTYPE
+	optpreset(o_lptype, toCHAR(OSLPTYPE), OPT_HIDE);
+# else
 	optpreset(o_lptype, toCHAR("dumb"), OPT_HIDE);
+# endif
 	optpreset(o_lpcrlf, False, OPT_HIDE);
-	optpreset(o_lpout, toCHAR(OSLPOUT), OPT_HIDE);
+	optpreset(o_lpout, toCHAR(OSLPOUT), OPT_HIDE | OPT_UNSAFE);
 	optpreset(o_lpcolumns, 80, OPT_HIDE);
 	optpreset(o_lpwrap, True, OPT_HIDE);
 	optpreset(o_lplines, 60, OPT_HIDE);
 	optpreset(o_lpconvert, False, OPT_HIDE);
 	optpreset(o_lpformfeed, False, OPT_HIDE);
 	optpreset(o_lppaper, toCHAR("letter"), OPT_HIDE);
+	optpreset(o_lpnumber, False, OPT_HIDE);
+	optpreset(o_lpheader, False, OPT_HIDE);
+	optpreset(o_lpcolor, False, OPT_HIDE);
+#endif /* FEATURE_LPR */
 
 	/* inform the options code about these options */
 	optinsert("global", QTY(ogdesc), ogdesc, optglob);
+#ifdef FEATURE_LPR
 	optinsert("lp", QTY(lpdesc), lpdesc, lpval);
+#endif
 
 #ifndef NO_USERVARS
 	/* initialize user variables */

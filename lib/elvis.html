@@ -1,30 +1,33 @@
 <html><head>
-<title>Elvis 2.0 Documentation</title>
+<title>Elvis 2.1 Documentation</title>
 </head><body>
 <h1><a name="CONTENTS"></a>TABLE OF CONTENTS</h1>
 <menu>
-   <li><a href="#WHATIS">		1. What is elvis?</a>
-   <li><a href="elvisvi.html">		2. Introduction to VI command mode</a>
-   <li><a href="elvisvi.html#GROUP">	2.2 VI commands, grouped by function</a>
-   <li><a href="elvisvi.html#INDEX">	2.3 VI commands, listed in ASCII order</a>
-   <li><a href="elvisinp.html">		3. Input mode</a>
-   <li><a href="elvisex.html">		4. Introduction to EX command mode</a>
-   <li><a href="elvisex.html#GROUP">	4.2 EX commands, grouped by function</a>
-   <li><a href="elvisex.html#INDEX">	4.3 EX commands, listed alphabetically</a>
-   <li><a href="elvisre.html">		5. Regular expressions</a>
-   <li><a href="elvisopt.html">		6. Introduction to options</a>
-   <li><a href="elvisopt.html#GROUP">	6.1 Options, grouped by function</a>
-   <li><a href="elvisopt.html#INDEX">	6.2 Options, listed alphabetically</a>
-   <li><a href="elvisdm.html">		7. Display modes</a>
-   <li><a href="elvisgui.html">		8. User interfaces</a>
-   <li><a href="elvisos.html">		9. Operating systems</a>
-   <li><a href="elvisses.html">		10. Initialization and sessions</a>
-   <li><a href="elviscut.html">		11. Using cut buffers</a>
+   <li><a href="#WHATIS">		&nbsp;1. What is elvis?</a>
+   <li><a href="elvisvi.html">		&nbsp;2. Visual command mode</a>
+	(by <a href="elvisvi.html#GROUP">function</a>
+	or <a href="elvisvi.html#INDEX">name</a>)
+   <li><a href="elvisinp.html">		&nbsp;3. Input mode</a>
+   <li><a href="elvisex.html">		&nbsp;4. EX command mode</a>
+	(by <a href="elvisex.html#GROUP">function</a>
+	or <a href="elvisex.html#INDEX">name</a>)
+   <li><a href="elvisre.html">		&nbsp;5. Regular expressions</a> (searches and substitutions)
+   <li><a href="elvisopt.html">		&nbsp;6. Options</a>
+	(by <a href="elvisopt.html#GROUP">function</a>
+	or <a href="elvisopt.html#INDEX">name</a>)
+   <li><a href="elvisdm.html">		&nbsp;7. Display modes</a>
+   <li><a href="elvisgui.html">		&nbsp;8. User interfaces</a>
+   <li><a href="elvisos.html">		&nbsp;9. Operating systems</a>
+   <li><a href="elvisses.html">		10. Sessions, initialization, and recovery</a>
+   <li><a href="elviscut.html">		11. Cut buffers</a>
    <li><a href="elvismsg.html">		12. Messages</a>
-   <li><a href="elvisexp.html">		13. Arithmetic expressions</a>
-   <li><a href="elvistip.html">		14. Tips</a>
-   <li><a href="elvistrs.msg">		A. List of terse messages</a>
-   <li><a href="elvisqr.html">           B. Quick Reference</a>
+   <li><a href="elvisexp.html">		13. Arithmetic expressions</a> (arithmetic, tests, and functions)
+   <li><a href="elvistag.html">		14. Tags</a>
+   <li><a href="elvisnet.html">		15. The Internet</a>
+   <li><a href="elvistip.html">		16. Tips</a>
+   <li><a href="elvistrs.msg">		&nbsp;A. List of terse messages</a>
+   <li><a href="elvisqr.html">          &nbsp;B. Quick Reference</a>
+   <li><a href="howto.html">		&nbsp;C. How To...</a>
    <li><a href="elvis.man">		elvis(1) Man-page for elvis</a>
    <li><a href="ctags.man">		ctags(1) Man-page for ctags</a>
    <li><a href="ref.man">		ref(1) Man-page for ref</a>
@@ -41,11 +44,13 @@ and press the <kbd>Enter</kbd> key.
 
 <pre graphic>
 .--------------------------------------------------------------.
-| Copyright &copy; 1995 by Steve Kirkendall.  Permission is granted |
+| Copyright &copy; 1998 by Steve Kirkendall.  Permission is granted |
 | to use and distribute this software in either source code    |
-| form, or executable form.  This software is provided with no |
-| warranty of any kind.  The author is not liable for any      |
-| consequences arising from the use of this software.          |
+| form, or executable form, under the terms described in the   |
+| license.  The license is in the file "lib/license".  This    |
+| software is provided with no warranty of any kind.  The      |
+| author is not liable for any consequences arising from the   |
+| use of this software.                                        |
 ^--------------------------------------------------------------^
 </pre>
 
@@ -71,18 +76,26 @@ This allows it to edit files that are too large to fit
 in a single process' data space.
 Also, the edit buffer can survive a power failure or crash.
 
-<p>Elvis 2.0 runs under the following operating systems:
+<p>Elvis 2.1 runs under the following operating systems:
 <ul>
-<li>UNIX.  If you have X-windows, elvis can use a graphical interface, in addition to the traditional text-based interface.
-<li>MS-Windows/95 and Windows/NT.  Currently it can only run as a console
-application (text-based interface); hopefully this will change soon.
-The mouse is supported here.
-<li>MS-DOS.  It can also run in a DOS window under Windows 3.1.
-<li>OS/2 (not yet, but soon).  Elvis will offer a graphical interface here, too.
+<li><strong>UNIX</strong>.
+If you have X-windows, elvis can use a graphical interface,
+in addition to the traditional text-based interface.
+<li><strong>MS-Windows/95 and Windows/NT</strong>.
+Both a console (text-based) and a graphical version are available.
+<li><strong>MS-DOS</strong>.
+It can also run in a DOS window under Windows 3.1.
+However, there is no graphic 16-bit version of elvis.
+<li><strong>OS/2</strong>.
+The basic OS/2 port only supports a text-mode interface using VIO calls;
+it acts exactly like the termcap interface.
+There is also a real port of the termcap version which requires the
+EMX library, and a version which uses the graphical "x11" interface
+which requires XFree86.
 </ul>
 
 <p>Elvis is freely redistributable, in either source form or executable form.
-There are no restrictions on how you may use it.
+There are very few restrictions on how you may use it.
 
 <h2>1.1 About this manual</h2>
 This document is written in HTML.
@@ -100,6 +113,8 @@ and then give the command ":lp".
 
 <p>Each chapter is stored in a separate file;
 you'll need to print each one separately.
+A shell script/batch file named <a href="printdoc.bat">printdoc.bat</a>
+is provided to help you do this.
 
 <h2>1.2 Overview of Elvis</h2>
 The user interface of Elvis/vi/ex is weird.
@@ -124,7 +139,98 @@ Look up the <a href="elvisopt.html#initialstate">initialstate</a> option.)
 <p> The <a href="elvisex.html">ex mode</a> is quite different.
 Elvis displays a ":" character on the bottom line of the screen, as a prompt.
 You are then expected to type in a command line and hit the <b>Enter</b> key.
-The set of commands recognized in the ex mode is different
-from visual mode's.
+The set of commands recognized in the ex mode is different from visual mode's.
+
+<h2>1.3 Special features of Elvis</h2>
+Compared to the traditional ex/vi, elvis supports the following
+major new features:
+<dl>
+
+<dt>Multiple edit buffers
+<dd>You can edit several files at the same time.
+The <a href="elvisex.html#buffer">:buffer</a> ex command
+lists the current edit buffers.
+You can switch to a different buffer by typing
+<a href="elvisex.html#OPEN">:(<var>buffername</var></a> or
+<a href="elvisex.html#buffer">:buffer <var>buffername</var></a>.
+
+<dt>Multiple windows
+<dd>The <a href="elvisex.html#split">:split</a> ex command or
+<a href="elvisvi.html#^Ws">^Ws</a> visual command will create a new window
+showing the same edit buffer.
+You can use <a href="elvisex.html#split">:split <var>filename</var></a>
+to edit a different file in a new window.
+Related commands allow you to do things like search for a tag and
+display it in a new window,
+or move among windows.
+
+<dt>Multiple user interfaces
+<dd>In addition to the traditional <a href="elvisgui.html#termcap">termcap</a>
+user interface, elvis also supports graphical interfaces for
+<a href="elvisgui.html#x11">X11</a> and
+<a href="elvisgui.html#windows">Windows95</a>, plus some other
+stripped-down interfaces.
+
+<dt>A variety of display modes
+<dd>The <a href="elvisex.html#display">:display</a> command lists the
+available display modes, and can set the display to a particular mode.
+The <a href="elvisvi.html#^Wd">^Wd</a> visual command toggles between
+display modes.
+
+<dt>Online help
+<dd>This uses elvis' built-in "html" display mode to display the manual,
+which uses multiple fonts and hypertext links to improve readability.
+To access it, give the command <a href="elvisex.html#help">:help</a>.
+(But you already figured that out, didn't you?)
+
+<dt>Highly configurable
+<dd>Elvis has a set of configuration scripts, each of which is run at a
+specific time.  For example, <a href="elvisses.html#elvis.ini">elvis.ini</a>
+is run when elvis starts up, and <a href="elvisses.html#elvis.arf">elvis.arf</a>
+is run after reading a file.  See the chapter on
+<a href="elvisses.html">sessions</a> for a discussion of these.
+
+<p>There is also an <a href="elvismsg.html#elvis.msg">elvis.msg</a> file which
+can be used to translate the built-in messages into another language.
+
+<p>The <a href="elvisgui.html#x11.toolbar">X11 interface</a> has a fully
+configurable toolbar.
+
+<p>The <a href="elvisdm.html#elvis.syn">elvis.syn</a> file contains descriptions
+of various languages, for use with the
+<a href="elvisdm.html#syntax">syntax-coloring</a> display mode.
+
+<dt>Enhanced tags
+<dd>The tags feature has been extended to support overloaded tags,
+which C++ tends to use a lot.  See the <a href="elvistag.html">tags</a>
+chapter.
+
+<dt>Macro debugger
+<dd>To help you develop keyboard macros (and also report incompatibilities
+between elvis and vi), elvis has a built-in macro debugger.  The the article
+in the <a href="elvistip.html#DEBUG">Tips</a> chapter.
+
+<dt>Network support
+<dd>Elvis can read via the <strong>http</strong> protocol, and read/write
+via the <strong>ftp</strong> protocol.
+See the <a href="elvisnet.html">Internet</a> chapter.
+
+<dt>Aliases
+<dd>You can construct csh-style aliases for the ex commands, via the
+<a href="elvisex.html#alias">:alias</a> command.
+See the article in the <a href="elvistip.html#ALIAS">Tips</a> chapter.
+
+<dt>New options
+<dd>Elvis has roughly 200 different options.  See the
+<a href="elvisopt.html">Options</a> chapter for a list.
+
+<dt>Built-in calculator
+<dd>Elvis has a <a href="elvisex.html#calculate">:calc</a> command which
+evaluates C-like expressions.  These expressions are also used for some
+other commands, such as <a href="elvisex.html#if">:if</a> and
+<a href="elvisex.html#eval">:eval</a>, among other things.
+See the <a href="elvisexp.html">Arithmetic expressions</a> chapter.
+
+</dl>
 
 </body></html>

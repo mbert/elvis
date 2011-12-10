@@ -1,7 +1,7 @@
 /* lpescape.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_lpescape[] = "$Id: lpescape.c,v 2.13 1996/07/11 15:33:20 steve Exp $";
+char id_lpescape[] = "$Id: lpescape.c,v 2.14 1997/10/05 19:06:12 steve Exp $";
 
 
 /* This file contains a driver for printer types which use escape sequences
@@ -10,7 +10,7 @@ char id_lpescape[] = "$Id: lpescape.c,v 2.13 1996/07/11 15:33:20 steve Exp $";
 
 
 #include "elvis.h"
-
+#ifdef FEATURE_LPR
 
 /* These values are used to index into the following table of escape codes */
 typedef enum {BOLD, NOBOLD, UNDLN, NOUNDLN, ITALIC, NOITALIC, BEFORE, AFTER, GCMAP} CODE;
@@ -228,3 +228,5 @@ LPTYPE lppana =	{"pana", 1, True, before, fontch, page, after};
 LPTYPE lpibm =	{"ibm", 2, True, before, fontch, page, after};
 LPTYPE lphp =	{"hp", 3, True, before, fontch, page, after};
 LPTYPE lpdumb =	{"dumb", 4, True, before, fontch, page, after};
+
+#endif /* FEATURE_LPR */

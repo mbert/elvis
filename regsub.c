@@ -17,8 +17,18 @@ CHAR *regtilde(newp)
 	CHAR	*newp;	/* new text as supplied by user */
 {
 	static CHAR *prev;	/* previous replacement text */
+	static CHAR *willfree;	/* previous replacement text if nosaveregex */
 	CHAR	*ret;		/* returned string */
 	CHAR	*scan;		/* used for stepping through chars of "prev" */
+
+	/* If "willfree" isn't NULL, then free it now.  This is used when
+	 * the saveregexp option is turned off, so we can leave prev unchanged.
+	 */
+	if (willfree)
+	{
+		safefree(willfree);
+		willfree = NULL;
+	}
 
 	/* copy new into ret, replacing the ~s by the previous text */
 	for (ret = NULL; *newp; )
@@ -49,12 +59,23 @@ CHAR *regtilde(newp)
 
 	/* if empty string, then allocate a single '\0' character */
 	if (!ret)
-		ret = safealloc(1, sizeof(CHAR));
+		ret = (CHAR *)safealloc(1, sizeof(CHAR));
 
 	/* remember this as the "previous" for next time */
-	if (prev)
-		safefree(prev);
-	prev = ret;
+	if (o_saveregexp)
+	{
+		if (prev)
+			safefree(prev);
+		prev = ret;
+	}
+	else
+	{
+		/* leave "prev" unchanged, but remember it somewhere else so
+		 * we can free the text when regtilde() is called next time.
+		 */
+		willfree = ret;
+	}
+
 	return ret;
 
 Fail:
@@ -85,6 +106,7 @@ CHAR *regsub(re, newp, doit)
 	int		len;	/* used to calculate length of subst string */
 	MARKBUF		tmp;	/* end of replacement region */
 	CHAR		*scan;	/* used for scanning a segment of orig text */
+	char		lnum[12];/* line number */
 
 	/* initialize "cval" just to silence a compiler warning */
 	cval = 0;
@@ -104,6 +126,12 @@ CHAR *regsub(re, newp, doit)
 			switch (c)
 			{
 			  case '0':
+				/* Traditionally \0 has been a synonym for &,
+				 * but we need a way to insert NUL so...
+				 */
+				len = buildCHAR(&inst, '\0');
+				continue;
+
 			  case '1':
 			  case '2':
 			  case '3':
@@ -144,6 +172,46 @@ CHAR *regsub(re, newp, doit)
 				end = re->endp[0] - re->startp[0];
 				break;
 
+			  case '#':	/* "\#" means "line number" */
+				sprintf(lnum, "%ld", markline(marktmp(tmp, re->buffer, re->startp[0])));
+				len = buildstr(&inst, lnum);
+				continue;
+
+			  case 'a':	/* \a => ^G, <BEL>	*/
+				len = buildCHAR(&inst, '\007');
+				continue;
+
+			  case 'b':	/* \b => ^H, <BS>	*/
+				len = buildCHAR(&inst, '\b');
+				continue;
+
+ 			  case 'f':	/* \f => ^L, <FF>	*/
+				len = buildCHAR(&inst, '\f');
+				continue;
+
+ 			  case 'n':	/* \n => ^J, <NL>	*/
+				len = buildCHAR(&inst, '\n');
+				continue;
+
+ 			  case 'r':	/* \r => ^M, <CR>	*/
+				len = buildCHAR(&inst, '\r');
+				continue;
+
+			  case 't':	/* \t => ^I, <TAB>	*/
+				len = buildCHAR(&inst, '\t');
+				continue;
+
+#if 0
+				/* \e is already taken for ending of \U and \L.
+				 * Though it's a shame both \E and \e are well
+				 * documented to ex/vi here we' like \E to
+				 * suffice, so we would use \e for <Esc>.
+				 */
+			  case 'e':	/* \e => ^[, <ESC>	*/
+				len = buildCHAR(&inst, '\033');
+				continue;
+#endif
+
 			  default:
 				/* ordinary char preceded by backslash */
 				len = buildCHAR(&inst, c);
@@ -163,7 +231,14 @@ CHAR *regsub(re, newp, doit)
 		else
 		{
 			/* ordinary character, so just copy it */
-			len = buildCHAR(&inst, c);
+			if (!mod)
+				len = buildCHAR(&inst, c);
+			else if (tolower(mod) == 'l')
+				len = buildCHAR(&inst, tolower(c));
+			else
+				len = buildCHAR(&inst, toupper(c));
+			if (islower(mod))
+				mod = 0;
 			continue;
 		}
 

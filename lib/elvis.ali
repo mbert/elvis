@@ -1,0 +1,348 @@
+alias lf !!ls -CF
+
+alias save {
+ "Write this file, but only if it has been modified
+ if modified
+ then w!? !*
+}
+
+alias w {
+ "Write this file, but if readonly then check it out first
+ if readonly && "!?!%!*" == ""
+ then !!co -l %
+ then w!!
+ else !%w!? !*
+}
+
+alias man split +mantweak !man
+
+alias mantweak {
+ "Convert nroff output back into man source
+ local report=0 nosaveregexp
+ try 1 s/^Reformatting.*ait\.\.\.$//
+ try %s/\\/\\\\/g
+ try %s/_\(.\)/\\fI\1\\fR/g
+ try %s/.\(.\)/\\fB\1\\fR/g
+ try %s/\\fR\\fB//g
+ try %s/\\fR\\fI//g
+ 1 i .nf
+ set bd=man nomod
+ dis man
+}
+
+alias text {
+ "Like :tag but for any text in *.c or *.h
+ set tagprgonce="grep -nsw '(quote(\"'\",$1))' *.[ch] /dev/null \| sed 's/^\\\\\\(.*\\\\\\):\\\\\\(.*\\\\\\):.*/!^	\\1	\\2/'"
+ tag!? !*
+}
+
+alias btext {
+ "Like :browse but for any text in *.c or *.h
+ set tagprgonce="grep -nsw '(quote(\"'\",$1))' *.[ch] /dev/null \| sed 's/^\\\\\\(.*\\\\\\):\\\\\\(.*\\\\\\):.*/!^	\\1	\\2/'"
+ browse!! !*
+}
+
+if gui=="x11"
+then {
+ alias courier {
+  "Use courier fonts of a given size
+  set normalfont=*-courier-medium-r-*-!(18)^-*
+  set italicfont=*-courier-medium-o-*-!(18)^-*
+  set boldfont=*-courier-bold-r-*-!(18)^-*
+ }
+}
+
+alias copying split (elvispath("license"))
+
+alias howto {
+ "Search elvis' "How To" appendix.  ! makes it try harder.
+ if "!?" == "!!"
+ then split +/*!1.*!2.*!3.*!4 (elvispath("howto.html"))
+ else split +/^<dt>.*!1.*!2.*!3.*!4 (elvispath("howto.html"))
+}
+
+alias cbload {
+ "Load cut-buffers from a file
+ local b report=0
+ let b=buffer
+ if "!1" == ""
+ then error cbload requires a file name
+ e !1
+ %s:^--CBS-- \([a-z]\)$:+;/^--CBS--/-1 y \1:x
+ eval buffer (b)
+}
+
+alias cbsave {
+ "Save cut-buffers to a file
+ local a b report=0
+ let b = buffer
+ if "!1" == ""
+ then error cbsave requires a file name
+ e !1
+ %d
+ let a = 'a'
+ while a <= 'z'
+ do {
+  if buffer("Elvis cut buffer "char(a))
+  then {
+   eval $ a --CBS-- (char(a))
+   eval $ put (char(a))
+  }
+  let a = a + 1
+ }
+ $ a --CBS--  
+ w!?
+ eval buffer (b)
+}
+
+alias config {
+ "Describe the configuration of this elvis
+ local m n o
+ let m="normal"
+ let m=m (feature("syntax") ? " syntax")
+ let m=m (feature("hex") ? " hex")
+ let m=m (feature("html") ? " html man tex")
+ let n=(feature("ftp") ? "ftp":"none")
+ let n=n (feature("http") ? " http")
+ let o=(feature("showtag") ? " showtag")
+ let o=o (feature("lpr") ? " lpr")
+ let o=o (feature("alias") ? " alias")
+ let o=o (feature("mkexrc") ? " mkexrc")
+ let o=o (feature("complete") ? " complete")
+ let o=o (feature("ram") ? " ram")
+ calc "Elvis version:     " version
+ calc "Display modes:     " m
+ calc "Network protocols: " n
+ calc "Other features:   " o
+}
+
+alias left {
+ "Move text to the left side of each line
+ local report=0
+ !%s/^\s*
+ !%s/\s*$
+}
+
+alias right {
+ "Move text to the right side of each line
+ local w report=0
+ !%left
+ try !%s/ \{2,}/ /g
+ let w = (textwidth == 0) ? columns : textwidth
+ eval !%s/.$/&("" << w)
+ eval !%s/^\\\(.\\{(w)}\\\).*/\\1
+ !%s/^\(.*[^ ]\)\( \+\)$/\2\1/
+}
+
+alias center {
+ "Move text to the center of each line
+ local report=0
+ !%right
+ !%s/  / /g
+}
+
+alias rot13 {
+ "Perform rot-13 encryption/decryption
+ local i report=0
+ let i=0
+ while i < 13
+ do {
+  try eval !%s/(char(i + 'a'))/<TEMP>/g
+  try eval !%s/(char(i + 'n'))/(char(i + 'a'))/g
+  try eval !%s/<TEMP>/(char(i + 'n'))/g
+  try eval !%s/(char(i + 'A'))/<temp>/g
+  try eval !%s/(char(i + 'N'))/(char(i + 'A'))/g
+  try eval !%s/<temp>/(char(i + 'N'))/g
+  let i=i+1
+ }
+}
+
+alias cfmt {
+ "Adjust C or C++ comment block.  Omit the */ line from range.
+ local report=0 nosaveregexp
+ if !< == !>
+ then error you must invoke cfmt with a range of two or more lines
+ !>a STOP!!
+ try !%s,^\(\s*\)//\s*,\1,
+ then {
+  "C++ comments, already removed the //
+  !%!!fmt
+  !<,/^STOP!!$/- s,^\s*,&// ,
+ }
+ else {
+  "C comments, still need to remove the /* or *
+  !<s,^\s*\([/ ]\*\)\s*,let a="\1",x
+  !%s,^\(\s*\)[/ ]\*\s*,\1,
+  !%!!fmt
+  eval !< s,^\\s*,&(a) ,
+  try !<+,/^STOP!!$/- s,^\s*,& * ,
+ }
+ /^STOP!!$/d
+}
+
+
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+" The following were contributed by Ian Utley (iu@apertus.uk.com)
+
+alias align {
+    "Align any = signs (or other given text) in selected line
+    local f=0 i=0 k report=0 nosaveregexp
+    "
+    " The following if tests to see if we have visually highlighted lines.
+    "
+    if ( !> !!= "" )
+    then {
+        !< mark a
+        !> mark b
+        let f=1
+    }
+    if ( f == 1)
+    then {
+        "
+        " Initialise i which will store the alignment column.
+        " Mark the current line to return the cursor at the end.
+        "
+        set i=0
+        mark z
+        "
+        " Remove any whitespace before the alignment character.
+        "
+        'a,'b s/[ 	]*!(=)\$/!(=)\$/
+        "
+        " We could be aligning != <= or >= so we want to keep this letter
+        " near. Of course we may not be aligning an equals but we commonly do.
+        "
+        if ( "!(=)\$" == "=" )
+        then {
+            'a,'b s/[	 ]*\([!!<>]*\)!(=)\$[	 ]*/ \1!(=)\$ /
+        } 
+        "
+        "
+        let f=0
+        'a,'bglobal /!(=)\$/ {
+            " 
+            " Special case for the top line as -1 will not work.
+            "
+            if ( current("line") == 1 )
+            then {
+                1 insert ""
+                let f=1
+            }
+            -1
+            /!(=)\$
+            "
+            "
+            " Remember the largest column number for alignment.
+            "
+            if (current("column")>i)
+            then let i=current("column")
+            "
+            " Special case removal
+            "
+            if ( current("line") > 1 && f == 1)
+            then {
+                1 delete
+                let f=0
+            }
+        }
+        "
+        " Do the alignment.
+        "
+        let f=0
+        'a,'bglobal /!(=)\$/ {
+            " 
+            " Special case for the top line as -1 will not work.
+            "
+            if ( current("line") == 1 )
+            then {
+                1i ""
+                let f=1
+            }
+            -1
+            /!(=)\$
+            "
+            " Not sure why I need to add +1
+            "
+            let k=i-current("column")+1
+            s/\([!!<>]*\)!(=)\$/                                                                                \1!(=)\$/
+            eval s/ *\\\( \{(k)\}[!!<>]*!(=)\$\\\)/\1
+            "
+            " Special case removal
+            "
+            if ( current("line") > 1 && f == 1 )
+            then {
+                1 delete
+                let f=0
+            }
+        }
+        "
+        " Return the cursor to the line it was previously on.
+        "
+        'z
+    }
+}
+
+alias match {
+    "Move to the line where the pairing keyword is located
+    local a b="" d x y i nowrapscan
+    "x and y are lists of matching words -- we'll seek forward from x words
+    "and backward from y words.  The words listed here are appropriate for
+    "Unix shell scripts.
+    set x="if/then/case/do" y="fi/else/esac/done"
+    let a=current("word")
+    if (a == "")
+    then error Cursor is not on a word
+    while d=="" && x!="."
+    do {
+	if a==dirfile(x)
+	then {
+	    let b=dirfile(y)
+	    set d=forward
+	}
+	if a==dirfile(y)
+	then {
+	    let b=dirfile(x)
+	    set d=backward
+	}
+	let x=dirdir(x)
+	let y=dirdir(y)
+    }
+    if ( b=="" )
+    then error (a) is not a matchable keyword 
+    mark c
+    set i=1
+    if (d=="forward")
+    then {
+        while ( i != 0 )
+        do {
+            set i=0
+            try eval /\<(b)\>
+            else {
+                " Failed to locate a match
+                'c
+                error No matching (b) located
+            }
+            mark d
+            eval 'c,'d global /\<(a)\>/ let i=i+1
+            eval 'c,'d global /\<(b)\>/ let i=i-1
+        }
+    }
+    if (d=="backward") 
+    then {
+        while ( i != 0 )
+        do {
+            set i=0
+            try eval ?\<(b)\>
+            else {
+                " Failed to find a match
+                'c
+                error No matching (b) located
+            }
+            mark d
+            eval 'd,'c global /\<(a)\>/ let i=i+1
+            eval 'd,'c global /\<(b)\>/ let i=i-1
+            " global command has moved cursor back to 'c
+            'd
+        }
+    }
+}

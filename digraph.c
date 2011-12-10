@@ -1,7 +1,7 @@
 /* digraph.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_digraph[] = "$Id: digraph.c,v 2.7 1996/09/18 18:20:05 steve Exp $";
+char id_digraph[] = "$Id: digraph.c,v 2.8 1997/11/12 03:02:43 steve Exp $";
 
 #include "elvis.h"
 #ifndef NO_DIGRAPH
@@ -313,12 +313,12 @@ void digaction(win, bang, extra)
 	dp->in2 = extra[1];
 	dp->out = dig;
 	dp->save = (BOOLEAN)(win != (WINDOW)0);
-#ifdef NEED_CTYPE
+# ifdef NEED_CTYPE
 	adjustctype(dig);
-#endif
+# endif
 }
 
-# ifndef NO_MKEXRC
+# ifdef FEATURE_MKEXRC
 void digsave(buf)
 	BUFFER	buf;	/* the buffer to append commands onto */
 {
@@ -340,5 +340,5 @@ void digsave(buf)
 	}
 	markfree(append);
 }
-# endif
+# endif /* FEATURE_MKEXRC */
 #endif

@@ -1,14 +1,473 @@
 /* exconfig.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_exconfig[] = "$Id: exconfig.c,v 2.50 1996/09/21 02:12:31 steve Exp $";
+char id_exconfig[] = "$Id: exconfig.c,v 2.82 1998/11/30 02:39:14 steve Exp $";
 
 #include "elvis.h"
 
 
-static BOOLEAN thenflag;	/* set by ":if", tested by ":then" & ":else" */
+
+BOOLEAN	exthenflag;	/* set by ":if", tested by ":then" & ":else" */
+CHAR	*exdotest;	/* set by ":while", tested by ":do" */
 
 
+
+#ifdef FEATURE_ALIAS
+/* These are used for storing aliases */
+typedef struct alias_s
+{
+	struct alias_s	*next;		/* some other alias */
+	char		*name;		/* name of this alias */
+	CHAR		*command;	/* commands for this alias */
+	BOOLEAN		inuse;		/* is this alias already being run? */
+} alias_t;
+
+
+BEGIN_EXTERNC
+static void listalias P_((WINDOW win, alias_t *alias, BOOLEAN shortformat));
+static void buildarg P_((CHAR **cmd, CHAR *arg, long len, CHAR *defarg, long deflen, BOOLEAN quote));
+END_EXTERNC
+static alias_t	*aliases;	/* This is the head of a list of aliases */
+
+
+/* look up a name in the alias list.  The name can be terminated with any
+ * non-alphanumeric character, not just '\0'.  Return its name if alias,
+ * or NULL otherwise.  Optionally ignore if already in use.
+ i
+ */
+char *exisalias(name, inuse)
+	char	*name;	/* name of a command, maybe an alias */
+	BOOLEAN	inuse;	/* find even if in use? (else hide in-use aliases) */
+{
+	alias_t	*alias;
+
+	/* look for alias */
+	for (alias = aliases; alias; alias = alias->next)
+		if (!strcmp(name, alias->name))
+			return (alias->inuse && !inuse) ? NULL : alias->name;
+	return NULL;
+}
+
+
+/* list a single alias */
+static void listalias(win, alias, shortformat)
+	WINDOW	win;
+	alias_t	*alias;
+	BOOLEAN	shortformat;
+{
+	CHAR	ch[4];
+	CHAR	*start;
+	int	len;
+
+	drawextext(win, toCHAR(alias->name), strlen(alias->name));
+	if (CHARchr(alias->command, '\n') == alias->command + CHARlen(alias->command) - 1)
+	{
+		/* single-line command simply follows the alias name */
+		drawextext(win, blanks, 10 - (CHARlen(alias->name) % 10));
+		drawextext(win, alias->command, CHARlen(alias->command));
+	}
+	else if (shortformat)
+	{
+		/* multi-line command, but only show first line */
+		drawextext(win, blanks, 10 - (CHARlen(alias->name) % 10));
+		ch[0] = '{';
+		ch[1] = ' ';
+		drawextext(win, ch, 2);
+		for (start = alias->command, len = 0;
+		     *start++ != '\n' && len < o_columns(win) - 16;
+		   len++)
+		{
+		}
+		drawextext(win, alias->command, len);
+		ch[0] = ch[1] = ch[2] = '.';
+		ch[3] = '\n';
+		drawextext(win, ch, 4);
+	}
+	else
+	{
+		/* multi-line command is output in a fancy way */
+		ch[0] = ' ';
+		ch[1] = '{';
+		ch[2] = '\n';
+		drawextext(win, ch, 3);
+		for (start = alias->command, len = 0; *start; len++)
+		{
+			if (start[len] == '\n')
+			{
+				drawextext(win, blanks, 10);
+				drawextext(win, start, len);
+				ch[0] = '\n';
+				drawextext(win, ch, 1);
+				start += len + 1;
+				len = -1; /* will be incremented to 0 by for()*/
+			}
+		}
+		ch[0] = '}';
+		ch[1] = '\n';
+		drawextext(win, ch, 2);
+	}
+}
+
+
+/* maintain the alias list */
+RESULT	ex_alias(xinf)
+	EXINFO	*xinf;
+{
+	alias_t	*newalias, *alias, *lag;
+	int	i;
+
+	/* if no aliases named, then list all */
+	if (!xinf->lhs)
+	{
+		for (alias = aliases; alias; alias = alias->next)
+		{
+			listalias(xinf->window, alias, True);
+		}
+		return RESULT_COMPLETE;
+	}
+
+	/* Try to find the named alias */
+	for (lag = NULL, alias = aliases;
+	     alias && CHARcmp(xinf->lhs, toCHAR(alias->name));
+	     lag = alias, alias = alias->next)
+	{
+	}
+
+	/* Unaliasing? */
+	if (xinf->command == EX_UNALIAS)
+	{
+		if (alias)
+		{
+			/* safety check */
+			if (alias->inuse)
+			{
+				msg(MSG_ERROR, "[s]can't unalias $1 because it is in use", alias->name);
+				return RESULT_ERROR;
+			}
+
+			/* remove it from the list, and free it */
+			if (lag)
+				lag->next = alias->next;
+			else
+				aliases = alias->next;
+			safefree(alias->name);
+			safefree(alias->command);
+			safefree(alias);
+		}
+		return RESULT_COMPLETE;
+	}
+
+	/* listing one specific alias? */
+	if (!xinf->rhs)
+	{
+		if (!alias)
+			msg(MSG_WARNING, "[S]no alias named $1", xinf->lhs);
+		else
+			listalias(xinf->window, alias, False);
+		return RESULT_COMPLETE;
+	}
+
+	/* safety check */
+	if (alias && alias->inuse)
+	{
+		msg(MSG_ERROR, "[s]can't redefine $1 because it is in use", alias->name);
+		return RESULT_ERROR;
+	}
+
+	/* verify that the name contains only alphanumeric characters */
+	for (i = 0; xinf->lhs[i]; i++)
+	{
+		if (!isalnum(xinf->lhs[i]))
+		{
+			msg(MSG_ERROR, "alias names must be alphanumeric");
+			return RESULT_ERROR;
+		}
+	}
+
+	/* create or alter an alias */
+	if (alias)
+		safefree(alias->command);
+	else
+	{
+		/* find the aliases before & after it, in ASCII order */
+		for (lag = NULL, alias = aliases;
+		     alias && CHARcmp(xinf->lhs, toCHAR(alias->name)) > 0;
+		     lag = alias, alias = alias->next)
+		{
+		}
+
+		/* allocate the new alias, and insert it into the list */
+		newalias = (alias_t *)safekept(1, sizeof *alias);
+		newalias->next = alias;
+		if (lag)
+			lag->next = newalias;
+		else
+			aliases = newalias;
+		newalias->name = safekdup(tochar8(xinf->lhs));
+		alias = newalias;
+	}
+#ifdef DEBUG_ALLOC
+	alias->command = CHARkdup(xinf->rhs);
+#else
+	alias->command = xinf->rhs;
+	xinf->rhs = NULL;
+#endif
+	return RESULT_COMPLETE;
+}
+
+
+/* Add an argument to cmd, by calling buildCHAR() repeatedly. */
+static void buildarg(cmd, arg, len, defarg, deflen, quote)
+	CHAR	**cmd;	/* the resulting string */
+	CHAR	*arg;	/* the arg to add */
+	long	len;	/* length of arg */
+	CHAR	*defarg;/* default, used if len == 0 */
+	long	deflen;	/* length of defarg */
+	BOOLEAN	quote;	/* should backslashes be inserted? */
+{
+	long	i;
+
+	/* if normal arg is empty, then use defarg without quoting */
+	if (len == 0)
+	{
+		arg = defarg;
+		len = deflen;
+		quote = False;
+	}
+
+	/* copy characters, with optional quoting */
+	for (i = 0; i < len; i++, arg++)
+	{
+		if (quote && CHARchr(toCHAR("/\\^$*[."), *arg))
+			buildCHAR(cmd, '\\');
+		buildCHAR(cmd, *arg);
+	}
+}
+
+
+/* Execute an alias */
+RESULT	ex_doalias(xinf)
+	EXINFO	*xinf;
+{
+	alias_t	*alias;
+	CHAR	*cmd, *str, *defarg;
+	CHAR	*args[11];
+	long	lens[11];
+	long	deflen;
+	int	i;
+	char	num[24];
+	BOOLEAN	inword;
+	BOOLEAN	anyargs, anyaddr, anybang;
+	BOOLEAN	multiline;
+	BOOLEAN	quote;
+	RESULT	result = RESULT_ERROR;
+
+	/* Find the alias.  It *will* exist, and use the same name pointer */
+	for (alias = aliases; alias->name != xinf->cmdname; alias = alias->next)
+	{
+	}
+
+	/* parse the args, if any.  args[0] is the whole argument string, and
+	 * args[1] through args[9] are the first 9 words from that string.
+	 */
+	memset(lens, 0, sizeof lens);
+	if (xinf->rhs)
+	{
+		args[0] = xinf->rhs;
+		lens[0] = CHARlen(args[0]);
+		args[1] = args[0];
+		for (i = 1, inword = True, str = args[0]; *str && i < 10; str++)
+		{
+			if (inword)
+			{
+				if (isspace(*str))
+					inword = False;
+				else
+					lens[i]++;
+			}
+			else if (!isspace(*str))
+			{
+				args[++i] = str; 
+				lens[i] = 1;
+				inword = True;
+			}
+		}
+	}
+
+	/* Build a copy of the command string, with !0-!9 replaced by args[0]
+	 * through args[9].
+	 */
+	anyargs = anyaddr = anybang = multiline = False;
+	for (cmd = NULL, str = alias->command; *str; str++)
+	{
+		/* if not '!' then it can't be an arg substitution */
+		if (*str != '!')
+		{
+			buildCHAR(&cmd, *str);
+			if (*str == '\n' && str[1])
+				multiline = True;
+			continue;
+		}
+
+		/* Allow an optional ':' after the '!'.  Also allow an optional
+		 * \ which causes backslashes to be inserted before certain
+		 * characters in the expansion.
+		 */
+		quote = False;
+		deflen = 0;
+		defarg = args[0]; /* anything but NULL, really */
+		str++;
+		while (*str == ':' || *str == '\\' || *str == '(')
+		{
+			if (*str == ':')
+				str++;
+			else if (*str == '\\')
+				str++, quote = True;
+			else /* *str == '(' */
+			{
+				str++;
+				defarg = str;
+				for (deflen = 0; *str != ')'; deflen++)
+				{
+					if (!*str || *str == '\n')
+					{
+						msg(MSG_ERROR, "malformed !() in alias $1", alias->name);
+						if (cmd)
+							safefree(cmd);
+						return RESULT_ERROR;
+					}
+					str++;
+				}
+				str++;
+			}
+		}
+
+		/* which substitution is being requested? */
+		switch (*str)
+		{
+		  case '1':
+		  case '2':
+		  case '3':
+		  case '4':
+		  case '5':
+		  case '6':
+		  case '7':
+		  case '8':
+		  case '9':
+			/* insert an argument */
+			i = *str - '0';
+			buildarg(&cmd, args[i], lens[i], defarg, deflen, quote);
+			anyargs = True;
+			break;
+
+		  case '*':
+			/* insert the whole argument string */
+			buildarg(&cmd, args[0], lens[0], defarg, deflen, quote);
+			anyargs = True;
+			break;
+
+		  case '^':
+			/* insert the first argument string */
+			buildarg(&cmd, args[1], lens[1], defarg, deflen, quote);
+			anyargs = True;
+			break;
+
+		  case '$':
+			/* insert the last argument string */
+			for (i = 1; i < QTY(lens) - 1 && lens[i + 1] > 0; i++)
+			{
+			}
+			buildarg(&cmd, args[i], lens[i], defarg, deflen, quote);
+			anyargs = True;
+			break;
+
+		  case '!':
+			buildCHAR(&cmd, '!');
+			break;
+
+		  case '?':
+			if (xinf->bang)
+				buildCHAR(&cmd, '!');
+			anybang = True;
+			break;
+
+		  case '<':
+			if (xinf->anyaddr)
+			{
+				sprintf(num, "%ld", xinf->from);
+				buildstr(&cmd, num);
+			}
+			else
+				buildarg(&cmd, NULL, 0, defarg, deflen, quote);
+			anyaddr = True;
+			break;
+
+		  case '>':
+			if (xinf->anyaddr)
+			{
+				sprintf(num, "%ld", xinf->to);
+				buildstr(&cmd, num);
+			}
+			else
+				buildarg(&cmd, NULL, 0, defarg, deflen, quote);
+			anyaddr = True;
+			break;
+
+		  case '%':
+			if (xinf->anyaddr)
+			{
+				sprintf(num, "%ld,%ld", xinf->from, xinf->to);
+				buildstr(&cmd, num);
+			}
+			else
+				buildarg(&cmd, NULL, 0, defarg, deflen, quote);
+			anyaddr = True;
+			break;
+
+		  default:
+			/* no substitution -- use a literal ! character */
+			if (str[-1] == ':')
+				buildCHAR(&cmd, '!');
+			buildCHAR(&cmd, str[-1]);
+			buildCHAR(&cmd, *str);
+		}
+	}
+
+	/* If command contained no !n strings, but the alias was invoked with
+	 * arguments, then append the arguments to the last command line.
+	 */
+	if (!anyargs && !multiline && lens[0] > 0)
+	{
+		cmd[CHARlen(cmd) - 1] = ' '; /* convert newline to space */
+		buildarg(&cmd, args[0], lens[0], args[0], lens[0], False);
+		buildCHAR(&cmd, '\n');
+		anyargs = True;
+	}
+
+	/* Detect usage errors */
+	if (xinf->bang && !anybang)
+		msg(MSG_ERROR, "[s]the $1 alias doesn't use a ! suffix", alias->name);
+	else if (xinf->anyaddr && !anyaddr)
+		msg(MSG_ERROR, "[s]the $1 alias doesn't use addresses", alias->name);
+	else if (lens[0] > 0 && !anyargs)
+		msg(MSG_ERROR, "[s]the $1 alias doesn't use arguments", alias->name);
+	else
+	{
+		/* No errors - Run the command.  Mark it as being "in use"
+		 * while it is running, to prevent recursion.
+		 */
+		alias->inuse = True;
+		result = exstring(xinf->window, cmd);
+		alias->inuse = False;
+	}
+
+	/* Free the copy of the command string */
+	safefree(cmd);
+
+	return result;
+}
+
+#endif /* FEATURE_ALIAS */
 
 RESULT	ex_args(xinf)
 	EXINFO	*xinf;
@@ -78,6 +537,7 @@ static struct
 {
 	{"normal"}, {"bold"}, {"emphasized"}, {"italic"},
 	{"underlined"}, {"fixed"}, {"cursor"}, {"standout"},
+	{"tool"},
 	{"scrollbar"} /* "scrollbar" must be last */
 };
 
@@ -184,15 +644,16 @@ RESULT	ex_color(xinf)
 		if (xinf->window)
 		{
 			xinf->window->di->logic = DRAW_SCRATCH;
+			xinf->window->di->newmsg = True;
 		}
 
 		/* remember the chosen colors */
 		if (colortbl[i].fg)
 			safefree(colortbl[i].fg);
-		colortbl[i].fg = args ? CHARdup(args) : NULL;
+		colortbl[i].fg = args ? CHARkdup(args) : NULL;
 		if (colortbl[i].bg)
 			safefree(colortbl[i].bg);
-		colortbl[i].bg = bg ? CHARdup(bg) : NULL;
+		colortbl[i].bg = bg ? CHARkdup(bg) : NULL;
 
 		return RESULT_COMPLETE;
 	}
@@ -200,6 +661,7 @@ RESULT	ex_color(xinf)
 }
 
 
+# ifdef FEATURE_MKEXRC
 void colorsave(custom)
 	BUFFER	custom;	/* where to stuff the color commands */
 {
@@ -227,6 +689,7 @@ void colorsave(custom)
 		}
 	}
 }
+# endif /* FEATURE_MKEXRC */
 
 
 RESULT	ex_comment(xinf)
@@ -262,6 +725,48 @@ RESULT	ex_comment(xinf)
 	}
 	return RESULT_COMPLETE;
 }
+
+
+RESULT ex_message(xinf)
+	EXINFO	*xinf;
+{
+	MSGIMP	imp;
+	RESULT	result;
+
+	/* choose an importance level for this message */
+	switch (xinf->command)
+	{
+	  case EX_MESSAGE: imp = MSG_INFO;	result = RESULT_COMPLETE; break;
+	  case EX_WARNING: imp = MSG_WARNING;	result = RESULT_COMPLETE; break;
+	  case EX_ERROR:   imp = MSG_ERROR;	result = RESULT_ERROR;	  break;
+	  default:
+#ifndef NDEBUG
+		abort();
+#endif
+		;
+	}
+
+	/* do we have a message? */
+	if (!xinf->rhs)
+	{
+		/* no - fake it for :error, else just return */
+		if (xinf->command == MSG_ERROR)
+			xinf->rhs = CHARdup(toCHAR("error"));
+		else
+			return result;
+	}
+
+	/* don't allow bracket at the beginning -- would look like args */
+	if (*xinf->rhs == '[')
+		*xinf->rhs = '{';
+
+	/* output the message, or queue it */
+	msg(imp, tochar8(xinf->rhs));
+
+	/* return the result code */
+	return result;
+}
+
 
 
 RESULT	ex_digraph(xinf)
@@ -315,7 +820,20 @@ RESULT	ex_help(xinf)
 	CHAR	*tag;	/* name of tag to search for -- section#topic */
 	BUFFER	buf;	/* buffer containing help text */
 	MARK	tagdefn;/* result of search; where cursor should move to */
+	OPTDESC	*od;	/* description struct of an option */
 	int	i;
+
+	/* remove trailing whitespace from args */
+	if (xinf->lhs)
+		for (topic = &xinf->lhs[CHARlen(xinf->lhs)];
+		     topic-- != xinf->lhs && isspace(*topic);
+		     )
+			*topic = '\0';
+	if (xinf->rhs)
+		for (topic = &xinf->rhs[CHARlen(xinf->rhs)];
+		     topic-- != xinf->rhs && isspace(*topic);
+		     )
+			*topic = '\0';
 
 	/* construct a tag name for the requested topic */
 	topic = NULL;
@@ -340,8 +858,12 @@ RESULT	ex_help(xinf)
 		&& xinf->rhs)
 	{
 		/* :help set optionname */
-		topic = optname(xinf->rhs);
-		if (!topic)
+		if (optgetstr(xinf->rhs, &od))
+			topic = toCHAR(od->longname);
+		else if (xinf->rhs[0] == 'n' && xinf->rhs[1] == 'o'
+					&& (optgetstr(xinf->rhs + 2, &od)))
+			topic = toCHAR(od->longname);
+		else
 			topic = toCHAR("GROUP");
 		section = "elvisopt.html";
 	}
@@ -358,9 +880,10 @@ RESULT	ex_help(xinf)
 		/* :help c  (where c is a vi command, usually single-char) */
 		section = "elvisvi.html";
 	}
-	else if ((topic = optname(xinf->lhs)) != NULL)
+	else if (optgetstr(xinf->lhs, &od) != NULL)
 	{
 		/* :help optionname */
+		topic = toCHAR(od->longname);
 		section = "elvisopt.html";
 	}
 	else if ((topic = exname(xinf->lhs)) != NULL)
@@ -396,7 +919,7 @@ RESULT	ex_help(xinf)
 	/* combine section name and topic name to form a tag */
 	if (topic)
 	{
-		tag = safealloc((int)(CHARlen(o_filename(buf)) + CHARlen(topic) + 2), sizeof(CHAR));
+		tag = (CHAR *)safealloc((int)(CHARlen(o_filename(buf)) + CHARlen(topic) + 2), sizeof(CHAR));
 		CHARcpy(tag, o_filename(buf));
 		CHARcat(tag, toCHAR("#"));
 		CHARcat(tag, topic);
@@ -420,7 +943,7 @@ RESULT	ex_help(xinf)
 	 * work, then use the original window and push the old cursor onto
 	 * the tag stack.
 	 */
-	markbuffer(tagdefn)->changepos = markoffset(tagdefn);
+	bufwilldo(tagdefn, False);
 	if ((*gui->creategw)(tochar8(o_bufname(markbuffer(tagdefn))), ""))
 	{
 		return RESULT_COMPLETE;
@@ -431,6 +954,10 @@ RESULT	ex_help(xinf)
 		!o_internal(markbuffer(xinf->window->cursor)) &&
 		o_filename(markbuffer(xinf->window->cursor)))
 	{
+		if (xinf->window->tagstack[TAGSTK - 1].prevtag)
+			safefree(xinf->window->tagstack[TAGSTK - 1].prevtag);
+		if (xinf->window->tagstack[TAGSTK - 1].origin)
+			markfree(xinf->window->tagstack[TAGSTK - 1].origin);
 		for (i = TAGSTK - 1; i > 0; i--)
 		{
 			xinf->window->tagstack[i] = xinf->window->tagstack[i - 1];
@@ -469,8 +996,8 @@ RESULT	ex_if(xinf)
 
 	if (xinf->command == EX_IF)
 	{
-		/* set "thenflag" based on result of evaluation */
-		thenflag = calctrue(result);
+		/* set "exthenflag" based on result of evaluation */
+		exthenflag = calctrue(result);
 		return RESULT_COMPLETE;
 	}
 	else /* command == EX_EVAL */
@@ -483,28 +1010,100 @@ RESULT	ex_if(xinf)
 RESULT	ex_then(xinf)
 	EXINFO	*xinf;
 {
-	BOOLEAN origthen;
-	RESULT	result;
+	RESULT	result = RESULT_COMPLETE;
+	BOOLEAN	washiding;
 
-	origthen = thenflag;
-	result = RESULT_COMPLETE;
+	assert(xinf->command == EX_THEN || xinf->command == EX_ELSE
+		|| xinf->command == EX_TRY);
 
-	/* Execute commands, if "thenflag" is set appropriately */
-	if (xinf->command == EX_THEN ? thenflag : !thenflag)
+	/* If no commands, then do nothing */
+	if (!xinf->rhs)
+		return result;
+
+	/* For :try, execute the commands unconditionally and then set the
+	 * "exthenflag" to indicatge whether the command succeeded.  Otherwise
+	 * (for :then and :else) execute the commands if "exthenflag" is set
+	 * appropriately
+	 */
+	if (xinf->command == EX_TRY)
+	{
+		washiding = msghide(True);
+		exthenflag = (BOOLEAN)(exstring(xinf->window, xinf->rhs) == RESULT_COMPLETE);
+		(void)msghide(washiding);
+	}
+	else if (xinf->command == EX_THEN ? exthenflag : !exthenflag)
 	{
 		result = exstring(xinf->window, xinf->rhs);
 	}
 
-	/* If the command line was enclosed in { .... } (as indicated by the
-	 * presence of a newline; without curlies the command couldn't possibly
-	 * contain any newlines) then restore the "thenflag" to its original
-	 * value.
-	 */
-	if (CHARchr(xinf->rhs, '\n'))
+	return result;
+}
+
+
+RESULT ex_while(xinf)
+	EXINFO	*xinf;
+{
+	/* expression is required */
+	if (!xinf->rhs)
 	{
-		thenflag = origthen;
+		msg(MSG_ERROR, "missing rhs");
+		return RESULT_ERROR;
 	}
 
+	/* If there was some other, unused test lying around, then free it.
+	 *
+	 * NOTE: while/do loops can be nested in certain circumstances.  Any
+	 * code which pushes an older while test onto the stack also sets
+	 * exdotest to NULL so this test won't free those tests.
+	 */
+	if (exdotest)
+		safefree(exdotest);
+
+	/* store the new test */
+	exdotest = xinf->rhs;
+	xinf->rhs = NULL;
+	return RESULT_COMPLETE;
+}
+
+
+RESULT ex_do(xinf)
+	EXINFO	*xinf;
+{
+	CHAR	*value;
+	RESULT	result = RESULT_COMPLETE;
+
+	/* if no :while was executed before this, then fail */
+	if (!exdotest)
+	{
+		msg(MSG_ERROR, "missing :while");
+		return RESULT_ERROR;
+	}
+
+	/* while the expression is true and valid... */
+	while ((value = calculate(exdotest, NULL, False)) != NULL
+	    && calctrue(value))
+	{
+		/* Run the command.  If no command, then display result */
+		if (xinf->rhs)
+			result = exstring(xinf->window, xinf->rhs);
+		else
+		{
+			drawextext(xinf->window, value, CHARlen(value));
+			drawextext(xinf->window, toCHAR("\n"), 1);
+		}
+
+		/* is the user getting bored? */
+		if (guipoll(False))
+			break;
+	}
+
+	/* free the exdotest expression */
+	safefree(exdotest);
+	exdotest = NULL;
+
+	/* if test could not be evaluated, then this command fails */
+	if (!value)
+		return RESULT_ERROR;
 	return result;
 }
 
@@ -583,6 +1182,7 @@ RESULT	ex_set(xinf)
 {
 	CHAR	outbuf[5000];
 	static CHAR empty[1];
+	CHAR	*value;
 	int	i;
 
 	if (xinf->command == EX_LET)
@@ -625,8 +1225,25 @@ MissingRHS:
 			return RESULT_ERROR;
 		}
 
-		/* evaluate & store the result */
-		if (!optputstr(outbuf, calculate(&xinf->rhs[i], NULL, False)))
+		/* evaluate the expression */
+		value = calculate(&xinf->rhs[i], NULL, False);
+		if (!value)
+			/* error message already given */
+			return RESULT_ERROR;
+
+		/* store the result */
+		if (!optputstr(outbuf, value, xinf->bang))
+			/* error message already given */
+			return RESULT_ERROR;
+	}
+	else if (xinf->command == EX_LOCAL)
+	{
+		if (!xinf->rhs)
+		{
+			msg(MSG_ERROR, "missing rhs");
+			return RESULT_ERROR;
+		}
+		if (!optset(xinf->bang, xinf->rhs, NULL, 0))
 		{
 			return RESULT_ERROR;
 		}
@@ -662,8 +1279,11 @@ RESULT	ex_version(xinf)
 #ifdef COPY4
 	msg(MSG_INFO, "[s]$1", COPY4);
 #endif
+#ifdef COPY5
+	msg(MSG_INFO, "[s]$1", COPY5);
+#endif
 #ifdef PORTEDBY
-	msg(MSG_INFO, "[s]$1", PORTEDBY);
+	msg(MSG_INFO, "[s]Ported to (os) by $1", PORTEDBY);
 #endif
 	return RESULT_COMPLETE;
 }
@@ -672,12 +1292,13 @@ RESULT	ex_version(xinf)
 RESULT	ex_qall(xinf)
 	EXINFO	*xinf;
 {
-	WINDOW	win;
+	WINDOW	win, except;
 	WINDOW	orig;
 	RESULT	result;
 	BOOLEAN	didorig;
 
-	assert(xinf->command == EX_QALL || xinf->command == EX_PRESERVE);
+	assert(xinf->command == EX_QALL || xinf->command == EX_PRESERVE
+		|| xinf->command == EX_ONLY);
 
 	/* If :preserve, then turn off the tempsession flag */
 	if (xinf->command == EX_PRESERVE)
@@ -685,13 +1306,31 @@ RESULT	ex_qall(xinf)
 		o_tempsession = False;
 	}
 
-	/* Perform a :quit command on each window in turn. */
-	xinf->command = EX_QUIT;
+	/* if :only, then use EX_CLOSE but don't close this window */
+	if (xinf->command == EX_ONLY)
+	{
+		xinf->command = EX_CLOSE;
+		except = xinf->window;
+	}
+	else
+	{
+		xinf->command = EX_QUIT;
+		except = NULL;
+	}
+
+	/* run the command on each window, except possibly this one */
 	orig = xinf->window;
 	for (win = winofbuf(NULL, NULL), result = RESULT_COMPLETE, didorig = False;
 	     win;
 	     win = winofbuf(win, NULL))
 	{
+		/* maybe skip the current window */
+		if (win == except)
+		{
+			didorig = True;
+			continue;
+		}
+
 		xinf->window = win;
 		if (ex_xit(xinf) != RESULT_COMPLETE)
 		{
@@ -745,18 +1384,31 @@ RESULT	ex_xit(xinf)
 		}
 	}
 
-	/* if :q without a !, then complain if the buffer is modified */
-	if (xinf->command == EX_QUIT && !xinf->bang && o_modified(buf))
+	/* if :q on a modified buffer, and no other window is showing this
+	 * buffer, then either (without !) complain or (with !) turn off the
+	 * modified flag.
+	 */
+	if (xinf->command == EX_QUIT
+	 && o_modified(buf)
+	 && winofbuf(NULL, buf) == xinf->window
+	 && winofbuf(xinf->window, buf) == NULL)
 	{
-		msg(MSG_ERROR, "[S]$1 modified, not saved", o_bufname(buf));
-		return RESULT_ERROR;
+		if (xinf->bang)
+		{
+			o_modified(buf) = False;
+		}
+		else
+		{
+			msg(MSG_ERROR, "[S]$1 modified, not saved", o_bufname(buf));
+			return RESULT_ERROR;
+		}
 	}
 
 	/* If this is the last window, then make sure *ALL* user buffers
 	 * have been saved.  Exception: If :close! and this session isn't
 	 * temporary, then we don't need to check buffers.
 	 */
-	if ((morebuf != markbuffer(xinf->window->cursor) || morebuf->changes != morechgs)
+	if ((morebuf != markbuffer(xinf->window->cursor) || morebuf->changes != morechgs || xinf->command == EX_CLOSE)
 	 && !(xinf->command == EX_CLOSE && xinf->bang && o_tempsession)
 	 && winofbuf(NULL, NULL) == xinf->window && !winofbuf(xinf->window, NULL))
 	{
@@ -767,7 +1419,7 @@ RESULT	ex_xit(xinf)
 		morechgs = morebuf->changes;
 
 		/* check all buffers */
-		for (b = buffers; b; b = buflist(b))
+		for (b = elvis_buffers; b; b = buflist(b))
 		{
 			if (!o_internal(b) && o_modified(b)
 				&& (xinf->command == EX_CLOSE || b != buf))
@@ -797,7 +1449,15 @@ RESULT	ex_xit(xinf)
 		}
 	}
 
-	/* Arrange for the state stack to pop everything */
+	/* If :close, then set the "retain" flag on the window's main buffer. */
+	if (xinf->command == EX_CLOSE)
+	{
+		o_retain(markbuffer(xinf->window->cursor)) = True;
+	}
+
+	/* Arrange for the state stack to pop everything.  This will cause
+	 * the window to be closed, eventually.
+	 */
 	for (state = xinf->window->state; state; state = state->pop)
 	{
 		state->flags |= ELVIS_POP;

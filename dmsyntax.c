@@ -1,18 +1,18 @@
 /* dmsyntax.c */
 /* Copyright 1995 by Steve Kirkendall */
 
-char id_dmsyntax[] = "$Id: dmsyntax.c,v 2.24 1996/09/21 01:21:36 steve Exp $";
+char id_dmsyntax[] = "$Id: dmsyntax.c,v 2.49 1998/11/14 01:38:08 steve Exp $";
 
 #include "elvis.h"
 #ifdef DISPLAY_SYNTAX
 
 #if USE_PROTOTYPES
-static CHAR *iskeyword(CHAR *word);
-static void addkeyword(CHAR *word, _char_ font, BOOLEAN doesregexp, BOOLEAN doesregsub);
+static CHAR *iskeyword(CHAR *word, long anchor, BOOLEAN indent);
+static void addkeyword(CHAR *word, _char_ font, _CHAR_ anchor, _CHAR_ flags);
 static CHAR **fetchline(void);
 static DMINFO *init(WINDOW win);
 static void term(DMINFO *info);
-static MARK setup(MARK top, long cursor, MARK bottom, DMINFO *info);
+static MARK setup(WINDOW win, MARK top, long cursor, MARK bottom, DMINFO *info);
 static MARK image(WINDOW w, MARK line, DMINFO *info, void (*draw)(CHAR *p, long qty, _char_ font, long offset));
 static CHAR *tagatcursor(WINDOW win, MARK cursor);
 static MARK tagload(CHAR *tagname, MARK from);
@@ -65,7 +65,8 @@ typedef struct
 	TOKENTYPE token;	/* used during parsing */
 
 	/* info from the "elvis.syn" file */
-	CHAR	**keyword[256];	/* hash table of keyword names */
+	CHAR	**keyword[400];	/* hash table of keyword names */
+	CHAR	*opkeyword;	/* "operator" keyword, or NULL */
 	CHAR	function;	/* character used for function calls */
 	CHAR	strbegin;	/* string start-quote character */
 	CHAR	strend;		/* string end-quote character */
@@ -83,23 +84,33 @@ typedef struct
 	BOOLEAN	finalt;		/* words ending with "_t" are "other" */
 	BOOLEAN	initialpunct;	/* words starting with punctuation */
 	BOOLEAN	ignorecase;	/* keywords may be uppercase */
+	BOOLEAN	strnewline;	/* literal newline chars allowed in strings */
+	BOOLEAN strnoindent;	/* indentation not allowed in multi-line strings */
+	BOOLEAN strnoempty;	/* empty lines not allowed in multi-line strings */
 	char	wordbits[256];	/* which chars can appear in a word */
 } SINFO;
-#define STARTWORD		0x01	/* can start a word */
-#define INWORD			0x02	/* can occur within a word */
-#define PUNCTWORD		0x04	/* may be first punct of 2-punct word */
-#define DELIMREGEXP		0x08	/* can delimit regular expression */
-#define USEREGEXP		0x10	/* occurs before possible regexp */
-#define USEREGSUB		0x20	/* occurs before possible regsub */
+#define STARTWORD	0x01	/* char: can start a word */
+#define INWORD		0x02	/* char: can occur within a word */
+#define PUNCTWORD	0x04	/* char: may be first punct of 2-punct word */
+#define DELIMREGEXP	0x08	/* char: can delimit regular expression */
+#define ISCOMMENT	0x01	/* word: marks the start of a comment */
+#define USEREGEXP	0x10	/* either: occurs before possible regexp */
+#define USEREGSUB	0x20	/* either: occurs before possible regsub */
+#define OPERATOR	0x40	/* either: prefix to operatorXX name */
 #define isstartword(si,c)	((si)->wordbits[(CHAR)(c)] & STARTWORD)
 #define isinword(si,c)		((si)->wordbits[(CHAR)(c)] & INWORD)
 #define ispunctword(si,c)	((si)->wordbits[(CHAR)(c)] & PUNCTWORD)
 #define isregexp(si,c)		((si)->wordbits[(CHAR)(c)] & DELIMREGEXP)
 #define isbeforeregexp(si,c)	((si)->wordbits[(CHAR)(c)] & USEREGEXP)
 #define isbeforeregsub(si,c)	((si)->wordbits[(CHAR)(c)] & USEREGSUB)
-#define wordbeforeregexp(w)	((w)[-2] & USEREGEXP)
-#define wordbeforeregsub(w)	((w)[-2] & USEREGSUB)
-#define wordfont(w)		((char)((w)[-1]))
+#define isoperator(si,c)	((si)->wordbits[(CHAR)(c)] & OPERATOR)
+#define wordflags(w)		((w)[-3])
+#define wordanchor(w)		((w)[-2])
+#define wordfont(w)		(((char *)(w))[-1])
+#define wordcomment(w)		(wordflags(w) & ISCOMMENT)
+#define wordbeforeregexp(w)	(wordflags(w) & USEREGEXP)
+#define wordbeforeregsub(w)	(wordflags(w) & USEREGSUB)
+#define wordoperator(w)		(wordflags(w) & OPERATOR)
 
 
 
@@ -121,8 +132,10 @@ static SINFO *sinfo;
 /* This function returns a pointer to the hashed keyword description if the
  * given word is in fact a keyword.  Otherwise it returns NULL.
  */
-static CHAR *iskeyword(word)
+static CHAR *iskeyword(word, anchor, indent)
 	CHAR	*word;	/* pointer to word */
+	long	anchor;	/* current column (1-based), or 0 to ignore column */
+	BOOLEAN	indent;	/* preceded only by indentation whitespace? */
 {
 	int	hash;
 	int	i, j;
@@ -143,7 +156,22 @@ static CHAR *iskeyword(word)
 			for (j = 0; toupper(sinfo->keyword[hash][i][j]) == toupper(word[j]); j++)
 			{
 				if (!sinfo->keyword[hash][i][j])
+				{
+					/* check column number */
+					if (anchor
+					 && wordanchor(sinfo->keyword[hash][i]) > 0
+					 && wordanchor(sinfo->keyword[hash][i]) < 255
+					 && wordanchor(sinfo->keyword[hash][i]) != anchor)
+						return NULL;
+
+					/* check for "indentation only" */
+					if (!indent
+					 && wordanchor(sinfo->keyword[hash][i]) == 255)
+					 	return NULL;
+
+					/* found it! */
 					return sinfo->keyword[hash][i];
+				}
 			}
 		}
 	}
@@ -154,6 +182,19 @@ static CHAR *iskeyword(word)
 		{
 			if (!CHARcmp(sinfo->keyword[hash][i], word))
 			{
+				/* check column number */
+				if (anchor
+				 && wordanchor(sinfo->keyword[hash][i]) > 0
+				 && wordanchor(sinfo->keyword[hash][i]) < 255
+				 && wordanchor(sinfo->keyword[hash][i]) != anchor)
+					return NULL;
+
+				/* check for "indentation only" */
+				if (!indent
+				 && wordanchor(sinfo->keyword[hash][i]) == 255)
+					return NULL;
+
+				/* found it! */
 				return sinfo->keyword[hash][i];
 			}
 		}
@@ -163,11 +204,12 @@ static CHAR *iskeyword(word)
 	return NULL;
 }
 
-static void addkeyword(word, font, doesregexp, doesregsub)
+
+static void addkeyword(word, font, anchor, flags)
 	CHAR	*word;		/* a keyword */
 	_char_	font;		/* font, or '\0' for default */
-	BOOLEAN	doesregexp;	/* can keyword be followed by a regexp? */
-	BOOLEAN	doesregsub;	/* can keyword be followed by regexp+regsub? */
+	_CHAR_	anchor;		/* anchor, or 255 for front, or 0 otherwise */
+	_CHAR_	flags;		/* ISCOMMENT|USEREGEXP|USEREGSUB|OPERATOR */
 {
 	int	hash;		/* hash value of word */
 	CHAR	*keyword;	/* entry describing the current keyword */
@@ -175,7 +217,7 @@ static void addkeyword(word, font, doesregexp, doesregsub)
 	int	i;
 
 	/* see if the keyword is already in the list */
-	keyword = iskeyword(word);
+	keyword = iskeyword(word, 0L, True);
 	if (!keyword)
 	{
 		/* no, we need to add it... */
@@ -186,7 +228,7 @@ static void addkeyword(word, font, doesregexp, doesregsub)
 			for (i = 0; sinfo->keyword[hash][i]; i++)
 			{
 			}
-			hashed = safealloc(i + 2, sizeof(CHAR *));
+			hashed = (CHAR **)safealloc(i + 2, sizeof(CHAR *));
 			for (i = 0; sinfo->keyword[hash][i]; i++)
 			{
 				hashed[i] = sinfo->keyword[hash][i];
@@ -197,13 +239,14 @@ static void addkeyword(word, font, doesregexp, doesregsub)
 		else
 		{
 			/* create the first hash list */
-			sinfo->keyword[hash] = safealloc(2, sizeof(CHAR *));
+			sinfo->keyword[hash] = (CHAR **)safealloc(2, sizeof(CHAR *));
 			i = 0;
 		}
 
 		/* append the new keyword to the list */
-		keyword = safealloc(CHARlen(word) + 3, sizeof(CHAR));
+		keyword = (CHAR *)safealloc(CHARlen(word) + 4, sizeof(CHAR));
 		*keyword++ = '\0'; /* no special bits yet */
+		*keyword++ = '\0'; /* no anchor yet */
 		*keyword++ = '\0'; /* no special font yet */
 		CHARcpy(keyword, word);
 		sinfo->keyword[hash][i] = keyword;
@@ -212,11 +255,10 @@ static void addkeyword(word, font, doesregexp, doesregsub)
 
 	/* set the word's attributes */
 	if (font)
-		keyword[-1] = font;
-	if (doesregexp)
-		keyword[-2] |= USEREGEXP;
-	if (doesregsub)
-		keyword[-2] |= USEREGEXP | USEREGSUB;
+		wordfont(keyword) = font;
+	if (anchor)
+		wordanchor(keyword) = anchor;
+	wordflags(keyword) |= flags;
 
 	/* if not a normal word, then mark the character for extra checking */
 	if (!isstartword(sinfo, keyword[0]) ||
@@ -268,12 +310,13 @@ static CHAR **fetchline()
 	return nread==1 ? word : NULL;
 }
 
-/* This function checks whether a given file name's extension is listed in
- * the "lib/elvis.syn" file.  Returns True if known, or False otherwise.
+/* This global function checks whether a given file name's extension is listed
+ * in the "lib/elvis.syn" file.  Returns True if known, or False otherwise.
  */
-BOOLEAN dmsknown(filename)
+CHAR *dmsknown(filename)
 	char	*filename;
 {
+ static	CHAR	ret[20];
 	CHAR	**values;
 	char	*synname;
 	int	len;
@@ -281,12 +324,14 @@ BOOLEAN dmsknown(filename)
 
 	values = NULL;
 	synname = iopath(tochar8(o_elvispath), SYNTAX_FILE, False);
-	if (synname && ioopen(synname, 'r', False, False, False))
+	if (synname && ioopen(synname, 'r', False, False, 't'))
 	{
 		/* locate an "extension" line that ends like filename */
 		len = strlen(filename);
 		while ((values = fetchline()) != NULL)
 		{
+			if (!CHARcmp(values[0], toCHAR("language")) && values[1])
+				CHARncpy(ret, values[1], QTY(ret));
 			if (CHARcmp(values[0], toCHAR("extension")))
 				continue;
 			for (i = 1;
@@ -301,7 +346,60 @@ BOOLEAN dmsknown(filename)
 		}
 		ioclose();
 	}
-	return (BOOLEAN)(values != NULL);
+	ret[QTY(ret) - 1] = '\0';
+	return values ? ret : NULL;
+}
+
+/* This global function returns the prepchar of a window, or '\0' if the
+ * window isn't in the syntax display mode, or the syntax doesn't use a
+ * preprocessor.
+ */
+CHAR dmspreprocessor(win)
+	WINDOW	win;	/* window to be checked */
+{
+	if (win->md != &dmsyntax)
+		return '\0';
+	else
+		return ((SINFO *)win->mi)->preprocessor;
+}
+
+/* This global function checks whether a given word is a keyword in the current
+ * language.  If the window isn't in "syntax" mode then it always returns False.
+ */
+BOOLEAN dmskeyword(win, word)
+	WINDOW	win;		/* window to be checked */
+	CHAR	*word;		/* the word to look up */
+{
+	int	nupper, nlower, i;
+
+	/* if not in syntax display mode, then just return False. */
+	if (win->md != &dmsyntax)
+		return False;
+
+	/* first check real keywords */
+	sinfo = (SINFO *)win->mi;
+	if (iskeyword(word, 0L, True) != NULL)
+		return True;
+
+	/* Check for "other" words */
+	if (sinfo->initialpunct && !isalnum(word[0]))
+		return True;
+	for (i = nupper = nlower = 0; word[i]; i++)
+		if (isupper(word[i]))
+			nupper++;
+		else if (islower(word[i]))
+			nlower++;
+	if (sinfo->finalt && i > 2 && !CHARcmp(word + i - 2, toCHAR("_t")))
+		return True;
+	if (sinfo->allcaps && nlower == 0 && nupper > 0)
+		return True;
+	if (sinfo->initialcaps && nlower > 0 && isupper(word[0]))
+		return True;
+	if (sinfo->mixedcaps && nlower > 0 && nupper > 0)
+		return True;
+
+	/* I guess not */
+	return False;
 }
 
 /* start the mode, and allocate dminfo */
@@ -310,7 +408,7 @@ static DMINFO *init(win)
 {
 	char	*pathname, *str;
 	CHAR	*cp, **values;
-	int	i, j;
+	int	i, j, flags;
 
 	/* if this is the first-ever time a window has been initialized to
 	 * this mode, then we have some extra work to do...
@@ -321,6 +419,7 @@ static DMINFO *init(win)
 		dmsyntax.mark2col = dmnormal.mark2col;
 		dmsyntax.move = dmnormal.move;
 		dmsyntax.wordmove = dmnormal.wordmove;
+		dmsyntax.header = dmnormal.header;
 		dmsyntax.indent = dmnormal.indent; /* !!! really a good idea? */
 		dmsyntax.tagnext = dmnormal.tagnext;
 
@@ -337,7 +436,7 @@ static DMINFO *init(win)
 		if (!str)
 			str = OSINCLUDEPATH;
 #endif
-		o_includepath = toCHAR(str);
+		optpreset(o_includepath, toCHAR(str), OPT_HIDE);
 
 		/* if no real window, then we're done! */
 		if (!win)
@@ -355,7 +454,7 @@ static DMINFO *init(win)
 
 	/* locate the "elvis.syn" file */
 	pathname = iopath(tochar8(o_elvispath), SYNTAX_FILE, False);
-	if (pathname && ioopen(pathname, 'r', False, False, False))
+	if (pathname && ioopen(pathname, 'r', False, False, 't'))
 	{
 		cp = CHARchr(o_display(win), ' ');
 		if (cp)
@@ -405,7 +504,7 @@ static DMINFO *init(win)
 				{
 					for (i = 1; values[i]; i++)
 					{
-						addkeyword(values[i], '\0', False, False);
+						addkeyword(values[i], '\0', 0, 0);
 					}
 				}
 				else if (!strcmp(str, "font") && values[1])
@@ -426,16 +525,30 @@ static DMINFO *init(win)
 					{
 						for (i = 2; values[i]; i++)
 						{
-							addkeyword(values[i], *str, False, False);
+							addkeyword(values[i], *str, 0, 0);
 						}
 					}
 					/* else invalid font */
+				}
+				else if (!strcmp(str, "anchor") && values[1])
+				{
+					if (values[1][0] == '^')
+						j = -1;
+					else
+						j = atoi(tochar8(values[1]));
+					if (j == -1 || (j > 0 && j < 255))
+					{
+						for (i = 2; values[i]; i++)
+						{
+							addkeyword(values[i], '\0', j < 0 ? 255 : j, 0);
+						}
+					}
 				}
 				else if (!strcmp(str, "comment"))
 				{
 					for (i = 1; values[i]; i++)
 					{
-						if (values[i + 1])
+						if (values[i + 1] && !isalnum(*values[i]))
 						{
 							CHARncpy(sinfo->combegin, values[i], 2);
 							CHARncpy(sinfo->comend, values[++i], 2);
@@ -443,6 +556,49 @@ static DMINFO *init(win)
 						else
 						{
 							CHARncpy(sinfo->comment, values[1], 2);
+							addkeyword(values[i], '\0', 0, ISCOMMENT);
+						}
+					}
+				}
+				else if (!strcmp(str, "useregexp")
+				      || !strcmp(str, "useregsub")
+				      || !strcmp(str, "operator"))
+				{
+					if (!strcmp(str, "useregexp"))
+						flags = USEREGEXP;
+					else if (!strcmp(str, "useregsub"))
+						flags = USEREGEXP|USEREGSUB;
+					else
+						flags = OPERATOR;
+
+					for (i = 1; values[i]; i++)
+					{
+						cp = iskeyword(values[i], 0L, True);
+						if (cp)
+						{
+							wordflags(cp) |= flags;
+						}
+						else if (isalpha(values[i][0]))
+						{
+							addkeyword(values[i], '\0', 0, flags);
+						}
+						else /* character list */
+						{
+							for (j = 0; values[i][j]; j++)
+							{
+								sinfo->wordbits[values[i][j]] |= flags;
+							}
+						}
+
+						/* if first "operator" keyword
+						 * then remember it for use in
+						 * tag searches.
+						 */
+						if (!sinfo->opkeyword
+						  && flags == OPERATOR
+						  && isalpha(values[i][0]))
+						{
+							sinfo->opkeyword = iskeyword(values[i], 0L, True);
 						}
 					}
 				}
@@ -463,6 +619,19 @@ static DMINFO *init(win)
 						sinfo->strbegin =
 						sinfo->strend = *values[1];
 					}
+				}
+				else if (!strcmp(str, "strnewline"))
+				{
+					str = tochar8(values[1]);
+					if (!values[1] || !strcmp(str, "backslash"))
+						sinfo->strnewline = False;
+					else if (!strcmp(str, "allowed"))
+						sinfo->strnewline = True;
+					else if (!strcmp(str, "indent"))
+						sinfo->strnewline = sinfo->strnoindent = True;
+					else if (!strcmp(str, "empty"))
+						sinfo->strnewline = sinfo->strnoempty = True;
+					/* else unknown newline type */
 				}
 				else if (!strcmp(str, "character"))
 				{
@@ -489,50 +658,6 @@ static DMINFO *init(win)
 						for (j = 0; values[i][j]; j++)
 						{
 							sinfo->wordbits[values[i][j]] |= DELIMREGEXP;
-						}
-					}
-				}
-				else if (!strcmp(str, "useregexp"))
-				{
-					for (i = 1; values[i]; i++)
-					{
-						cp = iskeyword(values[i]);
-						if (cp)
-						{
-							cp[-2] |= USEREGEXP;
-						}
-						else if (isalpha(values[i][0]))
-						{
-							addkeyword(values[i], '\0', True, False);
-						}
-						else /* character list */
-						{
-							for (j = 0; values[i][j]; j++)
-							{
-								sinfo->wordbits[values[i][j]] |= USEREGEXP;
-							}
-						}
-					}
-				}
-				else if (!strcmp(str, "useregsub"))
-				{
-					for (i = 1; values[i]; i++)
-					{
-						cp = iskeyword(values[i]);
-						if (cp)
-						{
-							cp[-2] |= USEREGEXP | USEREGSUB;
-						}
-						else if (isalpha(values[i][0]))
-						{
-							addkeyword(values[i], '\0', True, True);
-						}
-						else /* character list */
-						{
-							for (j = 0; values[i][j]; j++)
-							{
-								sinfo->wordbits[values[i][j]] |= USEREGEXP | USEREGSUB;
-							}
 						}
 					}
 				}
@@ -611,10 +736,21 @@ static DMINFO *init(win)
 				}
 				/* else unknown attribute */
 			}
-
-			/* close the "elvis.syn" file */
-			(void)ioclose();
 		}
+	}
+
+	/* close the "elvis.syn" file */
+	(void)ioclose();
+
+	/* If the string allows literal newlines, and the same character is
+	 * used for both the opening quote and the closing quote, then we'll
+	 * have a hard time detecting whether a quote character in the buffer
+	 * marks the start of a string, or the end of one.  We'll assume that
+	 * no string contains a newline followed by whitespace.
+	 */
+	if (sinfo->strnewline && sinfo->strbegin == sinfo->strend && !sinfo->strnoindent)
+	{
+		sinfo->strnoempty = True;
 	}
 
 	/* return the window's SINFO structure */
@@ -637,7 +773,7 @@ static void term(info)
 		/* free all words in this hash list, and then free the list */
 		for (i = 0; si->keyword[hash][i]; i++)
 		{
-			safefree(si->keyword[hash][i] - 2);
+			safefree(si->keyword[hash][i] - 3);
 				/* "- 2" because we sneak in two extra chars
 				 * to store attributes of the keyword.
 				 */
@@ -651,7 +787,8 @@ static void term(info)
 /* Choose a line to appear at the top of the screen, and return its mark.
  * Also, initialize the info for the next line.
  */
-static MARK setup(top, cursor, bottom, info)
+static MARK setup(win, top, cursor, bottom, info)
+	WINDOW	win;	/* window to be updated */
 	MARK	top;	/* where the image drawing began last time */
 	long	cursor;	/* cursor's offset into buffer */
 	MARK	bottom;	/* where the image drawing ended last time */
@@ -676,7 +813,7 @@ static MARK setup(top, cursor, bottom, info)
 	cfont[PUNCT] = 'n';
 
 	/* use the normal mode's setup function to choose the screen top */
-	newtop = (*dmnormal.setup)(top, cursor, bottom, info);
+	newtop = (*dmnormal.setup)(win, top, cursor, bottom, info);
 	if (!newtop || markoffset(newtop) >= o_bufchars(markbuffer(newtop)))
 		return newtop;
 
@@ -689,20 +826,45 @@ static MARK setup(top, cursor, bottom, info)
 	 * screen, but that could take far too long.
 	 */
 	following = *scanalloc(&cp, newtop);
+	if (following == sinfo->strend)
+		following = '\0';
 	oddquotes = False;
 	knowstr = (BOOLEAN)(sinfo->strbegin == '\0' || (cp && *cp == sinfo->strbegin));
 	knowcom = (BOOLEAN)!sinfo->combegin[0];
 	sinfo->token = PUNCT;
 	for (; scanprev(&cp) && (!knowstr || !knowcom); following = *cp)
 	{
-		if (sinfo->strend && *cp != '\\' && following == sinfo->strend && !knowstr)
+		if (sinfo->strend
+		 && *cp != '\\'
+		 && following == sinfo->strend
+		 && !knowstr)
 		{
 			/* a " which isn't preceded by a \ toggles the quote state */
 			oddquotes = (BOOLEAN)!oddquotes;
 		}
-		else if (sinfo->strend && *cp != '\\' && following == '\n')
+		else if (sinfo->strend
+		      && !sinfo->strnewline
+		      && *cp != '\\'
+		      && following == '\n')
 		{
-			/* strings can't span a newline unless preceded by a backslash */
+			/* some strings can't span a newline unless preceded by a backslash */
+			knowstr = True;
+		}
+		else if (sinfo->strend
+			 && ((sinfo->strnoindent
+			 	&& *cp == '\n'
+			 	&& (following == ' ' || following == '\t'))
+			     || (sinfo->strnewline
+			        && *cp == sinfo->strbegin
+			        && following == ';')
+			     || (sinfo->strnoempty
+			 	&& *cp == '\n'
+			 	&& following == '\n')))
+		{
+			/* some strings don't allow whitespace after a newline,
+			 * or two consecutive newlines, or an opening quote
+			 * which is immediately followed by a newline.
+			 */
 			knowstr = True;
 		}
 		else if (sinfo->combegin[0]
@@ -740,7 +902,6 @@ static MARK setup(top, cursor, bottom, info)
 			 * slash-asterisk type comment.
 			 */
 			knowstr = knowcom = True;
-			oddquotes = False;
 		}
 	}
 	scanfree(&cp);
@@ -871,7 +1032,7 @@ static MARK image(w, line, info, draw)
 				/* collect more letters of possible keyword */
 				for (i = 1, prev2 = prev = '\0',
 					scanalloc(&up, marktmp(tmp, markbuffer(line), offset + 1));
-				     i < QTY(undec) - 1 && up && isinword(sinfo, *up);
+				     i < QTY(undec) - 2 && up && isinword(sinfo, *up);
 				     prev2 = prev, prev = *up, i++, scannext(&up))
 				{
 					undec[i] = *up;
@@ -883,13 +1044,33 @@ static MARK image(w, line, info, draw)
 				undec[i] = '\0';
 
 				/* did we find a keyword? */
-				kp = iskeyword(undec);
+				kp = iskeyword(undec, col + 1, indent);
+				if (!kp && up)
+				{
+					/* try again, after appending the
+					 * following non-word character to
+					 * the name.
+					 */
+					undec[i] = *up;
+					undec[i + 1] = '\0';
+					kp = iskeyword(undec, col + 1, indent);
+				}
 				if (kp)
 				{
-					sinfo->token = KEYWORD;
-					cfont[KEYWORD] = wordfont(kp);
-					if (!cfont[KEYWORD])
-						cfont[KEYWORD] = o_keywordfont;
+					if (wordcomment(kp))
+					{
+						sinfo->token = COMMENT2;
+						cfont[COMMENT2] = wordfont(kp);
+						if (!cfont[COMMENT2])
+							cfont[COMMENT2] = o_commentfont;
+					}
+					else
+					{
+						sinfo->token = KEYWORD;
+						cfont[KEYWORD] = wordfont(kp);
+						if (!cfont[KEYWORD])
+							cfont[KEYWORD] = o_keywordfont;
+					}
 					expectregexp = (BOOLEAN)wordbeforeregexp(kp);
 					expectregsub = (BOOLEAN)wordbeforeregsub(kp);
 				}
@@ -969,21 +1150,31 @@ static MARK image(w, line, info, draw)
 				/* maybe... check the other punct character */
 				undec[0] = *cp;
 				undec[1] = '\0';
-				kp = iskeyword(undec);
+				kp = iskeyword(undec, col + 1, indent);
 				if (!kp)
 				{
 					tmp = *scanmark(&cp);
 					markaddoffset(&tmp, 1);
 					undec[1] = scanchar(&tmp);
 					undec[2] = '\0';
-					kp = iskeyword(undec);
+					kp = iskeyword(undec, col + 1, indent);
 				}
 				if (kp)
 				{
-					sinfo->token = kp[1] ? FIRSTPUNCT : SECONDPUNCT;
-					cfont[FIRSTPUNCT] = cfont[SECONDPUNCT] = wordfont(kp);
-					if (!cfont[FIRSTPUNCT])
-						cfont[FIRSTPUNCT] = cfont[SECONDPUNCT] = o_keywordfont;
+					if (wordcomment(kp))
+					{
+						sinfo->token = COMMENT2;
+						cfont[COMMENT2] = wordfont(kp);
+						if (!cfont[COMMENT2])
+							cfont[COMMENT2] = o_commentfont;
+					}
+					else
+					{
+						sinfo->token = kp[1] ? FIRSTPUNCT : SECONDPUNCT;
+						cfont[FIRSTPUNCT] = cfont[SECONDPUNCT] = wordfont(kp);
+						if (!cfont[FIRSTPUNCT])
+							cfont[FIRSTPUNCT] = cfont[SECONDPUNCT] = o_keywordfont;
+					}
 					expectregexp = (BOOLEAN)wordbeforeregexp(kp);
 					expectregsub = (BOOLEAN)wordbeforeregsub(kp);
 				}
@@ -1023,18 +1214,6 @@ static MARK image(w, line, info, draw)
 					|| scanchar(marktmp(tmp, markbuffer(line), offset + 1)) == sinfo->combegin[1]))
 			{
 				sinfo->token = COMMENT;
-				expectregexp = expectregsub = False;
-			}
-
-			/* start of a one-line comment? */
-			if (sinfo->token == PUNCT
-				&& sinfo->comment[0]
-				&& *cp == sinfo->comment[0]
-				&& (indent || !expectregexp)
-				&& (!sinfo->comment[1]
-					|| scanchar(marktmp(tmp, markbuffer(line), offset + 1)) == sinfo->comment[1]))
-			{
-				sinfo->token = COMMENT2;
 				expectregexp = expectregsub = False;
 			}
 
@@ -1159,7 +1338,8 @@ static MARK image(w, line, info, draw)
 	 * backslash.  Old-style C comments can span a newline.  Everything
 	 * else ends here.
 	 */
-	if ((sinfo->token != STRING || prev != '\\') && sinfo->token != COMMENT)
+	if ((sinfo->token != STRING || !(sinfo->strnewline || prev == '\\'))
+	  && sinfo->token != COMMENT)
 	{
 		sinfo->token = PUNCT;
 	}
@@ -1171,8 +1351,9 @@ static MARK image(w, line, info, draw)
 
 
 /* This function considers the possibility that the cursor may be on a quoted
- * filename.  If so, it returns the name, with the quotes.  Otherwise it calls
- * dmnormal.tagatcursor() for the traditional tags.
+ * filename.  If so, it returns the name, with the quotes.  Otherwise it gets
+ * the word at the cursor, and if that word is "operator" then it gets the
+ * following operator characters as well.
  *
  * The return value is a dynamically-allocated string; the calling function
  * is responsible for freeing it when it is no longer required.
@@ -1183,6 +1364,9 @@ static CHAR *tagatcursor(win, cursor)
 {
 	CHAR	*ret;	/* return value */
 	CHAR	*cp;	/* used for scanning */
+	MARKBUF	curscopy;	/* a copy of the cursor */
+	MARK	word;		/* mark for the front of the word */
+
 
 	/* initialization */
 	sinfo = (SINFO *)win->mi;
@@ -1205,7 +1389,8 @@ static CHAR *tagatcursor(win, cursor)
 		{
 			buildCHAR(&ret, *cp);
 		} while (scannext(&cp) && !isspace(*cp) && *cp != sinfo->strend);
-		if (cp && *cp == sinfo->strend)
+		if (cp && *cp == sinfo->strend &&
+			(!o_previoustag || CHARcmp(o_previoustag, ret + 1)))
 		{
 			buildCHAR(&ret, *cp);
 			scanfree(&cp);
@@ -1221,7 +1406,8 @@ static CHAR *tagatcursor(win, cursor)
 		{
 			buildCHAR(&ret, *cp);
 		} while (scannext(&cp) && !isspace(*cp) && *cp != sinfo->pqend);
-		if (cp && *cp == sinfo->pqend)
+		if (cp && *cp == sinfo->pqend &&
+			(!o_previoustag || CHARcmp(o_previoustag, ret + 1)))
 		{
 			buildCHAR(&ret, *cp);
 			scanfree(&cp);
@@ -1234,8 +1420,69 @@ static CHAR *tagatcursor(win, cursor)
 	if (ret)
 		safefree(ret);
 
-	/* use dmnormal's tagatcursor() function */
-	return (*dmnormal.tagatcursor)(win, cursor);
+	/*------------------------------------------------------------------*
+	 * If we get here, then it wasn't a filename.  Try to get operator. *
+	 *------------------------------------------------------------------*/
+
+	if (isoperator(sinfo, scanchar(cursor)))
+	{
+		/* if there is an "operator" keyword, use it */
+		ret = NULL;
+		for (cp = sinfo->opkeyword; cp && *cp; cp++)
+			buildCHAR(&ret, *cp);
+
+		/* find the first character of the operator itself */
+		scanalloc(&cp, cursor);
+		while (scanprev(&cp) && isoperator(sinfo, *cp))
+		{
+		}
+		scannext(&cp); /*!!! what if cp became NULL? */
+
+		/* add all operator character to the tag name */
+		while (isoperator(sinfo, *cp))
+		{
+			buildCHAR(&ret, *cp);
+			scannext(&cp);
+		}
+		scanfree(&cp);
+
+		/* return the tag name */
+		return ret;
+	}
+
+	/*------------------------------------------------------------------*
+	 * If we get here, then it wasn't an operator.  Get word at cursor. *
+	 *------------------------------------------------------------------*/
+
+	/* find the ends of the word */
+	curscopy = *cursor;
+	word = wordatcursor(&curscopy);
+
+	/* if not on a word, then return NULL */
+	if (!word)
+		return NULL;
+
+	/* copy the word into RAM */
+	ret = bufmemory(word, &curscopy);
+
+	/* is this an "operator"-type keyword? */
+	if ((cp = iskeyword(ret, 0L, True)) != NULL  && wordoperator(cp))
+	{
+		/* Try to extend the word to include any operator chars */
+		for (scanalloc(&cp, &curscopy);
+		     *cp && isoperator(sinfo, *cp);
+		     scannext(&cp))
+		{
+		}
+		if (*cp)
+		{
+			safefree(ret);
+			ret = bufmemory(word, scanmark(&cp));
+		}
+		scanfree(&cp);
+	}
+
+	return ret;
 }
 
 
@@ -1255,11 +1502,11 @@ static MARK tagload(tagname, from)
  static	MARKBUF	retb;
 
 	/* is it a quoted filename? */
-	len = CHARlen(tagname);
+	len = tagname ? CHARlen(tagname) : 0;
 	if (len >= 3 && (*tagname == '"' || (sinfo && sinfo->pqbegin && *tagname == sinfo->pqbegin)))
 	{
 		/* make an unquoted, 8-bit version of the name */
-		name = strdup(tochar8(tagname + 1));
+		name = safedup(tochar8(tagname + 1));
 		if ((*tagname == '"' && tagname[len - 1] == '"')
 		 || (sinfo && sinfo->pqbegin && *tagname == sinfo->pqbegin && tagname[len - 1] == sinfo->pqend))
 		{
@@ -1267,17 +1514,33 @@ static MARK tagload(tagname, from)
 		}
 
 		/* if plain old quote character, then look for it first in
-		 * the current directory.
+		 * the directory where the current file resides, and the
+		 * current directory.
 		 */
 		if (*tagname == '"')
 		{
+			/* check the directory where the current file resides */
+			if (o_filename(markbuffer(from)))
+			{
+				tmp = dirpath(dirdir(tochar8(o_filename(markbuffer(from)))), name);
+				perms = dirperm(tmp);
+				if (perms == DIR_READONLY || perms == DIR_READWRITE)
+				{
+					buf = bufload(NULL, tmp, False);
+					assert(buf != NULL);
+					safefree(name);
+					return marktmp(retb, buf, buf->docursor);
+				}
+			}
+
+			/* check the current directory */
 			perms = dirperm(name);
 			if (perms == DIR_READONLY || perms == DIR_READWRITE)
 			{
 				buf = bufload(NULL, name, False);
 				assert(buf != NULL);
 				safefree(name);
-				return marktmp(retb, buf, buf->changepos);
+				return marktmp(retb, buf, buf->docursor);
 			}
 		}
 
@@ -1290,7 +1553,7 @@ static MARK tagload(tagname, from)
 				buf = bufload(NULL, tmp, False);
 				assert(buf != NULL);
 				safefree(name);
-				return marktmp(retb, buf, buf->changepos);
+				return marktmp(retb, buf, buf->docursor);
 			}
 		}
 
@@ -1323,7 +1586,7 @@ DISPMODE dmsyntax =
 	NULL,	/* init() sets this to be identical to dmnormal's moveword() */
 	setup,
 	image,
-	NULL,	/* doesn't need a header */
+	NULL,	/* init() sets this to be identical to dmnormal's header() */
 	NULL,	/* init() sets this to be identical to dmnormal's indent() */
 	tagatcursor,
 	tagload,

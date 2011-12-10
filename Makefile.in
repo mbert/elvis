@@ -1,5 +1,5 @@
 # Makefile.in
-# $Id: Makefile.in,v 2.21 1996/10/01 19:53:00 steve Exp $
+# $Id: Makefile.in,v 2.58 1998/12/10 01:02:47 steve Exp $
 #
 # Makefile.in should not be modified!  The "configure" script reads Makefile.in
 # and writes a customized Makefile by editing the values of the following
@@ -102,42 +102,57 @@ CP=cp
 # Portable compilation rules
 
 MISC=	BUGS README.html COPYING INSTALL Makefile.in configure instman.sh\
-	elvis.lsm makwin32.bat makmsdos.bat e2
+	insticon.sh elvis.lsm makwin32.bat makmsdos.bat makos2.cmd e2
 OSSRCS=	os$(OS)$(SLASH)osblock.c os$(OS)$(SLASH)osdir.c\
 	os$(OS)$(SLASH)osprg.c os$(OS)$(SLASH)ostext.c\
-	os$(OS)$(SLASH)tcaphelp.c
-OSOBJS=	osblock$(OBJ) osdir$(OBJ) osprg$(OBJ) ostext$(OBJ)
+	os$(OS)$(SLASH)osnet.c os$(OS)$(SLASH)tcaphelp.c
+OSOBJS=	osblock$(OBJ) osdir$(OBJ) osprg$(OBJ) ostext$(OBJ) osnet$(OBJ)
 OSOBJS2=tcaphelp$(OBJ)
 OSHDRS=	os$(OS)$(SLASH)osdef.h
-GUISRCS=guix11.c guicurs.c guitcap.c guiopen.c
-GUIOBJS=guix11$(OBJ) guicurs$(OBJ) guitcap$(OBJ) guiopen$(OBJ)
+XBM=	guix11/elvis.xbm guix11/elvispin.xbm guix11/gray.xbm
+X11SRCS=guix11/guix11.c guix11/xclip.c guix11/xevent.c guix11/xmisc.c\
+	guix11/xscroll.c guix11/xstatus.c guix11/xtext.c guix11/xtool.c \
+	guix11/xdialog.c
+X11OBJS=guix11$(OBJ) xclip$(OBJ) xevent$(OBJ) xmisc$(OBJ) xscroll$(OBJ)\
+	xstatus$(OBJ) xtext$(OBJ) xtool$(OBJ) xdialog$(OBJ)
+GUISRCS=$(X11SRCS) guicurs.c guitcap.c guiopen.c
+GUIOBJS=$(X11OBJS) guicurs$(OBJ) guitcap$(OBJ) guiopen$(OBJ)
 LPSRCS=	lpescape.c lpovrtyp.c lpps.c
 LPOBJS=	lpescape$(OBJ) lpovrtyp$(OBJ) lpps$(OBJ)
 HDRS=	$(OSHDRS) buffer.h buffer2.h calc.h cut.h digraph.h display.h\
 	display2.h draw.h draw2.h elvis.h elvisio.h event.h ex.h gui.h gui2.h\
 	input.h lowbuf.h lp.h map.h mark.h message.h misc.h more.h move.h\
 	need.h operator.h opsys.h optglob.h options.h regexp.h safe.h scan.h\
-	session.h state.h state2.h version.h vi.h vicmd.h window.h config.h
+	session.h state.h state2.h tag.h tagsrch.h tagelvis.h version.h vi.h\
+	vicmd.h window.h config.h
 SRCS=	$(OSSRCS) $(GUISRCS) $(LPSRCS) buffer.c calc.c cut.c digraph.c\
 	display.c dmhex.c dmmarkup.c dmnormal.c dmsyntax.c draw.c\
-	event.c ex.c exaction.c exconfig.c exedit.c exmake.c gui.c input.c\
-	io.c lowbuf.c lp.c map.c mark.c message.c misc.c more.c move.c\
-	need.c operator.c optglob.c options.c regexp.c regsub.c safe.c scan.c\
-	search.c session.c state.c vi.c vicmd.c window.c
+	event.c ex.c exaction.c exconfig.c exedit.c exmake.c exsubst.c ftp.c\
+	gui.c http.c input.c io.c lowbuf.c lp.c map.c mark.c message.c misc.c\
+	more.c move.c need.c operator.c optglob.c options.c regexp.c regsub.c\
+	safe.c scan.c search.c session.c state.c tag.c tagsrch.c tagelvis.c\
+	url.c vi.c vicmd.c window.c
 OBJ1=	$(OSOBJS) optglob$(OBJ) options$(OBJ) safe$(OBJ) session$(OBJ)
 OBJ2=	buffer$(OBJ) calc$(OBJ) digraph$(OBJ) display$(OBJ) gui$(OBJ)\
 	lowbuf$(OBJ) mark$(OBJ) misc$(OBJ) io$(OBJ) dmhex$(OBJ)\
 	dmmarkup$(OBJ) dmnormal$(OBJ) dmsyntax$(OBJ) scan$(OBJ)
 OBJ3=	$(OSOBJS2) cut$(OBJ) draw$(OBJ) event$(OBJ) ex$(OBJ) exaction$(OBJ)\
-	exconfig$(OBJ) exedit$(OBJ) exmake$(OBJ) input$(OBJ) lp$(OBJ)\
-	map$(OBJ) message$(OBJ) move$(OBJ) more$(OBJ) need$(OBJ) operator$(OBJ)\
-	regexp$(OBJ) regsub$(OBJ) search$(OBJ) state$(OBJ) tinytcap$(OBJ)\
-	vi$(OBJ) vicmd$(OBJ) window$(OBJ)
+	exconfig$(OBJ) exedit$(OBJ) exmake$(OBJ) exsubst$(OBJ) ftp$(OBJ)\
+	http$(OBJ) input$(OBJ) lp$(OBJ) map$(OBJ) message$(OBJ) move$(OBJ)\
+	more$(OBJ) need$(OBJ) operator$(OBJ) regexp$(OBJ) regsub$(OBJ)\
+	search$(OBJ) state$(OBJ) tinytcap$(OBJ) tag$(OBJ) tagsrch$(OBJ)\
+	tagelvis$(OBJ) url$(OBJ) vi$(OBJ) vicmd$(OBJ) window$(OBJ)
 OBJS=	$(OBJ1) $(OBJ2) $(OBJ3)
+REFOBJS=ref$(OBJ) tag$(OBJ) tagsrch$(OBJ) safe$(OBJ)
+CTOBJS=	ctags$(OBJ) tag$(OBJ) safe$(OBJ)
 CFLAGS=	$(FLAGI)os$(OS)
 EVERY=	$(ALL) verify$(EXE) elvdump$(EXE) calc$(EXE)
 SHELL=	/bin/sh
-DISTRIB=elvis-2.0
+
+DISTRIB=elvis-2.1
+DOSEXE=exedos
+WIN32EXE=exewin32
+OS2EXE=exeos2
 
 all: $(ALL)
 
@@ -146,11 +161,11 @@ every: $(EVERY)
 elvis$(EXE): $(HDRS) main$(OBJ) $(OBJS) $(GUIOBJS) $(LPOBJS)
 	$(CC) $(CFLAGS) main$(OBJ) $(OBJS) $(GUIOBJS) $(LPOBJS) $(LIBS) -o elvis$(EXE)
 
-ctags$(EXE): ctags.c os$(OS)$(SLASH)osdir.c
-	$(CC) $(CFLAGS) -DSORT$(OS) ctags.c -o ctags$(EXE)
+ctags$(EXE): $(CTOBJS)
+	$(CC) $(CFLAGS) $(CTOBJS) -o ctags$(EXE)
 
-ref$(EXE): ref.c os$(OS)$(SLASH)osdir.c
-	$(CC) $(CFLAGS) ref.c -o ref$(EXE)
+ref$(EXE): $(REFOBJS)
+	$(CC) $(CFLAGS) $(REFOBJS) -o ref$(EXE)
 
 fmt$(EXE): fmt.c os$(OS)$(SLASH)osdir.c
 	$(CC) $(CFLAGS) fmt.c -o fmt$(EXE)
@@ -179,8 +194,43 @@ osprg$(OBJ): os$(OS)$(SLASH)osprg.c
 ostext$(OBJ): os$(OS)$(SLASH)ostext.c
 	$(OSCC) os$(OS)$(SLASH)ostext.c
 
+osnet$(OBJ): os$(OS)$(SLASH)osnet.c
+	$(OSCC) os$(OS)$(SLASH)osnet.c
+
 tcaphelp$(OBJ): os$(OS)$(SLASH)tcaphelp.c
 	$(OSCC) os$(OS)$(SLASH)tcaphelp.c
+
+###############################################################################
+# Rules for GUI-dependent files.  Note that we can't really generalize here
+# as well as we could for OS-dependent files, because different GUIs may be
+# broken down differently.
+
+guix11$(OBJ): guix11/guix11.c $(XBM)
+	$(OSCC) guix11/guix11.c
+
+xclip$(OBJ): guix11/xclip.c
+	$(OSCC) guix11/xclip.c
+
+xevent$(OBJ): guix11/xevent.c
+	$(OSCC) guix11/xevent.c
+
+xmisc$(OBJ): guix11/xmisc.c
+	$(OSCC) guix11/xmisc.c
+
+xscroll$(OBJ): guix11/xscroll.c
+	$(OSCC) guix11/xscroll.c
+
+xstatus$(OBJ): guix11/xstatus.c
+	$(OSCC) guix11/xstatus.c
+
+xtext$(OBJ): guix11/xtext.c
+	$(OSCC) guix11/xtext.c
+
+xtool$(OBJ): guix11/xtool.c
+	$(OSCC) guix11/xtool.c
+
+xdialog$(OBJ): guix11/xdialog.c
+	$(OSCC) guix11/xdialog.c
 
 ###############################################################################
 # Handy commands
@@ -192,7 +242,7 @@ clean.unix:
 	$(RM) core
 	$(RM) errlist
 	$(RM) verify.elv
-	$(RM) $(DISTRIB).tgz
+	$(RM) $(DISTRIB).tar.gz
 
 clean.msdos:
 	$(RM) *$(OBJ)
@@ -205,6 +255,10 @@ clobber: clean
 	$(RM) foo
 	$(RM) stderr
 
+tmp:
+	$(RM) /var/tmp/elvis*.ses
+	$(RM) core
+
 sure: verify
 	$(RM) verify.elv
 	verify >detail || gdb verify core
@@ -213,34 +267,78 @@ wc: $(SRCS) $(HDRS)
 	wc $(SRCS) $(HDRS) | sort -n
 
 tags: $(SRCS) $(HDRS)
-	ctags -stv $(SRCS) $(HDRS)
+	ctags $(SRCS) $(HDRS)
 
 ciall: $(SRCS) $(HDRS)
 	ci -u$(REV) Makefile $(SRCS) $(HDRS)
 
 cinever:
-	for i in *.[ch]; do [ -f RCS/$$i,v ] || echo $$i; done
-	for i in os*/.; do (cd $$i; for j in *.[ch]; do [ -f $$j,v ] || echo $$i/$$j; done); done
+	@for i in *.[ch]; do [ -f RCS/$$i,v ] || echo $$i; done
+	@for i in os*/.; do (cd $$i; for j in *.[ch]; do [ -f $$j,v -o -f RCS/$$j,v ] || echo $$i/$$j; done); done
+	@for i in gui*/.; do (cd $$i; for j in *.[ch]; do [ -f $$j,v -o -f RCS/$$j,v ] || echo $$i/$$j; done); done
 
-$(DISTRIB).tgz:
+$(DISTRIB).tar.gz:
 	rm -rf $(DISTRIB)
 	mkdir $(DISTRIB)
 	mkdir $(DISTRIB)/lib
 	for i in os*; do if [ -d $$i ]; then mkdir $(DISTRIB)/$$i; fi; done
-	#for i in gui*; do if [ -d $$i ]; then mkdir $(DISTRIB)/$$i; fi; done
+	for i in gui*; do if [ -d $$i ]; then mkdir $(DISTRIB)/$$i; fi; done
 	cp *.c *.h $(MISC) $(DISTRIB)
 	rm -f $(DISTRIB)/sample.c
 	cp lib/* $(DISTRIB)/lib
-	for i in os*/*.c os*/*.h os*/*.mak; do cp $$i $(DISTRIB)/$$i; done
-	#for i in gui*/*; do if [ -f $$i ]; then cp $$i $(DISTRIB)/$$i; fi; done
+	for i in os*/*.c os*/*.h os*/*.mak os*/*.lib os*/*.ICO osos2/*.def osos2/*os2*; do cp $$i $(DISTRIB)/$$i; done
+	for i in gui*/*; do if [ -f $$i ]; then cp $$i $(DISTRIB)/$$i; fi; done
 	rm -f $(DISTRIB)/osunix/osconfig.h
 	rm -f $(DISTRIB)/config.h
 	rm -f $(DISTRIB)/Makefile
-	tar czf $(DISTRIB).tgz $(DISTRIB)
+	tar czf $(DISTRIB).tar.gz $(DISTRIB)
 	rm -rf $(DISTRIB)
 
+$(DISTRIB)-win32.tar.gz: $(WIN32EXE)
+	rm -rf bin-win32
+	mkdir bin-win32
+	cp $(WIN32EXE)/*.exe bin-win32
+	sed 's/$$//' <README.html >bin-win32/README.html
+	sed 's/$$//' <BUGS >bin-win32/BUGS
+	sed 's/$$//' <COPYING >bin-win32/COPYING
+	mkdir bin-win32/lib
+	cp lib/* bin-win32/lib
+	sed 's/$$//' <lib/printdoc.bat >bin-win32/lib/printdoc.bat
+	sed 's/$$//' <lib/license >bin-win32/lib/license
+	(cd bin-win32; tar czf ../$(DISTRIB)-win32.tar.gz *)
+
+$(DISTRIB)-msdos.tar.gz: $(DOSEXE)
+	rm -rf bin-msdos
+	mkdir bin-msdos
+	cp $(DOSEXE)/*.exe bin-msdos
+	sed 's/$$//' <README.html >bin-msdos/README.html
+	sed 's/$$//' <BUGS >bin-msdos/BUGS
+	sed 's/$$//' <COPYING >bin-msdos/COPYING
+	mkdir bin-msdos/lib
+	cp lib/* bin-msdos/lib
+	sed 's/$$//' <lib/printdoc.bat >bin-msdos/lib/printdoc.bat
+	sed 's/$$//' <lib/license >bin-msdos/lib/license
+	(cd bin-msdos; tar czf ../$(DISTRIB)-msdos.tar.gz *)
+
+$(DISTRIB)-os2.tar.gz: $(OS2EXE)
+	rm -rf bin-os2
+	mkdir bin-os2
+	cp $(OS2EXE)/*.exe bin-os2
+	sed 's/$$//' <README.html >bin-os2/README.html
+	sed 's/$$//' <BUGS >bin-os2/BUGS
+	sed 's/$$//' <COPYING >bin-os2/COPYING
+	mkdir bin-os2/lib
+	cp lib/* bin-os2/lib/
+	sed 's/$$//' <lib/printdoc.bat >bin-os2/lib/printdoc.bat
+	sed 's/$$//' <lib/printdoc.bat >bin-os2/lib/printdoc.cmd
+	sed 's/$$//' <lib/license >bin-os2/lib/license
+	cp osos2/elvis.INF bin-os2/lib/
+	mkdir bin-os2/osos2
+	cp osos2/README.os2 bin-os2/osos2/
+	(cd bin-os2; tar czf ../$(DISTRIB)-os2.tar.gz *)
+
 lib$(SLASH)elvistrs.msg: $(SRCS)
-	sed -n '/%[cds]/d; /[a-z]:/d; s/\[[a-zA-Z]*\]//; s/\\\\/\\/g; s/.*msg(MSG_[A-Z]*, "\([^ 	"][^"]*\)".*/\1/p' *.c os*$(SLASH)*.c | sort -u >lib$(SLASH)elvistrs.msg
+	sed -n '/%[cds]/d; s/\[[a-zA-Z]*\]//; s/\\\\/\\/g; s/.*msg(MSG_[A-Z]*, "\([^ 	"][^"]*\)".*/\1/p' *.c os*$(SLASH)*.c gui*$(SLASH)*.c | sort -u >lib$(SLASH)elvistrs.msg
 
 ###############################################################################
 
@@ -250,10 +348,11 @@ install.unix: $(ALL)
 	rm -f lib/*.bak
 	cp $(ALL) $(BINDIR)
 	(cd $(BINDIR); chmod 0755 $(ALL))
-	test -d $(LIBDIR) || mkdir $(LIBDIR)
-	rm -f $(LIBDIR)/elvis*.hlp
+	mkdir -p $(LIBDIR) || test -d $(LIBDIR) || mkdir $(LIBDIR)
+	rm -f $(LIBDIR)/elvis*.
 	cp lib/* $(LIBDIR)
 	(cd lib; for i in *; do chmod 0644 $(LIBDIR)/$$i; done)
+	sh insticon.sh
 	sh instman.sh -b$(BINDIR) $(ALL)
 
 ###############################################################################
@@ -264,4 +363,5 @@ uninstall.unix:
 	(cd $(BINDIR); $(RM) $(ALL))
 	(cd lib; for i in *; do $(RM) $(LIBDIR)/$$i; done)
 	-rmdir $(LIBDIR)
+	sh insticon.sh -r 
 	sh instman.sh -r -b$(BINDIR) $(ALL)

@@ -10,7 +10,7 @@ D_RCDEFINES = -d_DEBUG
 R_RCDEFINES = -dNDEBUG
 ORIGIN = MSVC
 ORIGIN_VER = 1.00
-PROJPATH = 
+PROJPATH = .\
 USEMFC = 0
 CC = cl
 CPP = cl
@@ -23,7 +23,7 @@ FIRSTC = FMT.C
 FIRSTCPP =             
 RC = rc
 CFLAGS_D_DEXE = /nologo /G2 /Zi /Od /D "_DEBUG" /D "_DOS" /I "osmsdos" /I "." /FR /Fd"FMT.PDB"
-CFLAGS_R_DEXE = /nologo /Gs /G2 /Ox /D "NDEBUG" /D "_DOS" /I "osmsdos" /I "." /FR 
+CFLAGS_R_DEXE = /nologo /Gs /G2 /Ox /D "NDEBUG" /D "_DOS" /I "osmsdos" /I "." 
 LFLAGS_D_DEXE = /NOLOGO /ONERROR:NOEXE /NOI /CO /STACK:5120
 LFLAGS_R_DEXE = /NOLOGO /ONERROR:NOEXE /NOI /STACK:5120
 LIBS_D_DEXE = oldnames slibce
@@ -51,46 +51,51 @@ RCDEFINES = $(R_RCDEFINES)
 SBRS = FMT.SBR
 
 
-FMT_DEP = elvis.h \
-	config.h \
-	version.h \
-	safe.h \
-	options.h \
-	optglob.h \
-	session.h \
-	lowbuf.h \
-	buffer.h \
-	mark.h \
-	buffer2.h \
-	scan.h \
-	message.h \
-	opsys.h \
-	map.h \
-	gui.h \
-	display.h \
-	draw.h \
-	state.h \
-	window.h \
-	gui2.h \
-	display2.h \
-	draw2.h \
-	state2.h \
-	event.h \
-	input.h \
-	vi.h \
-	regexp.h \
-	ex.h \
-	move.h \
-	vicmd.h \
-	operator.h \
-	cut.h \
-	elvisio.h \
-	lp.h \
-	calc.h \
-	more.h \
-	digraph.h \
-	need.h \
-	misc.h
+FMT_DEP = .\config.h \
+	.\elvis.h \
+	.\elvctype.h \
+	.\version.h \
+	.\safe.h \
+	.\options.h \
+	.\optglob.h \
+	.\session.h \
+	.\lowbuf.h \
+	.\message.h \
+	.\buffer.h \
+	.\mark.h \
+	.\buffer2.h \
+	.\options2.h \
+	.\scan.h \
+	.\opsys.h \
+	.\map.h \
+	.\gui.h \
+	.\display.h \
+	.\draw.h \
+	.\state.h \
+	.\window.h \
+	.\gui2.h \
+	.\display2.h \
+	.\draw2.h \
+	.\state2.h \
+	.\event.h \
+	.\input.h \
+	.\vi.h \
+	.\regexp.h \
+	.\ex.h \
+	.\move.h \
+	.\vicmd.h \
+	.\operator.h \
+	.\cut.h \
+	.\elvisio.h \
+	.\lp.h \
+	.\calc.h \
+	.\more.h \
+	.\digraph.h \
+	.\tag.h \
+	.\tagsrch.h \
+	.\tagelvis.h \
+	.\need.h \
+	.\misc.h
 
 
 all:	$(PROJ).EXE

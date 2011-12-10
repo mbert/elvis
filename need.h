@@ -20,3 +20,11 @@ BEGIN_EXTERNC
 extern char *strdup P_((const char *str));
 END_EXTERNC
 #endif
+
+#ifdef NEED_MEMMOVE
+BEGIN_EXTERNC
+extern void *memmove P_((void *, const void *, size_t));
+END_EXTERNC
+#endif
+
+

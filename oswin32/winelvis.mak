@@ -14,11 +14,11 @@ HDRS=buffer.h buffer2.h calc.h config.h cut.h digraph.h display.h display2.h \
  draw.h draw2.h elvctype.h elvis.h elvisio.h event.h ex.h gui.h gui2.h \
  input.h lowbuf.h lp.h mark.h message.h misc.h more.h move.h need.h \
  operator.h opsys.h optglob.h options.h options2.h oswin32\osdef.h regexp.h \
- safe.h scan.h session.h state.h state2.h version.h vi.h vicmd.h window.h
+ safe.h scan.h session.h state.h state2.h tag.h version.h vi.h vicmd.h window.h
 GUIHDRS=guiwin32\winelvis.h guiwin32\wintools.h
 LINK32_FLAGS=kernel32.lib user32.lib gdi32.lib winspool.lib comctl32.lib\
- comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib /nologo\
- /subsystem:windows /incremental:no /machine:I386\
+ comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib\
+ wsock32.lib /nologo /subsystem:windows /incremental:no /machine:I386\
  /out:"WinElvis.exe" 
 LINK32_OBJS= \
 	"$(INTDIR)/guiwin.obj" \
@@ -49,12 +49,9 @@ LINK32_OBJS= \
 	"$(INTDIR)/exaction.obj" \
 	"$(INTDIR)/exconfig.obj" \
 	"$(INTDIR)/exedit.obj" \
+	"$(INTDIR)/exsubst.obj" \
 	"$(INTDIR)/exmake.obj" \
 	"$(INTDIR)/gui.obj" \
-	"$(INTDIR)/guicurs.obj" \
-	"$(INTDIR)/guiopen.obj" \
-	"$(INTDIR)/guitcap.obj" \
-	"$(INTDIR)/guix11.obj" \
 	"$(INTDIR)/input.obj" \
 	"$(INTDIR)/io.obj" \
 	"$(INTDIR)/lowbuf.obj" \
@@ -80,11 +77,18 @@ LINK32_OBJS= \
 	"$(INTDIR)/search.obj" \
 	"$(INTDIR)/session.obj" \
 	"$(INTDIR)/state.obj" \
+	"$(INTDIR)/tag.obj" \
+	"$(INTDIR)/tagelvis.obj" \
+	"$(INTDIR)/tagsrch.obj" \
 	"$(INTDIR)/vi.obj" \
 	"$(INTDIR)/vicmd.obj" \
 	"$(INTDIR)/window.obj" \
 	"$(INTDIR)/winelvis.obj" \
 	"$(INTDIR)/wintools.obj" \
+	"$(INTDIR)/osnet.obj" \
+	"$(INTDIR)/url.obj" \
+	"$(INTDIR)/http.obj" \
+	"$(INTDIR)/ftp.obj" \
 	"$(INTDIR)/winelvis.res"
 
 ################################################################################
@@ -147,104 +151,111 @@ $(INTDIR)\osprg.obj : oswin32\osprg.c $(HDRS)
 
 $(INTDIR)\osblock.obj : oswin32\osblock.c $(HDRS)
 
+$(INTDIR)\osnet.obj : oswin32\osnet.c $(HDRS)
 
-$(INTDIR)\buffer.obj : buffer.c $(HDR)
 
-$(INTDIR)\calc.obj : calc.c $(HDR)
+$(INTDIR)\buffer.obj : buffer.c $(HDRS)
 
-$(INTDIR)\cut.obj : cut.c $(HDR)
+$(INTDIR)\calc.obj : calc.c $(HDRS)
 
-$(INTDIR)\digraph.obj : digraph.c $(HDR)
+$(INTDIR)\cut.obj : cut.c $(HDRS)
 
-$(INTDIR)\display.obj : display.c $(HDR)
+$(INTDIR)\digraph.obj : digraph.c $(HDRS)
 
-$(INTDIR)\dmhex.obj : dmhex.c $(HDR)
+$(INTDIR)\display.obj : display.c $(HDRS)
 
-$(INTDIR)\dmmarkup.obj : dmmarkup.c $(HDR)
+$(INTDIR)\dmhex.obj : dmhex.c $(HDRS)
 
-$(INTDIR)\dmnormal.obj : dmnormal.c $(HDR)
+$(INTDIR)\dmmarkup.obj : dmmarkup.c $(HDRS)
 
-$(INTDIR)\dmsyntax.obj : dmsyntax.c $(HDR)
+$(INTDIR)\dmnormal.obj : dmnormal.c $(HDRS)
 
-$(INTDIR)\draw.obj : draw.c $(HDR)
+$(INTDIR)\dmsyntax.obj : dmsyntax.c $(HDRS)
 
-$(INTDIR)\event.obj : event.c $(HDR)
+$(INTDIR)\draw.obj : draw.c $(HDRS)
 
-$(INTDIR)\ex.obj : ex.c $(HDR)
+$(INTDIR)\event.obj : event.c $(HDRS)
 
-$(INTDIR)\exaction.obj : exaction.c $(HDR)
+$(INTDIR)\ex.obj : ex.c $(HDRS)
 
-$(INTDIR)\exconfig.obj : exconfig.c $(HDR)
+$(INTDIR)\exaction.obj : exaction.c $(HDRS)
 
-$(INTDIR)\exedit.obj : exedit.c $(HDR)
+$(INTDIR)\exconfig.obj : exconfig.c $(HDRS)
 
-$(INTDIR)\exmake.obj : exmake.c $(HDR)
+$(INTDIR)\exedit.obj : exedit.c $(HDRS)
+$(INTDIR)\exsubst.obj : exsubst.c $(HDRS)
 
-$(INTDIR)\gui.obj : gui.c $(HDR)
+$(INTDIR)\exmake.obj : exmake.c $(HDRS)
 
-$(INTDIR)\guicurs.obj : guicurs.c $(HDR)
+$(INTDIR)\ftp.obj : ftp.c $(HDRS)
 
-$(INTDIR)\guiopen.obj : guiopen.c $(HDR)
+$(INTDIR)\gui.obj : gui.c $(HDRS)
 
-$(INTDIR)\guitcap.obj : guitcap.c $(HDR)
+$(INTDIR)\http.obj : http.c $(HDRS)
 
-$(INTDIR)\guix11.obj : guix11.c $(HDR)
+$(INTDIR)\input.obj : input.c $(HDRS)
 
-$(INTDIR)\input.obj : input.c $(HDR)
+$(INTDIR)\io.obj : io.c $(HDRS)
 
-$(INTDIR)\io.obj : io.c $(HDR)
+$(INTDIR)\lowbuf.obj : lowbuf.c $(HDRS)
 
-$(INTDIR)\lowbuf.obj : lowbuf.c $(HDR)
+$(INTDIR)\lp.obj : lp.c $(HDRS)
 
-$(INTDIR)\lp.obj : lp.c $(HDR)
+$(INTDIR)\lpescape.obj : lpescape.c $(HDRS)
 
-$(INTDIR)\lpescape.obj : lpescape.c $(HDR)
+$(INTDIR)\lpovrtyp.obj : lpovrtyp.c $(HDRS)
 
-$(INTDIR)\lpovrtyp.obj : lpovrtyp.c $(HDR)
+$(INTDIR)\lpps.obj : lpps.c $(HDRS)
 
-$(INTDIR)\lpps.obj : lpps.c $(HDR)
+$(INTDIR)\main.obj : main.c $(HDRS)
 
-$(INTDIR)\main.obj : main.c $(HDR)
+$(INTDIR)\map.obj : map.c $(HDRS)
 
-$(INTDIR)\map.obj : map.c $(HDR)
+$(INTDIR)\mark.obj : mark.c $(HDRS)
 
-$(INTDIR)\mark.obj : mark.c $(HDR)
+$(INTDIR)\message.obj : message.c $(HDRS)
 
-$(INTDIR)\message.obj : message.c $(HDR)
+$(INTDIR)\misc.obj : misc.c $(HDRS)
 
-$(INTDIR)\misc.obj : misc.c $(HDR)
+$(INTDIR)\more.obj : more.c $(HDRS)
 
-$(INTDIR)\more.obj : more.c $(HDR)
+$(INTDIR)\move.obj : move.c $(HDRS)
 
-$(INTDIR)\move.obj : move.c $(HDR)
+$(INTDIR)\need.obj : need.c $(HDRS)
 
-$(INTDIR)\need.obj : need.c $(HDR)
+$(INTDIR)\operator.obj : operator.c $(HDRS)
 
-$(INTDIR)\operator.obj : operator.c $(HDR)
+$(INTDIR)\optglob.obj : optglob.c $(HDRS)
 
-$(INTDIR)\optglob.obj : optglob.c $(HDR)
+$(INTDIR)\options.obj : options.c $(HDRS)
 
-$(INTDIR)\options.obj : options.c $(HDR)
+$(INTDIR)\regexp.obj : regexp.c $(HDRS)
 
-$(INTDIR)\regexp.obj : regexp.c $(HDR)
+$(INTDIR)\regsub.obj : regsub.c $(HDRS)
 
-$(INTDIR)\regsub.obj : regsub.c $(HDR)
+$(INTDIR)\safe.obj : safe.c $(HDRS)
 
-$(INTDIR)\safe.obj : safe.c $(HDR)
+$(INTDIR)\scan.obj : scan.c $(HDRS)
 
-$(INTDIR)\scan.obj : scan.c $(HDR)
+$(INTDIR)\search.obj : search.c $(HDRS)
 
-$(INTDIR)\search.obj : search.c $(HDR)
+$(INTDIR)\session.obj : session.c $(HDRS)
 
-$(INTDIR)\session.obj : session.c $(HDR)
+$(INTDIR)\state.obj : state.c $(HDRS)
 
-$(INTDIR)\state.obj : state.c $(HDR)
+$(INTDIR)\tag.obj : tag.c $(HDRS)
 
-$(INTDIR)\vi.obj : vi.c $(HDR)
+$(INTDIR)\tagelvis.obj : tagelvis.c $(HDRS)
 
-$(INTDIR)\vicmd.obj : vicmd.c $(HDR)
+$(INTDIR)\tagsrch.obj : tagsrch.c $(HDRS)
 
-$(INTDIR)\window.obj : window.c $(HDR)
+$(INTDIR)\url.obj : url.c $(HDRS)
+
+$(INTDIR)\vi.obj : vi.c $(HDRS)
+
+$(INTDIR)\vicmd.obj : vicmd.c $(HDRS)
+
+$(INTDIR)\window.obj : window.c $(HDRS)
 
 ################################################################################
 # Resources
