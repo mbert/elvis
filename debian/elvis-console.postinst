@@ -1,0 +1,28 @@
+#!/bin/sh
+
+set -e
+
+case "$1" in
+    configure)
+        update-alternatives --quiet \
+          --install /usr/bin/editor editor /usr/bin/elvis 90 \
+          --slave /usr/share/man/man1/editor.1.gz editor.1.gz \
+                  /usr/share/man/man1/elvis.1.gz
+        for app in editor ex input vi view; do
+            update-alternatives --quiet \
+              --install /usr/bin/"$app" "$app" /usr/bin/elvis 120 \
+              --slave /usr/share/man/man1/"$app".1.gz "$app".1.gz \
+                      /usr/share/man/man1/elvis.1.gz
+        done
+        ;;
+    abort-upgrade|abort-remove|abort-deconfigure)
+        ;;
+    *)
+        echo "postinst called with unknown argument \`$1'" >&2
+        exit 1
+        ;;
+esac
+
+#DEBHELPER#
+
+exit 0

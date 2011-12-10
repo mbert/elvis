@@ -1,0 +1,21 @@
+#!/bin/sh
+
+set -e
+
+case "$1" in
+    upgrade|remove|deconfigure)
+        for app in editor ex input vi view; do
+            update-alternatives --quiet --remove "$app" /usr/bin/elvisnox
+        done
+        ;;
+    failed-upgrade)
+        ;;
+    *)
+        echo "prerm called with unknown argument \`$1'" >&2
+        exit 1
+        ;;
+esac
+
+#DEBHELPER#
+
+exit 0

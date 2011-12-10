@@ -1,0 +1,3 @@
+# Manpages are all in elvis-common which
+# this package depends on.
+elvis-console: binary-without-manpage usr/bin/elvis

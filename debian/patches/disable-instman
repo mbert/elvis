@@ -1,0 +1,62 @@
+Index: elvis-2.2.0/Makefile.in
+===================================================================
+--- elvis-2.2.0.orig/Makefile.in	2009-03-03 21:10:42.000000000 +0530
++++ elvis-2.2.0/Makefile.in	2009-03-03 21:10:42.000000000 +0530
+@@ -440,25 +440,25 @@
+ 	(cd doc; for i in *.man; do sed 's/Elvis 2\.[0-9x][0-9a-z_-]*/Elvis $(VERSION)/' $$i >$(DOCDIR)/$$i; done)
+ 	-(cd $(DATADIR); $(BINDIR)/elvtags -gitv stubs/*.c || ctags stubs/*.c)
+ 	chmod 0755 $(DATADIR)/*/. $(DATADIR) $(DOCDIR)
+-	sh instman.sh -p$(PREFIX) $(ALL)
+-	-[ -d /etc/elvis ] || mkdir /etc/elvis
+-	-chmod 0755 /etc/elvis/
+-	-@ : >/etc/elvis/README && ( \
+-	  echo "This directory contains system-dependent versions of elvis' configuration" \
+-	  echo "files.  The standard versions are available in $(DATADIR)"  \
+-	  echo "To customize any of these configuration files for this system,"  \
+-	  echo "first copy the standard version of the file into /etc/elvis and" \
+-	  echo "then edit the copy.  Leave the standard version unchanged." \
+-	) >>/etc/elvis/README
+-	-chmod 0644 /etc/elvis/README
+-	@echo "This directory contains the standard versions of elvis' configuration" >$(DATADIR)/README
+-	@echo "files.  DO NOT MODIFY THESE FILES!  To perform host-specific customization," >>$(DATADIR)/README
+-	@echo "copy files from this directory into /etc/elvis/, and then modify the copies." >>$(DATADIR)/README
+-	@echo "To make user-specific changes, create a ~/.elvis/ directory (if it doesn't" >>$(DATADIR)/README
+-	@echo "exist already) and copy files from this directory into ~/.elvis/ and then" >>$(DATADIR)/README
+-	@echo "modify the copies.  Any file that elvis finds in ~/.elvis/ or /etc/elvis/" >>$(DATADIR)/README
+-	@echo "overrides the similarly named file in this directory." >>$(DATADIR)/README
+-	chmod 0644 $(DATADIR)/README
++#	sh instman.sh -p$(PREFIX) $(ALL)
++#	-[ -d /etc/elvis ] || mkdir /etc/elvis
++#	-chmod 0755 /etc/elvis/
++#	-@ : >/etc/elvis/README && ( \
++#	  echo "This directory contains system-dependent versions of elvis' configuration" \
++#	  echo "files.  The standard versions are available in $(DATADIR)"  \
++#	  echo "To customize any of these configuration files for this system,"  \
++#	  echo "first copy the standard version of the file into /etc/elvis and" \
++#	  echo "then edit the copy.  Leave the standard version unchanged." \
++#	) >>/etc/elvis/README
++#	-chmod 0644 /etc/elvis/README
++#	@echo "This directory contains the standard versions of elvis' configuration" >$(DATADIR)/README
++#	@echo "files.  DO NOT MODIFY THESE FILES!  To perform host-specific customization," >>$(DATADIR)/README
++#	@echo "copy files from this directory into /etc/elvis/, and then modify the copies." >>$(DATADIR)/README
++#	@echo "To make user-specific changes, create a ~/.elvis/ directory (if it doesn't" >>$(DATADIR)/README
++#	@echo "exist already) and copy files from this directory into ~/.elvis/ and then" >>$(DATADIR)/README
++#	@echo "modify the copies.  Any file that elvis finds in ~/.elvis/ or /etc/elvis/" >>$(DATADIR)/README
++#	@echo "overrides the similarly named file in this directory." >>$(DATADIR)/README
++#	chmod 0644 $(DATADIR)/README
+ 
+ 
+ ###############################################################################
+Index: elvis-2.2.0/configure
+===================================================================
+--- elvis-2.2.0.orig/configure	2009-03-03 20:44:09.000000000 +0530
++++ elvis-2.2.0/configure	2009-03-03 21:10:42.000000000 +0530
+@@ -886,7 +886,7 @@
+ echo "Bin dir:  "`echo "$BINDIR" |sed s,'$(PREFIX)',"$PREFIX",`
+ echo "Data dir: "`echo "$DATADIR"|sed s,'$(PREFIX)',"$PREFIX",`
+ echo "Doc dir:  "`echo "$DOCDIR" |sed s,'$(PREFIX)',"$PREFIX",`
+-echo "Man dir:  "`sh instman.sh -d -p"${PREFIX}"`
++#echo "Man dir:  "`sh instman.sh -d -p"${PREFIX}"`
+ [ "$WHY" ] || echo "To see details, run \"configure --verbose\""
+ 
+ ################################################################################

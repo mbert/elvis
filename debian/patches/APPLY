@@ -1,0 +1,67 @@
+    fix some typos in the html manual:
+doc-typos-1
+
+    add "return" to the syntax file as a keyword for shell scripts
+    (suggested by Herbert Xu):
+syntax-sh-return
+
+    fix sed command in Makefile that updates the manpages' version
+    string ("ELVIS 2.2_0"):
+make-sed-ver
+
+    disable the instman.sh script - we manually install the manpages
+    in debian/rules:
+disable-instman
+
+    debianize some links in the manual:
+doc-man-location
+
+    replace the augz script with the better gzip script from the
+    current elvis development version and load it in elvis.ini
+    (note that it still doesn't work in some situations):
+script-augz
+
+    add "set undolevels=12" to the sample configuration file - very
+    useful:
+cfg-undolevels
+
+    patch Makefile to remove doc/elvfmt.man:
+make-rm-elvfmtman
+
+    adapt the printdoc script and the documentation of it
+printdoc-debian
+
+    correct the description of the # vi command:
+doc-vicmd-hash
+
+    fix a bug in the ) vi command code that could cause a segmentation
+    fault (patch from elvis-almost-2.2.1):
+segfault-fsentence
+
+    add region and stdin to the features alias (in elvis.ali):
+alias-features
+
+    backport another fix (:andale) and improvement (:customize) from
+    almost-2.2.1:
+alias-andale-and-customize
+
+    pressing escape in command mode should cause elvis to beep:
+esc-beep
+
+    "The :dict alias (after ":load dict") doesn't handle single words
+    correctly.":
+script-dict
+
+    fix file/syntax detection for scripts that use env in their
+    shebang line:
+arf-syntax-env
+
+    fix the description of the '{' movement taking into account
+    the tweaksection variable:
+doc-tweaksection
+
+    fix hyphen-used-as-minus-sign:
+doc-man-hyphen
+
+    fix build on new Debian kFreeBSD architecture:
+config-arch-kfreebsd

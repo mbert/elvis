@@ -1,0 +1,33 @@
+elvis (2.2.0-2) unstable; urgency=low
+
+  The elvis package has been split into elvis-common, elvis,
+  elvis-console and elvis-tools.
+
+    elvis-common:
+      This package provides the common files (manual, ex scripts,
+      digraph files, etc.) that are needed by the packages elvis,
+      elvis-console and elvis-tools.
+
+    elvis:
+      This package contains Elvis compiled with support for X11, Xft
+      and background images.  If you don't need the X11 interface,
+      install elvis-console instead.
+
+    elvis-console:
+      This package contains Elvis compiled without X11 support.  If
+      you want to use Elvis' X11 interface then install the package
+      elvis instead.
+
+    elvis-tools:
+      This package contains elvtags (for generating tags and refs
+      files), ref (for quickly locating/displaying the header of a
+      function) and elvfmt (for adjusting paragraphs of text).
+      These tools actually belong to the Elvis editor but can be used
+      without it.
+
+  As a consequence of this, elvfmt, elvref and elvtags will be removed
+  if you're upgrading from an earlier version of the elvis package.
+  In this case, just install elvis-tools afterwards if you need them.
+  Also note that elvref is now again installed as ref.
+
+ -- Georg Neis <georg@f-451.net>  Tue, 04 Aug 2004 13:12:55 +0200

@@ -1,0 +1,117 @@
+#!/usr/bin/make -f
+
+#export DH_VERBOSE=1
+
+DEB_HOST_GNU_TYPE  ?= $(shell dpkg-architecture -qDEB_HOST_GNU_TYPE)
+DEB_BUILD_GNU_TYPE ?= $(shell dpkg-architecture -qDEB_BUILD_GNU_TYPE)
+
+CC = gcc -Wall -g  -I/usr/include/freetype2 -I/usr/X11R6/include
+ifneq (,$(findstring noopt,$(DEB_BUILD_OPTIONS)))
+    CC += -O0
+else
+    CC += -O2
+endif
+
+CFGEXTS = ali arf awf brf bwf clr ini msg ps spe syn
+CONFBOTH = --bindir=/usr/bin --datadir=/usr/share/elvis \
+           --docdir=/usr/share/elvis/manual --libs=-lncurses
+CONFCONSOLE = $(CONFBOTH) --without-x
+CONFX11 = $(CONFBOTH) --with-x --with-xft --without-gnome
+EDIR = $(CURDIR)/debian/elvis
+MDIR = $(CURDIR)/debian/elvis-common
+NDIR = $(CURDIR)/debian/elvis-console
+TDIR = $(CURDIR)/debian/elvis-tools
+MTRASH = *.txt ctags.man fmt.man
+MPAGES = elvis elvfmt elvtags ref
+
+patch:
+	dh_testdir
+
+	QUILT_PATCHES=debian/patches quilt push -a || test $$? = 2
+
+	touch patch
+
+unpatch:
+	dh_testdir
+
+	QUILT_PATCHES=debian/patches quilt pop -a -R || test $$? = 2
+
+	rm -rf .pc
+	rm -f patch
+
+build: patch
+	dh_testdir
+	./configure $(CONFCONSOLE)
+	$(MAKE) CC="$(CC)"
+	mv elvis elvis-console
+	$(MAKE) clean
+	./configure $(CONFX11)
+	$(MAKE) CC="$(CC)"
+	touch build
+
+install: build
+	dh_testdir
+	dh_installdirs -a
+	dh_installdirs -i
+	$(MAKE) BINDIR="$(TDIR)"/usr/bin \
+	        DATADIR="$(MDIR)"/usr/share/elvis \
+	        DOCDIR="$(MDIR)"/usr/share/elvis/manual \
+	        install
+	touch install
+
+binary-arch: install
+	dh_testdir
+	dh_testroot
+	dh_link -a
+	cd "$(MDIR)"/usr/share/elvis; \
+	    for i in $(CFGEXTS); do \
+	        cp elvis."$$i" "$(EDIR)"/etc/elvis; \
+	        mv elvis."$$i" "$(NDIR)"/etc/elvis; \
+	    done; \
+	    mv elvis.x11 "$(EDIR)"/etc/elvis; \
+	    rm elvis.rc
+	mv "$(TDIR)"/usr/bin/elvis "$(EDIR)"/usr/bin
+	mv elvis-console "$(NDIR)"/usr/bin/elvis
+	dh_install -a
+	dh_strip -a
+	dh_compress -a
+	dh_fixperms -a
+	dh_shlibdeps -a
+	dh_gencontrol -a
+	dh_installdeb -a
+	dh_md5sums -a
+	dh_builddeb -a
+
+binary-indep: install
+	dh_testdir
+	dh_testroot
+	dh_link -i
+	cd "$(MDIR)"/usr/share/elvis/manual; \
+	    rm $(MTRASH); \
+	    mv printdoc.bat printdoc.sh; \
+	    chmod +x printdoc.sh; \
+	    for i in $(MPAGES); do \
+	        cp "$$i".man ../../man/man1/"$$i".1; \
+	    done
+	dh_install -i
+	dh_installdocs -i
+	dh_installchangelogs -i
+	dh_installexamples -i
+	dh_installmenu -i
+	dh_compress -i
+	dh_fixperms -i
+	dh_gencontrol -i
+	dh_installdeb -i
+	dh_md5sums -i
+	dh_builddeb -i
+
+binary: binary-arch binary-indep
+
+clean: unpatch
+	dh_testdir
+	dh_testroot
+	rm -f build install elvis-console
+	-[ -f Makefile ] && $(MAKE) clobber
+	dh_clean Makefile config.h config.stat ctags fmt
+
+.PHONY: binary binary-arch binary-indep clean unpatch

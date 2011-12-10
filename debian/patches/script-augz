@@ -1,0 +1,32 @@
+Index: elvis-2.2.0/data/elvis.ini
+===================================================================
+--- elvis-2.2.0.orig/data/elvis.ini	2009-03-03 20:44:08.000000000 +0530
++++ elvis-2.2.0/data/elvis.ini	2009-03-03 21:10:43.000000000 +0530
+@@ -132,3 +132,6 @@
+  }
+ }
+ "
++"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
++" try to load the augz script which allows us to read/write gzipped files
++try load augz
+Index: elvis-2.2.0/data/scripts/augz.ex
+===================================================================
+--- elvis-2.2.0.orig/data/scripts/augz.ex	2009-03-03 20:44:08.000000000 +0530
++++ elvis-2.2.0/data/scripts/augz.ex	2009-03-03 21:10:43.000000000 +0530
+@@ -4,8 +4,14 @@
+   au!
+   au BufReadPre,FileReadPre	*.gz set reol=binary
+   au BufReadPost		*.gz %!gunzip
+-  au FileReadPost		*.gz '[,']!gunzip
+-  au BufReadPost,FileReadPost	*.gz set reol=text nomodified bufdisplay=normal
++  au FileReadPost		*.gz '[,']!gunzip 2>/dev/null
++  au BufReadPost,FileReadPost	*.gz {
++					set reol=text nomodified
++					file! (basename(filename))
++					source! (elvispath("elvis.arf"))
++					file! (filename).gz
++					set edited
++				     }
+   au BufReadPost		*.gz eval doau BufReadPost (basename(filename))
+   au BufWritePost,FileWritePost	*.gz eval mv (afile) (basename(afile))
+   au BufWritePost,FileWritePost	*.gz eval !gzip (basename(afile))

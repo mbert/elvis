@@ -1,0 +1,7 @@
+# format version number, currently 3; this line is compulsory!
+version=3
+
+# This the format for an FTP site:
+# Full-site-with-pattern  [Version  [Action]]
+opts="pasv,uversionmangle=s/_/./" \
+ftp://ftp.cs.pdx.edu/pub/elvis/elvis-([\d\._]+)\.tar\.gz debian  uupdate

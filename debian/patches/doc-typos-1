@@ -1,0 +1,88 @@
+Index: elvis-2.2.0/doc/elvis.man
+===================================================================
+--- elvis-2.2.0.orig/doc/elvis.man	2009-03-03 20:44:09.000000000 +0530
++++ elvis-2.2.0/doc/elvis.man	2009-03-03 21:10:40.000000000 +0530
+@@ -454,7 +454,7 @@
+ .IP "LC_ALL, LC_MESSAGES, and LANG"
+ If LANG is defined, then
+ .B Elvis
+-will look for for its message translations in
++will look for its message translations in
+ .IR $LANG/elvis.msg ,
+ and only use just plain
+ .I elvis.msg
+Index: elvis-2.2.0/doc/elvisopt.html
+===================================================================
+--- elvis-2.2.0.orig/doc/elvisopt.html	2009-03-03 20:44:09.000000000 +0530
++++ elvis-2.2.0/doc/elvisopt.html	2009-03-03 21:10:40.000000000 +0530
+@@ -1601,7 +1601,7 @@
+ <dd>The <em>scrollbar</em>, <em>toolbar</em>, and <em>statusbar</em> options
+ indicate whether the scrollbar, toolbar, and statusbar should be visible,
+ respectively.
+-By default, all are are visible.
++By default, all are visible.
+ 
+ <dt><a name="scrollwheelspeed">scrollwheelspeed,sws <em>(Number, windows or x11)</em></a>
+ <dd>The <em>scrollwheelspeed</em> option controls the speed and direction of
+Index: elvis-2.2.0/doc/elvisos.html
+===================================================================
+--- elvis-2.2.0.orig/doc/elvisos.html	2009-03-03 20:44:09.000000000 +0530
++++ elvis-2.2.0/doc/elvisos.html	2009-03-03 21:10:40.000000000 +0530
+@@ -45,7 +45,7 @@
+ $1 in the command line to be replaced by the name of Elvis' temporary file
+ that contains the print data.
+ 
+-<p>This lead to the the second problem:
++<p>This lead to the second problem:
+ PRINT doesn't make a copy of the file, and Elvis deletes the temporary file
+ as soon as PRINT exits.
+ Since PRINT exits before the file has been printed completely, this means
+@@ -606,7 +606,7 @@
+ If uname reports a brand of Unix that <code>configure</code> doesn't recognize,
+ then <code>configure</code> will inspect the files on your system for evidence
+ that you're running SCO Unix/ODT or SCO Xenix.
+-If that test fails, you'll need to give the OS name on the the command line
++If that test fails, you'll need to give the OS name on the command line
+ when invoking <code>configure</code> (e.g., "<code>configure sco</code>"
+ or "<code>configure xenix</code>").
+ 
+Index: elvis-2.2.0/doc/elvisses.html
+===================================================================
+--- elvis-2.2.0.orig/doc/elvisses.html	2009-03-03 20:44:09.000000000 +0530
++++ elvis-2.2.0/doc/elvisses.html	2009-03-03 21:10:40.000000000 +0530
+@@ -184,7 +184,7 @@
+ as readonly.
+ <p>
+ Also, if the <a href="elvisopt.html#home">home</a> option is unset,
+-then this tries to set it to the directory containing elvis.
++then this tries to set it to the directory containing Elvis.
+ Generally, some OS-specific code will set <code>home</code> appropriately
+ before we get here, so this code isn't normally needed.
+ 
+@@ -194,7 +194,7 @@
+ 	then source! (elvispath("elvis.spe"))
+ </pre>
+ This initializes the <a href="elvistip.html#spell">spell checker</a>,
+-if that feature is supported in this version of elvis.
++if that feature is supported in this version of Elvis.
+ 
+ <pre>
+ 	" IF ALIASES ARE SUPPORTED, THEN LOAD THE DEFAULT ALIASES
+@@ -202,7 +202,7 @@
+ 	then source! (elvispath("elvis.ali"))
+ </pre>
+ This loads some standard aliases, if the alias feature is supported by
+-this version of elvis, and elvis isn't being used as a "restricted" editor.
++this version of Elvis, and Elvis isn't being used as a "restricted" editor.
+ 
+ <pre>
+ 	" SYSTEM TWEAKS GO HERE
+@@ -526,7 +526,7 @@
+ <a href="elvistip.html#EXAMPLES">described in the Tips chapter</a>.
+ If your copy of Elvis is configured to support aliases (and all versions are,
+ except for MS-DOS) then this file will be automatically loaded via the
+-<a href="elvis.ini">elvis.ini</a> script, each time you run Elvis.
++<a href="#elvis.ini">elvis.ini</a> script, each time you run Elvis.
+ 
+ <dt><a name="elvis.msg">elvis.msg</a>
+ <dd>This file stores a translation table, which allows you to customize

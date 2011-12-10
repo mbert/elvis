@@ -1,0 +1,32 @@
+#!/bin/sh
+
+set -e
+
+case "$1" in
+    upgrade)
+        if dpkg --compare-versions "$2" '<<' "2.2.0-2"; then
+            update-alternatives --quiet --remove ctags /usr/bin/elvtags
+            for app in editor ex input vi view; do
+                update-alternatives --quiet --remove "$app" /usr/bin/elvisnox
+            done
+
+            if dpkg --compare-versions "$2" '<<' "2.2.0-1"; then
+                update-alternatives --quiet --remove ref /usr/bin/ref-elvis
+            else
+                update-alternatives --quiet --remove ref /usr/bin/elvref
+            fi
+
+            [ ! -d /usr/share/doc/elvis ] || rm -rf /usr/share/doc/elvis
+        fi
+        ;;
+    install|abort-upgrade)
+        ;;
+    *)
+        echo "preinst called with unknown argument \`$1'" >&2
+        exit 1
+        ;;
+esac
+
+#DEBHELPER#
+
+exit 0

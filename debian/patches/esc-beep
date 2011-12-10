@@ -1,0 +1,23 @@
+Index: elvis-2.2.0/vicmd.c
+===================================================================
+--- elvis-2.2.0.orig/vicmd.c	2009-03-03 20:44:07.000000000 +0530
++++ elvis-2.2.0/vicmd.c	2009-03-03 21:10:47.000000000 +0530
+@@ -4,7 +4,7 @@
+ 
+ #include "elvis.h"
+ #ifdef FEATURE_RCSID
+-char id_vicmd[] = "$Id: vicmd.c,v 2.83 2003/10/19 23:13:33 steve Exp $";
++char id_vicmd[] = "$Id: vicmd.c,v 2.84 2003/12/28 20:33:29 steve Exp $";
+ #endif
+ 
+ 
+@@ -953,6 +953,9 @@
+ 		win->selattop = ElvFalse;
+ 		win->seltype = 'r';
+ 		break;
++
++	  case ELVCTRL('['):
++		return RESULT_ERROR;
+ 	}
+ 	return RESULT_COMPLETE;
+ #endif /* FEATURE_V */

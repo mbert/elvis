@@ -1,0 +1,4 @@
+# Manpages are all in elvis-common which
+# this package depends on.
+elvis: binary-without-manpage usr/bin/elvis
+elvis: binary-without-manpage usr/bin/elvisnox

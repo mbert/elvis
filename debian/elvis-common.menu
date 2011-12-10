@@ -1,0 +1,23 @@
+?package(elvis-common,elvis-console):      \
+    needs="text"                           \
+    hints="Small,Expert"                   \
+    section="Applications/Editors"         \
+    title="Elvis (console)"                \
+    command="/usr/bin/elvis -Gtermcap"     \
+    icon="/usr/share/pixmaps/elvis_32x32.xpm"
+
+?package(elvis-common,elvis):              \
+    needs="text"                           \
+    hints="Small,Expert"                   \
+    section="Applications/Editors"         \
+    title="Elvis (console)"                \
+    command="/usr/bin/elvis -Gtermcap"     \
+    icon="/usr/share/pixmaps/elvis_32x32.xpm"
+
+?package(elvis-common,elvis):              \
+    needs="X11"                            \
+    hints="Small,Expert"                   \
+    section="Applications/Editors"         \
+    title="Elvis (X11)"                    \
+    command="/usr/bin/elvis -Gx11"         \
+    icon="/usr/share/pixmaps/elvis_32x32.xpm"

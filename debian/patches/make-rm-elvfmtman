@@ -1,0 +1,13 @@
+Index: elvis-2.2.0/Makefile.in
+===================================================================
+--- elvis-2.2.0.orig/Makefile.in	2009-03-03 21:10:42.000000000 +0530
++++ elvis-2.2.0/Makefile.in	2009-03-03 21:10:44.000000000 +0530
+@@ -285,7 +285,7 @@
+ 	$(RM) verify.elv
+ 	$(RM) gdk_imlib.h
+ 	$(RM) $(DISTRIB).tar.gz
+-	$(RM) doc/elvtags.man
++	$(RM) doc/elvtags.man doc/elvfmt.man
+ 	$(RM) elvis.rpm
+ 
+ clean.msdos:

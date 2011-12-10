@@ -1,0 +1,15 @@
+#!/bin/sh
+
+# This is a little wrapper shell script which runs elvis with
+# the GUI set to "termcap" (i.e. for using in a console).
+
+mode=""
+
+case "$0" in
+ *elvisnox) ;;           # start in normal mode
+        *x) mode="-e";;  # start in ex mode
+    *input) mode="-i";;  # start in input mode
+     *view) mode="-R";;  # set the defaultreadonly option
+esac
+
+ELVISGUI="termcap" exec /usr/bin/elvis $mode "$@"

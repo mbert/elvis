@@ -1,0 +1,444 @@
+elvis (2.2.0-11.1) unstable; urgency=low
+
+  * Non-maintainer upload.
+  * Rename custon getline to build against eglibc 2.10 (Closes: #552866)
+
+ -- Christoph Egger <christoph@debian.org>  Sun, 03 Jan 2010 15:44:44 +0100
+
+elvis (2.2.0-11) unstable; urgency=low
+
+  * debian/watch: Modify to use PASV ftp, to ignore non-unix sources
+    and mangle the version to match chosen numbering.
+  * debian/elvis-common.doc-base: Remove "Apps/" from section name as
+    per "doc-base" manual section 2.3.3.
+  * debian/patches/: Convert all patches to strip-level 1 to comply
+    with Debian source format "3.0 (quilt)".
+  * debian/control:
+    - "elvis-console" priority reduced to extra since it conflicts with
+      binary package "elvis" which is optional.
+    - Standards Version 3.8.0. No other changes required.
+
+ -- Kapil Hari Paranjape <kapil@debian.org>  Tue, 03 Mar 2009 21:23:06 +0530
+
+elvis (2.2.0-10) unstable; urgency=low
+
+  * debian/changelog:
+    - Fixed typo in previous entry closing
+      #398745.
+    - Folded long lines.
+  * debian/control:
+    - Added Vcs-Svn tag.
+    - Moved Homepage from description to its own field.
+    - Standards-Version 3.7.3.
+  * debian/lintian/*:
+    - Added a comment explaining the reason for the overrides.
+    - Put full path of binaries to match the current error
+      message from lintian.
+  * debian/elvis-common.menu: Use "Applications" instead of
+    "Apps".
+
+ -- Kapil Hari Paranjape <kapil@debian.org>  Fri, 28 Dec 2007 16:50:40 +0530
+
+elvis (2.2.0-9) unstable; urgency=low
+
+  * debian/control:
+    - Added "Provides: editor". Closes: #398745.
+    - Changed email address of maintainer to debian.org
+      address.
+  * debian/watch: Added URL of upstream source. 
+
+ -- Kapil Hari Paranjape <kapil@debian.org>  Mon,  6 Aug 2007 07:09:42 +0530
+
+elvis (2.2.0-8) unstable; urgency=low
+
+  * debian/control: Replaced Source-Version with source:Version
+    to make the package binNMU-safe.
+  * debian/patches: Incorporate patch from Martin Dietze. Elvis 
+    no longer exits with error status if there is a subdirectory
+    called "tags".
+
+ -- Kapil Hari Paranjape <kapil@imsc.res.in>  Mon,  9 Oct 2006 18:14:59 +0530
+
+elvis (2.2.0-7) unstable; urgency=low
+
+  * Incorporate patches/ft2-nameclash-fix from Thomas Girard with
+    gratitude.
+  * rules: Clean up quilt metadata.
+  * Standards Version: 3.7.2. No changes required.
+
+ -- Kapil Hari Paranjape <kapil@imsc.res.in>  Mon, 19 Jun 2006 16:07:13 +0530
+
+elvis (2.2.0-6.1) unstable; urgency=low
+
+  * Non-maintainer upload.
+  * patches/ft2-nameclash-fix: prevent a name clash with freetype2 by renaming
+    an enum member.  Closes: 370687.
+
+ -- Thomas Girard <thomas.g.girard@free.fr>  Sat, 10 Jun 2006 13:49:38 +0200
+
+elvis (2.2.0-6) unstable; urgency=low
+
+  * debian/patches: switched to "quilt".
+   
+ -- Kapil Hari Paranjape <kapil@imsc.res.in>  Fri, 31 Mar 2006 10:18:41 +0530
+
+elvis (2.2.0-5) unstable; urgency=low
+
+  * New Maintainer. Closes: #341821.
+  * Indicate the 'tweaksection' variable in the
+    explanation of the '{' movement. Closes: #304700.
+  * Fixed hyphen-used-as-minus-sign.
+  * Fixed changelog to disable lintian warnings regarding
+    missing dates in Bill Mitchell's original entries. The
+    date is an estimate!
+  * Incorporated patch by QA group into elvis' patch
+    infrastructure.
+   
+ -- Kapil Hari Paranjape <kapil@imsc.res.in>  Tue, 10 Jan 2006 14:27:56 +0530
+
+elvis (2.2.0-4) unstable; urgency=low
+
+  * QA upload
+  * Maintainer field set to the QA group
+  * Fix build issues on kFreeBSD (closes: #340424)
+  * Standards-Version bumped
+
+ -- Emanuele Rocca <ema@debian.org>  Thu, 05 Jan 2006 00:22:54 +0100
+
+elvis (2.2.0-3) unstable; urgency=low
+
+  * Moved elvis.clr to /etc/elvis.
+  * Fixed file/syntax detection for scripts that use env in their
+    shebang line.
+  * Calling elvisnox does no longer start Elvis in ex mode.
+  * Mentioned elvis-tools in elvis-common's short description.
+
+ -- Georg Neis <georg@f-451.net>  Wed, 28 Jan 2005 19:52:55 +0100
+
+
+elvis (2.2.0-2) unstable; urgency=low
+
+  * Split the elvis package into elvis-common, elvis-console, elvis and
+    elvis-tools - see NEWS.Debian for further information (closes: #206517).
+  * Added return to elvis.syn as a keyword for shellscripts (closes: #254279).
+  * Used full path names in printdoc.bat and renamed the script to
+    printdoc.sh (closes: #270260).
+  * Fixed some typos in the manual.
+  * Included a fix for a bug in the ) vi command that could cause a
+    segmentation fault.
+  * elvtags and elvfmt now provide the correct manpages.
+  * Decreased the ctags priority to 40.
+  * Backported various small fixes from elvis-almost-2.2.1.
+  * Added previous maintainers to debian/copyright.
+  * README.Debian:
+    + Added a reference to the :customize alias.
+    + Addressed the problem with colors in dark xterms.
+
+ -- Georg Neis <georg@f-451.net>  Tue, 26 Aug 2004 21:00:55 +0200
+
+
+elvis (2.2.0-1) unstable; urgency=low
+
+  * Newest upstream release: 2.2_0
+  * Maintainer upload (Closes: #92305, #189630, #127012, #63433, #97168,
+    #100644, #112947, #137173, #147288, #22508, #124597, #131081, #23825,
+    #65908)
+  * debian/control:
+    * corrected short description
+    * added libncurses5-dev to Build-Depends (Closes: #228395)
+
+ -- Georg Neis <georg@fli4l.de>  Mon, 19 Jan 2004 10:24:48 +0100
+
+
+elvis (2.2j-1) unstable; urgency=low
+
+  * New maintainer (Closes: #192673)
+  * Newest upstream release: 2.2j
+  * debian/copyright: License changed from 'The Artistic License' to
+    'The Clarified Artistic License'
+  * debian/elvisnox: Use the new environment variable ELVISGUI
+  * debian/elvis_*.xpm: Icons for the menu
+  * The package now includes a sample configuration file
+  * elvistrs.msg, elvis.lat and elvis.pc8 are no longer conffiles; they are
+    moved to /usr/share/elvis
+  * Renamed ref-elvis to elvref
+  * Changed priority of alternative "editor" to 90 (Closes: #121303)
+
+ -- Georg Neis <georg@fli4l.de>  Tue, 07 Oct 2003 15:42:00 +0200
+
+
+elvis (2.1.4-4.2) unstable; urgency=low
+
+  * NMU
+  * ctags.c: Fixed ctags on *all* platforms: problem just manifested on unsigned
+    char platforms. getc() returns an *int*, not a char. C sucks, deal.
+    (Closes: #127012)
+  * debian/postinst: reinstate ctags alternative
+  * debian/postrm: remove ctags alternative
+    * These two together make elvtags an alternative of ctags
+      (Closes: #63433) (Closes: #97168)
+  * debian/elvisnox: use bash's -a to solve problem that demolished
+    elvis's argv[0] recognition (Closes: #100644)
+  * debian/rules: Don't provide manual for "ref", it's supposed to be handled
+    via update alternatives (Closes: #112947)
+  * debian/control: Upper case some stuff in description (Closes: #124597)
+  * debian/copyright: Fixed copyright file location (Closes: #131081)
+  * lib/elvis.ini: not colouring when we're called vi/view (Closes: #137173)
+  * lib/elvisex.html: add note about "|" seperating commands. (Closes: #22508)
+  * lib/howto.html: add a howto on recovery (Closes: #23825)
+  * lib/elvis.syn: add "wish" as an alias for tcl (Closes: #65908)
+
+ -- Moshe Zadka <moshez@debian.org>  Mon,  6 May 2002 18:51:37 +0300
+
+
+elvis (2.1.4-4.1) unstable; urgency=low
+
+  * Non-maintainer upload
+  * Modified instman.sh to use FHS manpaths (Closes: #92305)
+  * Added debhelper to Build-Depends (Closes: #70287)
+  * Bumped Standards-Version to 3.5.6
+  * Convert to DH_COMPAT=2
+  * Removed calls to dh_testversion and dh_suidgregister from debian/rules
+
+ -- Gergely Nagy <algernon@debian.org>  Sat, 25 Aug 2001 16:48:49 +0200
+
+
+elvis (2.1.4-4) unstable; urgency=low
+
+  * Correct delete key binding in configuration file. (closes: #36185)
+
+ -- Martin Mitchell <martin@debian.org>  Sun,  7 May 2000 03:26:16 +1000
+
+
+elvis (2.1.4-3) unstable; urgency=low
+
+  * Add typename to C++ syntax highlighting. (closes: #60904)
+
+ -- Martin Mitchell <martin@debian.org>  Mon, 17 Apr 2000 10:48:09 +1000
+
+
+elvis (2.1.4-2) unstable; urgency=low
+
+  * Update to standard version 3.1.1.
+  * Fix return code by correcting elvis.ini.
+    (closes: #31312, #32850, #32851, #35242, #36730, #40525, #43309, #45137)
+    (closes: #58351, #46123)
+  * Correct paths of alternatives symlinks.
+    (closes: #50324, #50694, #51080, #51468, #54338)
+  * Fix permissions of elvisnox. (closes: #60735)
+  * Correct keymappings for keypad. (closes: #50615, #58357)
+  * Confirm correct suspension when running as root. (closes: #44104)
+  * Correct </LI> tag in html syntax highlighting. (closes: #35772)
+  * Confirm d]] command now has correct behavior. (closes: #15525)
+
+ -- Martin Mitchell <martin@debian.org>  Mon, 17 Apr 2000 04:25:15 +1000
+
+
+elvis (2.1.4-1) unstable; urgency=low
+
+  * New upstream release.
+  * Update to standards version 3.0.1.
+
+ -- Martin Mitchell <martin@debian.org>  Sun, 31 Oct 1999 17:46:24 +1100
+
+
+elvis (2.1release-1) unstable; urgency=low
+
+  * New upstream release.
+  * Final release of 2.1 series code.
+  * Update to standards version 2.5.0.
+
+ -- Martin Mitchell <martin@debian.org>  Fri, 11 Dec 1998 03:29:31 +1100
+
+
+elvis (2.1j-2) unstable; urgency=low
+
+  * Add bool, true and false for C++ syntax highlighting. (#25296)
+  * Include patch to fix keypad bindings. (#17823)
+    (thanks to Tom Lear <tom@trap.mountain-view.ca.us>)
+ -- Martin Mitchell <martin@debian.org>  Tue, 20 Oct 1998 03:52:07 +1000
+
+
+elvis (2.1j-1) unstable; urgency=low
+
+  * New upstream release.
+  * License changed to Artistic - move to main.
+  * Restore former alternatives priority now elvis is back in main.
+
+ -- Martin Mitchell <martin@debian.org>  Fri, 16 Oct 1998 01:04:07 +1000
+
+
+elvis (2.1i-5) unstable; urgency=low
+
+  * Fix bug causing -o option to segfault. (#26410)
+
+ -- Martin Mitchell <martin@debian.org>  Sat,  5 Sep 1998 14:14:00 +1000
+
+
+elvis (2.1i-4) unstable; urgency=low
+
+  * Place quotes around arguments in elvisnox script. (#17801)
+  * Fix syntax highlighting for 'dh_clean' in makefiles. (#15959)
+
+ -- Martin Mitchell <martin@debian.org>  Fri,  1 May 1998 02:41:03 +1000
+
+
+elvis (2.1i-3) frozen unstable; urgency=medium
+
+  * Correct path to global config files.
+  * Correct typo in package description. (#18901)
+  * Close bug already fixed regarding libc6 build issue. (#17259)
+  * Remove obsolete debhelper entries in rules file.
+  * Close bug already fixed regarding xterm-color and X11 mode. (#7698)
+
+ -- Martin Mitchell <martin@debian.org>  Mon, 27 Apr 1998 14:37:21 +1000
+
+
+elvis (2.1i-2) frozen unstable; urgency=high
+
+  * Fix critical bug that elvis would not remove its alternatives
+    properly. (#21667)
+  * Downgrade alternatives priority to -5, since elvis is now in
+    non-free. (#21668)
+
+ -- Martin Mitchell <martin@debian.org>  Sun, 26 Apr 1998 01:34:21 +1000
+
+
+elvis (2.1i-1) frozen unstable; urgency=low
+
+  * Return to distribution from project/orphaned.
+  * New upstream release.
+  * Update to Standard Version 2.4.1.
+  * Move to non-free.
+  * New maintainer.
+  * Fix X11 menu entry. (#15610)
+
+ -- Martin Mitchell <martin@debian.org>  Sun, 19 Apr 1998 00:23:39 +1000
+
+
+elvis (2.1f-1) unstable; urgency=low
+
+  * New upstream source
+  * Dropped elvisctags since there are other ctags programs available.  
+  * In addition to syntax highlighting, elvis can now be used as a 
+    text mode web browser (it does ftp and http)
+  * libc6 release
+  * converted to using debhelper
+
+ -- Erik Andersen <andersee@debian.org>  Sat, 22 Nov 1997 03:14:13 -0700
+
+
+elvis (2.0-9) stable unstable; urgency=low
+
+  * Adjusted the elvis.ini file to fix bug #5768.
+  * Elvis is now built using deb-make.
+  * Adjusted the way I bypassed a dpkg problem to make things simpler
+  * Added support for the menu package
+
+ -- Erik B. Andersen <andersee@debian.org>  Tue, 31 Dec 1996 13:59:11 -0700
+
+
+elvis (2.0-8) frozen unstable; urgency=low
+
+  * Added "elv-vi" to Replaces file for elvis
+  * Changed elvisctags so that it Suggests elvis, instead of Recommends
+
+ -- Erik B. Andersen <andersee@debian.org>  Fri, 29 Nov 1996 23:09:14 -0700
+
+
+elvis (2.0-7) frozen unstable; urgency=low
+
+  * Here is the latest version of the much-discussed elvis package...  I
+    think I have now gotten everything fixed and cleaned up for 
+    Debian 1.2  Please check things out though...
+  * Changed elvis from "Recommends: elvisctags" to "Suggests: elvisctags"
+    This fixes bug #5416 and should make dselect users happy.
+  * Changed the behavior of "vi -G x11" to drop to the default gui 
+    (i.e. termcap) when the x11 gui is unavailable.  This allows users
+    of elm to specify "vi -G x11" as their primary editor, and have
+    elvis use the X interface when in X, and the text interface when in
+    console mode.  This will make the one person who asked happy.
+  * Fixed bug #5393 by splitting up the config directory and moving the
+    non-config files to several locations.
+  * Added a script to ensure that old versions of elvis get completely
+    removed from the system regardless of a little dpkg problem, by
+    installing 0 byte files on top of the old files, and then deleting
+    the 0 byte files in the postinst script. Credit goes to Guy Maor
+    for the idea (which works).
+  * Rewrote the printdoc.bat file, and moved it to /usr/bin/elvis-printdoc
+  * elvisctags now utilizes update-alternatives for ctags, ref, and their
+    associated man pages.  I recommend that the all other packages
+    which also provide these programs do likewise.
+  * Please note that in order to comply with the Debian standard, I
+    installed all man pages compressed in /usr/man/man1; however, since
+    elvis cannot read compressed files, I have installed a second,
+    uncompressed copy of the man pages in /usr/doc/elvis/online-docs. 
+    I have also installed the online help files uncompressed in this
+    directory to allow elvis to access them.
+
+ -- Erik B. Andersen <andersee@debian.org>  Fri, 15 Nov 1996 09:32:30 -0700
+
+
+elvis (2.0-6) unstable; urgency=low
+
+  * Fixed it so that it now replaces previous verions of elvis, 
+    instead of just conflicting...
+  * Fixed Bug #4973, so configuration files now go in /etc/elvis
+
+ -- Erik B. Andersen <andersee@debian.org>  Sat, 26 Oct 1996 14:33:02 -0600
+
+
+elvis (2.0-5) unstable; urgency=low
+
+  * New maintainer
+  * Upgraded to release version 2.0 from upstream source (no longer beta) 
+  * Changed to new packaging scheme, and standards version.
+  * Completly rewrote all debian files, installation scripts, etc.
+  * Removed elviscmn, elvisnox, and elvisx11 - replaced by just "elvis"
+  * Compile all gui interfaces into one binary.  I hacked the sources to
+    make termcap the default.  To select the x11 gui interface, you
+    simply need to type "vi -G x11"
+  * Added some some nice defaults and color syntax highlighting to elvis.ini.
+  * I probably did some other stuff too, but I don't remember what. :-)
+
+ -- Erik B. Andersen <andersee@debian.org>  Wed, 23 Oct 1996 12:19:36 -0600
+
+
+elvis (2.0-4) unstable; urgency=low
+  * upgraded from elvis-2.0o to elvis-2.0p sources
+
+ -- Bill Mitchell <mitchell@mdd.comm.mot.com>  Mon, 15 Aug 1995 19:33:26 +0000
+
+
+elvis (2.0-3) unstable; urgency=low
+  * upgraded from elvis-2.0n to elvis-2.0o sources
+
+ -- Bill Mitchell <mitchell@mdd.comm.mot.com>  Mon, 15 Aug 1995 19:33:26 +0000
+
+
+elvis (2.0-2) unstable; urgency=low
+  * recommend elvisx11 | elvisnox in elviscmn control file
+    instead of elvisx11, elvisnox
+
+ -- Bill Mitchell <mitchell@mdd.comm.mot.com>  Mon, 15 Aug 1995 19:33:26 +0000
+
+
+elvis (2.0-1) unstable; urgency=low
+  * This package replaces the elvis1.8pl4 and/or e2-2.0.beta packages
+  * This version uses the elvis-2.0n sources, with one additional patch
+    from the author in dmsyntax.c.
+  * This is still beta-test code, but is believed to be close to the
+    release version.
+
+ -- Bill Mitchell <mitchell@mdd.comm.mot.com>  Mon, 15 Aug 1995 19:33:26 +0000
+
+
+elvis (2.0-0) unstable; urgency=low
+  * elf package
+  * This package replaces the elvis1.8pl4 and/or e2-2.0.beta packages
+  * This version uses the elvis-2.0n sources, with one additional	patch
+    from the author in dmsyntax.c.
+  * This is still beta-test code, but is believed to be close to the
+    release version.
+
+ -- Bill Mitchell <mitchell@mdd.comm.mot.com>  Mon, 15 Aug 1995 19:33:26 +0000

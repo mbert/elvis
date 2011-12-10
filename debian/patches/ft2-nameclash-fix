@@ -1,0 +1,62 @@
+Index: elvis-2.2.0/guix11/xdialog.c
+===================================================================
+--- elvis-2.2.0.orig/guix11/xdialog.c	2009-03-03 20:44:07.000000000 +0530
++++ elvis-2.2.0/guix11/xdialog.c	2009-03-03 21:10:51.000000000 +0530
+@@ -387,7 +387,7 @@
+ 			  case 'o': ft = FT_ONEOF, limit = scan;	break;
+ 			  case 'n': ft = FT_NUMBER, limit = scan;	break;
+ 			  case 's': ft = FT_STRING;			break;
+-			  case 'f': ft = FT_FILE;			break;
++			  case 'f': ft = FT_FILE_;			break;
+ 			  case 'l': ft = FT_LOCKED;			break;
+ 			}
+ 
+@@ -556,7 +556,7 @@
+ 			break;
+ 
+ 		  case FT_STRING:
+-		  case FT_FILE:
++		  case FT_FILE_:
+ 			button = addbutton(dia, "<", 'l', ELVCTRL('L'));
+ 			button->y = dia->y0 + dia->rowh * i;
+ 			button->x = dia->x0 + 3;
+@@ -1111,7 +1111,7 @@
+ 			newvalue = keystring(dia, key);
+ 			break;
+ 
+-		  case FT_FILE:
++		  case FT_FILE_:
+ #ifdef FEATURE_COMPLETE
+ 			if (key == '\t')
+ 			{
+@@ -1179,7 +1179,7 @@
+ 	switch (dia->field[row].ft)
+ 	{
+ 	  case FT_STRING:
+-	  case FT_FILE:
++	  case FT_FILE_:
+ 	  case FT_NUMBER:
+ 	  case FT_LOCKED:
+ 		drawtext(dia, row);
+@@ -1207,7 +1207,7 @@
+ 			break;
+ 
+ 		  case FT_STRING:
+-		  case FT_FILE:
++		  case FT_FILE_:
+ 			if (button->shape == 'l')
+ 				if (row == dia->current
+ 				    ? dia->shift > 0
+Index: elvis-2.2.0/guix11/xdialog.h
+===================================================================
+--- elvis-2.2.0.orig/guix11/xdialog.h	2009-03-03 20:44:07.000000000 +0530
++++ elvis-2.2.0/guix11/xdialog.h	2009-03-03 21:10:51.000000000 +0530
+@@ -5,7 +5,7 @@
+ 	FT_ONEOF,	/* one of a preset list; includes boolean */
+ 	FT_NUMBER,	/* numeric field */
+ 	FT_STRING,	/* string field */
+-	FT_FILE,	/* string field where <Tab> does filename completion */
++	FT_FILE_,	/* string field where <Tab> does filename completion */
+ 	FT_LOCKED	/* non-editable field */
+ } X_FIELDTYPE;
+ typedef struct

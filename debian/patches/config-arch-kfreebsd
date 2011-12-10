@@ -1,0 +1,13 @@
+Index: elvis-2.2.0/configure
+===================================================================
+--- elvis-2.2.0.orig/configure	2009-03-03 21:10:42.000000000 +0530
++++ elvis-2.2.0/configure	2009-03-03 21:10:50.000000000 +0530
+@@ -644,7 +644,7 @@
+ 	TLIBS="-lcurses"
+ 	;;
+ 
+-  *linux*)
++  *linux* | *kfreebsd*)
+ 	if [ ! -f /usr/lib/libtermcap.a -a ! -f /lib/libtermcap.a ]
+ 	then
+ 		if [ -f /usr/lib/libncurses.a -o -f /usr/lib/ncurses.a ]

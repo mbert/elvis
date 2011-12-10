@@ -1,0 +1,32 @@
+Index: elvis-2.2.0/data/elvis.ali
+===================================================================
+--- elvis-2.2.0.orig/data/elvis.ali	2009-03-03 21:10:46.000000000 +0530
++++ elvis-2.2.0/data/elvis.ali	2009-03-03 21:10:47.000000000 +0530
+@@ -126,7 +126,7 @@
+   "Use Andale mono font for the main font, and Courier for italic (X11 only)
+   if !isnumber(!(14)1)
+   then error usage: andale [fontsize]
+-  set font="luxi mono*!(14)1" italicfont="courier*!(14)1i"
++  set font="andale mono*!(14)1" italicfont="courier*!(14)1i"
+  }
+ 
+  alias! fork {
+@@ -336,11 +336,18 @@
+  let o = elvispath(f)
+  if o == ""
+  then error "!^" is not a known configuration file
++ "Choose a base directory
+  if os=="msdos" || os=="os2" || os == "win32"
+  then let d=$HOME/"dotelvis"
+  else let d=$HOME/".elvis"
++ "If the directory doesn't exist yet, then create it
+  if dirperm(d) == "new"
+  then eval !mkdir "(d)"
++ "If we need a subdirectory and it doesn't exist yet, then create it
++ let n = dirname(d/f)
++ if dirperm(n) == "new"
++ then eval !mkdir "(n)"
++ "If customized file exists, then load it; else start with the default version
+  let n = d / f
+  if exists(n)
+  then e (n)

@@ -1,0 +1,12 @@
+Document: elvis
+Title: Elvis-2.2_0 Documentation
+Author: Steve Kirkendall <kirkenda@cs.pdx.edu>
+Abstract: This manual describes Elvis' functionality as well as its
+ configuration and differences between the ports to different operating
+ systems. It even provides a brief overview about the basic concepts of
+ the vi/ex family of text editors.
+Section: Editors
+
+Format: HTML
+Index: /usr/share/doc/elvis-common/manual/elvis.html
+Files: /usr/share/doc/elvis-common/manual/*.html

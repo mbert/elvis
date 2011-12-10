@@ -1,0 +1,18 @@
+Index: elvis-2.2.0/doc/elvis.html
+===================================================================
+--- elvis-2.2.0.orig/doc/elvis.html	2009-03-03 20:44:08.000000000 +0530
++++ elvis-2.2.0/doc/elvis.html	2009-03-03 21:10:43.000000000 +0530
+@@ -29,10 +29,10 @@
+    <li><a href="elvistrs.msg">		&nbsp;A. List of terse messages</a>
+    <li><a href="elvisqr.html">          &nbsp;B. Quick Reference</a>
+    <li><a href="howto.html">		&nbsp;C. How To...</a>
+-   <li><a href="elvis.man">		elvis(1) Man-page for Elvis</a>
+-   <li><a href="ctags.man">		ctags(1) Man-page for ctags (or elvtags)</a>
++   <li><a href="elvis.man">		elvis(1) Man-page for elvis</a>
++   <li><a href="elvtags.man">		elvtags(1) Man-page for ctags (or elvtags)</a>
+    <li><a href="ref.man">		ref(1) Man-page for ref</a>
+-   <li><a href="fmt.man">		fmt(1) Man-page for fmt</a>
++   <li><a href="elvfmt.man">		elvmt(1) Man-page for fmt (or elvfmt)</a>
+ </menu>
+ 
+ <p><strong>HINT:</strong> If you're reading this via Elvis' built-in

@@ -1,0 +1,5 @@
+# Manpages are all in elvis-common which
+# this package depends on.
+elvis-tools: binary-without-manpage usr/bin/elvfmt
+elvis-tools: binary-without-manpage usr/bin/elvtags
+elvis-tools: binary-without-manpage usr/bin/ref

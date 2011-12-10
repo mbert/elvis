@@ -1,0 +1,79 @@
+Source: elvis
+Section: editors
+Priority: optional
+Maintainer: Kapil Hari Paranjape <kapil@debian.org>
+Build-Depends: debhelper (>> 5), quilt, libncurses5-dev, libxft-dev, libxpm-dev, libxt-dev
+Vcs-Svn: svn://svn.debian.org/svn/collab-maint/deb-maint/elvis/
+Homepage: http://elvis.vi-editor.org
+Standards-Version: 3.8.0
+
+Package: elvis
+Architecture: any
+Conflicts: elvis-console
+Depends: elvis-common (= ${source:Version}), ${shlibs:Depends}
+Provides: man-browser, www-browser, editor
+Suggests: elvis-tools
+Description: powerful clone of the vi/ex text editor (with X11 support)
+ This package contains Elvis compiled with support for X11, Xft and
+ background images.  If you don't need the X11 interface, install
+ elvis-console instead.  See also: elvis-tools
+ .
+ Elvis is a clone of vi/ex, the standard UNIX editor. It supports
+ nearly all of the vi/ex commands, in both visual mode and ex mode.
+ Elvis adds support for multiple files, multiple windows, a variety of
+ display modes (including syntax highlighting, man, tex, html and
+ hex), an optional X11 user interface, on-line help, folding, spell
+ checking, new options, auto commands, regions, enhanced tags,
+ printing, aliases and an improved :map command.
+ .
+ Like vi/ex, Elvis stores most of the text in a temporary file,
+ instead of RAM. This allows it to edit files that are too large to
+ fit in a single process' data space.
+ Also, the edit buffer can survive a power failure or crash.
+ 
+
+Package: elvis-common
+Architecture: all
+Conflicts: elvis (<< 2.2.0-2)
+Description: common files for elvis, elvis-console and elvis-tools
+ This package provides the common files (manual, ex scripts, digraph
+ files, etc.) that are needed by the packages elvis, elvis-console and
+ elvis-tools.
+
+Package: elvis-console
+Architecture: any
+Priority: extra
+Conflicts: elvis
+Depends: elvis-common (= ${source:Version}), ${shlibs:Depends}
+Provides: man-browser, www-browser, editor
+Suggests: elvis-tools
+Description: powerful clone of the vi/ex text editor (without X11 support)
+ This package contains Elvis compiled without X11 support.  If you want
+ to use Elvis' X11 interface then install the package elvis instead.
+ See also: elvis-tools
+ .
+ Elvis is a clone of vi/ex, the standard UNIX editor. It supports
+ nearly all of the vi/ex commands, in both visual mode and ex mode.
+ Elvis adds support for multiple files, multiple windows, a variety of
+ display modes (including syntax highlighting, man, tex, html and
+ hex), an optional X11 user interface (see elvis-x11), on-line help,
+ folding, spell checking, new options, auto commands, regions, enhanced
+ tags, printing, aliases and an improved :map command.
+ .
+ Like vi/ex, Elvis stores most of the text in a temporary file,
+ instead of RAM. This allows it to edit files that are too large to
+ fit in a single process' data space.
+ Also, the edit buffer can survive a power failure or crash.
+
+Package: elvis-tools
+Architecture: any
+Conflicts: elvis (<< 2.2.0-2)
+Depends: elvis-common (= ${source:Version}), ${shlibs:Depends}
+Enhances: elvis, elvis-console
+Description: text editing tools for programmers (elvfmt, elvtags, ref)
+ This package contains elvtags (for generating tags and refs
+ files), ref (for quickly locating/displaying the header of a
+ function) and elvfmt (for adjusting paragraphs of text).
+ .
+ These tools actually belong to the Elvis editor but can be used
+ without it.
