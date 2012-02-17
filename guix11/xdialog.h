@@ -1,19 +1,19 @@
 /* xdialog.h */
 
 typedef enum {
-	FT_DEFAULT,	/* dummy value, for fields with no explicit type */
-	FT_ONEOF,	/* one of a preset list; includes boolean */
-	FT_NUMBER,	/* numeric field */
-	FT_STRING,	/* string field */
-	FT_FILE,	/* string field where <Tab> does filename completion */
-	FT_LOCKED	/* non-editable field */
+	EFT_DEFAULT,	/* dummy value, for fields with no explicit type */
+	EFT_ONEOF,	/* one of a preset list; includes boolean */
+	EFT_NUMBER,	/* numeric field */
+	EFT_STRING,	/* string field */
+	EFT_FILE,	/* string field where <Tab> does filename completion */
+	EFT_LOCKED	/* non-editable field */
 } X_FIELDTYPE;
 typedef struct
 {
 	CHAR	*label;	/* displayed name of the option */
 	char	*name;	/* actual name of the option */
 	CHAR	*value;	/* option's current value */
-	char	*limit;	/* legal values, for FT_ONEOF or FT_NUMBER */
+	char	*limit;	/* legal values, for EFT_ONEOF or EFT_NUMBER */
 	X_FIELDTYPE ft;	/* input type */
 	unsigned lwidth;/* width of the label */
 	unsigned twidth;/* width of the text field, if there is one */

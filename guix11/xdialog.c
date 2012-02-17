@@ -149,7 +149,7 @@ static void drawtext(dia, row)
 		cursor = dia->cursor, shift = dia->shift;
 	else
 		cursor = CHARlen(dia->field[row].value), shift = 0;
-	if (dia->field[row].ft == FT_NUMBER)
+	if (dia->field[row].ft == EFT_NUMBER)
 		length = NUMBER_LENGTH;
 	else
 		length = STRING_LENGTH;
@@ -168,7 +168,7 @@ static void drawtext(dia, row)
 	/* all fields except locked ones are drawn in a recessed bevel */
 	x = dia->x0 + dia->rowh + 2;
 	y = dia->y0 + row * dia->rowh;
-	if (dia->field[row].ft != FT_LOCKED)
+	if (dia->field[row].ft != EFT_LOCKED)
 	{
 		/* Make a dummy X11WIN structure.  I wish now that I hadn't
 		 * made it an argument to the x_drawbevel() function.  Sigh.
@@ -193,7 +193,7 @@ static void drawtext(dia, row)
 			XSetBackground(x_display, dia->gc,
 				colorinfo[x_toolcolors].bg);
 		XSetFont(x_display, dia->gc, x_defaultnormal->fontinfo->fid);
-		if (dia->field[row].ft == FT_LOCKED)
+		if (dia->field[row].ft == EFT_LOCKED)
 		{
 			XSetForeground(x_display, dia->gc, colorinfo[x_toolbarcolors].fg);
 			x_drawstring(x_display, dia->win, dia->gc,
@@ -210,7 +210,7 @@ static void drawtext(dia, row)
 	}
 
 	/* if this is the current row, then draw the cursor too. */
-	if (row == dia->current && dia->field[row].ft != FT_LOCKED)
+	if (row == dia->current && dia->field[row].ft != EFT_LOCKED)
 	{
 		XSetForeground(x_display, dia->gc, colorinfo[x_cursorcolors].fg);
 		XFillRectangle(x_display, dia->win, dia->gc,
@@ -229,7 +229,7 @@ static void parsespec(dia)
 	char	*label;	/* label of next field */
 	char	*name;	/* name of next field's option */
 	X_FIELDTYPE ft;	/* type of next field */
-	char	*limit;	/* list for FT_ONEOF, or min:max for FT_NUMBER */
+	char	*limit;	/* list for EFT_ONEOF, or min:max for EFT_NUMBER */
 	char	*expr;	/* default value -- an expression */
 	char	*value;	/* the actual value, as a string */
 	char	*end;	/* end of the spec string */
@@ -250,7 +250,7 @@ static void parsespec(dia)
 	 * original string, we can insert '\0' characters where convenient.
 	 */
 	label = name = limit = expr = NULL;
-	ft = FT_DEFAULT;
+	ft = EFT_DEFAULT;
 	skipto = '\0';
 	for (scan = dia->spec, end = &scan[strlen(scan) + 1]; scan < end; scan++)
 	{
@@ -280,17 +280,17 @@ static void parsespec(dia)
 			if (name && (value = tochar8(optgetstr(toCHAR(name), &desc))) != NULL)
 			{
 				/* if no explicit type, then guess */
-				if (ft == FT_DEFAULT)
+				if (ft == EFT_DEFAULT)
 				{
 					limit = desc->limit;
 					if (optval(name)->flags & OPT_LOCK)
-						ft = FT_LOCKED;
+						ft = EFT_LOCKED;
 					else if (desc->asstring == optnstring)
-						ft = FT_NUMBER;
+						ft = EFT_NUMBER;
 					else if (desc->asstring == optsstring)
-						ft = FT_STRING;
+						ft = EFT_STRING;
 					else if (desc->asstring == opt1string)
-						ft = FT_ONEOF;
+						ft = EFT_ONEOF;
 					else if (desc->asstring == opttstring)
 					{
 						/* tab list: default is to
@@ -299,14 +299,14 @@ static void parsespec(dia)
 						 */
 						if (CHARchr(value, ',')
 						 || atoi(tochar8(value)) == 0)
-							ft = FT_STRING;
+							ft = EFT_STRING;
 						else
-							ft = FT_NUMBER;
+							ft = EFT_NUMBER;
 						limit = "1:400";
 					}
 					else
 					{
-						ft = FT_ONEOF;
+						ft = EFT_ONEOF;
 						limit = truefalse;
 					}
 				}
@@ -318,7 +318,7 @@ static void parsespec(dia)
 					value = expr;
 
 				/* for boolean, force value to "true"/"false" */
-				if (ft == FT_ONEOF && limit == truefalse)
+				if (ft == EFT_ONEOF && limit == truefalse)
 				{
 					value = tochar8(calctrue(toCHAR(value)) ? o_true : o_false);
 				}
@@ -369,26 +369,26 @@ static void parsespec(dia)
 					dia->field[dia->nfields].name = " ";
 					dia->field[dia->nfields].value = CHARdup(toCHAR(value));
 					dia->field[dia->nfields].limit = limit;
-					dia->field[dia->nfields].ft = FT_LOCKED;
+					dia->field[dia->nfields].ft = EFT_LOCKED;
 					dia->nfields++;
 				}
 			}
 
 			/* prepare for next field */
 			label = name = limit = expr = NULL;
-			ft = FT_DEFAULT;
+			ft = EFT_DEFAULT;
 			break;
 
 		  case '(':
 			/* the following character indicates the type */
 			switch (scan[1])
 			{
-			  case 'b': ft = FT_ONEOF, limit = truefalse;	break;
-			  case 'o': ft = FT_ONEOF, limit = scan;	break;
-			  case 'n': ft = FT_NUMBER, limit = scan;	break;
-			  case 's': ft = FT_STRING;			break;
-			  case 'f': ft = FT_FILE;			break;
-			  case 'l': ft = FT_LOCKED;			break;
+			  case 'b': ft = EFT_ONEOF, limit = truefalse;	break;
+			  case 'o': ft = EFT_ONEOF, limit = scan;	break;
+			  case 'n': ft = EFT_NUMBER, limit = scan;	break;
+			  case 's': ft = EFT_STRING;			break;
+			  case 'f': ft = EFT_FILE;			break;
+			  case 'l': ft = EFT_LOCKED;			break;
 			}
 
 			/* trim leading spaces from the limit string */
@@ -543,7 +543,7 @@ void x_dl_add(xw, name, desc, vicmd, excmd, spec)
 		x = dia->x0 + dia->rowh + 2;
 		switch (dia->field[i].ft)
 		{
-		  case FT_ONEOF:
+		  case EFT_ONEOF:
 			for (s = dia->field[i].limit; *s; s++)
 			{
 				if (s == dia->field[i].limit
@@ -557,8 +557,8 @@ void x_dl_add(xw, name, desc, vicmd, excmd, spec)
 			}
 			break;
 
-		  case FT_STRING:
-		  case FT_FILE:
+		  case EFT_STRING:
+		  case EFT_FILE:
 			button = addbutton(dia, "<", 'l', ELVCTRL('L'));
 			button->y = dia->y0 + dia->rowh * i;
 			button->x = dia->x0 + 3;
@@ -572,12 +572,12 @@ void x_dl_add(xw, name, desc, vicmd, excmd, spec)
 			x += dia->rowh;
 			break;
 
-		  case FT_LOCKED:
+		  case EFT_LOCKED:
 			dia->field[i].twidth = CHARlen(dia->field[i].value) * dia->cellw + 4;
 			x += dia->field[i].twidth + 2 + dia->rowh;
 			break;
 
-		  case FT_NUMBER:
+		  case EFT_NUMBER:
 			dia->field[i].twidth = NUMBER_LENGTH * dia->cellw + 4;
 			x += dia->field[i].twidth + 2;
 
@@ -1018,7 +1018,7 @@ static void keystroke(dia, key)
 		/* store the values of all options */
 		eventfocus((GUIWIN *)dia->xw, ElvFalse);
 		for (i = 0; i < dia->nfields; i++)
-			if (dia->field[i].ft != FT_LOCKED)
+			if (dia->field[i].ft != EFT_LOCKED)
 				optputstr(toCHAR(dia->field[i].name),
 					  dia->field[i].value, ElvFalse);
 
@@ -1075,11 +1075,11 @@ static void keystroke(dia, key)
 		newvalue = dia->field[dia->current].value;
 		switch (dia->field[dia->current].ft)
 		{
-		  case FT_ONEOF:
+		  case EFT_ONEOF:
 		  	newvalue = keyoneof(dia, key);
 			break;
 
-		  case FT_NUMBER:
+		  case EFT_NUMBER:
 			l = atol(tochar8(newvalue));
 			switch (key)
 			{
@@ -1120,11 +1120,11 @@ static void keystroke(dia, key)
 				dia->cursor = CHARlen(newvalue);
 			break;
 
-		  case FT_STRING:
+		  case EFT_STRING:
 			newvalue = keystring(dia, key);
 			break;
 
-		  case FT_FILE:
+		  case EFT_FILE:
 #ifdef FEATURE_COMPLETE
 			if (key == '\t')
 			{
@@ -1146,8 +1146,8 @@ static void keystroke(dia, key)
 			}
 			break;
 
-		  case FT_DEFAULT:
-		  case FT_LOCKED:
+		  case EFT_DEFAULT:
+		  case EFT_LOCKED:
 			break;
 		}
 
@@ -1191,10 +1191,10 @@ static void exposerow(dia, row, fromscratch)
 	/* draw the text field, if there is one */
 	switch (dia->field[row].ft)
 	{
-	  case FT_STRING:
-	  case FT_FILE:
-	  case FT_NUMBER:
-	  case FT_LOCKED:
+	  case EFT_STRING:
+	  case EFT_FILE:
+	  case EFT_NUMBER:
+	  case EFT_LOCKED:
 		drawtext(dia, row);
 		break;
 
@@ -1212,15 +1212,15 @@ static void exposerow(dia, row, fromscratch)
 		/* choose a button state -- method varies with data type */
 		switch (dia->field[row].ft)
 		{
-		  case FT_ONEOF:
+		  case EFT_ONEOF:
 			if (*dia->field[row].value == *button->label)
 				newstate = -2;
 			else
 				newstate = 2;
 			break;
 
-		  case FT_STRING:
-		  case FT_FILE:
+		  case EFT_STRING:
+		  case EFT_FILE:
 			if (button->shape == 'l')
 				if (row == dia->current
 				    ? dia->shift > 0
@@ -1235,7 +1235,7 @@ static void exposerow(dia, row, fromscratch)
 					newstate = 0;
 			break;
 
-		  case FT_NUMBER:
+		  case EFT_NUMBER:
 			newstate = 2;
 			break;
 
@@ -1456,7 +1456,7 @@ void x_dl_event(w, event)
 		 */
 		if (event->xbutton.button == 4 || event->xbutton.button == 5)
 		{
-			if (dia->field[dia->current].ft == FT_NUMBER)
+			if (dia->field[dia->current].ft == EFT_NUMBER)
 				if (event->xbutton.button == 4)
 					key = '+';
 				else
