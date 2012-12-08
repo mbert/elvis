@@ -4,13 +4,13 @@ set -e
 
 case "$1" in
     upgrade)
-        if dpkg --compare-versions "$2" '<<' "2.2.0-2"; then
+        if dpkg --compare-versions "$2" '<<' "2.2.1-1"; then
             update-alternatives --quiet --remove ctags /usr/bin/elvtags
             for app in editor ex input vi view; do
                 update-alternatives --quiet --remove "$app" /usr/bin/elvisnox
             done
 
-            if dpkg --compare-versions "$2" '<<' "2.2.0-1"; then
+            if dpkg --compare-versions "$2" '<<' "2.2.1-1"; then
                 update-alternatives --quiet --remove ref /usr/bin/ref-elvis
             else
                 update-alternatives --quiet --remove ref /usr/bin/elvref

@@ -1,7 +1,20 @@
 Elvis for Debian
 ----------------
 
-This package contains Elvis 2.2_0.
+This package contains Elvis 2.2_1.
+
+
+This version of Elvis is inofficial. It is based on the last package
+released by Steve Kirkendall in 2004 found on:
+
+  ftp://ftp.cs.pdx.edu/pub/elvis/unreleased/almost-2.2_1.tar.gz
+
+It contains bugfixes to that version plus numerous patches contribued
+by third parties, first of all the Debian maintainers. The code from
+which this build was created can be found on this inofficial git
+repository at github:
+
+  https://github.com/mbert/elvis
 
 
 Elvis' manual is located in /usr/share/elvis/manual (elvis.html) and you

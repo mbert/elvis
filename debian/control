@@ -34,7 +34,7 @@ Description: powerful clone of the vi/ex text editor (with X11 support)
 
 Package: elvis-common
 Architecture: all
-Conflicts: elvis (<< 2.2.0-2)
+Conflicts: elvis (<< 2.2.1-1)
 Description: common files for elvis, elvis-console and elvis-tools
  This package provides the common files (manual, ex scripts, digraph
  files, etc.) that are needed by the packages elvis, elvis-console and
@@ -67,7 +67,7 @@ Description: powerful clone of the vi/ex text editor (without X11 support)
 
 Package: elvis-tools
 Architecture: any
-Conflicts: elvis (<< 2.2.0-2)
+Conflicts: elvis (<< 2.2.1-1)
 Depends: elvis-common (= ${source:Version}), ${shlibs:Depends}
 Enhances: elvis, elvis-console
 Description: text editing tools for programmers (elvfmt, elvtags, ref)

@@ -1,3 +1,9 @@
+elvis (2.2.1-1) unstable; urgency=low
+
+  * Inofficial build of 2.2.1 (almost-2.2.1 from ftp.cs.pdx.edu, bugfixes).
+
+ -- Martin Dietze <herbert@spamcop.net>  Sat, 08 Dec 2012 22:20:01 +0100
+
 elvis (2.2.0-11.1) unstable; urgency=low
 
   * Non-maintainer upload.
