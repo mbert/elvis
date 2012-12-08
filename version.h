@@ -6,7 +6,7 @@
  *	README.html, search for the actual version number
  */
 
-#define VERSION	"2.2.1"
+#define VERSION	"2.2.1-prerelease"
 #define COPY1 "Copyright (c) 1995-2003 by Steve Kirkendall"
 #if 1
 # define COPY2 "Permission is granted to redistribute the source or binaries under the terms of"
