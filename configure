@@ -186,10 +186,11 @@ do
 	  --x-includes=*)
 		XINCPATH=`echo "$i"|sed 's/^--x-includes=//'`" $XINCPATH"
 		args="$args $i"
-		;;
+                ;;
 	  --x-libraries=*)
 		XLIBPATH=`echo "$i"|sed 's/^--x-libraries=//'`" $XLIBPATH"
-		args="$args $i"
+		args="$args $i"$
+                X_LIBRARIES_OPTION=undef
 		;;
 	  --bindir=*)
 		BINDIR=`echo "$i"|sed 's/^--bindir=//'`
@@ -355,6 +356,16 @@ case "$GUI_X11" in
 	;;
 
   *)
+        if [ "$SYS" = "darwin" ]
+        then
+            case "$X_LIBRARIES_OPTION" in
+            undef)
+                ;;
+            *)
+                echo "darwin should build OK as a generic Unix but you must use the --x-libraries= option"
+                exit 0
+            esac
+        fi
 	xinc=`searchpath X11/Xresource.h $XINCPATH`
 	case "$xinc" in
 		"") why "   X11 headers not found - maybe need '--x-includes=...' argument?" ;;
@@ -921,7 +932,7 @@ then
 	esac
 	case "$xlib" in
 	  /lib/libX11.*|/usr/lib/libX11.*|"")
-		XLIBS="$xft$xpm-lX11$XLIBS"
+                XLIBS="$xft$xpm-lX11$XLIBS"
 		;;
 	  *)
 		XLIBS="-L`dirname $xlib` $xft$xpm-lX11$XLIBS"
@@ -931,8 +942,27 @@ then
 	  /usr/include/X11/Xresource.h)
 		;;
 	  *)
-		x11subdir=`dirname $xinc`
-		CC="$CC -I"`dirname $x11subdir`
+                x11subdir=`dirname $xinc`
+################################################################################
+# darwin will mostly build ok as a "generic" system with the exception
+# that -L<X11_lib_dir> must be specified with the --x-libraries= option
+################################################################################
+                if [ "$SYS" = "darwin" ]
+                then
+                     x=-1
+                     xdir=""
+                     for dir in $XLIBPATH
+                     do
+                        if test $x -lt 0
+                        then
+                            xdir="$dir"
+                            x=`expr $x + 1`
+                        fi
+                     done
+                     CC="$CC -L$xdir -I"`dirname $x11subdir`
+                else
+		    CC="$CC -I"`dirname $x11subdir`
+                fi
 		;;
 	esac
 fi
