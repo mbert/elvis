@@ -231,25 +231,44 @@ strnewline indent
 # TCL shell scripts.
 # Contributed by Martin Mitchell (martin@debian.org)
 # and Jeff Wang (jeffw@advance.com)
-language tcl wish wish8.3
+language tcl wish wish8.6
 extension .tcl
 comment #
 keyword Balloon ButtonBox Control DirList ExFileSelectBox ExFileSelectDialog
 keyword FileEntry HList LabelEntry LabelFrame NoteBook OptionMenu PanedWindow
 keyword PopupMenu ScrolledHList ScrolledText ScrolledWindow Select StdButtonBox
-keyword after append array auto_execok auto_load auto_mkindex auto_reset bell
-keyword bind bindtags break button canvas case catch cd checkbutton clipboard
-keyword close common concat constructor continue default destroy destructor
-keyword else elseif entry eof error eval exec exit expr file fileevent flush
-keyword focus for for_array_keys for_file for_recursive_glob foreach format
-keyword frame gets glob global grab history if image in incr info inherit
-keyword itcl_class join label lappend lindex linsert list listbox llength loop
-keyword lower lrange lreplace lsearch lsort menu menubutton message method open
-keyword option pack pid place proc protected public puts pwd radiobutton raise
-keyword read regexp regsub rename return scale scan scrollbar seek selection
-keyword send set source split string subst switch tell text then time tix tk
-keyword tk_popup tkwait toplevel trace unknown unset update uplevel upvar while
-keyword winfo wm [ ]
+keyword after append apply argc argv argv0 array auto_execok auto_import
+keyword auto_load auto_mkindex auto_path auto_qualify auto_reset bell bgerror
+keyword binary bind bindtags bitmap break button busy canvas case catch cd chan 
+keyword checkbutton class clipboard clock close colors combobox common concat
+keyword console constructor continue copy coroutine create cursors dde default
+keyword define destroy destructor dict else elseif encoding entry env eof error
+keyword errorCode errorInfo eval event exec exit expr fblocked fconfigure fcopy 
+keyword file fileevent filename flush focus font fontchooser for for_array_keys 
+keyword for_file for_recursive_glob foreach format frame geometry gets glob
+keyword global grab grid history http if image in incr info inherit interp intro
+keyword itcl_class join keysyms label labelframe lappend lassign lindex linsert
+keyword list listbox llength lmap load loadTk loop 
+keyword lower lrange lrepeat lreplace lreverse lsearch lset lsort mac mathfunc
+keyword mathop memory menu menubutton message method msgcat my namespace next
+keyword nextto notebook objdefine object oo open option options pack package
+keyword panedwindow parray photo pid pkg pkg_mkIndex place platform prefix 
+keyword proc progressbar protected public puts pwd radiobutton raise read
+keyword refchan regexp registry regsub rename return safe scale scan scrollbar
+keyword seek selection self send separator set shell sizegrip socket source 
+keyword spinbox split string style subst switch tailcall tcl tcl_endOfWord
+keyword tcl_findLibrary tcl_interactive tcl_library tcl_nonwordchars 
+keyword tcl_patchLevel tcl_pkgPath tcl_platform tcl_precision tcl_rcFileName
+keyword tcl_startOfNextWord tcl_startOfPreviousWord tcl_traceCompile  
+keyword tcl_traceEval tcl_version tcl_wordBreakAfter tcl_wordBreakBefore
+keyword tcl_wordchars tcltest tell text then throw time tix tk tk_bisque
+keyword tk_chooseColor tk_chooseDirectory tk_dialog tk_focusFollowsMouse
+keyword tk_focusNext tk_focusPrev tk_getOpenFile tk_getSaveFile tk_library 
+keyword tk_menuSetFocus tk_messageBox tk_optionMenu tk_patchLevel 
+keyword tk_popup tk_setPalette tk_strictMotif tk_textCopy tk_textCut
+keyword tk_textPaste tk_version tkerror tkwait tm toplevel trace transchan 
+keyword try ttk ttk_image ttk_vsapi unknown unload unset treeview update uplevel
+keyword upvar variable vwait while widget winfo wm yield yieldto zlib [ ]
 font declaration proc
 color declaration like keyword
 function {
