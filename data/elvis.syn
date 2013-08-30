@@ -291,28 +291,28 @@ extension .pl .pm
 keyword BEGIN END CORE __END__ __FILE__ __LINE__ AUTOLOAD DESTROY INIT
 keyword abs accept alarm and atan2 bind binmode bless caller chdir chmod
 keyword chomp chop chown chr chroot close closedir cmp connect continue cos
-keyword crypt dbmclose dbmopen defined delete die do dump each else elsif
-keyword endgrent endhostent endnetent endprotoent endpwent endservent eof
+keyword crypt dbmclose dbmopen default defined delete die do dump each else 
+keyword elsif endgrent endhostent endnetent endprotoent endpwent endservent eof
 keyword eq err eval exec exists exit exp fcntl fileno flock for foreach fork
 keyword format formline ge getc getgrent getgrgid getgrnam gethostbyaddr
 keyword gethostbyname gethostent getlogin getnetbyaddr getnetbyname
 keyword getnetent getpeername getpgrp getppid getpriority getprotobyname
 keyword getprotobynumber getprotoent getpwent getpwnam getpwuid
 keyword getservbyname getservbyport getservent getsockname getsockopt
-keyword glob gmtime goto grep gt hex if index int ioctl join keys kill
+keyword given glob gmtime goto grep gt hex if index int ioctl join keys kill
 keyword last lc lcfirst le length link listen local localtime log lstat
 keyword lt m map mkdir msgctl msgget msgrcv msgsnd my ne next no not oct
 keyword open opendir or ord our pack package pipe pop pos print printf push
-keyword q qq quotemeta qw qx rand read readdir readline readlink readpipe
+keyword q qq qr quotemeta qw qx rand read readdir readline readlink readpipe
 keyword recv redo ref rename require reset return reverse rewinddir rindex
-keyword rmdir s scalar seek seekdir select semctl semget semop send setgrent
+keyword rmdir s say scalar seek seekdir select semctl semget semop send setgrent
 keyword sethostent setnetent setpgrp setpriority setprotoent setpwent
 keyword setservent setsockopt shift shmctl shmget shmread shmwrite shutdown
 keyword sin sleep socket socketpair sort splice split sprintf sqrt srand
-keyword stat study sub substr symlink syscall sysopen sysread system syswrite
-keyword tell telldir tie tied time times tr truncate uc ucfirst umask undef
-keyword unless keyword unlink unpack unshift untie until use utime values vec
-keyword wait waitpid wantarray warn while write x xor y
+keyword stat state study sub substr symlink syscall sysopen sysread system 
+keyword syswrite tell telldir tie tied time times tr truncate uc ucfirst umask
+keyword undef unless unlink unpack unshift untie until use utime values vec
+keyword wait waitpid wantarray warn when while write x xor y
 comment #
 function (
 startword &_@%$
