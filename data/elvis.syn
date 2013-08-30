@@ -231,6 +231,7 @@ strnewline indent
 # TCL shell scripts.
 # Contributed by Martin Mitchell (martin@debian.org)
 # and Jeff Wang (jeffw@advance.com)
+# and Tomasz Konojacki (me@xenu.tk)
 language tcl wish wish8.6
 extension .tcl
 comment #
@@ -305,6 +306,8 @@ other allcaps initialcaps
 # here is the merger of those two, with other modifications.  The "font normal"
 # line exists to prevent $# from being interpreted as a plain dollar sign
 # followed by a comment.
+#
+# Entry was further enchanced by Tomasz Konojacki (me@xenu.tk).
 language perl  
 extension .pl .pm
 keyword BEGIN END CORE __END__ __FILE__ __LINE__ AUTOLOAD DESTROY INIT
