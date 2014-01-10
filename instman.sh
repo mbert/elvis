@@ -53,7 +53,8 @@ esac
 # If MANPATH is unset, then set it to some likely values
 if [ "$MANPATH" = "" ]
 then
-	MANPATH="/usr/local/man:/usr/X11/man:/usr/man:$PREFIX/man"
+	MANPATH="/usr/local/share/man:/usr/share/man:$PREFIX/share/man"
+	MANPATH="$MANPATH:/usr/local/man:/usr/X11/man:/usr/man:$PREFIX/man"
 fi
 
 # Choose a man directory under PREFIX, giving priority to "share" directories.
