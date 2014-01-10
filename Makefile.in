@@ -288,7 +288,7 @@ clean.unix:
 	$(RM) verify.elv
 	$(RM) gdk_imlib.h
 	$(RM) $(DISTRIB).tar.gz
-	$(RM) doc/elvtags.man
+	$(RM) doc/elvtags.man doc/elvfmt.man
 	$(RM) elvis.rpm
 
 clean.msdos:
