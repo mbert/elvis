@@ -2,56 +2,80 @@ Index: elvis-2.2.0/Makefile.in
 ===================================================================
 --- elvis-2.2.0.orig/Makefile.in	2009-03-03 21:10:42.000000000 +0530
 +++ elvis-2.2.0/Makefile.in	2009-03-03 21:10:42.000000000 +0530
-@@ -440,25 +440,25 @@
- 	(cd doc; for i in *.man; do sed 's/Elvis 2\.[0-9x][0-9a-z_-]*/Elvis $(VERSION)/' $$i >$(DOCDIR)/$$i; done)
- 	-(cd $(DATADIR); $(BINDIR)/elvtags -gitv stubs/*.c || ctags stubs/*.c)
- 	chmod 0755 $(DATADIR)/*/. $(DATADIR) $(DOCDIR)
--	sh instman.sh -p$(PREFIX) $(ALL)
--	-[ -d /etc/elvis ] || mkdir /etc/elvis
--	-chmod 0755 /etc/elvis/
--	-@ : >/etc/elvis/README && ( \
--	  echo "This directory contains system-dependent versions of elvis' configuration" \
--	  echo "files.  The standard versions are available in $(DATADIR)"  \
--	  echo "To customize any of these configuration files for this system,"  \
--	  echo "first copy the standard version of the file into /etc/elvis and" \
--	  echo "then edit the copy.  Leave the standard version unchanged." \
--	) >>/etc/elvis/README
--	-chmod 0644 /etc/elvis/README
--	@echo "This directory contains the standard versions of elvis' configuration" >$(DATADIR)/README
--	@echo "files.  DO NOT MODIFY THESE FILES!  To perform host-specific customization," >>$(DATADIR)/README
--	@echo "copy files from this directory into /etc/elvis/, and then modify the copies." >>$(DATADIR)/README
--	@echo "To make user-specific changes, create a ~/.elvis/ directory (if it doesn't" >>$(DATADIR)/README
--	@echo "exist already) and copy files from this directory into ~/.elvis/ and then" >>$(DATADIR)/README
--	@echo "modify the copies.  Any file that elvis finds in ~/.elvis/ or /etc/elvis/" >>$(DATADIR)/README
--	@echo "overrides the similarly named file in this directory." >>$(DATADIR)/README
--	chmod 0644 $(DATADIR)/README
-+#	sh instman.sh -p$(PREFIX) $(ALL)
-+#	-[ -d /etc/elvis ] || mkdir /etc/elvis
-+#	-chmod 0755 /etc/elvis/
-+#	-@ : >/etc/elvis/README && ( \
-+#	  echo "This directory contains system-dependent versions of elvis' configuration" \
-+#	  echo "files.  The standard versions are available in $(DATADIR)"  \
-+#	  echo "To customize any of these configuration files for this system,"  \
-+#	  echo "first copy the standard version of the file into /etc/elvis and" \
-+#	  echo "then edit the copy.  Leave the standard version unchanged." \
-+#	) >>/etc/elvis/README
-+#	-chmod 0644 /etc/elvis/README
-+#	@echo "This directory contains the standard versions of elvis' configuration" >$(DATADIR)/README
-+#	@echo "files.  DO NOT MODIFY THESE FILES!  To perform host-specific customization," >>$(DATADIR)/README
-+#	@echo "copy files from this directory into /etc/elvis/, and then modify the copies." >>$(DATADIR)/README
-+#	@echo "To make user-specific changes, create a ~/.elvis/ directory (if it doesn't" >>$(DATADIR)/README
-+#	@echo "exist already) and copy files from this directory into ~/.elvis/ and then" >>$(DATADIR)/README
-+#	@echo "modify the copies.  Any file that elvis finds in ~/.elvis/ or /etc/elvis/" >>$(DATADIR)/README
-+#	@echo "overrides the similarly named file in this directory." >>$(DATADIR)/README
-+#	chmod 0644 $(DATADIR)/README
+@@ -1,4 +1,4 @@
+-# Makefile.in
++# Makefile - configured for generic Unix
+ # $Id: Makefile.in,v 2.124 2004/03/19 23:02:53 steve Exp $
+ #
+ # Makefile.in should not be modified!  The "configure" script reads Makefile.in
+@@ -14,14 +14,14 @@
+ # If you're compiling with X-windows support, you may need to add a
+ # "-I/usr/X11/include" flag or something similar.
+ #CC=gcc -g -Wall -pedantic -Wtraditional -Wpointer-arith -Wstrict-prototypes -Wmissing-prototypes -I/usr/include/freetype2 -I/usr/X11R6/include
+-CC=cc -O
++CC=gcc -O2 -L/usr/X11R6/lib -I/usr/X11R6/include
  
+ ################################################################################
+ # This macro gives any arguments which will be needed during linking.
+ # Mostly, this means "-Llibdir" and "-llib" flags.  If you're compiling with
+ # X-windows support, then you'll have to add a "-lX11" and maybe a
+ # "-L/usr/X11/lib" flag or something similar.
+-LIBS=-ltermcap
++LIBS= -lX11 -ltermcap 
  
- ###############################################################################
+ ################################################################################
+ # This should be "unix" for all UNIX variants.  It causes the compiler to use
+@@ -85,8 +85,8 @@
+ # This is the directory where "make install" will place elvis' support files,
+ # such as the help text and the default initialization scripts.  If you change
+ # the value here, then you also need to change it in "config.h"
+-DATADIR=$(PREFIX)/share/elvis
+-DOCDIR= $(PREFIX)/share/elvis/doc
++DATADIR=$(PREFIX)/share/elvis/
++DOCDIR=$(PREFIX)/share/elvis/doc/
+ 
+ ################################################################################
+ # This is the shell command for copying one file to another
+@@ -127,8 +127,8 @@
+ 	guix11/xmisc.h guix11/xscroll.h guix11/xstatus.h guix11/xtext.h\
+ 	guix11/xtool.h
+ 
+-GNOMESRCS=guignome/guignome.c guignome/guignome_clip.c guignome/guignome_mousedrag.c guignome/elvisCorba-common.c guignome/elvisCorba-skels.c guignome/elvisCorba-stubs.c guignome/guignome_corba.c
+-GNOMEOBJS=guignome/guignome$(OBJ) guignome/guignome_clip$(OBJ) guignome/guignome_mousedrag$(OBJ) guignome/elvisCorba-common$(OBJ) guignome/elvisCorba-skels$(OBJ) guignome/elvisCorba-stubs$(OBJ) guignome/guignome_corba$(OBJ)
++GNOMESRCS=
++GNOMEOBJS=
+ GHOMEHDRS=
+ 
+ GUISRCS=$(GNOMESRCS) $(X11SRCS) guicurs.c guitcap.c guiopen.c
+@@ -288,7 +288,7 @@
+ 	$(RM) verify.elv
+ 	$(RM) gdk_imlib.h
+ 	$(RM) $(DISTRIB).tar.gz
+-	$(RM) doc/elvtags.man doc/elvfmt.man
++	$(RM) doc/elvtags.man
+ 	$(RM) elvis.rpm
+ 
+ clean.msdos:
+@@ -447,10 +447,10 @@
+ 	-[ -d /etc/elvis ] || mkdir /etc/elvis
+ 	-chmod 0755 /etc/elvis/
+ 	-@ : >/etc/elvis/README && ( \
+-	  echo "This directory contains system-dependent versions of elvis' configuration"; \
+-	  echo "files.  The standard versions are available in $(DATADIR)"; \
+-	  echo "To customize any of these configuration files for this system,"; \
+-	  echo "first copy the standard version of the file into /etc/elvis and"; \
++	  echo "This directory contains system-dependent versions of elvis' configuration" \
++	  echo "files.  The standard versions are available in $(DATADIR)"  \
++	  echo "To customize any of these configuration files for this system,"  \
++	  echo "first copy the standard version of the file into /etc/elvis and" \
+ 	  echo "then edit the copy.  Leave the standard version unchanged." \
+ 	) >>/etc/elvis/README
+ 	-chmod 0644 /etc/elvis/README
 Index: elvis-2.2.0/configure
 ===================================================================
 --- elvis-2.2.0.orig/configure	2009-03-03 20:44:09.000000000 +0530
 +++ elvis-2.2.0/configure	2009-03-03 21:10:42.000000000 +0530
-@@ -886,7 +886,7 @@
+@@ -897,7 +897,7 @@
  echo "Bin dir:  "`echo "$BINDIR" |sed s,'$(PREFIX)',"$PREFIX",`
  echo "Data dir: "`echo "$DATADIR"|sed s,'$(PREFIX)',"$PREFIX",`
  echo "Doc dir:  "`echo "$DOCDIR" |sed s,'$(PREFIX)',"$PREFIX",`

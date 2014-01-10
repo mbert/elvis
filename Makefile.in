@@ -447,10 +447,10 @@ install.unix: $(ALL) doc/elvtags.man
 	-[ -d /etc/elvis ] || mkdir /etc/elvis
 	-chmod 0755 /etc/elvis/
 	-@ : >/etc/elvis/README && ( \
-	  echo "This directory contains system-dependent versions of elvis' configuration" \
-	  echo "files.  The standard versions are available in $(DATADIR)"  \
-	  echo "To customize any of these configuration files for this system,"  \
-	  echo "first copy the standard version of the file into /etc/elvis and" \
+	  echo "This directory contains system-dependent versions of elvis' configuration"; \
+	  echo "files.  The standard versions are available in $(DATADIR)"; \
+	  echo "To customize any of these configuration files for this system,"; \
+	  echo "first copy the standard version of the file into /etc/elvis and"; \
 	  echo "then edit the copy.  Leave the standard version unchanged." \
 	) >>/etc/elvis/README
 	-chmod 0644 /etc/elvis/README
