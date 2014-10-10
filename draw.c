@@ -1114,7 +1114,7 @@ static void updateimage(win)
 			logicaltab = 0;
 		else
 		{
-			for (i = 0; di->newline[i].startrow < row && di->newline[i + 1].startrow - 1 < row; i++)
+			for (i = 0; di->newline[i].startrow < row && di->nlines > i && di->newline[i + 1].startrow - 1 < row; i++)
 			{
 			}
 			logicaltab = (row - di->newline[i].startrow) * ncols;
