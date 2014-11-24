@@ -880,7 +880,9 @@ void term()
 	gui->term();
 	gui = NULL;
 
+#ifdef FEATURE_PERSIST
 	bufpersistsave(NULL);
+#endif
 
 	/* Flush any final messages */
 	msgflush();
