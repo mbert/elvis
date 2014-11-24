@@ -2281,7 +2281,7 @@ CHAR *calculate(expr, arg, rule)
 			expr++;
 			if (!*expr
 			 || (build == result && *expr == '\\')
-			 || !strchr("$()", *expr))
+			 || !strchr("$()\\", *expr))
 			{
 				/* at front of expression, or if followed by
 				 * normal character - literal */
