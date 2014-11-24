@@ -672,6 +672,7 @@ void tebuilddef(buf)
 	CHAR	*cp;		/* for scanning the line */
 	long	offset;		/* offset of the tag within this buffer */
 	int	i;
+        DIRPERM perm;
 
 	/* Destroy the old list, if any */
 	tefreedef(buf);
@@ -701,7 +702,8 @@ void tebuilddef(buf)
 	 * necessary because the ioopen() function displays an error
 	 * message when the file it's trying to read doesn't exist.
 	 */
-	if (dirperm("tags") == DIR_NEW)
+        perm = dirperm("tags");
+        if (perm == DIR_NEW || perm == DIR_DIRECTORY)
 		return;
 
 	/* open the file */
