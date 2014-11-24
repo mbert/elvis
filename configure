@@ -1247,10 +1247,14 @@ eof-gnome
 fi
 
 # Remove the elvgdb program if X11 isn't available
+# and remove the source/object for X11 as well
 if [ "$GUI_X11" != "define" ]
 then
 cat >> $tmp <<eof-noelvgdb
 /^ALL=/s! elvgdb.(EXE)!!
+s!^X11SRCS=!#X11SRCS=!
+s!^X11OBJS=!#X11OBJS=!
+s!^X11HDRS=!#X11HDRS=!
 eof-noelvgdb
 fi
 
