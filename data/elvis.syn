@@ -392,15 +392,21 @@ mostly normal
 
 language cdiff patch
 extension .cdi .cdiff .patch .pat
+comment ++
 comment +
 comment **
 comment --
 comment -
 comment !
-anchor 1 + - ** -- !
+comment diff
+comment @@
+anchor 1 + - ** ! diff @@
+anchor ~1 ++ --
 font changedtext !
 font oldtext -
 font newtext +
+font normal ** ++ -- diff
+font keyword @@
 color changedtext bold italic
 color newtext bold
 color oldtext italic
