@@ -233,6 +233,11 @@ can only appear at the front of a line
 (after optional whitespace but no printed characters).
 The remainder of the "anchor" line is the list
 of keywords which are only special when they occur in that column.
+<p>If the column number is prefixed by ~ then the keyword gets preference to
+another keyword defined with the same column number. This is useful for
+<a href="#comment">comment</a> keywords which are subsets or supersets of
+each other, because the shorter comment keyword will always win else.
+With ~ the longer one will be considered first.
 
 <dt><a name="prefix">prefix</a>
 <dd>This defines keywords which should be recognized even if they are
