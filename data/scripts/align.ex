@@ -46,7 +46,7 @@ alias align {
                 1 insert ""
                 let f=1
             }
-            -1
+            else -1
             /!(=)\$
             "
             "
@@ -76,7 +76,7 @@ alias align {
                 1i ""
                 let f=1
             }
-            -1
+            else -1
             /!(=)\$
             "
             " Not sure why I need to add +1
