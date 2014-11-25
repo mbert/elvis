@@ -405,8 +405,8 @@ anchor ~1 ++ --
 font changedtext !
 font oldtext -
 font newtext +
-font normal ** ++ -- diff
-font keyword @@
+font normaltext ** ++ -- diff
+font changehunk @@
 color changedtext bold italic
 color newtext bold
 color oldtext italic
