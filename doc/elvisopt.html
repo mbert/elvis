@@ -1033,7 +1033,7 @@ This option is false by default.
 <dd>The <em>ruler</em> option causes the current line
 number and column number to be displayed at the bottom of the screen.
 This uses the same definition of "line number" as the number option, above.
-This option is false by default.
+This option is true by default.
 
 <dt><a name="guidewidth">guidewidth, gw <em>(Tab-list, buf)</em></a>
 <dd>The <em>guidewidth</em> option causes vertical
@@ -1220,8 +1220,7 @@ This option is false by default.
 display a one-word label for its current parse state in the lower right-hand
 corner of the window.
 Usually, this will be either "Command" or "Input".
-This option is false by default, but I suggest you make it true because it
-really is handy.
+This option is true by default.
 
 <dt><a name="nonascii">nonascii, asc <em>(One-Of, global)</em></a>
 <dd>The <em>nonascii</em> option tells Elvis how to
@@ -2379,7 +2378,7 @@ then the window is scrolled to bring the new line into view.
 If the new cursor position is outside that range, then Elvis uses
 a "jump and center" approach, in which the window's image is drawn from
 scratch with the new cursor line shown in the center of the window.
-Its default value is 5.
+Its default value is 10.
 
 <dt><a name="wrap">wrap <em>(Boolean, win)</em></a>
 <dd>The <em>wrap</em> option determines how Elvis will
