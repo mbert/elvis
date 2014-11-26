@@ -332,6 +332,10 @@ static void change(fg, bg, bits)
 			fg -= 10, bits |= COLOR_BOLD;
 	}
 
+	/* Italic is disabled if "nottyitalic" */
+	if (!o_ttyitalic)
+		bits &= ~COLOR_ITALIC;
+
 	/* Italics are shown via underlining, if there is no :mh=: string */
 	if (!MH && (bits & COLOR_ITALIC))
 		bits = (bits & ~COLOR_ITALIC) | COLOR_UNDERLINED;
@@ -340,10 +344,6 @@ static void change(fg, bg, bits)
 	/* If "nottyitalic", then never use underline ever */
 	if (!o_ttyunderline && (!o_ttyitalic || bgcolored))
 		bits &= ~COLOR_UNDERLINED;
-
-	/* Italic is disabled if "nottyitalic" */
-	if (!o_ttyitalic)
-		bits &= ~COLOR_ITALIC;
 
 	/* Termcap doesn't allow bold & italics to mix.  If attempting to mix,
 	 * then use plain bold.
