@@ -89,6 +89,12 @@ DATADIR=$(PREFIX)/share/elvis
 DOCDIR= $(PREFIX)/share/elvis/doc
 
 ################################################################################
+# This is the directory where "make install" will place elvis' config files
+# (for example, '/etc').
+# Elvis config files could go in a subdirectory of ETCDIR.
+ETCDIR=/etc
+
+################################################################################
 # This is the shell command for copying one file to another
 CP=cp
 
@@ -423,7 +429,7 @@ install: install.$(OS)
 
 install.unix: $(ALL) doc/elvtags.man
 	rm -f doc/*.bak
-	[ -d $(BINDIR) ] || mkdir $(BINDIR)
+	[ -d $(BINDIR) ] || mkdir -p $(BINDIR)
 	cp $(ALL) $(BINDIR)
 	(cd $(BINDIR); chmod 0755 $(ALL))
 	rm -rf $(DATADIR)
@@ -444,22 +450,22 @@ install.unix: $(ALL) doc/elvtags.man
 	-(cd $(DATADIR); $(BINDIR)/elvtags -gitv stubs/*.c || ctags stubs/*.c)
 	chmod 0755 $(DATADIR)/*/. $(DATADIR) $(DOCDIR)
 	sh instman.sh -p$(PREFIX) $(ALL)
-	-[ -d /etc/elvis ] || mkdir /etc/elvis
-	-chmod 0755 /etc/elvis/
-	-@ : >/etc/elvis/README && ( \
+	-[ -d $(ETCDIR)/elvis ] || mkdir -p $(ETCDIR)/elvis
+	-chmod 0755 $(ETCDIR)/elvis/
+	-@ : >$(ETCDIR)/elvis/README && ( \
 	  echo "This directory contains system-dependent versions of elvis' configuration"; \
 	  echo "files.  The standard versions are available in $(DATADIR)"; \
 	  echo "To customize any of these configuration files for this system,"; \
-	  echo "first copy the standard version of the file into /etc/elvis and"; \
+	  echo "first copy the standard version of the file into $(ETCDIR)/elvis and"; \
 	  echo "then edit the copy.  Leave the standard version unchanged." \
-	) >>/etc/elvis/README
-	-chmod 0644 /etc/elvis/README
+	) >>$(ETCDIR)/elvis/README
+	-chmod 0644 $(ETCDIR)/elvis/README
 	@echo "This directory contains the standard versions of elvis' configuration" >$(DATADIR)/README
 	@echo "files.  DO NOT MODIFY THESE FILES!  To perform host-specific customization," >>$(DATADIR)/README
-	@echo "copy files from this directory into /etc/elvis/, and then modify the copies." >>$(DATADIR)/README
+	@echo "copy files from this directory into $(ETCDIR)/elvis/, and then modify the copies." >>$(DATADIR)/README
 	@echo "To make user-specific changes, create a ~/.elvis/ directory (if it doesn't" >>$(DATADIR)/README
 	@echo "exist already) and copy files from this directory into ~/.elvis/ and then" >>$(DATADIR)/README
-	@echo "modify the copies.  Any file that elvis finds in ~/.elvis/ or /etc/elvis/" >>$(DATADIR)/README
+	@echo "modify the copies.  Any file that elvis finds in ~/.elvis/ or $(ETCDIR)/elvis/" >>$(DATADIR)/README
 	@echo "overrides the similarly named file in this directory." >>$(DATADIR)/README
 	chmod 0644 $(DATADIR)/README
 
