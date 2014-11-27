@@ -66,7 +66,7 @@ PREFIX=/usr
 BINDIR='$(PREFIX)/bin'
 DATADIR='$(PREFIX)/share/elvis/'
 DOCDIR='$(PREFIX)/share/elvis/doc/'
-ETCDIR='/etc'
+SYSCONFDIR='/etc'
 SYS=""
 DEFAULT_CC="cc -O"
 IOCTL=""
@@ -131,7 +131,7 @@ usage()
 	echo "       --x-libraries=DIR  add DIR to path for X-windows libraries"
 	echo "       --bindir=DIR       where to install the executables"
 	echo "       --datadir=DIR      where to install the supporting data files"
-	echo "       --etcdir=DIR       where to install the global config files (default: '$ETCDIR')"
+	echo "       --sysconfdir=DIR   where to install the global config files (default: '$SYSCONFDIR')"
 	echo "       --prefix=DIR       like --bindir=DIR/bin --datadir=DIR/share/elvis"
 	echo "       --libs=STRING      non-X11 part of the LIBS= string in Makefile"
 	echo "       --ioctl=VARIETY    type of tty ioctl to use: termios, termio, or sgtty"
@@ -206,8 +206,8 @@ do
 		DOCDIR=`echo "$i"|sed 's/^--docdir=//'`
 		args="$args $i"
 		;;
-	  --etcdir=*)
-		ETCDIR=`echo "$i"|sed 's/^--etcdir=//'`
+	  --sysconfdir=*)
+		SYSCONFDIR=`echo "$i"|sed 's/^--sysconfdir=//'`
 		args="$args $i"
 		;;
 	  --prefix=*)
@@ -986,7 +986,7 @@ esac
 
 
 # Generate the "config.h" file
-ELVISPATH=`echo "~/.elvis:${ETCDIR}/elvis:$DATADIR:$DOCDIR" | sed s,'$(DATADIR)',"$DATADIR",g\;s,'$(PREFIX)',"$PREFIX",g`
+ELVISPATH=`echo "~/.elvis:${SYSCONFDIR}/elvis:$DATADIR:$DOCDIR" | sed s,'$(DATADIR)',"$DATADIR",g\;s,'$(PREFIX)',"$PREFIX",g`
 cat >config.h <<eof-config
 /* config.h */
 
@@ -1237,7 +1237,7 @@ s!^PREFIX=.*!PREFIX=$PREFIX!
 s!^BINDIR=.*!BINDIR=$BINDIR!
 s!^DATADIR=.*!DATADIR=$DATADIR!
 s!^DOCDIR=.*!DOCDIR=$DOCDIR!
-s!^ETCDIR=.*!ETCDIR=$ETCDIR!
+s!^SYSCONFDIR=.*!SYSCONFDIR=$SYSCONFDIR!
 eof-all
 if [ -d /usr/local/X11/include ]
 then
