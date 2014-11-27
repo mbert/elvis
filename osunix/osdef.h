@@ -48,6 +48,10 @@
  */
 #define OSSESSIONPATH	"/var/tmp:/tmp:~:."
 
+/* This is the place to create temporary files.
+ */
+#define OSDIRECTORY getenv("TMPDIR")
+
 /* This is the default value of the "syntax" display mode's includepath option,
  * which tells elvis where to look for #include files.  It can be overridden
  * at run time by an INCLUDEPATH environment variable.
