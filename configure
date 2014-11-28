@@ -432,7 +432,8 @@ fi
 # If X-windows is used, then check for the -lXpm library, need for FEATURE_IMAGE
 if [ "$GUI_X11" = "define" -a "$FEATURE_IMAGE" = "" ]
 then
-	if [ "`searchpath libXpm.a $XLIBPATH`" = "" ]
+	if [ "`searchpath libXpm.a $XLIBPATH`" = "" ] \
+		&& [ "`searchpath libXpm.so $XLIBPATH`" = "" ]
 	then
 		why "   Disabling the use of background images since -lXpm wasn't found"
 		FEATURE_IMAGE=undef
@@ -461,6 +462,7 @@ case "$FEATURE_XFT" in
 	then
 		xft_h=`searchpath X11/Xft/Xft.h $XINCPATH`
 		libxft=`searchpath libXft.a $XLIBPATH`
+		[ -n "$libxft" ] || libxft=`searchpath libXft.so $XLIBPATH`
 		if [ "$xft_h" = "" -o "$libxft" = "" ]
 		then
 			why "   Xft not found"
