@@ -362,8 +362,9 @@ case "$GUI_X11" in
             undef)
                 ;;
             *)
-                echo "darwin should build OK as a generic Unix but you must use the --x-libraries= option"
-                exit 0
+                echo "darwin: no --x-libraries= option set, assuming XQuartz installation in /opt/X11..."
+                XINCPATH=/opt/X11/include
+                XLIBPATH=/opt/X11/lib
             esac
         fi
 	xinc=`searchpath X11/Xresource.h $XINCPATH`
