@@ -1,11 +1,11 @@
 .TH CTAGS 1
 .SH NAME
-ctags - Generates "tags" and (optionally) "refs" files
+ctags \- Generates "tags" and (optionally) "refs" files
 .SH SYNOPSIS
 .B ctags
-.RB [ -D
+.RB [ \-D
 .IR word ]
-.RB [ -FBNgitvshlpdxra ]
+.RB [ \-FBNgitvshlpdxra ]
 .I files...
 .SH VERSION
 This page describes the
@@ -24,7 +24,7 @@ files from a group of C source files.
 The
 .I tags
 file is used by Elvis' ":tag" command,
-\fB^]\fR command, and \fB-t\fR option.
+\fB^]\fR command, and \fB\-t\fR option.
 The
 .I refs
 file is sometimes used by the
@@ -50,85 +50,85 @@ $ ctags *.c *.h
 If no options are given, then
 .B ctags
 acts as though the
-.B -l -i -t -v
+.B \-l \-i \-t \-v
 and
-.B -s
+.B \-s
 option flags were given.
 If you want to omit those options, you can do so by explicitly giving
 a harmless option such as
-.BR -F.
-.IP \fB-D\fIword\fR
+.BR \-F.
+.IP \fB\-D\fIword\fR
 This causes Elvis to ignore any instance of "\fIword\fR" in your source code.
 This is handy if you're using a macro for conditionally declaring the arguments
 to functions, in order to make your code be backward-compatible with older K&R
 C compilers.
 \fIctags\fR always ignores "P_" and "__P";
-the \fB-D\fIword\fR flag allows you to make it ignore a third word.
-.IP \fB-F\fR
+the \fB\-D\fIword\fR flag allows you to make it ignore a third word.
+.IP \fB\-F\fR
 Enclose regular expressions in slashes (/regexp/) which will cause
 .BR elvis (1)
 to search from the top of the file.
 This is the default.
-.IP \fB-B\fR
+.IP \fB\-B\fR
 Enclose the regular expressions in question marks (?regexp?) so
 .BR elvis (1)
 will search backward from the bottom of the file.
 The search direction rarely matters; this option exists mostly for
 compatibility with earlier versions of ctags.
-.IP \fB-N\fR
+.IP \fB\-N\fR
 This causes
 .B ctags
 to use line numbers for all tags.
 Without this flag, it would use numbers for #define'ed macros,
 and regular expressions for anything else.
-.IP \fB-g\fR
+.IP \fB\-g\fR
 For static tags, generate entries that look like global tags.
 (I.e., never generate an extra "file:" attribute.)
 This implies \-s and \-h.
-.IP \fB-i\fR
+.IP \fB\-i\fR
 Include inline definitions.
 A tag will be generated for each function which is declared as being
 inline, __inline, or __inline__.
-.IP \fB-t\fR
+.IP \fB\-t\fR
 Include typedefs.
 A tag will be generated for each user-defined type.
 Also tags will be generated for struct and enum names.
 Types are considered to be global if they are defined in a header file,
 and static if they are defined in a C source file.
-.IP \fB-v\fR
+.IP \fB\-v\fR
 Include variable declarations.
 A tag will be generated for each variable, except for those that are declared
 inside the body of a function.
-.IP \fB-s\fR
+.IP \fB\-s\fR
 Include static tags.
 .B ctags
 will normally put global tags in the
 .I tags
 file, and silently ignore the static tags.
 This flag causes both global and static tags to be added.
-.IP \fB-e\fR
+.IP \fB\-e\fR
 Include extern tags.
 .B ctags
 will normally ignore extern declarations of functions or variables;
 that's handy when generating tags for your own programs.
 A tags file for the extern declarations in the system's standard header files
-can be a very handy resource, so this \fB-e\fR flag was created.
-.IP \fB-h\fR
+can be a very handy resource, so this \fB\-e\fR flag was created.
+.IP \fB\-h\fR
 Add hints that may help Elvis handle overloaded tags better.
 The resulting tags file may be unreadable by programs other than Elvis, though.
-.IP \fB-l\fR
+.IP \fB\-l\fR
 Add "ln" line number hints.
-This implies \fB-h\fR, since it would be pointless if hints weren't allowed.
+This implies \fB\-h\fR, since it would be pointless if hints weren't allowed.
 The "ln" hints are used by
 .BR elvis (1)
 to make its "showtag" option work much faster.
-.IP \fB-p\fR
+.IP \fB\-p\fR
 Write parsing information to stdout.
 This is intended mainly as an aid to debugging the \fIctags\fR command itself.
 If \fIctags\fR doesn't generate all of the tags that you expect it to,
-then try studying the \fB-p\fR output to determine what syntax feature is
+then try studying the \fB\-p\fR output to determine what syntax feature is
 tripping it up.
-.IP \fB-d\fR
+.IP \fB\-d\fR
 Warn about duplicates, on stdout.
 .B ctags
 allows tags with duplicate names, except for typedefs (tags with kind=t)
@@ -139,25 +139,25 @@ can either add it if neither the new tag nor the existing one has "kind=t",
 skip it if the existing one has "kind=t", or
 add it and delete the existing one if the new one has "kind=t".
 Usually you won't care, but
-.B -d
+.B \-d
 may help you understand why
 .I ctags
 fails to add a tag that you expected it to add.
-.IP \fB-x\fR
+.IP \fB\-x\fR
 Generate a human-readable tag list instead of a "tags" file.
 The list is written to stdout.
 Each line contains a tag name, the line number and file name where
 the tag is defined, and the text of that line.
-.IP \fB-r\fP
+.IP \fB\-r\fP
 This causes
 .B ctags
 to generate both 
 .I tags
 and
 .IR refs .
-Without \fB-r\fP, it would only generate
+Without \fB\-r\fP, it would only generate
 .IR tags .
-.IP \fB-a\fR
+.IP \fB\-a\fR
 Append to
 .IR tags ,
 and maybe
@@ -301,7 +301,7 @@ Consequently, it might not discover all of the tags in a file that
 is formatted in an unusual way.
 .PP
 The
-.B -a
+.B \-a
 flag causes tag files to be appended, but not necessarily sorted.
 Some programs expect tags files to be sorted, and will misbehave if they
 aren't.
@@ -309,7 +309,7 @@ Also, the new format allows a "!_TAG_FILE_SORTED" marker near the top of the
 file to indicate whether the file is sorted, but that might not be accurate
 after new tags are appended to the file.
 Consequently, you should avoid the use of
-.BR -a .
+.BR \-a .
 .PP
 The new standard doesn't specify how overloaded operators are to be labelled.
 If your C++ source contains a definition of operator+=(), then this version of

@@ -3,27 +3,27 @@
 elvis \- a clone of the ex/vi text editor
 .SH SYNOPSIS
 .B elvis
-.RB [ -V ...]
-.RB [ -a ]
-.RB [ -r ]
-.RB [ -e ]
-.RB [ -i ]
-.RB [ -s | - ]
-.RB [ -b ]
-.RB [ -R ]
-.RB [ -S ]
-.RB [ -f
+.RB [ \-V ...]
+.RB [ \-a ]
+.RB [ \-r ]
+.RB [ \-e ]
+.RB [ \-i ]
+.RB [ \-s | \- ]
+.RB [ \-b ]
+.RB [ \-R ]
+.RB [ \-S ]
+.RB [ \-f
 .IR session ]
-.RB [ -o
+.RB [ \-o
 .IR logfile ]
-.RB [ -G
+.RB [ \-G
 .IR gui ]
-.RB [ "-c \fIcommand\fP" | +\fIcommand\fP ]
-.RB [ -t
+.RB [ "\-c \fIcommand\fP" | +\fIcommand\fP ]
+.RB [ \-t
 .IR tag ]
-.RB [ -w
+.RB [ \-w
 .IR scroll ]
-.RB [ -B
+.RB [ \-B
 .IR blksize ]
 .RI [ file ]...
 .SH VERSION
@@ -78,25 +78,25 @@ by running...
 	:sp http://elvis.vi-editor.org/elvisman/elvis.html
 .fi
 .SH OPTIONS
-.IP \fB-V\fR
+.IP \fB\-V\fR
 "Verbose" mode, causes
 .B Elvis
 to output more status messages.
-You can use multiple \fB-V\fP flags to get even more detailed
+You can use multiple \fB\-V\fP flags to get even more detailed
 information.  
-\fB-VVV\fP can be handy when
+\fB\-VVV\fP can be handy when
 .B Elvis
 isn't initializing itself quite the way you
 expected.
 See also the
-.BI -o logfile
+.BI \-o logfile
 option, described below.
-.IP \fB-a\fR
+.IP \fB\-a\fR
 Instructs
 .B Elvis
 to load all files named on the command line \fIsimultaneously\fR
 with a separate window for each.
-.IP \fB-r\fR
+.IP \fB\-r\fR
 This is used for recovering an edit session after a crash.
 Each
 .B Elvis
@@ -111,49 +111,49 @@ If an
 .B Elvis
 process dies abnormally, though, it will leave the session file
 lying around with that flag set;
-the \fB-r\fR flag allows
+the \fB\-r\fR flag allows
 .B Elvis
 to open a session file even if it is marked
 as being in use.
-.IP \fB-e\fR
+.IP \fB\-e\fR
 Causes
 .B Elvis
 to start each window in ex mode, instead of visual command mode.
 Invoking
 .B Elvis
 as "ex" implies this.
-.IP \fB-i\fR
+.IP \fB\-i\fR
 Causes
 .B Elvis
 to start each window in input mode, instead of visual command mode.
 Novice users may prefer this.
-.IP \fB-b\fR
+.IP \fB\-b\fR
 This sets the "binary" option, which
 causes new buffers to be marked as "readeol=binary".
-Without \fB-b\fR,
+Without \fB\-b\fR,
 .B Elvis
 will try to guess the format by examining the first
 hundred bytes or so of the file.
-.IP \fB-R\fR
+.IP \fB\-R\fR
 This sets the "defaultreadonly" option, which
 causes all new buffers to be marked as "readonly" so you won't accidentally
 overwrite the original file.
-.IP \fB-S\fR
+.IP \fB\-S\fR
 Sets security=restricted.
 This is intended to allow
 .B Elvis
 to be used as a restricted editor.
 Be aware that with or without this flag, \fByou use Elvis at your own risk\fR.
 I have tried to make
-.B -S
+.B \-S
 secure, but I'm not guaranteeing anything.
-.IP "\fB-f \fIsession\fR"
+.IP "\fB\-f \fIsession\fR"
 Makes
 .B Elvis
 use the session file named "\fIsession\fR" instead of the default
 file.
-Session files are discussed in the description of the \fB-r\fR flag, above.
-.IP "\fB-o \fIlogfile\fR"
+Session files are discussed in the description of the \fB\-r\fR flag, above.
+.IP "\fB\-o \fIlogfile\fR"
 Redirects messages and trace information out to
 .I logfile
 instead of going to stdout/stderr as usual.
@@ -161,33 +161,33 @@ This is useful under Microsoft Windows, where stdout/stderr don't show anywhere.
 If you're having trouble configuring WinElvis,
 try running "WinElvis \-VVV \-o log"
 and then you can find the trace and error messages in the file "log".
-.IP "\fB-G \fIgui\fR"
+.IP "\fB\-G \fIgui\fR"
 Makes
 .B Elvis
 use the named \fIgui\fR user interface instead of the default.
 To see a list of supported user interfaces, give the command "elvis \-G?".
-.IP "\fB-c \fIcommand\fR"
+.IP "\fB\-c \fIcommand\fR"
 After loading the first file, interpret \fIcommand\fR as an ex command line.
 Several ex command lines can be sent in one line, separated by "|".
 This is good to know, because only a single
-.BI -c command
+.BI \-c command
 or
 .BI + command
 flag can be used.
-.IP "\fB-s\fR"
+.IP "\fB\-s\fR"
 Read an \fIex\fR script from stdin, and execute it.
-This is similar to the \fB-Gscript\fR flag, except that \fB-s\fR has the
+This is similar to the \fB\-Gscript\fR flag, except that \fB\-s\fR has the
 additional side-effect of bypassing all initialization scripts.
-.IP "\fB-t \fItag\fR"
+.IP "\fB\-t \fItag\fR"
 Causes editing to begin at the location where the given \fItag\fR
 is defined.
 See the
 .BR ctags (1)
 command for more information about tags.
-.IP "\fB-w \fIscroll\fR"
+.IP "\fB\-w \fIscroll\fR"
 This sets the "window" option, which has very little effect in
 .BR Elvis .
-.IP "\fB-B \fIblksize\fR"
+.IP "\fB\-B \fIblksize\fR"
 If a new session file is created, this causes it to use blocks of size
 .IR blksize .
 This should be a power of 2 between 512 and 8192.
@@ -196,12 +196,12 @@ The default is 2048 except for MS-DOS where it is 1024.
 In addition, the following options are also supported to maintain backward
 compatibility, although their future use is discouraged.
 .IP "\fB+\fIcommand"
-Like \fB-c\fI command\fR, this causes the ex \fIcommand\fR to be executed
+Like \fB\-c\fI command\fR, this causes the ex \fIcommand\fR to be executed
 after the first file is loaded.  If the \fIcommand\fR is omitted, it is
 understood to be "$", which causes the cursor to move to the last line of
 the file.
-.IP "\fB-"
-Like \fB-s\fR, this causes
+.IP "\fB\-"
+Like \fB\-s\fR, this causes
 .B Elvis
 to read a script from stdin and execute it.
 .SH "TERMCAP INTERFACE"
@@ -234,7 +234,7 @@ It provides a scrollbar and mouse support, and allows you to
 select which fonts to use.
 .SS "X11 Options"
 .PP
-To specify a normal font, use \fB-font\fI fontname\fR or \fB-fn\fI fontname.\fR
+To specify a normal font, use \fB\-font\fI fontname\fR or \fB\-fn\fI fontname.\fR
 Proportional fonts are not properly supported, but they aren't rejected with an error message either.
 If you don't specify a normal font, then
 .B Elvis
@@ -248,7 +248,7 @@ The default
 file does this,
 making the new default font be Courier in a reasonable point size.)
 .PP
-To specify a bold font, use \fB-fb\fI fontname.\fR
+To specify a bold font, use \fB\-fb\fI fontname.\fR
 The specified font should have the same size character cell as the normal
 font, but
 .B Elvis
@@ -258,7 +258,7 @@ If you don't specify a bold font, then
 will fake it by smearing the
 normal font rightward one pixel.
 .PP
-To specify an italic font, use \fB-fi\fI fontname.\fR
+To specify an italic font, use \fB\-fi\fI fontname.\fR
 The specified font should have the same size character cell as the normal
 font, but
 .B Elvis
@@ -269,14 +269,14 @@ will fake it by sliding the
 top half of the normal font rightward one pixel.
 .PP
 If you want to use Courier fonts, there is a shortcut:
-\fB-courier\fI size\fR will use the normal, bold, and italic versions of
+\fB\-courier\fI size\fR will use the normal, bold, and italic versions of
 the Courier font in the requested size.
 .PP
 You can force
 .B Elvis
-to use only black and white with the \fB-mono\fR flag;
+to use only black and white with the \fB\-mono\fR flag;
 this is the default if your display only has one bitplane.  For color
-displays, \fB-fg \fIcolor\fR and \fB-bg \fIcolor\fR can be used to set
+displays, \fB\-fg \fIcolor\fR and \fB\-bg \fIcolor\fR can be used to set
 the normal text color and the background color, respectively.
 .PP
 .B Elvis
@@ -284,15 +284,15 @@ has a built-in icon, which is generally a good thing.
 Some window managers won't allow you to assign a new icon to a program that
 has a built-in one, so
 .B Elvis
-has a \fB-noicon\fR flag which disables the
+has a \fB\-noicon\fR flag which disables the
 built-in icon.
 .PP
-The \fB-fork\fR client causes
+The \fB\-fork\fR client causes
 .B Elvis
 to run in the background, so that your
 shell prompt returns immediately.
 .PP
-The \fB-client\fR option causes
+The \fB\-client\fR option causes
 .B Elvis
 to look for an already-running
 .B Elvis
@@ -305,14 +305,14 @@ The new
 process then exits, leaving the old one to do the real work
 and allowing your shell program to prompt for a new command immediately.
 For the sake of uniformity,
-if \fB-client\fR fails to find an existing
+if \fB\-client\fR fails to find an existing
 .B Elvis
 process, then a new
 .B Elvis
 process
-starts up as though you had used the \fB-fork\fR argument instead.
+starts up as though you had used the \fB\-fork\fR argument instead.
 .PP
-The \fB-client\fR option is implemented in an interesting way:
+The \fB\-client\fR option is implemented in an interesting way:
 the client
 .B Elvis
 simply sends a series of ex commands to an existing window of the server
@@ -321,10 +321,10 @@ For each file name argument, the client
 .B Elvis
 sends a ":split \fIfile\fR"
 command.
-For \fB-t\fItag\fR, the client
+For \fB\-t\fItag\fR, the client
 .B Elvis
 sends a ":stag \fItag\fR" command.
-For \fB-c\fIcommand\fR, the client
+For \fB\-c\fIcommand\fR, the client
 .B Elvis
 simply sends the \fIcommand\fR,
 and this results in some quirks.
@@ -416,7 +416,7 @@ background option.
 .IP ELVISGUI
 If set, its value is used to select the default user interface.
 You can still override it by using the
-.BI -G gui
+.BI \-G gui
 command line flag.
 .IP ELVISPATH
 If ELVISPATH is defined in the environment, then its value is copied into
@@ -470,7 +470,7 @@ It is used when reading via the FTP protocol, to choose the default
 login information.
 .IP OLDPWD
 This stores the name of the previous directory you were in.
-Its value is stored in the prevdir option, which is used for ~- substitution
+Its value is stored in the prevdir option, which is used for ~ substitution
 in file names.
 .IP PATH
 The usual search path for programs.
@@ -550,10 +550,10 @@ edit session.
 You can instruct
 .B Elvis
 to use a specific session file via the
-.BI -f session
+.BI \-f session
 command-line flag.
 Note that sessions specified via
-.BI -f session
+.BI \-f session
 normally reside in the current directory, but when
 .B Elvis
 chooses its own session file name, it will place it in the
