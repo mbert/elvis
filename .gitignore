@@ -6,6 +6,7 @@ ctags
 doc/elvfmt.man
 elvfmt
 elvis
+elvgdb
 elvtags
 fmt
 ref
