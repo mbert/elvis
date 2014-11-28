@@ -46,7 +46,7 @@ int txtopen(filename, rwa, binary)
 	fd = open(filename, mode, 0666);
 	if (fd < 0)
 	{
-		if (errno == EPERM || EACCES)
+		if (errno == EPERM || errno == EACCES)
 			return -1;
 		else if (errno == EISDIR)
 			return -2;
