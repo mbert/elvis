@@ -423,7 +423,7 @@ install: install.$(OS)
 
 install.unix: $(ALL) doc/elvtags.man
 	rm -f doc/*.bak
-	[ -d $(BINDIR) ] || mkdir $(BINDIR)
+	[ -d $(BINDIR) ] || mkdir -p $(BINDIR)
 	cp $(ALL) $(BINDIR)
 	(cd $(BINDIR); chmod 0755 $(ALL))
 	rm -rf $(DATADIR)
