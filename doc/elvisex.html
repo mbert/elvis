@@ -633,7 +633,7 @@ you can then follow hypertext links to the actual location in the manual.
 | range | <a href="#move">m[ove]</a>            | line                              |
 | range | <a href="#to">t[o]</a>              | line                              |
 | range | <a href="#BANG">!</a>                 | shellcmd                          |
-| range | <a href="#GT">&gt;</a>                 |                                   |
+| range | <a href="#GT">&gt;</a>[!]              |                                   |
 | range | <a href="#LT">&lt;</a>                 |                                   |
 | range | <a href="#join">j[oin]</a>[!]         |                                   |
 |       | <a href="#undo">u[ndo]</a>            | [count]                           |
@@ -726,7 +726,7 @@ to execute an interactive program you should use the <a href="#shell">:shell</a>
 command.
 
 <dt><var>range</var> <a name="LT">&lt;</a>
-<br><var>range</var> <a name="GT">&gt;</a>
+<br><var>range</var> <a name="GT">&gt;</a><code>[</code>!<code>]</code>
 <dd>The <code>:&lt;</code> and <code>:&gt;</code> commands adjust the indentation on the
 addressed lines.
 The <code>:&lt;</code> command decreases the leading whitespace by the number of
@@ -1454,8 +1454,8 @@ of a given buffer, so that's where the cursor is moved to.
 For more information, see the discussion of <a href="#BUFFERID">Buffer IDs</a>
 earlier in this chapter (in the discussion of addresses).
 
-<dt><a name="bbrowse">bb[rowse]</a>
-<br><a name="sbbrowse">sbb[rowse]</a>
+<dt><a name="bbrowse">bb[rowse]</a><code>[</code>!<code>]</code>
+<br><a name="sbbrowse">sbb[rowse]</a><code>[</code>!<code>]</code>
 <dd>
 The <code>:bbrowse</code> and <code>:sbbrowse</code> commands create an HTML document
 which lists the names of all user buffers (or, when a '!' is appended to the
@@ -3013,7 +3013,7 @@ by a '}' on a line by itself.
 |       | <a href="#args">ar[gs]</a>            | [file...]                         |
 |       | <a href="#augroup">aug[roup]</a>[!]      | [group]                           |
 |       | <a href="#autocmd">au[tocmd]</a>[!]      | [group] [events [file [excmd]]]   |
-|       | <a href="#bbrowse">bb[rowse]</a>         |                                   |
+|       | <a href="#bbrowse">bb[rowse]</a>[!]      |                                   |
 |       | <a href="#break">bre[ak]</a>[!]        | [flags] lhs                       |
 |       | <a href="#browse">br[owse]</a>[!]       | restrictions                      |
 |       | <a href="#buffer">b[uffer]</a>[!]       | [buffer]                          |
@@ -3087,7 +3087,7 @@ by a '}' on a line by itself.
 |       | <a href="#sNext">sN[ext]</a>           |                                   |
 |       | <a href="#safely">safel[y]</a>[!        | excmds                            |
 |       | <a href="#sall">sa[ll]</a>            |                                   |
-|       | <a href="#sbbrowse">sbb[rowse]</a>        |                                   |
+|       | <a href="#sbbrowse">sbb[rowse]</a>[!]     |                                   |
 |       | <a href="#sbrowse">sb[rowse]</a>         | restrictions                      |
 |       | <a href="#set">se[t]</a>[!]          | [option=value | option? | all]    |
 |       | <a href="#shell">sh[ell]</a>           |                                   |
@@ -3135,7 +3135,7 @@ by a '}' on a line by itself.
 |       | <a href="#OPEN">(</a>                 | buffer                            |
 | range | <a href="#LT">&lt;</a>                 |                                   |
 | range | <a href="#EQ">=</a>                 |                                   |
-| range | <a href="#GT">&gt;</a>                 |                                   |
+| range | <a href="#GT">&gt;</a>[!]              |                                   |
 |       | <a href="#AT">@</a>                 | cutbuf                            |
 |       | <a href="#OCUR">{</a>                 |                                   |
 | range | <a href="#TILDE">~</a>                 |                                   |
