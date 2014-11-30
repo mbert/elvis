@@ -1948,9 +1948,13 @@ This can be handy when you're trying to make a Makefile look pretty.
 <dt>cb
 <dd>Defines some aliases for managing cut buffers.
 <code>:cbsave</code> and <code>:cbload</code> save your cut buffers to a file,
-and load them again, respectively.
+and load them again, respectively, which only works if your file buffer is
+unmodified (so you have to save first).
 <code>:cbshow</code> lists the current contents and
-<a href="elvisopt.html#putstyle">putstyle</a> of each cut buffer.
+<a href="elvisopt.html#putstyle">putstyle</a> of each cut buffer, namely of
+the named buffers ("a through "z) as well as of the anonymous buffers ("1
+through "9), whereas <code>:cbsave</code> and <code>:cbload</code> disregard
+the anonymous buffers.
 
 <dt>cursor
 <dd>Defines a <code>:cursor</code> alias which moves the cursor to a given

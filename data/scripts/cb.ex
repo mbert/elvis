@@ -6,7 +6,7 @@ alias cbload {
  if "!1" == ""
  then error cbload requires a file name
  e !1
- %s:^--CBS-- \([a-z]\)$:+;/^--CBS--/-1 y \1:x
+ try %s:^--CBS-- \([a-z]\)$:+;/^--CBS--/-1 y \1:x
  eval buffer (b)
 }
 
@@ -35,21 +35,24 @@ alias cbsave {
 
 alias cbshow {
  "Show contents of cut-buffers
- local b c i l="!*" q u s
+ local b c d i l="!*" q u s
  if l == ""
  then let l = "abcdefghijklmnopqrstuvwxyz123456789"
  echo Buf\| Size & Type \| Contents
- echo ---+-------------+----------------------------------------------------
+ echo ---+-------------+-----------------------------------------------------
  for i (1 .. strlen(l))
  do {
-  let c = ((l;" ") << i) >> 1
+  let c = l[,i]
   let b = "Elvis cut buffer ";c
   if buffer(b)
   then {
    (=b) let u = putstyle << 4;
    (=b) let q = u=="char" ? bufchars - 1 : buflines
+   if q > 0
+   then let d = line(b,1) " "
+   else let d = " "
    let s = q; " "; u; (q == 1 ? " " : "s")
-   (=b) calc " "; c; " |"; s >> 12; " | "; line(b,1) << 52
+   (=b) calc " "; c; " |"; s >> 12; " | "; d << 52
   }
   let i = i + 1
  }
