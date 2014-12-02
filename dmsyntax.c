@@ -497,6 +497,7 @@ static DMINFO *init(win)
 			str = OSINCLUDEPATH;
 #endif
 		optpreset(o_includepath, toCHAR(str), OPT_HIDE);
+		optinsert("glob", QTY(globdesc), globdesc, globval);
 
 		/* locate the default fonts */
 		cfont[COMMENT] =
