@@ -908,23 +908,25 @@ color face like keyword
 # ex syntax.  Still, it can color comments and most keywords; maybe that's
 # enough.  The particular variation shown here works okay for aliases.
 language ex
-extension .ex .exrc .elvisrc elvis.rc elvis.ini elvis.brf elvis.arf elvis.bwf elvis.awf elvis.ali elvis.spe
-keyword a ab abbr abbreviate all alias append ar args au aug augroup autocmd
-keyword b bb bbrowse br bre break browse buffer c ca calc calculate case cc cd
-keyword change chd chdir check cl close co col color copy d default delete di
-keyword dig digraph dis display do doau doautocmd doloop e ec echo edit el
-keyword else er err errlist erro error ev eval ex f file fold for foreach
-keyword g global go goto gu gui h help i if insert j join k l la last le
-keyword let list lo local lp lpr m ma mak make map mark me message mk
-keyword mkexrc move n N new next Next no nof nofold noh nohlsearch normal nu
-keyword number o open p po pop pre previous print pu push put q qa qall quit
-keyword r read red redo rew rewind s sN sNext sa saf safely sall sb sbb
-keyword sbbrowse sbr sbrowse se set sh shell sl slast sn sne snew snext so
-keyword source sp split sre srew srewind st sta stac stack stag stop subst
-keyword substitute sus susp suspend switch t ta tag th then to try u una unab
-keyword unabbr unabbreviate unalias unb unbreak undo unfold unm unmap v ve
-keyword version vglobal vi visual w wa warning wordf wordfile words wh while
-keyword wi window wn wnext wq wquit write x xit y yank z
+extension .ex .exrc .elvisrc elvis.rc elvis.ini elvis.brf elvis.arf elvis.bwf elvis.awf elvis.ali elvis.spe elvis.clr elvis.x11
+keyword a ab abbr abbreviate al ali alias all append ar args au aue auevent
+keyword aug augroup autocmd b bb bbrowse br bre break browse buffer c ca calc
+keyword calculate case cc cd change chd che chdir check chr chregion cl close
+keyword co col color copy d def default delete di dig digraph dis display do
+keyword doa doau doautocmd doloop e ec echo edit el else er err errlist erro
+keyword error ev eval ex f file fo fold for foreach g global go goto gu gui h
+keyword help i if insert j join k l la last le let list lo local lp lpr m ma
+keyword mak make map mark me message mk mkexrc move n N new next Next no nof
+keyword nofold noh nohlsearch norm normal nu number o on only open p ph phelp
+keyword po pop pre pres preserve previous print pu pus push put q qa qall
+keyword quit r read red redo reg region rew rewind s sN sNext sa saf safel
+keyword safely sall sb sbb sbbrowse sbr sbrowse se set sh shell sl slast sn
+keyword sne snew snext so source sp split sre srew srewind st sta stac stack
+keyword stag stop su subst substitute sus susp suspend sw switch t ta tag th
+keyword then to try u una unab unabbr unabbreviate unal unalias unb unbreak
+keyword undo unf unfold unm unmap unr unregion v ve version vglobal vi visual
+keyword w wa warning wo wordf wordfile words wh while wi window wn wnext wq
+keyword wquit write x xit y yank z
 anchor ^ " # & < = > @ ~
 # note that ! is not listed as a keyword because it interferes with alias args
 comment "
