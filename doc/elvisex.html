@@ -1585,7 +1585,7 @@ the file name's extension.
 |       | <a href="#set">se[t]</a>[!]          | [option=value | option? | all]    |
 |       | <a href="#local">lo[cal]</a>           | [option=value | option ]          |
 |       | <a href="#let">le[t]</a>[!]          | option=expr                       |
-|       | <a href="#alias">al[ias]</a>[!]        | [name [excmds]]                   |
+|       | <a href="#alias">ali[as]</a>[!]        | [name [excmds]]                   |
 |       | <a href="#unalias">unal[ias]</a>[!]      | name                              |
 |       | <a href="#if">if</a>                | expr                              |
 |       | <a href="#then">th[en]</a>            | excmds                            |
@@ -2145,7 +2145,7 @@ Elvis will set both the current and default values of the option,
 and mark the option has having <em>not</em> been changed.
 This is used in some of Elvis' initialization scripts.
 
-<dt><a name="alias">al[ias]</a><code>[</code>!<code>]</code> <code>[</code><var>name</var> <code>[</code><var>excmds</var><code>]]</code>
+<dt><a name="alias">ali[as]</a><code>[</code>!<code>]</code> <code>[</code><var>name</var> <code>[</code><var>excmds</var><code>]]</code>
 <dd>The <code>:alias</code> command manipulates the alias list.
 (See the <a href="elvistip.html#ALIAS">Tips</a> section of the manual for
 a discussion of aliases.)
@@ -3007,10 +3007,11 @@ by a '}' on a line by itself.
 |ADDRESS| COMMAND           | ARGUMENTS                         |
 |-------|-------------------|-----------------------------------|
 |       | <a href="#abbreviate">ab[breviate]</a>[!]   | [lhs rhs]                         |
-|       | <a href="#alias">al[ias]</a>           | [name [excmds]]                   |
+|       | <a href="#alias">ali[as]</a>           | [name [excmds]]                   |
 |       | <a href="#all">al[l]</a>[!]          | excmds                            |
 | line  | <a href="#append">a[ppend]</a>[!]       | [text]                            |
 |       | <a href="#args">ar[gs]</a>            | [file...]                         |
+|       | <a href="#auevent">aue[vent]</a>[!]      | [event] ...                       |
 |       | <a href="#augroup">aug[roup]</a>[!]      | [group]                           |
 |       | <a href="#autocmd">au[tocmd]</a>[!]      | [group] [events [file [excmd]]]   |
 |       | <a href="#bbrowse">bb[rowse]</a>[!]      |                                   |
@@ -3032,11 +3033,11 @@ by a '}' on a line by itself.
 | range | <a href="#delete">d[elete]</a>          | [cutbuf] [count]                  |
 |       | <a href="#digraph">dig[raph]</a>[!]      | [lhs [rhs]]                       |
 |       | <a href="#display">di[splay]</a>         | [modename [language]]             |
+|       | <a href="#doautocmd">doa[utocmd]</a>       | [group] event [file]              |
 |       | <a href="#doloop">do[loop]</a>          | excmds                            |
 |       | <a href="#echo">ec[ho]</a>            | text                              |
 |       | <a href="#edit">e[dit]</a>[!]         | [+line] [file]                    |
 |       | <a href="#else">el[se]</a>            | excmds                            |
-| range | <a href="#nofold">nof[old]</a>[!]       |                                   |
 |       | <a href="#errlist">er[rlist]</a>[!]      | [file]                            |
 |       | <a href="#error">erro[r]</a>           | text                              |
 |       | <a href="#eval">ev[al]</a>            | expr                              |
@@ -3066,6 +3067,7 @@ by a '}' on a line by itself.
 |       | <a href="#new">new</a>               |                                   |
 |       | <a href="#next">n[ext]</a>[!]         | [file...]                         |
 |       | <a href="#Next">N[ext]</a>[!]         |                                   |
+| range | <a href="#nofold">nof[old]</a>[!]       |                                   |
 |       | <a href="#nohlsearch">noh[lsearch]</a>      |                                   |
 | range | <a href="#normal">norm[al]</a>[!]       | keystrokes                        |
 | range | <a href="#number">nu[mber]</a>          | [count]                           |
