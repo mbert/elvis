@@ -1,5 +1,6 @@
 "For shell scripts, use a region to highlight herefiles.
-color herefile like comment black or white
+if color("herefile") == ""
+then color herefile like comment black or white
 aug herefile
 au OptChanged bufdisplay {
   if bufdisplay == "syntax sh" || knownsyntax(filename) == "sh"

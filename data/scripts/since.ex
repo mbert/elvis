@@ -46,13 +46,19 @@ aug END
 switch gui
   case windows
   case x11 {
-    color since on orange
-    color rcssince on orange
-    color unsaved on tan
+    if color("since") == ""
+    then color since on orange
+    if color("rcssince") == ""
+    then color rcssince on orange
+    if color("unsaved") == ""
+    then color unsaved on tan
   }
   case vio
   case termcap {
-    color since on brown
-    color rcssince on brown
-    color unsaved on red
+    if color("since") == ""
+    then color since on brown
+    if color("rcssince") == ""
+    then color rcssince on brown
+    if color("unsaved") == ""
+    then color unsaved on red
   }
