@@ -885,21 +885,23 @@ other initialpunct
 strnewline allowed
 mostly normal
 
-# This "elvis.syn" entry
+# Elvis syntax description
 # Contributed by Woody Jin (wjin@cs.uh.edu)
 # Modified by S.K. to take advantage of new features of Elvis
+# revised by ib
 language syn
 extension elvis.syn
-keyword function comment keyword string other regexp prepquote
-anchor 1 anchor inword character font mostly color ignorecase extension
-anchor 1 foreign language startword operator strnewline preprocessor regexp
-anchor 1 set useregexp useregsub prepquote documentation prefix
-anchor 6 normal char regsub number variable prep doc docmarkup docindent
+anchor ^ # anchor backslash character color comment documentation extension
+anchor ^ font foreign function ignorecase inword keyword language mostly
+anchor ^ operator other prefix prepquote preprocessor regexp set startword
+anchor ^ string strnewline useregexp useregsub
+font face bottom char doc docindent docmarkup hlsearch idle lnum nontext
+font face number prep regsub ruler selection showmode variable
 font string allcaps initialcaps mixedcaps final_t initialpunct
-font string true false allowed backslash indent empty
-anchor 1 #
+font string true false allowed indent empty
+font string none normal formatted
 comment #
-inword _
+color face like keyword
 
 # EX
 # Ironically, Elvis' syntax coloring method isn't versatile enough to color
