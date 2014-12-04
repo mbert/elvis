@@ -1352,6 +1352,9 @@ static MARK image(w, line, info, draw)
 			if (sinfo->token == PUNCT
 			 && (kp = scankeyword(&up, col + 1, indent)) != NULL)
 			{
+				/* indentation ends */
+				indent = ElvFalse;
+
 				/* It's a keyword.  Is it a comment keyword? */
 				if (wordcomment(kp))
 				{
