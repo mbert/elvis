@@ -1671,7 +1671,7 @@ static void genlastrow(win)
 			for (i = base + o_columns(win) - 10; i < base + o_columns(win) - 3; i++)
 			{
 				win->di->newchar[i] = *scan++;
-				win->di->newfont[i] = COLOR_FONT_SHOWMODE;
+				win->di->newfont[i] = (o_hasfocus(win) ? COLOR_FONT_SHOWMODE : COLOR_FONT_IDLE);
 				if (!*scan)
 				{
 					scan = " ";
@@ -1691,7 +1691,7 @@ static void genlastrow(win)
 			for (i = base + o_columns(win) - 10 - strlen(buf); *scan; i++)
 			{
 				win->di->newchar[i] = *scan++;
-				win->di->newfont[i] = COLOR_FONT_RULER;
+				win->di->newfont[i] = (o_hasfocus(win) ? COLOR_FONT_RULER : COLOR_FONT_IDLE);
 			}
 		}
 		else
@@ -1701,7 +1701,7 @@ static void genlastrow(win)
 			win->di->newchar[i] = maplrnchar(o_modified(markbuffer(win->cursor)) ? '*' : ',');
 			if (win->di->newchar[i] == ',')
 				win->di->newchar[i] = ' ';
-			win->di->newfont[i] = COLOR_FONT_RULER;
+			win->di->newfont[i] = (o_hasfocus(win) ? COLOR_FONT_RULER : COLOR_FONT_IDLE);
 		}
 
 	}
