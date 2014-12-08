@@ -609,7 +609,7 @@ static char *manynames(names)
 static void starttcap()
 {
 	static char	cbmem[800];
-	char		*str;
+	char		*str = NULL;
 	int		i;
 
 	/* make sure TERM variable is set */
