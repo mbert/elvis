@@ -969,7 +969,7 @@ void maketag(scope, name, lnum, seek, number, kind, inside)
 				for (; scan && !strcmp(scan->TAGNAME,name); scan = next)
 				{
 					if (warn_duplicate)
-						printf("duplicate tag \"%s\" is typedef: keeping one from %s, not %ss\n", name, file_name, scan->TAGFILE);
+						printf("duplicate tag \"%s\" is typedef: keeping one from %s, not %s\n", name, file_name, scan->TAGFILE);
 
 					/* make any references to it point to
 					 * the next tag instead.
@@ -984,7 +984,10 @@ void maketag(scope, name, lnum, seek, number, kind, inside)
 							ref->bighop = scan->next;
 					}
 					if (taglist == scan)
+					{
 						taglist = scan->next;
+						next = taglist;
+					}
 
 					/* delete this one */
 					(void)tagfree(scan);
