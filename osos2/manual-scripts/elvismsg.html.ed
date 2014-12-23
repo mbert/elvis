@@ -1,0 +1,5 @@
+/<a  *href="*elvistrs.msg"*> *$
+s/<a  *href="*elvistrs.msg"*> *$//
++
+s/<\/a> *$//
+wq

@@ -1,0 +1,16 @@
+/What is elvis
+s/^.*/:li\.:link reftype=hd res=60.1\&per\. What is elvis?:elink\./
++1
+/WHAT IS ELVIS?
+-2
+i
+:h2 res=60.What is elvis?
+:font facename=default size=0x0.
+:p.
+.
+/^:h2  *.*Elvis 2\&per\.1 Quick Reference
++4
+.d
+%s/launch IBM Web Explorer/launch Netscape/g
+%s/object *= *' *explore.exe *'/object='netscape.exe'/g
+wq
