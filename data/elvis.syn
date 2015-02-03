@@ -213,8 +213,8 @@ keyword return select set shift source stop suspend test then time times trap
 keyword type typeset ulimit umask unalias unset until wait whence while
 function (
 comment #
-startword /?-*!.
-inword /?*!.
+startword /?-*!._
+inword /?*!._
 # The following is more subtle than it looks.  Elvis allows us to define two
 # string quotes and one character quote, and sh needs all of them.  But the
 # choice of which bash quote to use as "character" is critical.  Subcommands
