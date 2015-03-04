@@ -1809,21 +1809,43 @@ inword _
 
 # ssh client configuration
 # $HOME/.ssh/ssh_config or /etc/ssh/ssh_config
+# CamelCase keywords are as per ssh-6.7p1 manual
+# old keywords at end in all lowercase
 language ssh_config
 extension ssh_config
 comment #
-anchor ^ afstokenpassing batchmode bindadress
-anchor ^ challengeresponseauthentication checkhostip cipher ciphers
-anchor ^ clearallforwardings compression compressionlevel connectionattempts
-anchor ^ dynamicforward escapechar forwardagent forwardx11 gatewayports
-anchor ^ globalknownhostsfile host hostbasedauthentication hostkeyalgorithms
-anchor ^ hostkeyalias hostname identityfile keepalive kerberosauthentication
-anchor ^ localforward loglevel macs nohostauthenticationforlocalhost
-anchor ^ numberofpasswordprompts passwordauthentication port protocol
-anchor ^ protocolkeepalives  proxycommand pubkeyauthentication remoteforward
-anchor ^ rhostsauthentication  rhostsrsaauthentication rsaauthentication
-anchor ^ setuptimeout smartcarddevice stricthostkeychecking
-anchor ^ useprivilegedport user userknownhostsfile xauthlocation
+anchor ^ AddressFamily
+anchor ^ BatchMode BindAdress
+anchor ^ CanonicalDomains CanonicalizeFallbackLocal CanonicalizeHostname
+anchor ^ CanonicalizeMaxDots CanonicalizePermittedCNAMEs
+anchor ^ ChallengeResponseAuthentication CheckHostIP Cipher Ciphers
+anchor ^ ClearAllForwardings Compression CompressionLevel ConnectionAttempts
+anchor ^ ConnectTimeout ControlMaster ControlPath ControlPersist
+anchor ^ DynamicForward
+anchor ^ EnableSSHKeysign EscapeChar ExitOnForwardFailure
+anchor ^ ForwardAgent ForwardX11 ForwardX11Timeout ForwardX11Trusted
+anchor ^ GatewayPorts GlobalKnownHostsFile GSSAPIAuthentication
+anchor ^ GSSAPIDelegateCredentials
+anchor ^ HashKnownHosts Host HostbasedAuthentication HostKeyAlgorithms
+anchor ^ HostKeyAlias HostName
+anchor ^ IdentitiesOnly IdentityFile IgnoreUnknown IPQoS
+anchor ^ KbdInteractiveAuthentication KbdInteractiveDevices KexAlgorithms
+anchor ^ LocalCommand LocalForward LogLevel
+anchor ^ MACs Match
+anchor ^ NoHostAuthenticationForLocalhost NumberOfPasswordPrompts
+anchor ^ PasswordAuthentication PermitLocalCommand PKCS11Provider Port
+anchor ^ PreferredAuthentications Protocol ProxyCommand ProxyUseFdpass
+anchor ^ PubkeyAuthentication
+anchor ^ RekeyLimit RemoteForward RequestTTY RhostsRSAAuthentication
+anchor ^ RSAAuthentication
+anchor ^ SendEnv ServerAliveCountMax ServerAliveInterval StreamLocalBindMask
+anchor ^ StreamLocalBindUnlink StrictHostKeyChecking
+anchor ^ TCPKeepAlive Tunnel TunnelDevice
+anchor ^ UsePrivilegedPort User UserKnownHostsFile
+anchor ^ VerifyHostKeyDNS VisualHostKey
+anchor ^ XAuthLocation
+anchor ^ afstokenpassing keepalive kerberosauthentication protocolkeepalives
+anchor ^ rhostsauthentication setuptimeout smartcarddevice
 ignorecase true
 
 # IceWM - a small and fast window manager
