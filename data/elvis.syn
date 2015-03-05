@@ -1099,7 +1099,7 @@ other allcaps initialpunct
 strnewline empty
 
 # ACCELL.
-# Contributed by H.Merijn Brand <h.m.brand@hccnet.nl>
+# Contributed by H.Merijn Brand <h.m.brand@xs4all.nl>
 language accell
 extension .fs .fz .as .az .h
 keyword ACCELL ACCELL_TYPE ACTION ADD ADD_ALLOWED ADD_UPDATE AFTER ALL ALTER
@@ -1366,7 +1366,7 @@ comment !!
 comment =
 
 # RPT
-# Contributed by H.Merijn Brand <h.m.brand@hccnet.nl>
+# Contributed by H.Merijn Brand <h.m.brand@xs4all.nl>
 language RPT
 extension .rpt
 keyword after amount and avg before begin binary bootm centered col column comb
@@ -1809,21 +1809,43 @@ inword _
 
 # ssh client configuration
 # $HOME/.ssh/ssh_config or /etc/ssh/ssh_config
+# keywords are as per ssh-6.7p1 manual
+# old keywords at end (last two lines) seem to bee not supported anymore
 language ssh_config
 extension ssh_config
 comment #
-anchor ^ afstokenpassing batchmode bindadress
+anchor ^ addressfamily
+anchor ^ batchmode bindadress
+anchor ^ canonicaldomains canonicalizefallbacklocal canonicalizehostname
+anchor ^ canonicalizemaxdots canonicalizepermittedcnames
 anchor ^ challengeresponseauthentication checkhostip cipher ciphers
 anchor ^ clearallforwardings compression compressionlevel connectionattempts
-anchor ^ dynamicforward escapechar forwardagent forwardx11 gatewayports
-anchor ^ globalknownhostsfile host hostbasedauthentication hostkeyalgorithms
-anchor ^ hostkeyalias hostname identityfile keepalive kerberosauthentication
-anchor ^ localforward loglevel macs nohostauthenticationforlocalhost
-anchor ^ numberofpasswordprompts passwordauthentication port protocol
-anchor ^ protocolkeepalives  proxycommand pubkeyauthentication remoteforward
-anchor ^ rhostsauthentication  rhostsrsaauthentication rsaauthentication
-anchor ^ setuptimeout smartcarddevice stricthostkeychecking
-anchor ^ useprivilegedport user userknownhostsfile xauthlocation
+anchor ^ connecttimeout controlmaster controlpath controlpersist
+anchor ^ dynamicforward
+anchor ^ enablesshkeysign escapechar exitonforwardfailure
+anchor ^ forwardagent forwardx11 forwardx11timeout forwardx11trusted
+anchor ^ gatewayports globalknownhostsfile gssapiauthentication
+anchor ^ gssapidelegatecredentials
+anchor ^ hashknownhosts host hostbasedauthentication hostkeyalgorithms
+anchor ^ hostkeyalias hostname
+anchor ^ identitiesonly identityfile ignoreunknown ipqos
+anchor ^ kbdinteractiveauthentication kbdinteractivedevices kexalgorithms
+anchor ^ localcommand localforward loglevel
+anchor ^ macs match
+anchor ^ nohostauthenticationforlocalhost numberofpasswordprompts
+anchor ^ passwordauthentication permitlocalcommand pkcs11provider port
+anchor ^ preferredauthentications protocol proxycommand proxyusefdpass
+anchor ^ pubkeyauthentication
+anchor ^ rekeylimit remoteforward requesttty rhostsrsaauthentication
+anchor ^ rsaauthentication
+anchor ^ sendenv serveralivecountmax serveraliveinterval streamlocalbindmask
+anchor ^ streamlocalbindunlink stricthostkeychecking
+anchor ^ tcpkeepalive tunnel tunneldevice
+anchor ^ useprivilegedport user userknownhostsfile
+anchor ^ verifyhostkeydns visualhostkey
+anchor ^ xauthlocation
+anchor ^ afstokenpassing keepalive kerberosauthentication protocolkeepalives
+anchor ^ rhostsauthentication setuptimeout smartcarddevice
 ignorecase true
 
 # IceWM - a small and fast window manager
