@@ -640,9 +640,10 @@ int lex_gettoken()
 					 */
 					if (ch == '/')
 					{
-						while ((ch = cpp_getc()) != '\n')
+						do
 						{
-						}
+							ch = cpp_getc();
+						} while (ch != '\n' && ch != EOF);
 					}
 
 					/* the last name before a comma, '=', or
