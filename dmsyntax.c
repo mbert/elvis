@@ -138,6 +138,7 @@ static spell_t *scankeyword(refp, colplusone, indent)
 {
 	spell_t *node;
 	spell_t *nnode = NULL;	/* node for normal colplusone anchor */
+	CHAR    *rrefp;		/* reference for normal colplusone anchor */
 	int	anchor;
 
 	/* look it up, being careful about case sensitivity */
@@ -173,6 +174,7 @@ static spell_t *scankeyword(refp, colplusone, indent)
 					if (anchor == colplusone)
 					{
 						nnode = node;	/* keep node for normal anchor in mind... */
+						rrefp = *refp;
 						goto Continue;	/* ...but continue searching for... */
 					}
 					/* ...an alternative one which is preferred */
@@ -194,7 +196,11 @@ Continue:
 		else
 			node = spellletter(node, **refp);
 	}
-	if (!SPELL_IS_GOOD(node)) node = nnode;	/* no node for alternative anchor, try normal one */
+	if (!SPELL_IS_GOOD(node) && nnode)	/* no node for alternative anchor, try normal one */
+	{
+		node = nnode;
+		*refp = rrefp;
+	}
 	if (!SPELL_IS_GOOD(node))
 		return NULL;
 
