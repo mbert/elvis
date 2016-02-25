@@ -515,7 +515,7 @@ RESULT v_window(win, vinf)
 		}
 		break;
 
-	  case 'k':
+	  case 'j':
 		/* move up 1 window */
 		for (next = NULL; winofbuf(next, NULL) != win; )
 		{
@@ -525,7 +525,7 @@ RESULT v_window(win, vinf)
 		}
 		break;
 
-	  case 'j':
+	  case 'k':
 		/* move down 1 window */
 		next = winofbuf(win, NULL);
 		break;
