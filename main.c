@@ -920,6 +920,7 @@ int main(argc, argv)
 	char	**argv;	/* values of the command-line arguments */
 {
 	init(argc, argv);
+	exstring(windefault, toCHAR("window 1"), NULL);
 	(*gui->loop)();
 	term();
 #if !defined (GUI_WIN32)
