@@ -1813,7 +1813,6 @@ static ELVBOOL creategw(name, firstcmd)
 	char	*firstcmd;	/* first command to run in window */
 {
 	TWIN	*newp;
-	TWIN	*twinstmp;
 #ifdef FEATURE_MISC
 	BUFFER	buf;
 #endif
@@ -1842,17 +1841,8 @@ static ELVBOOL creategw(name, firstcmd)
 	newp->shape = CURSOR_NONE;
 
 	/* insert the new window into the list of windows */
-	if (current) {
-		/* ...after the current window */
-		twinstmp = twins;
-	 	while(twinstmp != NULL && twinstmp != current)
-	 		twinstmp = twinstmp->next;
-		newp->next = twinstmp->next;
-		twinstmp->next= newp;
-	} else {
-		newp->next = twins;
-		twins = newp;
-	}
+	newp->next = twins;
+	twins = newp;
 	nwindows++;
 
 	/* adjust the heights of the other windows to make room for this one */
