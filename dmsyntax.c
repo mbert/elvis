@@ -1504,7 +1504,7 @@ static MARK image(w, line, info, draw)
 			{
 				sinfo->token = PREPWORD;
 			}
-			else if (sinfo->token == PREPWORD && !elvalnum(*cp))
+			else if (sinfo->token == PREPWORD && !elvalnum(*cp) && *cp != '_')
 			{
 				sinfo->token = PUNCT;
 				expectprepq = ElvTrue;
