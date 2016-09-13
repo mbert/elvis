@@ -1548,7 +1548,14 @@ static ELVBOOL focusgw(gw)
 	}
 
 	/* Explicitly change the focus */
-	XSetInputFocus(x_display, xw->win, RevertToParent, x_now);
+	{
+		XWindowAttributes attribute;
+		XGetWindowAttributes(x_display, xw->win, &attribute);
+		if (attribute.map_state == IsViewable )
+		{ 
+			XSetInputFocus(x_display, xw->win, RevertToParent, x_now);
+		} 
+	}
 	x_hasfocus = xw;
 	x_didcmd = ElvTrue;
 	return ElvTrue;
@@ -1757,7 +1764,14 @@ static void term()
 				0, 0, 0, 0, width / 2, 0);
 		}
 	}
-	XSetInputFocus(x_display, fromwin, RevertToParent, x_now);
+	{
+		XWindowAttributes attribute;
+		XGetWindowAttributes(x_display, fromwin, &attribute);
+		if (attribute.map_state == IsViewable )
+		{ 
+			XSetInputFocus(x_display, fromwin, RevertToParent, x_now);
+		} 
+	}
 
 	/* delete the server property from the root window */
 	XDeleteProperty(x_display, root, x_elvis_server);
