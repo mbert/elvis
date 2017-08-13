@@ -5,7 +5,13 @@
 #include <io.h>
 #include <errno.h>
 #include <fcntl.h>
+
+#if defined MINGW32
+#include "../elvis.h"
+#else
 #include "elvis.h"
+#endif
+
 #ifndef DEFAULT_SESSION
 # define DEFAULT_SESSION "elvis%d.ses"
 #endif

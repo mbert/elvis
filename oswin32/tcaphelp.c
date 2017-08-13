@@ -1,7 +1,11 @@
 /* oswin32/tcaphelp.c */
 
-
+#if defined MINGW32
+#include "../elvis.h"
+#else
 #include "elvis.h"
+#endif
+
 #ifdef FEATURE_RCSID
 char id_tcaphelp[] = "$Id: tcaphelp.c,v 2.35 2004/01/30 00:55:08 steve Exp $";
 #endif

@@ -6,14 +6,12 @@
 #include <fcntl.h>
 #include <signal.h>
 #include <string.h>
+#include <sys/wait.h>
 #include "elvis.h"
+
 #ifdef FEATURE_RCSID
 char id_osprg[] = "$Id: osprg.c,v 2.13 2003/10/17 17:41:23 steve Exp $";
 #endif
-#ifdef NEED_WAIT_H
-# include <sys/wait.h>
-#endif
-
 
 #define TMPDIR	(o_directory ? tochar8(o_directory) : "/tmp")
 #define SHELL	(o_shell ? tochar8(o_shell) : "/bin/sh")

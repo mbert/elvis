@@ -1,0 +1,25 @@
+CC = gcc
+CC_FLAGS = -O2 -DWIN32 -DMINGW32
+
+EXEC = elvis.exe
+SOURCES = vi.c display.c guitcap.c need.c tinytcap.c draw.c guicurs.c \
+cut.c regexp.c region.c url.c options.c dmnormal.c lpps.c misc.c \
+lp.c exmake.c safe.c oswin32/ostext.c dmsyntax.c io.c digraph.c state.c \
+search.c exedit.c exsubst.c input.c dmmarkup.c oswin32/tcaphelp.c move.c \
+tagsrch.c ex.c regsub.c operator.c oswin32/osnet.c http.c more.c map.c \
+gui.c lowbuf.c vicmd.c buffer.c tagelvis.c exaction.c main.c \
+event.c lpovrtyp.c calc.c oswin32/osprg.c window.c scan.c tag.c \
+session.c spell.c optglob.c guiopen.c mark.c lpescape.c \
+oswin32/osblock.c oswin32/osdir.c message.c dmhex.c exconfig.c fold.c ftp.c \
+color.c descr.c autocmd.c
+
+OBJECTS = $(SOURCES:.c=.o)
+LIBS = -lwsock32 -lkernel32 -luser32 -lgdi32 -lwinspool \
+ -lcomdlg32 -ladvapi32 -lshell32 -lole32 -loleaut32 -luuid \
+ -lodbc32 -lodbccp32
+
+$(EXEC): $(OBJECTS)
+	$(CC) $(OBJECTS) -o $(EXEC) $(LIBS)
+
+%.o: %.c
+	$(CC) -c $(CC_FLAGS) $< -o $@
