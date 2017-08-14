@@ -5,7 +5,13 @@
 #include <wtypes.h>
 #include <io.h>
 #define CHAR ElvisCHAR
+
+#if defined MINGW32
+#include "../elvis.h"
+#else
 #include "elvis.h"
+#endif
+
 #ifdef FEATURE_RCSID
 char id_osprg[] = "$Id: osprg.c,v 2.19 2003/10/17 17:41:23 steve Exp $";
 #endif

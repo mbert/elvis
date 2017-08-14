@@ -45,7 +45,12 @@
  *	Return the name of the local system.
  */
 
+#if defined MINGW32
+#include "../elvis.h"
+#else
 #include "elvis.h"
+#endif
+
 #ifdef FEATURE_RCSID
 char id_osnet[] = "$Id: osnet.c,v 2.12 2003/10/17 17:41:23 steve Exp $";
 #endif
