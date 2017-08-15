@@ -9,8 +9,13 @@
  */
 
 #if !defined(JUST_DIRFIRST) && !defined(JUST_DIRPATH)
-# include "elvis.h"
+#if defined MINGW32
+#include "../elvis.h"
+#else
+#include "elvis.h"
 #endif
+#endif
+
 #define CHAR winCHAR
 #include <windows.h> /* for registry functions */
 #undef CHAR

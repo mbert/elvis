@@ -1,6 +1,11 @@
 /* oswin32/ostext.c */
 
+#if defined MINGW32
+#include "../elvis.h"
+#else
 #include "elvis.h"
+#endif
+
 #include <sys/types.h>
 #include <dos.h>
 #include <fcntl.h>

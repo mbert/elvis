@@ -6,9 +6,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#if defined MINGW32
+#include "mingw/config.h"
+#include "mingw/osdef.h"
+#else
 #include "config.h"
-#include "version.h"
 #include "osdef.h"
+#endif
+
+#include "version.h"
 
 /* The FTP protocol requires HTTP */
 #if defined(PROTOCOL_FTP) && !defined(PROTOCOL_HTTP)
