@@ -141,6 +141,15 @@ UNIX
 	 --------------------------------------------------------------------
 
 ================================================================================
+Windows 7,8,10, with MinGW compiler:
+     1) Run the "makmingw32.bat" file.
+
+		makmingw32.bat
+
+	You can then copy the elvis.exe and the 'data' folder to anywhere
+	on your drive to install it.  If you wish it to be available
+	in cmd.exe or powershell, then copy it to anywhere in your path
+	or add the folder location to your path.
 
 MS-Windows/NT (or Windows95?), with Visual C++ 2.0 or later (Method #1):
      1)	Run the "makwin32.bat" file.
