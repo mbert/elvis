@@ -105,7 +105,10 @@ ELVBOOL blkopen(force, buf)
 		{
 			msg(MSG_FATAL, "set SESSIONPATH to a writable directory");
 		}
-		optpreset(o_directory, CHARkdup(toCHAR(dir)), OPT_FREE);
+		if (!o_directory)
+		{
+			optpreset(o_directory, CHARkdup(toCHAR(dir)), OPT_FREE);
+		}
 
 		/* choose the name of a session file */
 		i = 1;

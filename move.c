@@ -609,6 +609,7 @@ RESULT m_mark(win, vinf)
 
 	/* move to the named mark */
 	marksetoffset(win->state->cursor, markoffset(newmark));
+	msg(MSG_INFO, "[C]on mark $1", vinf->key2);
 	return RESULT_COMPLETE;
 }
 
@@ -1894,7 +1895,7 @@ RESULT m_bsentence(win, vinf)
 			{
 				scannext(&cp);
 			}
-			if (&cp)
+			if (cp)
 				marksetoffset(win->state->cursor, markoffset(scanmark(&cp)));
 			else
 			{

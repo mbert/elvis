@@ -286,7 +286,7 @@ void colorparse(descr, fgref,bgref, likeref, bitsref)
 	/* by default, assume nothing */
 	*fgref = NULL;
 	*bgref = NULL;
-	*likeref = '\0';
+	*likeref = NULL;
 	*bitsref = 0;
 
 	/* if no description, then we're done! */

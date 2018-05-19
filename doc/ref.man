@@ -1,6 +1,6 @@
 .TH REF 1
 .SH NAME
-ref - Display a C function header
+ref \- Display a C function header
 .SH SYNOPSIS
 .B ref
 .RI [ options ]...
@@ -23,21 +23,21 @@ When it locates the function, it displays an introductory comment
 (if there is one), the function's declaration, and the declarations of all
 arguments.
 .SH OPTIONS
-.IP \fB-t\fR
+.IP \fB\-t\fR
 Output tag info, instead of the function header.
 The tag info consists of the three standard fields from each tag.
 The fields will be separated by tab characters, just like records from the
 traditional tags file format.
 Consequently, you can use "ref \-t \-a >oldtags" to convert a new-style tags file
 back to an old-style tags file.
-.IP \fB-v\fR
+.IP \fB\-v\fR
 Output verbose tag info, instead of the function header.
 The verbose tag info shows the names and values of all attributes for each
 matching tag.
 Each name/value pair is shown on a separate line.
 It also shows the "match" factor that is used for sorting tags which have
 the same tagname.
-.IP \fB-h\fR
+.IP \fB\-h\fR
 Output HTML browser info, instead of the function header.
 This is an HTML table with hypertext links into the source files where the
 tags are defined.
@@ -50,30 +50,30 @@ This resembles
 .BR Elvis '
 .B :browse
 command.
-.IP \fB-c\fR
+.IP \fB\-c\fR
 Don't output introductory comments before each tag definition line.
-.IP \fB-d\fR
+.IP \fB\-d\fR
 Don't output other lines of the definition.
 The line where the tag is defined is shown but any preceding or following
 lines which are part of the definition will be omitted.
-.IP \fB-a\fR
+.IP \fB\-a\fR
 List all matching tags.
 (Without this option,
 .B ref
 would only output the single most likely tag.)
-.IP \fB-s\fR
+.IP \fB\-s\fR
 Search all tags files.
 Without this option,
 .B ref
 would stop searching after processing the first tags file which 
 contained any tags which met the restrictions.
-.IP "\fB-p\fI tagpath\fR"
+.IP "\fB\-p\fI tagpath\fR"
 List of directories or tags files to search through.
 By default,
 .B ref
 would use the value from the TAGPATH environment variable or a hardcoded
 default value for each operating system.
-.IP "\fB-l\fI taglength\fR"
+.IP "\fB\-l\fI taglength\fR"
 Only check the first
 .I taglength
 characters of tag names.
@@ -118,7 +118,7 @@ field is required to contain
 .I value
 as a substring.
 So "class:/Foo" would find tags in class "Foo" PLUS
-global tags whose address mentions "Foo" \-
+global tags whose address mentions "Foo" -
 probably friends of the Foo class.
 .TP
 .IB value [, value ...]
@@ -143,7 +143,7 @@ A null value string matches anything.
 So "struct:=" would accept any tag with a "struct" attribute, and
 reject those without it.
 This would be handy when you're trying to do tag lookup for a word which
-follows a '.' character \-
+follows a '.' character -
 you know it is a field name, but you don't know from which struct type.
 .PP
 Note that if you invoke
@@ -152,7 +152,7 @@ without giving any restrictions,
 then
 .B all
 tags will match and will (if invoked with the
-.B -a
+.B \-a
 flag) be output.
 .SH "A REAL-WORLD EXAMPLE"
 While converting some code from K&R C to ANSI C,
@@ -347,7 +347,7 @@ store attribute names are stored in a fixed-size array, which is
 shared among all tags from a given file.
 Consequently, the number of distinct attribute names within a tags file
 is limited.
-As currently configured, that limit is 10 names \-
+As currently configured, that limit is 10 names -
 the 3 standard ones plus up to 7 other names for hints.
 .SH "THE REFS FILE"
 When

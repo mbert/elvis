@@ -93,8 +93,9 @@ typedef struct
 #define wordbeforeregsub(w)	(wordflags(w) & USEREGSUB)
 #define wordoperator(w)		(wordflags(w) & OPERATOR)
 
-/* Most anchor values are in the range 1 - 0xffe, but these are special */
+/* Most anchor values are in the range 1 - 0x7fe, but these are special */
 #define ANCHOR_NONE	0
+#define ANCHOR_ALTERNATIVE	0x800
 #define ANCHOR_FRONT	0xfff
 
 #if USE_PROTOTYPES
@@ -136,6 +137,8 @@ static spell_t *scankeyword(refp, colplusone, indent)
 	ELVBOOL	indent;	/* preceded only by indentation whitespace? */
 {
 	spell_t *node;
+	spell_t *nnode = NULL;	/* node for normal colplusone anchor */
+	CHAR    *rrefp;		/* reference for normal colplusone anchor */
 	int	anchor;
 
 	/* look it up, being careful about case sensitivity */
@@ -168,7 +171,14 @@ static spell_t *scankeyword(refp, colplusone, indent)
 
 				  default:
 					/* must be in a specific column */
-					if (anchor != colplusone)
+					if (anchor == colplusone)
+					{
+						nnode = node;	/* keep node for normal anchor in mind... */
+						rrefp = *refp;
+						goto Continue;	/* ...but continue searching for... */
+					}
+					/* ...an alternative one which is preferred */
+					else if (anchor != (colplusone | ANCHOR_ALTERNATIVE))
 					{
 						goto Continue;
 					}
@@ -185,6 +195,11 @@ Continue:
 			node = spellletter(node, elvtolower(**refp));
 		else
 			node = spellletter(node, **refp);
+	}
+	if (!SPELL_IS_GOOD(node) && nnode)	/* no node for alternative anchor, try normal one */
+	{
+		node = nnode;
+		*refp = rrefp;
 	}
 	if (!SPELL_IS_GOOD(node))
 		return NULL;
@@ -488,6 +503,7 @@ static DMINFO *init(win)
 			str = OSINCLUDEPATH;
 #endif
 		optpreset(o_includepath, toCHAR(str), OPT_HIDE);
+		optinsert("glob", QTY(globdesc), globdesc, globval);
 
 		/* locate the default fonts */
 		cfont[COMMENT] =
@@ -580,6 +596,8 @@ static DMINFO *init(win)
 				{
 					if (values[1][0] == '^')
 						j = ANCHOR_FRONT;
+					else if (values[1][0] == '~')
+						j = atoi(tochar8(values[1]) + 1) | ANCHOR_ALTERNATIVE;
 					else
 						j = atoi(tochar8(values[1]));
 					if (j > 0 && j <= ANCHOR_FRONT)
@@ -1340,6 +1358,9 @@ static MARK image(w, line, info, draw)
 			if (sinfo->token == PUNCT
 			 && (kp = scankeyword(&up, col + 1, indent)) != NULL)
 			{
+				/* indentation ends */
+				indent = ElvFalse;
+
 				/* It's a keyword.  Is it a comment keyword? */
 				if (wordcomment(kp))
 				{
@@ -1483,7 +1504,7 @@ static MARK image(w, line, info, draw)
 			{
 				sinfo->token = PREPWORD;
 			}
-			else if (sinfo->token == PREPWORD && !elvalnum(*cp))
+			else if (sinfo->token == PREPWORD && !elvalnum(*cp) && *cp != '_')
 			{
 				sinfo->token = PUNCT;
 				expectprepq = ElvTrue;

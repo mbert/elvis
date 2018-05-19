@@ -326,7 +326,7 @@ alias! features {
  calc "Network protocols: ";(f ? f : "none")
 
  set f="" l="Other features:    "
- for i in alias array autocmd backtick browse cachedesc calc complete equaltilde fold g hlobject hlsearch image incsearch listchars litre lpr make mapdb misc mkexrc normal persist proto ram rcsid showtag smartargs spell split tags textobj v xft
+ for i in alias array autocmd backtick browse cachedesc calc complete equaltilde fold g hlobject hlsearch image incsearch listchars litre lpr make mapdb misc mkexrc normal persist proto ram rcsid region showtag smartargs spell split stdin tags textobj v xft
  do {
   if feature(i)
   then {

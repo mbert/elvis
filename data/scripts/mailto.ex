@@ -1,4 +1,4 @@
-" This script attempts to define the mailto: and man: protocols.  This
+" This script attempts to define the mailto: protocol.  This
 " feature of elvis is still changing rapidly, so this might not work.
 " Also, the mailto: alias only works on Unix-like systems.
 
@@ -8,7 +8,7 @@ alias readMAILTO {
   if exists($HOME/".signature")
   then {
     read ~/.signature
-    1 i --
+    1 i -- 
   }
 }
 alias writeMAILTO {

@@ -276,6 +276,7 @@ RESULT v_setmark(win, vinf)
 
 	/* set the mark */
 	namedmark[vinf->key2 - 'a'] = markdup(win->state->cursor);
+	msg(MSG_INFO, "[C]set mark $1", vinf->key2);
 	return RESULT_COMPLETE;
 }
 

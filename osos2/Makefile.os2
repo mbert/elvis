@@ -67,7 +67,7 @@ EXE=.exe
 
 ################################################################################
 # This is the shell command which is used for deleting a file if it exists.
-RM=cmd /c del 
+RM=cmd /c del /n
 
 ################################################################################
 # This is the shell command which is used for deleting a directory if it exists.
@@ -104,11 +104,6 @@ FLAGI=-I
 # the end is just in case this Makefile is reconfigured for an operating
 # system which requires the EXE macro to be something like ".exe".
 ALL=elvis$(EXE) vi$(EXE) ex$(EXE) ref$(EXE) ctags$(EXE) fmt$(EXE)
-
-################################################################################
-# The Elvis manual in INF format. This is done by a number of batch files
-# in the manual subdirectory.
-MANUAL=doc\\elvis.INF
 
 ################################################################################
 # This is the directory where "make install" will place the executable programs
@@ -199,7 +194,7 @@ CFLAGS=	$(FLAGI)os$(OS)
 EVERY=	$(ALL) elvdump$(EXE) calc$(EXE) verify$(EXE) 
 # Herbert 1998: SHELL needs to be blanked out under OS/2 if using GNU make.
 #SHELL=	/bin/sh
-VERSION=2.2_0
+VERSION=2.2_1
 DISTRIB=elvis-$(VERSION)
 DOSEXE=exedos
 WIN32EXE=exewin32
@@ -211,37 +206,32 @@ every: $(OS2EXE) $(EVERY)
 
 $(OS2EXE): ; mkdir $(OS2EXE)
 
-# The manual converted from the HTML documentation to OS/2's INF...
-$(MANUAL): 
-	cd osos2\\manual && h2i-guide.cmd
-	$(CP) osos2\\manual\\elvis.INF $(MANUAL)
-
 # Elvis compiled for a.out format and linked against emx.dll...
 emx: ; $(MAKE) elvisemx.exe -f osos2\\Makefile.os2 "OBJ=.o" "EXE=emx.exe" \
-                    "CC=gcc -Wall -DOS2 -D__WITH_TERMCAP -O3 \
-                    -I/emx/include -I/software/ibmcpp/include \
-                    -I/software/ibmcpp/include/os2" \
-                    "LIBFILES=-L/usr/lib/tcpipv4 -lsocket -ltermcap" \
+                    "CC=gcc -Wall -DOS2 -D__WITH_TERMCAP -Zmtd \
+                     -D__D_ST_MT_ERRNO__ -O3 -I/emx/include" \
+                    "LIBFILES=-L/emx/lib -lsocket -ltermcap" \
                     "FLAGO=-o "
 
 # Elvis compiled for a.out format and linked against emx.dll with x11...
 debug: ; $(MAKE) -f osos2\\Makefile.os2 "OBJ=.o" "EXE=x11.exe" \
                     "CC=gcc -g -Wall -DOS2 -D__WITH_TERMCAP -O3 \
                     -Zmtd -D__D_ST_MT_ERRNO__ -D__WITH_X11"   \
-                    "FLAGO=-o " "LIBFILES=-L/usr/lib/x11 \
+                    "FLAGO=-o " "LIBFILES=-L/emx/lib -L/usr/lib/x11 \
                      -L/usr/lib/tcpipv4 -lsocket -ltermcap -lx11"
 
 # Elvis compiled for a.out format and linked against emx.dll with x11...
 x11: ; $(MAKE) elvisx11.exe -f osos2\\Makefile.os2 "OBJ=.o" "EXE=x11.exe" \
                     "CC=gcc -Wall -DOS2 -D__WITH_TERMCAP -O3 \
                     -Zmtd -D__D_ST_MT_ERRNO__ -D__WITH_X11   \
-                    -I/usr/include -I/emx/include" "FLAGO=-o " \
-                    "LIBFILES=-L/usr/lib/x11 -L/usr/lib/tcpipv4 \
-                     -lsocket -ltermcap -lx11"
+                    -I/emx/include -I/usr/include" "FLAGO=-o " \
+                    "LIBFILES=-L/emx/lib -L/usr/lib/x11 \
+                    -lsocket -ltermcap -lx11"
 
 gcc: ; $(MAKE) -f osos2\\Makefile.os2 "EXE=gcc.exe" "FLAGO=-o " "OBJ=.o" \
                     "CC=gcc -Wall -DOS2 -Zomf -O3 -I/emx/include" \
-                    "LIBFILES=-L/usr/lib/x11 -L/usr/lib/tcpipv4 -lsocket"
+                    -I/usr/include "LIBFILES=-L/emx/lib -L/usr/lib/x11 \
+                    -L/usr/lib/tcpipv4 -lsocket"
 
 wcc: ; $(MAKE) -f osos2\\Makefile.os2 "FLAGO=-fe=" "OBJ=.obj" \
                     "CC=wcl386 -zq -otexan -I\\tcpip\\include -dexplicit=expl"\
@@ -404,7 +394,7 @@ $(DISTRIB)-os2.tar.gz: $(OS2EXE)
 	$(CAT) BUGS >bin-os2\\BUGS
 	$(CAT) COPYING >bin-os2\\COPYING
 	$(CAT) doc\\printdoc.bat >bin-os2\\doc\\printdoc.bat
-	(cd bin-os2 && tar cvf ..\\$(DISTRIB)-os2.tar * && gzip ..\\$(DISTRIB)-os2.tar)
+	(cd bin-os2 && tar cvf ..\\$(DISTRIB)-os2.tar * && gzip -f ..\\$(DISTRIB)-os2.tar)
 
 doc$(SLASH)elvistrs.msg: $(SRCS)
 	sed -n '/%[cds]/d; /[a-z]:/d; s/\[[a-zA-Z]*\]//; s/\\\\/\\/g; s/.*msg(MSG_[A-Z]*, "\([^ 	"][^"]*\)".*/\1/p' *.c os*$(SLASH)*.c | sort -u >doc$(SLASH)elvistrs.msg

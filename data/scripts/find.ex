@@ -6,4 +6,5 @@ alias find {
  else {
   next
   /
+ }
 }

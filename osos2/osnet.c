@@ -97,7 +97,7 @@ char id_osnet[] = "$Id";
 #  include <netinet/in.h>
 # endif
 # include <sys/select.h>
-# ifdef __IBMC__
+# if defined(__IBMC__) || defined(__WATCOMC__)
 #  define close(s)      soclose(s)
 #  define read(s,p,n)  recv(s, p, n, 0)
 #  define write(s,p,n)  send(s, p, n, 0)

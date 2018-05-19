@@ -8,11 +8,11 @@ Summary:        Elvis text editor
 Name:           %{name}
 Version:        %{version}
 Release:        %{release}
-Serial:         %{serial}
-Copyright:      Artistic
+#Serial:         %{serial}
+License:	Artistic
 Group:          Applications/Editors
 Vendor:         Steve Kirkendall <kirkenda@cs.pdx.edu>
-Url:            http://elvis.vi-editor.org/
+Url:		https://www.github.com/mbert/elvis/
 Source:         %{name}-%{version}.tar.gz
 #BuildRoot:      %{_tmppath}/%{name}-%{version}-root
 
@@ -29,10 +29,18 @@ etc.) plus a variety of display modes including "html" and "man".
 export CFLAGS="$RPM_OPT_FLAGS" CPPFLAGS="$RPM_OPT_FLAGS" CXXFLAGS="$RPM_OPT_FLAGS";
 
 ./configure --prefix=%{prefix}
-make
+make -j `nproc`
 
 %install
-make install
+rm -rf $RPM_BUILD_ROOT
+mkdir -p $RPM_BUILD_ROOT/usr/share/man/man1 $RPM_BUILD_ROOT/etc/elvis
+sed -i "s|>/etc/elvis|>$RPM_BUILD_ROOT/etc/elvis|g" Makefile
+
+echo "Running 'make install'..."
+make PREFIX=$RPM_BUILD_ROOT/usr install
+
+echo "Fixing /etc/elvis/README..."
+sed -i "s|$RPM_BUILD_ROOT||" $RPM_BUILD_ROOT/etc/elvis/README
 
 %clean
 
@@ -40,10 +48,12 @@ make install
 %defattr(-, root, root)
 %doc COPYING README.html
 %{prefix}/bin/elvis
+%{prefix}/bin/elvgdb
 %{prefix}/bin/elvtags
 %{prefix}/bin/elvfmt
 %{prefix}/bin/ref
 MANDIR/elvis.1.gz
+MANDIR/elvgdb.1.gz
 MANDIR/elvtags.1.gz
 MANDIR/elvfmt.1.gz
 MANDIR/ref.1.gz

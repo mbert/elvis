@@ -1356,7 +1356,14 @@ static void expose(dia)
 				x_didcmd = ElvTrue;
 			}
 
-			XSetInputFocus(x_display, dia->win, RevertToParent, x_now);
+			{
+				XWindowAttributes attribute;
+				XGetWindowAttributes(x_display, dia->win, &attribute);
+				if (attribute.map_state == IsViewable )
+				{ 
+					XSetInputFocus(x_display, dia->win, RevertToParent, x_now);
+				} 
+			}
 		}
 
 		/* set the "current" value to the first field, or -1 if none */

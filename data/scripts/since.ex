@@ -10,7 +10,7 @@ alias since {
   try w! (t)
   then {
     let a = "diff" f t
-    let a = a;"| sed -n 's/^[0-9,]*a\\([0-9,]*\\)$/\\1reg diff added/p;s/^[0-9,]*c\\([0-9,]*\\)$/\\1reg diff changed/p'"
+    let a = a;"| sed -n 's/^[0-9,]*a\\([0-9,]*\\)$/\\1reg" s "added/p;s/^[0-9,]*c\\([0-9,]*\\)$/\\1reg" s "changed/p'"
     eval safely source !!(a)
     eval !!rm (t)
   }
@@ -42,6 +42,23 @@ aug since
   au BufWritePost * %unr unsaved
   au BufReadPost * rcssince
 aug END
-color since on orange
-color rcssince on orange
-color unsaved on tan
+
+switch gui
+  case windows
+  case x11 {
+    if color("since") == ""
+    then color since on orange
+    if color("rcssince") == ""
+    then color rcssince on orange
+    if color("unsaved") == ""
+    then color unsaved on tan
+  }
+  case vio
+  case termcap {
+    if color("since") == ""
+    then color since on brown
+    if color("rcssince") == ""
+    then color rcssince on brown
+    if color("unsaved") == ""
+    then color unsaved on red
+  }

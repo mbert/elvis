@@ -213,8 +213,8 @@ keyword return select set shift source stop suspend test then time times trap
 keyword type typeset ulimit umask unalias unset until wait whence while
 function (
 comment #
-startword /?-*!.
-inword /?*!.
+startword /?-*!._
+inword /?*!._
 # The following is more subtle than it looks.  Elvis allows us to define two
 # string quotes and one character quote, and sh needs all of them.  But the
 # choice of which bash quote to use as "character" is critical.  Subcommands
@@ -392,15 +392,21 @@ mostly normal
 
 language cdiff patch
 extension .cdi .cdiff .patch .pat
+comment ++
 comment +
 comment **
 comment --
 comment -
 comment !
-anchor 1 + - ** -- !
+comment diff
+comment @@
+anchor 1 + - ** ! diff @@
+anchor ~1 ++ --
 font changedtext !
 font oldtext -
 font newtext +
+font normaltext ** ++ -- diff
+font changehunk @@
 color changedtext bold italic
 color newtext bold
 color oldtext italic
@@ -879,44 +885,48 @@ other initialpunct
 strnewline allowed
 mostly normal
 
-# This "elvis.syn" entry
+# Elvis syntax description
 # Contributed by Woody Jin (wjin@cs.uh.edu)
 # Modified by S.K. to take advantage of new features of Elvis
+# revised by ib
 language syn
 extension elvis.syn
-keyword function comment keyword string other regexp prepquote
-anchor 1 anchor inword character font mostly color ignorecase extension
-anchor 1 foreign language startword operator strnewline preprocessor regexp
-anchor 1 set useregexp useregsub prepquote documentation prefix
-anchor 6 normal char regsub number variable prep doc docmarkup docindent
+anchor ^ # anchor backslash character color comment documentation extension
+anchor ^ font foreign function ignorecase inword keyword language mostly
+anchor ^ operator other prefix prepquote preprocessor regexp set startword
+anchor ^ string strnewline useregexp useregsub
+font face bottom char doc docindent docmarkup hlsearch idle lnum nontext
+font face number prep regsub ruler selection showmode variable
 font string allcaps initialcaps mixedcaps final_t initialpunct
-font string true false allowed backslash indent empty
-anchor 1 #
+font string true false allowed indent empty
+font string none normal formatted
 comment #
-inword _
+color face like keyword
 
 # EX
 # Ironically, Elvis' syntax coloring method isn't versatile enough to color
 # ex syntax.  Still, it can color comments and most keywords; maybe that's
 # enough.  The particular variation shown here works okay for aliases.
 language ex
-extension .ex .exrc .elvisrc elvis.rc elvis.ini elvis.brf elvis.arf elvis.bwf elvis.awf elvis.ali elvis.spe
-keyword a ab abbr abbreviate all alias append ar args au aug augroup autocmd
-keyword b bb bbrowse br bre break browse buffer c ca calc calculate case cc cd
-keyword change chd chdir check cl close co col color copy d default delete di
-keyword dig digraph dis display do doau doautocmd doloop e ec echo edit el
-keyword else er err errlist erro error ev eval ex f file fold for foreach
-keyword g global go goto gu gui h help i if insert j join k l la last le
-keyword let list lo local lp lpr m ma mak make map mark me message mk
-keyword mkexrc move n N new next Next no nof nofold noh nohlsearch normal nu
-keyword number o open p po pop pre previous print pu push put q qa qall quit
-keyword r read red redo rew rewind s sN sNext sa saf safely sall sb sbb
-keyword sbbrowse sbr sbrowse se set sh shell sl slast sn sne snew snext so
-keyword source sp split sre srew srewind st sta stac stack stag stop subst
-keyword substitute sus susp suspend switch t ta tag th then to try u una unab
-keyword unabbr unabbreviate unalias unb unbreak undo unfold unm unmap v ve
-keyword version vglobal vi visual w wa warning wordf wordfile words wh while
-keyword wi window wn wnext wq wquit write x xit y yank z
+extension .ex .exrc .elvisrc elvis.rc elvis.ini elvis.brf elvis.arf elvis.bwf elvis.awf elvis.ali elvis.spe elvis.clr elvis.x11
+keyword a ab abbr abbreviate al ali alias all append ar args au aue auevent
+keyword aug augroup autocmd b bb bbrowse br bre break browse buffer c ca calc
+keyword calculate case cc cd change chd che chdir check chr chregion cl close
+keyword co col color copy d def default delete di dig digraph dis display do
+keyword doa doau doautocmd doloop e ec echo edit el else er err errlist erro
+keyword error ev eval ex f file fo fold for foreach g global go goto gu gui h
+keyword help i if insert j join k l la last le let list lo local lp lpr m ma
+keyword mak make map mark me message mk mkexrc move n N new next Next no nof
+keyword nofold noh nohlsearch norm normal nu number o on only open p ph phelp
+keyword po pop pre pres preserve previous print pu pus push put q qa qall
+keyword quit r read red redo reg region rew rewind s sN sNext sa saf safel
+keyword safely sall sb sbb sbbrowse sbr sbrowse se set sh shell sl slast sn
+keyword sne snew snext so source sp split sre srew srewind st sta stac stack
+keyword stag stop su subst substitute sus susp suspend sw switch t ta tag th
+keyword then to try u una unab unabbr unabbreviate unal unalias unb unbreak
+keyword undo unf unfold unm unmap unr unregion v ve version vglobal vi visual
+keyword w wa warning wo wordf wordfile words wh while wi window wn wnext wq
+keyword wquit write x xit y yank z
 anchor ^ " # & < = > @ ~
 # note that ! is not listed as a keyword because it interferes with alias args
 comment "
@@ -1089,7 +1099,7 @@ other allcaps initialpunct
 strnewline empty
 
 # ACCELL.
-# Contributed by H.Merijn Brand <h.m.brand@hccnet.nl>
+# Contributed by H.Merijn Brand <h.m.brand@xs4all.nl>
 language accell
 extension .fs .fz .as .az .h
 keyword ACCELL ACCELL_TYPE ACTION ADD ADD_ALLOWED ADD_UPDATE AFTER ALL ALTER
@@ -1356,7 +1366,7 @@ comment !!
 comment =
 
 # RPT
-# Contributed by H.Merijn Brand <h.m.brand@hccnet.nl>
+# Contributed by H.Merijn Brand <h.m.brand@xs4all.nl>
 language RPT
 extension .rpt
 keyword after amount and avg before begin binary bootm centered col column comb
@@ -1799,130 +1809,179 @@ inword _
 
 # ssh client configuration
 # $HOME/.ssh/ssh_config or /etc/ssh/ssh_config
+# keywords are as per ssh-6.7p1 manual
+# old keywords at end (last two lines) seem to bee not supported anymore
 language ssh_config
 extension ssh_config
 comment #
-anchor ^ afstokenpassing batchmode bindadress
+anchor ^ addressfamily
+anchor ^ batchmode bindadress
+anchor ^ canonicaldomains canonicalizefallbacklocal canonicalizehostname
+anchor ^ canonicalizemaxdots canonicalizepermittedcnames
 anchor ^ challengeresponseauthentication checkhostip cipher ciphers
 anchor ^ clearallforwardings compression compressionlevel connectionattempts
-anchor ^ dynamicforward escapechar forwardagent forwardx11 gatewayports
-anchor ^ globalknownhostsfile host hostbasedauthentication hostkeyalgorithms
-anchor ^ hostkeyalias hostname identityfile keepalive kerberosauthentication
-anchor ^ localforward loglevel macs nohostauthenticationforlocalhost
-anchor ^ numberofpasswordprompts passwordauthentication port protocol
-anchor ^ protocolkeepalives  proxycommand pubkeyauthentication remoteforward
-anchor ^ rhostsauthentication  rhostsrsaauthentication rsaauthentication
-anchor ^ setuptimeout smartcarddevice stricthostkeychecking
-anchor ^ useprivilegedport user userknownhostsfile xauthlocation
+anchor ^ connecttimeout controlmaster controlpath controlpersist
+anchor ^ dynamicforward
+anchor ^ enablesshkeysign escapechar exitonforwardfailure
+anchor ^ forwardagent forwardx11 forwardx11timeout forwardx11trusted
+anchor ^ gatewayports globalknownhostsfile gssapiauthentication
+anchor ^ gssapidelegatecredentials
+anchor ^ hashknownhosts host hostbasedauthentication hostkeyalgorithms
+anchor ^ hostkeyalias hostname
+anchor ^ identitiesonly identityfile ignoreunknown ipqos
+anchor ^ kbdinteractiveauthentication kbdinteractivedevices kexalgorithms
+anchor ^ localcommand localforward loglevel
+anchor ^ macs match
+anchor ^ nohostauthenticationforlocalhost numberofpasswordprompts
+anchor ^ passwordauthentication permitlocalcommand pkcs11provider port
+anchor ^ preferredauthentications protocol proxycommand proxyusefdpass
+anchor ^ pubkeyauthentication
+anchor ^ rekeylimit remoteforward requesttty rhostsrsaauthentication
+anchor ^ rsaauthentication
+anchor ^ sendenv serveralivecountmax serveraliveinterval streamlocalbindmask
+anchor ^ streamlocalbindunlink stricthostkeychecking
+anchor ^ tcpkeepalive tunnel tunneldevice
+anchor ^ useprivilegedport user userknownhostsfile
+anchor ^ verifyhostkeydns visualhostkey
+anchor ^ xauthlocation
+anchor ^ afstokenpassing keepalive kerberosauthentication protocolkeepalives
+anchor ^ rhostsauthentication setuptimeout smartcarddevice
 ignorecase true
 
 # IceWM - a small and fast window manager
 # http://www.icewm.org
-# Configuration file: $HOME/.icewm/preferences (1.0.9) - generated by genpref
+# preferences(1.3.7) - generated by genpref
 language icewm
 extension icewm/preferences
 comment #
-anchor ^ ActiveButtonFontName ActiveTaskBarFontName ActiveWorkspaceFontName
-anchor ^ AddressBarCommand ApmFontName AutoDetectGNOME AutoHideDelay
-anchor ^ AutoRaise AutoRaiseDelay AutoReloadMenus AutoScrollDelay
-anchor ^ AutoScrollStartDelay BorderSizeX BorderSizeY ButtonRaiseMask
-anchor ^ CPUStatusClassHint CPUStatusCommand CenterMaximizedWindows
+anchor ^ AcpiIgnoreBatteries ActiveButtonFontName ActiveButtonFontNameXft
+anchor ^ ActiveTaskBarFontName ActiveTaskBarFontNameXft
+anchor ^ ActiveWorkspaceFontName ActiveWorkspaceFontNameXft AddressBarCommand
+anchor ^ AllowFullscreen ApmFontName ApmFontNameXft AutoHideDelay AutoRaise
+anchor ^ AutoRaiseDelay AutoReloadMenus AutoScrollDelay AutoScrollStartDelay
+anchor ^ AutoShowDelay BatteryPollingPeriod BorderSizeX BorderSizeY
+anchor ^ ButtonRaiseMask CenterLarge CenterMaximizedWindows
 anchor ^ CenterTransientsOnOwner ClickMotionDelay ClickMotionDistance
-anchor ^ ClickToFocus ClientWindowMouseActions ClockClassHint
-anchor ^ ClockCommand ClockFontName ColorActiveBorder ColorActiveButton
+anchor ^ ClickToFocus ClientWindowMouseActions ClockClassHint ClockCommand
+anchor ^ ClockFontName ClockFontNameXft ColorActiveBorder ColorActiveButton
 anchor ^ ColorActiveButtonText ColorActiveMenuItem ColorActiveMenuItemText
 anchor ^ ColorActiveMinimizedWindow ColorActiveMinimizedWindowText
 anchor ^ ColorActiveTaskBarApp ColorActiveTaskBarAppText ColorActiveTitleBar
 anchor ^ ColorActiveTitleBarShadow ColorActiveTitleBarText
-anchor ^ ColorActiveWorkspaceButton ColorActiveWorkspaceButtonText
-anchor ^ ColorApm ColorApmText ColorCPUStatusIdle ColorCPUStatusNice
-anchor ^ ColorCPUStatusSystem ColorCPUStatusUser ColorClock ColorClockText
-anchor ^ ColorDefaultTaskBar ColorDialog ColorDisabledMenuItemShadow
-anchor ^ ColorDisabledMenuItemText ColorInput ColorInputSelection
-anchor ^ ColorInputSelectionText ColorInputText ColorInvisibleTaskBarApp
-anchor ^ ColorInvisibleTaskBarAppText ColorLabel ColorLabelText ColorListBox
-anchor ^ ColorListBoxSelection ColorListBoxSelectionText ColorListBoxText
-anchor ^ ColorMinimizedTaskBarApp ColorMinimizedTaskBarAppText
-anchor ^ ColorMoveSizeStatus ColorMoveSizeStatusText ColorNetIdle
-anchor ^ ColorNetReceive ColorNetSend ColorNormalBorder ColorNormalButton
-anchor ^ ColorNormalButtonText ColorNormalMenu ColorNormalMenuItemText
-anchor ^ ColorNormalMinimizedWindow ColorNormalMinimizedWindowText
-anchor ^ ColorNormalTaskBarApp ColorNormalTaskBarAppText ColorNormalTitleBar
+anchor ^ ColorActiveWorkspaceButton ColorActiveWorkspaceButtonText ColorApm
+anchor ^ ColorApmBattary ColorApmGraphBg ColorApmLine ColorApmText ColorClock
+anchor ^ ColorClockText ColorCPUStatusIdle ColorCPUStatusInterrupts
+anchor ^ ColorCPUStatusIoWait ColorCPUStatusNice ColorCPUStatusSoftIrq
+anchor ^ ColorCPUStatusSystem ColorCPUStatusUser ColorDefaultTaskBar
+anchor ^ ColorDialog ColorDisabledMenuItemShadow ColorDisabledMenuItemText
+anchor ^ ColorInput ColorInputSelection ColorInputSelectionText ColorInputText
+anchor ^ ColorInvisibleTaskBarApp ColorInvisibleTaskBarAppText ColorLabel
+anchor ^ ColorLabelText ColorListBox ColorListBoxSelection
+anchor ^ ColorListBoxSelectionText ColorListBoxText ColorMinimizedTaskBarApp
+anchor ^ ColorMinimizedTaskBarAppText ColorMoveSizeStatus
+anchor ^ ColorMoveSizeStatusText ColorNetIdle ColorNetReceive ColorNetSend
+anchor ^ ColorNormalBorder ColorNormalButton ColorNormalButtonText
+anchor ^ ColorNormalMenu ColorNormalMenuItemText ColorNormalMinimizedWindow
+anchor ^ ColorNormalMinimizedWindowText ColorNormalTaskBarApp
+anchor ^ ColorNormalTaskBarAppText ColorNormalTitleBar
 anchor ^ ColorNormalTitleBarShadow ColorNormalTitleBarText
 anchor ^ ColorNormalTitleButton ColorNormalTitleButtonText
 anchor ^ ColorNormalWorkspaceButton ColorNormalWorkspaceButtonText
 anchor ^ ColorQuickSwitch ColorQuickSwitchActive ColorQuickSwitchText
 anchor ^ ColorScrollBar ColorScrollBarArrow ColorScrollBarButton
 anchor ^ ColorScrollBarButtonArrow ColorScrollBarInactiveArrow
-anchor ^ ColorScrollBarSlider ColorToolButton ColorToolButtonText
-anchor ^ ColorToolTip ColorToolTipText ConfirmLogout ConsiderHBorder
-anchor ^ ConsiderVBorder ContinuousEdgeSwitch CornerSizeX CornerSizeY
-anchor ^ DateFormat DelayPointerFocus DesktopBackgroundCenter
-anchor ^ DesktopBackgroundColor DesktopBackgroundColor DesktopBackgroundColor
-anchor ^ DesktopBackgroundImage DesktopBackgroundImage DesktopBackgroundImage
-anchor ^ DesktopBackgroundImage DesktopBackgroundImage DesktopMenuButton
-anchor ^ DesktopTransparencyColor DesktopTransparencyImage DesktopWinListButton
-anchor ^ DesktopWinMenuButton DisableImlibCaches DlgBorderSizeX
-anchor ^ DlgBorderSizeY DontRotateMenuPointer EdgeResistance EdgeSwitch
-anchor ^ EdgeSwitchDelay FocusOnClickClient FocusOnMap FocusOnMapTransient
-anchor ^ FocusOnMapTransientActive FxFontName GNOMEAppsMenuAtToplevel
-anchor ^ GNOMEFolderIcon GNOMEUserMenuAtToplevel GrabRootWindow Gradients
-anchor ^ HorizontalEdgeSwitch IconPath InputFontName KDEDataDir
-anchor ^ KDEMenuAtToplevel KeySysAddressBar KeySysArrange KeySysArrangeIcons
-anchor ^ KeySysCascade KeySysDialog KeySysHideAll KeySysMenu KeySysMinimizeAll
-anchor ^ KeySysRun KeySysSwitchLast KeySysSwitchNext KeySysTileHorizontal
-anchor ^ KeySysTileVertical KeySysUndoArrange KeySysWinMenu KeySysWinNext
-anchor ^ KeySysWinPrev KeySysWindowList KeySysWorkspace1 KeySysWorkspace10
-anchor ^ KeySysWorkspace10TakeWin KeySysWorkspace11 KeySysWorkspace11TakeWin
-anchor ^ KeySysWorkspace12 KeySysWorkspace12TakeWin KeySysWorkspace1TakeWin
-anchor ^ KeySysWorkspace2 KeySysWorkspace2TakeWin KeySysWorkspace3
-anchor ^ KeySysWorkspace3TakeWin KeySysWorkspace4 KeySysWorkspace4TakeWin
-anchor ^ KeySysWorkspace5 KeySysWorkspace5TakeWin KeySysWorkspace6
-anchor ^ KeySysWorkspace6TakeWin KeySysWorkspace7 KeySysWorkspace7TakeWin
-anchor ^ KeySysWorkspace8 KeySysWorkspace8TakeWin KeySysWorkspace9
-anchor ^ KeySysWorkspace9TakeWin KeySysWorkspaceLast KeySysWorkspaceLastTakeWin
-anchor ^ KeySysWorkspaceNext KeySysWorkspaceNextTakeWin KeySysWorkspacePrev
-anchor ^ KeySysWorkspacePrevTakeWin KeyWinClose KeyWinHide KeyWinLower
-anchor ^ KeyWinMaximize KeyWinMaximizeVert KeyWinMenu KeyWinMinimize KeyWinMove
-anchor ^ KeyWinNext KeyWinOccupyAll KeyWinPrev KeyWinRaise KeyWinRestore
-anchor ^ KeyWinRollup KeyWinSize LabelFontName LimitByDockLayer LimitPosition
-anchor ^ LimitSize ListBoxFontName LockCommand LogoutCancelCommand
-anchor ^ LogoutCommand LowerOnClickWhenRaised MailBoxPath MailCheckDelay
-anchor ^ MailClassHint MailCommand ManualPlacement MenuActivateDelay
-anchor ^ MenuFontName MenuMaximalWidth MenuMouseTracking MinimizeToDesktop
-anchor ^ MinimizedWindowFontName ModMetaIsCtrlAlt MoveSizeDimensionLabels
-anchor ^ MoveSizeDimensionLines MoveSizeGaugeLines MoveSizeGeometryLabels
-anchor ^ MoveSizeInterior MsgBoxDefaultAction MultiByte MultiClickTime
-anchor ^ NetStatusClassHint NetStatusCommand NetworkStatusDevice NewMailCommand
-anchor ^ NormalButtonFontName NormalTaskBarFontName NormalWorkspaceFontName
-anchor ^ OpaqueMove OpaqueResize OpenCommand PassFirstClickToClient
-anchor ^ PointerColormap PointerFocusDelay QuickSwitch QuickSwitchAllIcons
-anchor ^ QuickSwitchFillSelection QuickSwitchFontName QuickSwitchHorzMargin
-anchor ^ QuickSwitchHugeIcon QuickSwitchIconBorder QuickSwitchIconMargin
+anchor ^ ColorScrollBarSlider ColorToolButton ColorToolButtonText ColorToolTip
+anchor ^ ColorToolTipText ConfirmLogout ConsiderHBorder ConsiderVBorder
+anchor ^ ContinuousEdgeSwitch CornerSizeX CornerSizeY CPUStatusClassHint
+anchor ^ CPUStatusCommand CPUStatusShowAcpiTemp CPUStatusShowCpuFreq
+anchor ^ CPUStatusShowRamUsage CPUStatusShowSwapUsage DateFormat
+anchor ^ DelayPointerFocus DesktopBackgroundCenter DesktopBackgroundColor
+anchor ^ DesktopBackgroundImage DesktopBackgroundScaled DesktopMenuButton
+anchor ^ DesktopTransparencyColor DesktopTransparencyImage
+anchor ^ DesktopWinListButton DesktopWinMenuButton DlgBorderSizeX
+anchor ^ DlgBorderSizeY DontRotateMenuPointer DoubleBuffer EdgeResistance
+anchor ^ EdgeSwitch EdgeSwitchDelay EnableAddressBar FocusChangesWorkspace
+anchor ^ FocusOnAppRaise FocusOnClickClient FocusOnMap FocusOnMapTransient
+anchor ^ FocusOnMapTransientActive FocusRequestFlashInterval
+anchor ^ FocusRequestFlashTime GrabRootWindow Gradients
+anchor ^ HideTitleBarWhenMaximized HorizontalEdgeSwitch HugeIconSize IconPath
+anchor ^ InputFontName InputFontNameXft KeySysAddressBar KeySysArrange
+anchor ^ KeySysArrangeIcons KeySysCascade KeySysCollapseTaskBar KeySysDialog
+anchor ^ KeySysHideAll KeySysMenu KeySysMinimizeAll KeySysShowDesktop
+anchor ^ KeySysSwitchLast KeySysSwitchNext KeySysTileHorizontal
+anchor ^ KeySysTileVertical KeySysUndoArrange KeySysWindowList
+anchor ^ KeySysWinListMenu KeySysWinMenu KeySysWinNext KeySysWinPrev
+anchor ^ KeySysWorkspace1 KeySysWorkspace10 KeySysWorkspace10TakeWin
+anchor ^ KeySysWorkspace11 KeySysWorkspace11TakeWin KeySysWorkspace12
+anchor ^ KeySysWorkspace12TakeWin KeySysWorkspace1TakeWin KeySysWorkspace2
+anchor ^ KeySysWorkspace2TakeWin KeySysWorkspace3 KeySysWorkspace3TakeWin
+anchor ^ KeySysWorkspace4 KeySysWorkspace4TakeWin KeySysWorkspace5
+anchor ^ KeySysWorkspace5TakeWin KeySysWorkspace6 KeySysWorkspace6TakeWin
+anchor ^ KeySysWorkspace7 KeySysWorkspace7TakeWin KeySysWorkspace8
+anchor ^ KeySysWorkspace8TakeWin KeySysWorkspace9 KeySysWorkspace9TakeWin
+anchor ^ KeySysWorkspaceLast KeySysWorkspaceLastTakeWin KeySysWorkspaceNext
+anchor ^ KeySysWorkspaceNextTakeWin KeySysWorkspacePrev
+anchor ^ KeySysWorkspacePrevTakeWin KeyWinArrangeC KeyWinArrangeE
+anchor ^ KeyWinArrangeN KeyWinArrangeNE KeyWinArrangeNW KeyWinArrangeS
+anchor ^ KeyWinArrangeSE KeyWinArrangeSW KeyWinArrangeW KeyWinClose
+anchor ^ KeyWinFullscreen KeyWinHide KeyWinLower KeyWinMaximize
+anchor ^ KeyWinMaximizeHoriz KeyWinMaximizeVert KeyWinMenu KeyWinMinimize
+anchor ^ KeyWinMove KeyWinNext KeyWinOccupyAll KeyWinPrev KeyWinRaise
+anchor ^ KeyWinRestore KeyWinRollup KeyWinSize LabelFontName LabelFontNameXft
+anchor ^ LargeIconSize LimitByDockLayer LimitPosition LimitSize
+anchor ^ ListBoxFontName ListBoxFontNameXft LockCommand LogoutCancelCommand
+anchor ^ LogoutCommand Look LowerOnClickWhenRaised MailBoxPath MailCheckDelay
+anchor ^ MailClassHint MailCommand ManualPlacement MapInactiveOnTop
+anchor ^ MenuActivateDelay MenuFontName MenuFontNameXft MenuIconSize
+anchor ^ MenuMaximalWidth MenuMouseTracking MiniIconsBottomToTop
+anchor ^ MiniIconsPlaceHorizontal MiniIconsRightToLeft MinimizedWindowFontName
+anchor ^ MinimizedWindowFontNameXft MinimizeToDesktop ModSuperIsCtrlAlt
+anchor ^ MouseWinMove MouseWinRaise MouseWinSize MsgBoxDefaultAction MultiByte
+anchor ^ MultiClickTime NestedThemeMenuMinNumber NetStatusClassHint
+anchor ^ NetStatusCommand NetworkStatusDevice NewMailCommand
+anchor ^ NormalButtonFontName NormalButtonFontNameXft NormalTaskBarFontName
+anchor ^ NormalTaskBarFontNameXft NormalWorkspaceFontName
+anchor ^ NormalWorkspaceFontNameXft OpaqueMove OpaqueResize OpenCommand
+anchor ^ PagerShowBorders PagerShowMinimized PagerShowNumbers PagerShowPreview
+anchor ^ PagerShowWindowIcons PassFirstClickToClient PointerColormap
+anchor ^ PointerFocusDelay QuickSwitch QuickSwitchAllIcons
+anchor ^ QuickSwitchFillSelection QuickSwitchFontName QuickSwitchFontNameXft
+anchor ^ QuickSwitchGroupWorkspaces QuickSwitchHorzMargin QuickSwitchHugeIcon
+anchor ^ QuickSwitchIconBorder QuickSwitchIconMargin QuickSwitchMaxWidth
 anchor ^ QuickSwitchSeparatorSize QuickSwitchSmallWindow QuickSwitchTextFirst
 anchor ^ QuickSwitchToAllWorkspaces QuickSwitchToHidden QuickSwitchToMinimized
-anchor ^ QuickSwitchVertMargin RaiseOnClickButton RaiseOnClickClient
-anchor ^ RaiseOnClickFrame RaiseOnClickTitleBar RaiseOnFocus RebootCommand
-anchor ^ ReplayMenuCancelClick RunCommand ScrollBarDelay ScrollBarStartDelay
-anchor ^ ScrollBarX ScrollBarY ShapesProtectClientWindow ShowAddressBar
-anchor ^ ShowGnomeAppsMenu ShowGnomeUserMenu ShowHelp ShowKDEMenu ShowLogoutMenu
+anchor ^ QuickSwitchVertical QuickSwitchVertMargin RaiseOnClickButton
+anchor ^ RaiseOnClickClient RaiseOnClickFrame RaiseOnClickTitleBar
+anchor ^ RaiseOnFocus RebootCommand ReplayMenuCancelClick
+anchor ^ RequestFocusOnAppRaise RolloverButtonsSupported RunCommand
+anchor ^ ScrollBarDelay ScrollBarStartDelay ScrollBarX ScrollBarY
+anchor ^ ShapesProtectClientWindow ShowAbout ShowAddressBar ShowEllipsis
+anchor ^ ShowFocusModeMenu ShowHelp ShowLogoutMenu ShowLogoutSubMenu
 anchor ^ ShowMenuButtonIcon ShowMoveSizeStatus ShowPopupsAbovePointer
-anchor ^ ShowTaskBar ShowThemesMenu ShowWorkspaceStatus ShutdownCommand
-anchor ^ SizeMaximized SmartPlacement SnapDistance SnapMove StatusFontName
-anchor ^ StrongPointerFocus SubmenuMenuActivateDelay SupportSemitransparency
-anchor ^ TaskBarAtTop TaskBarAutoHide TaskBarCPUSamples TaskBarClockLeds
-anchor ^ TaskBarDoubleHeight TaskBarKeepBelow TaskBarLaunchOnSingleClick
+anchor ^ ShowProgramsMenu ShowRun ShowSettingsMenu ShowTaskBar ShowThemesMenu
+anchor ^ ShowWindowList ShowWorkspaceStatus ShutdownCommand SizeMaximized
+anchor ^ SmallIconSize SmartPlacement SnapDistance SnapMove StatusFontName
+anchor ^ StatusFontNameXft StrongPointerFocus SubmenuMenuActivateDelay
+anchor ^ SupportSemitransparency TaskBarApmGraphWidth TaskBarAtTop
+anchor ^ TaskBarAutoHide TaskbarButtonWidthDivisor TaskBarClockLeds
+anchor ^ TaskBarCPUDelay TaskBarCPUSamples TaskBarDoubleHeight
+anchor ^ TaskBarFullscreenAutoShow TaskBarKeepBelow TaskBarLaunchOnSingleClick
 anchor ^ TaskBarMailboxStatusBeepOnNewMail TaskBarMailboxStatusCountMessages
-anchor ^ TaskBarShowAPMStatus TaskBarShowAPMTime TaskBarShowAllWindows
-anchor ^ TaskBarShowCPUStatus TaskBarShowClock TaskBarShowMailboxStatus
-anchor ^ TaskBarShowNetStatus TaskBarShowStartMenu TaskBarShowTray
-anchor ^ TaskBarShowWindowIcons TaskBarShowWindowListMenu TaskBarShowWindows
-anchor ^ TaskBarShowWorkspaces TerminalCommand Theme TimeFormat TimeFormatAlt
-anchor ^ TitleBarCentered TitleBarHeight TitleBarHorzOffset TitleBarJoinLeft
-anchor ^ TitleBarJoinRight TitleBarJustify TitleBarMaximizeButton
-anchor ^ TitleBarRollupButton TitleBarVertOffset TitleButtonsLeft
-anchor ^ TitleButtonsRight TitleButtonsSupported TitleFontName
-anchor ^ ToolButtonFontName ToolTipDelay ToolTipFontName ToolTipTime
-anchor ^ TrayDrawBevel TrayShowAllWindows UseMouseWheel UseRootButtons
-anchor ^ VerticalEdgeSwitch WarpPointer Win95Keys WorkspaceNames
-anchor ^ WorkspaceStatusTime XFreeType moveSizeFontName
+anchor ^ TaskBarNetDelay TaskBarNetSamples TaskBarShowAllWindows
+anchor ^ TaskBarShowAPMGraph TaskBarShowAPMStatus TaskBarShowAPMTime
+anchor ^ TaskBarShowClock TaskBarShowCollapseButton TaskBarShowCPUStatus
+anchor ^ TaskBarShowMailboxStatus TaskBarShowNetStatus
+anchor ^ TaskBarShowShowDesktopButton TaskBarShowStartMenu
+anchor ^ TaskBarShowTransientWindows TaskBarShowTray TaskBarShowWindowIcons
+anchor ^ TaskBarShowWindowListMenu TaskBarShowWindows TaskBarShowWorkspaces
+anchor ^ TaskBarWorkspacesLeft TerminalCommand Theme ThemeAuthor
+anchor ^ ThemeDescription TimeFormat TimeFormatAlt TitleBarCentered
+anchor ^ TitleBarHeight TitleBarHorzOffset TitleBarJoinLeft TitleBarJoinRight
+anchor ^ TitleBarJustify TitleBarMaximizeButton TitleBarRollupButton
+anchor ^ TitleBarVertOffset TitleButtonsLeft TitleButtonsRight
+anchor ^ TitleButtonsSupported TitleFontName TitleFontNameXft
+anchor ^ ToolButtonFontName ToolButtonFontNameXft ToolTipDelay ToolTipFontName
+anchor ^ ToolTipFontNameXft ToolTipTime TrayDrawBevel TrayShowAllWindows
+anchor ^ UseMouseWheel UseRootButtons VerticalEdgeSwitch Win95Keys
+anchor ^ WinMenuItems WorkspaceNames WorkspaceStatusTime XineramaPrimaryScreen
+anchor ^ XRRDisable XRRPrimaryScreenName

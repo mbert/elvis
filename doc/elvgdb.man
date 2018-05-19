@@ -45,14 +45,14 @@ This will start an
 .B xterm
 process with
 .B elvgdb
-(running as a server, without "-t") and
+(running as a server, without "\-t") and
 .B gdb
 running inside it.
 Various
 .B elvis
 aliases and buttons may invoke
 .B elvgdb
-with the "-t" to send a command to the debugger.
+with the "\-t" to send a command to the debugger.
 
 .SH SERVER
 When invoked without a
@@ -60,7 +60,7 @@ When invoked without a
 flag,
 .B elvgdb
 invokes gdb, passing it all of the command-line parameters and also
-inserting a "--annotate=2" parameter which causes gdb to output extra
+inserting a "\-\-annotate=2" parameter which causes gdb to output extra
 information that may be useful to elvis.
 .PP
 .B elvgdb
@@ -101,7 +101,7 @@ you are expected to define an ":fromgdb" alias in
 An example of such an alias is provided with
 .BR elvis.
 You can load it (and some other useful
-.BR gdb -related
+.BR gdb \-related
 things)
 by running ":load gdb".
 The ":gdb" alias does this automatically.
@@ -195,7 +195,7 @@ This will cause each record to send a ":fromgdb breakpoints-table" message to
 elvis with selected fields appended as arguments.
 .PP
 The "server" attribute is used to suppress output from commands issued by
-elvis (via "elvgdb -t \fIgdbcommands\fR"), as opposed to those commands
+elvis (via "elvgdb \-t \fIgdbcommands\fR"), as opposed to those commands
 entered into gdb directly by the user.
 Generally, any annotation which has the "flush" attribute should also have
 the "server" attribute.
@@ -325,7 +325,7 @@ This is important because the for
 to respond to the "breakpoints-invalid" annotation, it must send
 an "info breakpoints" command back to
 .B elvgdb
-by running ":!elvgdb -t info breakpoints".
+by running ":!elvgdb \-t info breakpoints".
 Normally
 .B elvis
 would refuse to execute ":!\fIshellcmd\fR" for a client

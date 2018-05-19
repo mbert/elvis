@@ -69,13 +69,13 @@ You should quote the
 list to protect it from the shell.
 .IP "\fB\-C\fP and \fB\-M\fP"
 These are shortcuts for combinations of other flags.
-.RB \" \-C \"
+.B \-C
 is short for
-.RB \" "\-c \-i'/*'" \"
+.B "\-c \-i'/*'"
 and is useful for reformatting C/C++ comments.
-.RB \" \-M \"
+.B \-M
 is short for
-.RB \" \-i'>' \"
+.B \-i'>'
 and is useful for reformatting email messages.
 .SH "SEE ALSO"
 .BR vi (1),

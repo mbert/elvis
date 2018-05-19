@@ -34,8 +34,6 @@ then {
   then set! bufdisplay=normal
   if bufdisplay=="normal" && buflines >= 1
   then try 1s/\V^From .*/set! bufdisplay="syntax email"/x
-  if dirdir(filename)=="/tmp" || dirdir(filename)=="/var/tmp"
-  then set! bufdisplay="syntax email"
   if strlen(dirext(filename))==2 && isnumber(filename>>1) && buflines>=1
   then try 1s/\V^\./set! bufdisplay=man/x
  }

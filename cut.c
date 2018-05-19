@@ -99,6 +99,7 @@ static void shiftbufs()
 	CHAR	cbname;	/* buffer currently being considered. */
 	BUFFER	buf;	/* the edit buffer used to store a cut buffer's contents */
 	char	tmpname[50];
+	BUFFER	tmpbuf = NULL;	/* a temporary buffer if all cut buffers have marks */
 
 	/* We would like to delete "9 after this, but if it has any marks
 	 * referring to it then we must leave it, and delete "8 instead.
@@ -125,6 +126,21 @@ static void shiftbufs()
 		break;
 	}
 
+	/* if no buffer has been found...  */
+	if (cbname == '1')
+	{
+		buf = cutbuffer(cbname, ElvFalse);
+		/* and even "1 has marks...  */
+		if (buf && buf->marks)
+		{
+			cbname = '9';
+			tmpbuf = cutbuffer(cbname, ElvFalse);
+			/* ...rename "9 temporarily */
+			sprintf(tmpname, CUTNAMED_BUF, '~');
+			buftitle(tmpbuf, toCHAR(tmpname));
+		}
+	}
+
 	/* shift the lower-numbered buffers by renaming them */
 	while (cbname > '1')
 	{
@@ -140,6 +156,15 @@ static void shiftbufs()
 		{
 			buftitle(buf, toCHAR(tmpname));
 		}
+	}
+
+	/* re-rename the temporary buffer */
+	if (tmpbuf)
+	{
+		sprintf(tmpname, CUTNAMED_BUF, '1');
+		/* rename it "1 */
+		buftitle(tmpbuf, toCHAR(tmpname));
+		/* the former "9 is "1 now */
 	}
 
 	/* At this point, the buffers have been shifted and there probably

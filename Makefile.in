@@ -108,6 +108,7 @@ CP=cp
 # Portable compilation rules
 
 VERSION=2.2_1
+PRERELEASE=pre2
 MISC=	BUGS README.html COPYING INSTALL Makefile.in configure instman.sh\
 	elvis.lsm makwin32.bat makmsdos.bat makos2.cmd e2 \
 	elvis.spec.in Announce-$(VERSION)
@@ -168,7 +169,7 @@ CFLAGS=	$(FLAGI)os$(OS)
 EVERY=	$(ALL) verify$(EXE) elvdump$(EXE) calc$(EXE)
 SHELL=	/bin/sh
 
-DISTRIB=elvis-$(VERSION)
+DISTRIB=elvis-$(VERSION)$(PRERELEASE)
 DOSEXE=exedos
 WIN32EXE=exewin32
 OS2EXE=exeos2
@@ -423,7 +424,7 @@ install: install.$(OS)
 
 install.unix: $(ALL) doc/elvtags.man
 	rm -f doc/*.bak
-	[ -d $(BINDIR) ] || mkdir $(BINDIR)
+	[ -d $(BINDIR) ] || mkdir -p $(BINDIR)
 	cp $(ALL) $(BINDIR)
 	(cd $(BINDIR); chmod 0755 $(ALL))
 	rm -rf $(DATADIR)
@@ -481,14 +482,14 @@ elvis.rpm: elvis.spec.in $(DISTRIB).tar.gz
 	 test -d $$topdir || topdir=/usr/src/redhat; \
 	 test -d $$topdir || topdir=/usr/src/packages; \
 	 echo topdir=$$topdir; \
-	 MANDIR=`sh instman.sh -d -p$(PREFIX)`; \
+	 MANDIR=`sh instman.sh -d -p/usr`; \
 	 if test -d $$topdir; \
 	 then \
-		 sed "s/VERSION/$(VERSION)/;s,MANDIR,$$MANDIR,g" elvis.spec.in >$$topdir/SPECS/elvis.spec; \
+		 sed "s/VERSION/$(VERSION)$(PRERELEASE)/;s,MANDIR,$$MANDIR,g" elvis.spec.in >$$topdir/SPECS/elvis.spec; \
 		 cp $(DISTRIB).tar.gz $$topdir/SOURCES; \
 		 origdir=`pwd`; \
 		 cd $$topdir; \
-		 rpm -bb SPECS/elvis.spec && cp $$topdir/RPMS/i386/elvis-$(VERSION)-*.rpm $$origdir/elvis.rpm; \
+		 rpmbuild -ba SPECS/elvis.spec && cp $$topdir/RPMS/`uname -i`/elvis-$(VERSION)$(PRERELEASE)-*.rpm $$origdir/; \
 	 else \
 		 echo "Can't find rpm's topdir"; \
 		 exit 2; \

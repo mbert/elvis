@@ -362,8 +362,15 @@ case "$GUI_X11" in
             undef)
                 ;;
             *)
-                echo "darwin should build OK as a generic Unix but you must use the --x-libraries= option"
-                exit 0
+                if [ -d /opt/X11/include -a -d /opt/X11/lib ]
+                then
+			echo "darwin: no --x-libraries= option set, assuming XQuartz installation in /opt/X11..."
+			XINCPATH=/opt/X11/include
+			XLIBPATH=/opt/X11/lib
+                else
+			echo "darwin should build OK as a generic Unix but you must use the --x-libraries= option"
+			exit 0
+		fi
             esac
         fi
 	xinc=`searchpath X11/Xresource.h $XINCPATH`
@@ -371,7 +378,10 @@ case "$GUI_X11" in
 		"") why "   X11 headers not found - maybe need '--x-includes=...' argument?" ;;
 		*) why "   X11 headers found" ;;
 	esac
-	xlib=`searchpath libX11.a $XLIBPATH`
+	for suffix in a so dylib; do
+		xlib=`searchpath libX11.$suffix $XLIBPATH`
+		test -n "$xlib" && break;
+	done
 	if [ "$xlib" = "" ]
 	then
 		xlib=`searchpath libX11.so $XLIBPATH`
@@ -431,7 +441,9 @@ fi
 # If X-windows is used, then check for the -lXpm library, need for FEATURE_IMAGE
 if [ "$GUI_X11" = "define" -a "$FEATURE_IMAGE" = "" ]
 then
-	if [ "`searchpath libXpm.a $XLIBPATH`" = "" ]
+	if [ "`searchpath libXpm.a $XLIBPATH`" = "" ] \
+		&& [ "`searchpath libXpm.so $XLIBPATH`" = "" ] \
+		&& [ "`searchpath libXpm.dylib $XLIBPATH`" = "" ]
 	then
 		why "   Disabling the use of background images since -lXpm wasn't found"
 		FEATURE_IMAGE=undef
@@ -459,7 +471,11 @@ case "$FEATURE_XFT" in
 	if [ "$GUI_X11" = "define" ]
 	then
 		xft_h=`searchpath X11/Xft/Xft.h $XINCPATH`
-		libxft=`searchpath libXft.a $XLIBPATH`
+		for suffix in a so dylib; do
+			libxft=`searchpath libXft.$suffix $XLIBPATH`
+			test -n "$libxft" && break
+		done
+		[ -n "$libxft" ] || libxft=`searchpath libXft.so $XLIBPATH`
 		if [ "$xft_h" = "" -o "$libxft" = "" ]
 		then
 			why "   Xft not found"
@@ -607,11 +623,13 @@ fi
 if [ "$NEED_INET_ATON" = undef ]
 then
 	why "Does this system require -lresolv to use inet_aton()?"
-	if [ "`searchpath libresolv.a $XLIBPATH`" = "" ]
+	if [ "`searchpath libresolv.a $XLIBPATH`" = "" ] \
+		&& [ "`searchpath libresolv.so $XLIBPATH`" = "" ] \
+		&& [ "`searchpath libresolv.dylib $XLIBPATH`" = "" ]
 	then
-		why "   Assuming no, because I couldn't find libresolv.a"
+		why "   Assuming no, because I couldn't find libresolv"
 	else
-		why "   Assuming yes, because I found libresolv.a"
+		why "   Assuming yes, because I found libresolv"
 		NLIBS="$NLIBS -lresolv"
 	fi
 fi
@@ -917,7 +935,11 @@ then
 	case "$FEATURE_XFT" in
 	  define)
 		xft="-lXft "
-		if [ -d /usr/include/freetype2 ]
+		if [ "$SYS" = "darwin" -a -d /opt/X11/include/freetype2 ]
+		then
+			CC="$CC -I/opt/X11/include/freetype2"
+
+		elif [ -d /usr/include/freetype2 ]
 		then
 			CC="$CC -I/usr/include/freetype2"
 		fi
@@ -1247,10 +1269,14 @@ eof-gnome
 fi
 
 # Remove the elvgdb program if X11 isn't available
+# and remove the source/object for X11 as well
 if [ "$GUI_X11" != "define" ]
 then
 cat >> $tmp <<eof-noelvgdb
 /^ALL=/s! elvgdb.(EXE)!!
+s!^X11SRCS=!#X11SRCS=!
+s!^X11OBJS=!#X11OBJS=!
+s!^X11HDRS=!#X11HDRS=!
 eof-noelvgdb
 fi
 

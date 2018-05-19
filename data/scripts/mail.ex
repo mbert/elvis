@@ -6,6 +6,7 @@
 alias Mail {
 	set bufdisplay="syntax email" equalprg="elvfmt -M"
 	display syntax email
-	color signature italic red on gray
+	if color("signature") == ""
+	then color signature italic red on gray
 	try $;?^-- *$?,$ region signature
 }

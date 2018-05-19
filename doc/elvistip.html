@@ -1916,7 +1916,7 @@ The <a href="#load">:load</a> alias can load a variety of scripts,
 stored in a standard directory.
 This section describes those scripts.
 
-<p>Most of the scripts set up <a href="elvisex.html#alias>aliases</a>,
+<p>Most of the scripts set up <a href="elvisex.html#alias">aliases</a>,
 <a href="elvisex.htmL#map">maps</a>,
 <a href="elvisex.html#autocmd">autocmds</a>, or other aspects of
 Elvis' configuration.
@@ -1934,7 +1934,7 @@ Either create a custom version of the script by running
 "<code>:customize scripts/</code><var>scriptname</var><code>.ex</code>";
 or load the normal version, alter its effects via Elvis'
 <a href="elvisex.html#SETUP">configuration commands</a>, and save the
-altered version via <a href="elvisex.html#mkexrc>:mkexrc</a>.
+altered version via <a href="elvisex.html#mkexrc">:mkexrc</a>.
 
 <p>Running "<code>:load</code>" without any arguments will list the available
 scripts.
@@ -1945,16 +1945,16 @@ This should include the following:
 other delimiter that you supply as an argument) within a given range of lines.
 This can be handy when you're trying to make a Makefile look pretty.
 
-<dt>gzip
-<dd>Sets up some autocmd sequences for handling files that are compressed with
-gzip.
-
 <dt>cb
 <dd>Defines some aliases for managing cut buffers.
 <code>:cbsave</code> and <code>:cbload</code> save your cut buffers to a file,
-and load them again, respectively.
+and load them again, respectively, which only works if your file buffer is
+unmodified (so you have to save first).
 <code>:cbshow</code> lists the current contents and
-<a href="elvisopt.html#putstyle">putstyle</a> of each cut buffer.
+<a href="elvisopt.html#putstyle">putstyle</a> of each cut buffer, namely of
+the named buffers ("a through "z) as well as of the anonymous buffers ("1
+through "9), whereas <code>:cbsave</code> and <code>:cbload</code> disregard
+the anonymous buffers.
 
 <dt>cursor
 <dd>Defines a <code>:cursor</code> alias which moves the cursor to a given
@@ -2008,6 +2008,10 @@ It also defines a <code>:fontsize</code> alias.
 You should never need to load this one manually.
 It contains a variety of aliases and other settings that are used
 by the GDB interface.
+
+<dt>gzip
+<dd>Sets up some autocmd sequences for handling files that are compressed with
+gzip.
 
 <dt>herefile
 <dd>Sets up <a href="elvisex.html#autocmd">:au</a> events that attempt to
@@ -2084,7 +2088,7 @@ for searching the next/previous note.
 It also sets up <strong>gn</strong> and <strong>gN</strong> maps for searching.
 
 <p>I expect to add a "real" note facility to Elvis eventually.
-This script uses <a href="elvisex.html#region">regions</code>, which can be
+This script uses <a href="elvisex.html#region">regions</a>, which can be
 dangerous because if you're using regions for anything else then you could
 easily lose your notes accidentally.
 
@@ -2126,7 +2130,7 @@ lines, or an entire buffer.
 
 <dt>since
 <dd>Defines <code>:since</code> and <code>:rcssince</code> aliases.
-These use <a href="elvisex.html#region">:region</code> to highlight changes
+These use <a href="elvisex.html#region"><code>:region</code><a> to highlight changes
 since the last write, or the last RCS checkin.
 It also sets up some autocmds to run <code>:rcssince</code> automatically
 when a file is loaded or saved, and to highlight changes.

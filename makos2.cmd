@@ -9,6 +9,7 @@ if "%1"=="--with-debug" goto debug
 if "%1"=="--with-x11" goto x11
 if "%1"=="--with-all" goto all
 if "%1"=="package" goto package
+if "%1"=="manual" goto manual
 
 :usage
 echo usage: makos2 [--with-tcp --no-tcp --with-emx --with-x11 --with-gcc --with-all]
@@ -43,7 +44,7 @@ goto done
 echo copying config file for emx version...
 copy osos2\config-with-tcp.h config.h
 echo building emx elvis with emx/gcc...
-make -f osos2\Makefile.os2 emx
+make -j 4 -f osos2\Makefile.os2 emx
 goto done
 
 :debug
@@ -71,7 +72,20 @@ goto done
 cd exeos2
 del *gcc.exe
 cd ..
+del elvis-2.2_1-os2.tar.gz
 make -f osos2/Makefile.os2 elvis-2.2_1-os2.tar.gz
+goto done
+
+:manual
+if exist osos2\manual cmd /c del /n osos2\manual\*
+if not exist osos2\manual mkdir osos2\manual
+copy osos2\manual-scripts\* osos2\manual
+copy doc\* osos2\manual
+cd osos2\manual
+cmd /c h2i-guide.cmd
+cd ..\..
+if not exist doc mkdir doc
+copy osos2\manual\elvis.INF doc
 goto done
 
 :all
@@ -82,17 +96,18 @@ del *.obj >nul
 call makos2.cmd --no-tcp
 if errorlevel 1 goto error
 del *.obj >nul
-call makos2.cmd --with-gcc
-if errorlevel 1 goto error
-del *.obj >nul
+rem call makos2.cmd --with-gcc
+rem if errorlevel 1 goto error
+rem del *.obj >nul
 call makos2.cmd --with-emx
 if errorlevel 1 goto error
 del *.o >nul
 call makos2.cmd --with-x11
 if errorlevel 1 goto error
 del *.o >nul
-make -f osos2\Makefile.os2 lib\\elvis.INF
+call makos2.cmd manual
 if errorlevel 1 goto error
+
 echo success.
 goto done
 

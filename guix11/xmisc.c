@@ -25,7 +25,7 @@ XftColor *x_xftpixel(pixel)
 		return &cp->xftcolor;
 
 	/* scan for the pixel */
-	for (cp = colors; cp->pixel != (unsigned long)pixel; cp = cp->next);
+	for (cp = colors; cp->pixel != (unsigned long)pixel; cp = cp->next)
 	{
 	}
 	return &cp->xftcolor;
