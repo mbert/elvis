@@ -75,9 +75,9 @@ then let timestamp = time(filename)
 """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 " EXECUTE MODELINES, IF "modeline" OPTION IS SET
 if modeline && buflines >= 1 && buflines <= modelines * 2
-then try %s/\V[ev][xi]:\(.*\):/\1/x
+then try %s/\V[ev][xi]:\([^!]*\): *$/\1/x
 if modeline && buflines > modelines * 2
 then {
- eval try 1,(modelines)s/\V[ev][xi]:\\\(.*\\\):/\1/x
- eval try (buflines - modelines + 1),(buflines)s/\\V[ev][xi]:\\\(.*\\\):/\1/x
+ eval try 1,(modelines)s/\V[ev][xi]:\\\([^!]*\\\): *$/\1/x
+ eval try (buflines - modelines + 1),(buflines)s/\\V[ev][xi]:\\\([^!]*\\\): *$/\1/x
 }

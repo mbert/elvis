@@ -8,13 +8,11 @@ Summary:        Elvis text editor
 Name:           %{name}
 Version:        %{version}
 Release:        %{release}
-#Serial:         %{serial}
 License:	Artistic
 Group:          Applications/Editors
 Vendor:         Steve Kirkendall <kirkenda@cs.pdx.edu>
 Url:		https://www.github.com/mbert/elvis/
 Source:         %{name}-%{version}.tar.gz
-#BuildRoot:      %{_tmppath}/%{name}-%{version}-root
 
 %description
 Elvis is a text editor, compatible with vi.  It has all the usual
