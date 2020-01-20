@@ -108,7 +108,7 @@ CP=cp
 # Portable compilation rules
 
 VERSION=2.2_1
-PRERELEASE=pre2
+PRERELEASE=pre3
 MISC=	BUGS README.html COPYING INSTALL Makefile.in configure instman.sh\
 	elvis.lsm makwin32.bat makmsdos.bat makos2.cmd e2 \
 	elvis.spec.in Announce-$(VERSION)
@@ -444,7 +444,7 @@ install.unix: $(ALL) doc/elvtags.man
 	(cd doc; for i in *.man; do sed 's/Elvis 2\.[0-9x][0-9a-z_-]*/Elvis $(VERSION)/' $$i >$(DOCDIR)/$$i; done)
 	-(cd $(DATADIR); $(BINDIR)/elvtags -gitv stubs/*.c || ctags stubs/*.c)
 	chmod 0755 $(DATADIR)/*/. $(DATADIR) $(DOCDIR)
-	sh instman.sh -p$(PREFIX) $(ALL)
+	unset MANPATH; sh instman.sh -p$(PREFIX) $(ALL)
 	-[ -d /etc/elvis ] || mkdir /etc/elvis
 	-chmod 0755 /etc/elvis/
 	-@ : >/etc/elvis/README && ( \
@@ -473,7 +473,7 @@ uninstall.unix:
 	(cd $(BINDIR); $(RM) $(ALL))
 	rm -rf $(DATADIR)
 	rm -rf $(DOCDIR)
-	sh instman.sh -r -p$(PREFIX) $(ALL)
+	unset MANPATH; sh instman.sh -r -p$(PREFIX) $(ALL)
 
 ###############################################################################
 
@@ -482,7 +482,7 @@ elvis.rpm: elvis.spec.in $(DISTRIB).tar.gz
 	 test -d $$topdir || topdir=/usr/src/redhat; \
 	 test -d $$topdir || topdir=/usr/src/packages; \
 	 echo topdir=$$topdir; \
-	 MANDIR=`sh instman.sh -d -p/usr`; \
+	 MANDIR=`unset MANPATH; sh instman.sh -d -p/usr`; \
 	 if test -d $$topdir; \
 	 then \
 		 sed "s/VERSION/$(VERSION)$(PRERELEASE)/;s,MANDIR,$$MANDIR,g" elvis.spec.in >$$topdir/SPECS/elvis.spec; \
