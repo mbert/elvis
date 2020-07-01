@@ -433,8 +433,6 @@ install.unix: $(ALL) doc/elvtags.man
 	for i in icons scripts stubs themes; do mkdir $(DATADIR)/$$i; cp data/$$i/* $(DATADIR)/$$i/; done
 	rm -rf $(DOCDIR)
 	mkdir -p $(DOCDIR)
-	cp doc/*.html $(DOCDIR)
-	cp doc/*.man $(DOCDIR)
 	cp doc/*.txt $(DOCDIR)
 	cp doc/elvistrs.msg $(DOCDIR)
 	cp doc/printdoc.bat $(DOCDIR)
