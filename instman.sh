@@ -189,7 +189,9 @@ then
 	for i
 	do
 		case $job in
-		  install)	cp doc/$i.man $mandir/$i$ext ;;
+		  install)	cp doc/$i.man $mandir/$i$ext
+		          	chmod 0644 $mandir/$i$ext
+		          	;;
 		  remove)	rm $mandir/$i$ext* ;;
 		esac
 	done
@@ -217,6 +219,7 @@ then
 				# give nroff another chance
 				nroff -man doc/$i.man >$catdir/$i$ext
 			fi
+			chmod 0644 $catdir/$i$ext
 			;;
 		  remove)
 			rm $catdir/$i$ext*
@@ -258,7 +261,7 @@ case $job in
 		then
 			for i
 			do
-				rm -f $dir/$i$ext.z
+				rm -f $dir/$i$ext.gz
 				gzip -f $dir/$i$ext
 			done
 			finalext=$ext.gz
