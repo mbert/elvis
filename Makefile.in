@@ -430,7 +430,7 @@ install.unix: $(ALL) doc/elvtags.man
 	rm -rf $(DATADIR)
 	mkdir -p $(DATADIR)
 	cp data/*.* $(DATADIR)
-	for i in icons scripts stubs themes; do mkdir $(DATADIR)/$$i; cp data/$$i/* $(DATADIR)/$$i/; done
+	for i in @ICONS@ scripts stubs @THEMES@; do mkdir $(DATADIR)/$$i; cp data/$$i/* $(DATADIR)/$$i/; done
 	rm -rf $(DOCDIR)
 	mkdir -p $(DOCDIR)
 	cp doc/*.txt $(DOCDIR)
