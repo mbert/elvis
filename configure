@@ -634,7 +634,15 @@ then
 	fi
 fi
 why "Does this system support memmove()?"
-if fgrep memmove /usr/include/string*.h </dev/null >/dev/null
+FN=memmove$$.c
+cat >$FN <<EOF
+#include <string.h>
+int main(void) { char buf2[10], buf1[10]; memmove(buf2, buf1, 10); return 0; }
+EOF
+gcc -c $FN >/dev/null 2>&1
+RC=$?
+rm -f $FN
+if [ $RC -eq 0 ]
 then
 	why "   Assuming yes, because it is declared in <string.h> or <strings.h>"
 	NEED_MEMMOVE=undef
