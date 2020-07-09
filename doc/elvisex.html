@@ -1762,7 +1762,7 @@ These are:
 |In all display modes and all user interfaces...                   |
 | normal     | --           | default when window has input focus  |
 | idle       | normal       | default when window loses input focus|
-| bottom     | --           | ex commands at the bottom of a window|
+| bottom     | normal       | ex commands at the bottom of a window|
 | lnum       | (normal/idle)| line numbers for <a href="elvisopt.html#number">:set number</a>         |
 | showmode   | (normal/idle)| input mode name for <a href="elvisopt.html#showmode">:set showmode</a>    |
 | ruler      | (normal/idle)| line/column numbers for <a href="elvisopt.html#number">:set ruler</a>   |
@@ -1778,14 +1778,14 @@ These are:
 | string     | (normal/idle)| string literals                      |
 | char       | string       | character literals                   |
 | regexp     | string       | regular expression literals          |
-| regsub     | regsub       | substitution text after regexp       |
+| regsub     | regexp       | substitution text after regexp       |
 | number     | (normal/idle)| number literals                      |
 | keyword    | (normal/idle)| keywords                             |
 | other      | keyword      | names matching "other" keyword descr.|
 | function   | (normal/idle)| names which appear to be functions   |
 | variable   | (normal/idle)| any other name                       |
-| prep       | (normal/idle)| preprocessor directives              |
-| prepquote  | (normal/idle)| filenames in preprocessor directives |
+| prep       | keyword      | preprocessor directives              |
+| prepquote  | string       | filenames in preprocessor directives |
 | doc        | (normal/idle)| embedded documentation               |
 | docmarkup  | doc          | markup lines in embedded docs        |
 | docindent  | doc          | embedded doc lines that are indented |
@@ -1794,7 +1794,7 @@ These are:
 |------------^--------------^--------------------------------------|
 | In "normal" and "syntax" display modes...                        |
 | specialkey | (normal/idle)| control characters if <a href="elvisopt.html#list">list</a> is on     |
-| nontext    | specialkey   | end-of-line marker if <a href="elvisopt.html#list">list</a> is on     |
+| nontext    | normal       | end-of-line marker if <a href="elvisopt.html#list">list</a> is on     |
 | extends    | specialkey   | side-scrolling arrows if <a href="elvisopt.html#wrap">wrap</a> is off |
 |------------^--------------^--------------------------------------|
 |In the "hex" display mode...                                      |
