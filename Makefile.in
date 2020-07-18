@@ -165,7 +165,7 @@ OBJ3=	$(OSOBJS2) autocmd$(OBJ) cut$(OBJ) draw$(OBJ) event$(OBJ) ex$(OBJ)\
 OBJS=	$(OBJ1) $(OBJ2) $(OBJ3)
 REFOBJS=ref$(OBJ) tag$(OBJ) tagsrch$(OBJ) safe$(OBJ)
 CTOBJS=	ctags$(OBJ) tag$(OBJ) safe$(OBJ)
-CFLAGS=	$(FLAGI)os$(OS)
+CFLAGS+=$(FLAGI)os$(OS)
 EVERY=	$(ALL) verify$(EXE) elvdump$(EXE) calc$(EXE)
 SHELL=	/bin/sh
 
