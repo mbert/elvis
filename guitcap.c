@@ -114,8 +114,8 @@ static char	*SE;		/* :se=: standout end */
 static char	*US;		/* :us=: underline start */
 static char	*UE;		/* :ue=: underline end */
 static char	*MD;		/* :md=: bold start */
-static char	*ME;		/* :me=: bold end */
-static char	*MH;		/* :mh=: half-bright start (end with :me=:) */
+static char	*ME;		/* :me=: bold and half-bright end */
+static char	*MH;		/* :mh=: half-bright start */
 static char	*CM;		/* :cm=: cursor movement */
 static char	*DO;		/* :do=: move down one line */
 static char	*DOmany;	/* :DO=: move down many lines */
@@ -321,8 +321,8 @@ static void change(fg, bg, bits)
 		return;
 
 	/* If foreground is set to a bright color, then we want to convert it
-	 * to either a dim color + bold (if bold wasn't set already), or to
-	 * white + bold (if bold was already set).
+	 * to either white + bold (if bold was already set), or
+	 * to a dim color + bold (if bold wasn't set already).
 	 */
 	if (fgcolored && fg >= 10)
 	{
