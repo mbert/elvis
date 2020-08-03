@@ -442,7 +442,7 @@ install.unix: $(ALL) doc/elvtags.man
 	find $(DESTDIR)$(DATADIR) -type f -exec chmod 0644 {} \;
 	find $(DESTDIR)$(DOCDIR) -type f -exec chmod 0644 {} \;
 	chmod 0755 $(DESTDIR)$(DATADIR)/*/. $(DESTDIR)$(DATADIR) $(DESTDIR)$(DOCDIR)
-	[ "$(DESTDIR)" ] && mkdir -p $(DESTDIR)$(PREFIX)/share/man/man1 && find $(DESTDIR) -type d -exec chmod 0755 {} \;
+	[ -z $(DESTDIR) ] || (mkdir -p $(DESTDIR)$(PREFIX)/share/man/man1 && find $(DESTDIR) -type d -exec chmod 0755 {} \;)
 	unset MANPATH; sh instman.sh -p$(DESTDIR)$(PREFIX) $(ALL)
 	-[ -d $(DESTDIR)/etc/elvis ] || mkdir -p $(DESTDIR)/etc/elvis
 	-chmod 0755 $(DESTDIR)/etc/elvis/
