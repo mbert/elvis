@@ -266,7 +266,7 @@ static OPTDESC x11desc[] =
 	{"secret", "secret",	optnstring,	optisnumber	}
 #ifdef FEATURE_XFT
        ,{"antialias", "aa",	NULL,		NULL		},
-	{"aasqueeze", "aas",	optnstring,	xoptisnumber,	"0:10"}
+	{"aasqueeze", "aas",	optnstring,	xoptisnumber,	"-10:10"}
 #endif
 };
 

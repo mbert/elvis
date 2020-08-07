@@ -1767,7 +1767,12 @@ Since programmers like to see as many lines of their code as possible,
 I decided to create this option for trimming down gap.
 The default value is 4, which reduces the height of each text row by
 4 raster lines.
-You can set it to any value from 0 to 10.
+A negative value will add extra whitespace between the lines, which may serve
+two purposes: if a font has descenders that don't show for aasqueeze=0, like
+the '_' character, setting aasqueeze to -2 might make it visible. The other
+purpose might be simulating double line-height in presentations by choosing
+a high negative value like aasqueeze=-10
+You can set it to any value from -10 to 10.
 
 <dt><a name="scrollbarleft">scrollbarleft, xsl <em>(Boolean, x11)</em></a>
 <dd>The <em>scrollbarleft</em> option determines which side of the window the
