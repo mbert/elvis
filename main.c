@@ -36,10 +36,6 @@ static GUI *allguis[] =
 	&guix11,
 #endif
 
-#ifdef GUI_GNOME
-  &guignome,
-#endif
-
 #ifdef GUI_PM
 	&guipm,
 #endif

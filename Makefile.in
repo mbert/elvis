@@ -128,13 +128,9 @@ X11HDRS=guix11/guix11.h guix11/xclip.h guix11/xdialog.h guix11/xevent.h\
 	guix11/xmisc.h guix11/xscroll.h guix11/xstatus.h guix11/xtext.h\
 	guix11/xtool.h
 
-GNOMESRCS=guignome/guignome.c guignome/guignome_clip.c guignome/guignome_mousedrag.c guignome/elvisCorba-common.c guignome/elvisCorba-skels.c guignome/elvisCorba-stubs.c guignome/guignome_corba.c
-GNOMEOBJS=guignome/guignome$(OBJ) guignome/guignome_clip$(OBJ) guignome/guignome_mousedrag$(OBJ) guignome/elvisCorba-common$(OBJ) guignome/elvisCorba-skels$(OBJ) guignome/elvisCorba-stubs$(OBJ) guignome/guignome_corba$(OBJ)
-GHOMEHDRS=
-
-GUISRCS=$(GNOMESRCS) $(X11SRCS) guicurs.c guitcap.c guiopen.c
-GUIOBJS=$(GNOMEOBJS) $(X11OBJS) guicurs$(OBJ) guitcap$(OBJ) guiopen$(OBJ)
-GUIHDRS=$(GNOMEHDRS) $(X11HDRS)
+GUISRCS=$(X11SRCS) guicurs.c guitcap.c guiopen.c
+GUIOBJS=$(X11OBJS) guicurs$(OBJ) guitcap$(OBJ) guiopen$(OBJ)
+GUIHDRS=$(X11HDRS)
 LPSRCS=	lpescape.c lpovrtyp.c lpps.c
 LPOBJS=	lpescape$(OBJ) lpovrtyp$(OBJ) lpps$(OBJ)
 HDRS=	$(OSHDRS) $(GUIHDRS) autocmd.h buffer.h buffer2.h calc.h color.h\
@@ -265,16 +261,6 @@ xtool$(OBJ): guix11/xtool.c
 xdialog$(OBJ): guix11/xdialog.c
 	$(OSCC) guix11/xdialog.c
 
-guignome$(OBJ): guignome/guignome.c
-	$(OSCC) guignome/guignome.c
-
-guignome/elvisCorba-common.c: guignome/elvisCorba.idl
-	(cd guignome; orbit-idl elvisCorba.idl)
-
-guignome/elvisCorba-skels.c: guignome/elvisCorba-common.c
-guignome/elvisCorba-stubs.c: guignome/elvisCorba-common.c
-guignome/elvisCorba.h: guignome/elvisCorba-common.c
-
 ###############################################################################
 # Handy commands
 
@@ -283,7 +269,6 @@ clean: clean.$(OS)
 
 clean.unix:
 	$(RM) *$(OBJ)
-	$(RM) guignome/*$(OBJ) guignome/elvisCorba-* guignome/elvisCorba.h
 	$(RM) core
 	$(RM) errlist
 	$(RM) verify.elv

@@ -24,14 +24,6 @@ END_EXTERNC
 
 extern GUI	*gui;
 
-#ifdef GUI_GNOME
-extern GUI guignome;
-#endif
-
-#ifdef GUI_GNOME
-extern GUI guignome;
-#endif
-
 #ifdef GUI_X11
 extern GUI	guix11;
 #endif

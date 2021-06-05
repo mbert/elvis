@@ -224,11 +224,10 @@ Also, underlining looks ugly in an MS-DOS console.
 	switch gui
 	case windows so! (elvispath("elvis.win"))
 	case x11     so! (elvispath("elvis.x11"))
-	case gnome   so! (elvispath("elvis.gnome"))
 </pre>
-These lines set the defaults for the "windows", "x11", and "gnome" user
+These lines set the defaults for the "windows" and "x11" user
 interfaces.
-For "x11" and "gnome", these set up the toolbar and other features.
+For "x11", these set up the toolbar and other features.
 There isn't actually an "elvis.win" file distributed with Elvis because
 those features are hardcoded in the Windows version of Elvis.
 The "!" suffix on the <a href="elvisex.html#source">:so</a> command

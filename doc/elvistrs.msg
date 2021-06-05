@@ -76,8 +76,6 @@ Can't use images for foreground
 Cygwin mount table contains malformed entries
 Flags: -V          Verbose -- give more status information
 For more information about user interfaces, give the command 'elvis -G?'
-Invalid GUI (gnome) menu command
-Invalid GUI (gnome) menubar command
 Invalid GUI command
 NUL not allowed in file name
 Ported to (os) by $1

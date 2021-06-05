@@ -1,13 +1,5 @@
 #!/bin/sh
 
-# TEMPORARY: There is a problem with the Gnome interface.  Gnome should be
-# omitted by default until this is resolved.  Giving an explicit "--with-gnome"
-# flag should still enable it, though.  The bug that I'm encountering is that
-# the -lgnorba library contains unresolved references to "gnome_init" and
-# "gnome_init_with_popt_table".  This started showing up after I upgraded my
-# computer from SuSE 6.3 to SuSE 7.0.
-GUI_GNOME=bug
-
 # This is a UNIX shell script that generates a custom "Makefile" file and
 # a "config.h" file.
 #
@@ -17,8 +9,6 @@ GUI_GNOME=bug
 #	 --without-x		disable support for X-windows interface
 #	 --with-xft[=no]	enable/disable support for Xft under "x11" intf.
 #	 --without-xft		disable support for Xft under "x11" interface
-#	 --with-gnome[=no]	enable/disable support for GNOME interface
-#	 --without-gnome	disable support for GNOME interface
 #	 --with-gcc[=no]	enable/disable use of GCC
 #	 --without-gcc		disable use of GCC
 #	 --x-includes=DIR	add DIR to path for X-windows include files
@@ -122,8 +112,6 @@ usage()
 	echo "       --without-x        disable support for X-windows interface"
 	echo "       --with-xft[=no]    enable/disable support for Xft under 'x11' intf."
 	echo "       --without-xft      disable support for Xft under 'x11' interface"
-	echo "       --with-gnome[=no]  enable/disable support for GNOME interface"
-	echo "       --without-gnome    disable support for GNOME interface"
 	echo "       --with-gcc[=no]    enable/disable use of GCC"
 	echo "       --without-gcc      disable use of GCC"
 	echo "       --x-includes=DIR   add DIR to path for X-windows include files"
@@ -149,14 +137,6 @@ usage()
 for i
 do
 	case "$i" in
-	  --with-gnome=no|--without-gnome)
-		GUI_GNOME=undef
-		args="$args --with-gnome=no"
-		;;
-	  --with-gnome*)
-		GUI_GNOME=define
-		args="$args --with-gnome"
-		;;
 	  --with-x=no|--without-x)
 		GUI_X11=undef
 		args="$args --with-x=no"
@@ -302,54 +282,6 @@ case "$inet" in
   *) why "   Internet headers found" ;;
 esac
 
-# Find Gnome files, unless gnome is specifically omitted
-case "$GUI_GNOME" in
-  undef)
-	why "   Skipping GNOME tests since you specified --with-gnome=no"
-	;;
-  bug)
-	why "   Skipping GNOME due to a temporary configuration bug.  (For more information,"
-	why "      see the comment at the top of the 'configure' script)"
-	GUI_GNOME=undef
-	;;
-  *)
-	GNOMELIBSSEARCH="gnomeui zvt gnome libglade gnorba"
-	for LIBSEARCHTMP in $GNOMELIBSSEARCH
-	do
-		res=`gnome-config --libs $LIBSEARCHTMP`
-		retcode=$?
-		if [ $retcode -ne 0 ]
-		then
-			why "  gnome-config failed to find $LIBSEARCHTMP"
-			why "  You should be able to get it from www.gnome.org"
-			break
-		fi
-	done
-
-	gnomelibs=`gnome-config --libs $GNOMELIBSSEARCH 2>/dev/null`
-	gnomeres1=$?
-	gnomecflags=`gnome-config --cflags $GNOMELIBSSEARCH 2>/dev/null`
-	gnomeres2=$?
-
-	if [ $gnomeres1 -ne 0 -o $gnomeres2 -ne 0 -o $retcode -ne 0 -o "$gnomelibs" = "" -o "$gnomecflags" = "" ]
-	then
-		why "   gnome-config not happy - perhaps you are missing some gnomes?"
-		why "   ($gnomeres1 / $gnomeres2 / $retcode / $gnomelibs / $gnomecflags )"
-		gnomelibs=""
-		gnomecflags=""
-	else
-		why "   GNOME found -- omitting gdk_imlib; it causes more trouble that it's worth"
-		gnomelibs="`echo $gnomelibs | sed 's/ -lgdk_imlib / /'`"
-		gnomecflags="$gnomecflags -I."
-		echo '#ifndef GDK_IMLIB_H' >gdk_imlib.h
-		echo '# define GDK_IMLIB_H' >>gdk_imlib.h
-		echo 'typedef char GdkImlibColor;' >>gdk_imlib.h
-		echo 'typedef char GdkImlibImage;' >>gdk_imlib.h
-		echo '#endif' >>gdk_imlib.h
-	fi
-
-esac
-
 case "$GUI_X11" in
   undef)
 	why "   Skipping X11 tests since you specified --with-x=no"
@@ -411,19 +343,6 @@ esac
 case "$gnu" in
  y|n)	gnu="" ;;
 esac
-
-# If GNOME is unspecified, and the GNOME check was OK then assume with-gnome
-if [ "$GUI_GNOME" = "" -a "$gnomelibs" ]
-then
-  why "Assuming --with-gnome because you have GNOME installed"
-  GUI_GNOME=define
-  args="$args --with-gnome"
-elif [ "$GUI_GNOME" = "" ]
-then
-  why "Assuming --with-gnome=no because GNOME was not found"
-  GUI_GNOME=undef
-  args="$args --with-gnome=no"
-fi
 
 # If X-windows is unspecified, and the X files are present, then assume with-x
 if [ "$GUI_X11" = "" -a "$xinc" ]
@@ -930,14 +849,6 @@ echo "Man dir:  "`sh instman.sh -d -p"${PREFIX}"`
 
 #Set some options that'll be used in the here-files below
 CC="$CC$USE"
-if [ "$GUI_GNOME" = "define" ]
-then
-  GNOMELIBS="$gnomelibs"
-  GNOMECFLAGS="$gnomecflags"
-
-  CC="$CC $GNOMECFLAGS"
-fi
-
 if [ "$GUI_X11" = "define" ]
 then
 	case "$FEATURE_XFT" in
@@ -1025,7 +936,6 @@ cat >config.h <<eof-config
 
 
 /* The following determine which user interfaces are to be supported */
-#${GUI_GNOME:-undef}	GUI_GNOME	/* Pretty GNOME user interface */
 #${GUI_X11:-undef}	GUI_X11		/* simple X-windows interface */
 #undef	GUI_CURSES	/* curses interface */
 #define	GUI_TERMCAP	/* termcap interface */
@@ -1256,7 +1166,7 @@ eof-generic
 
 esac
 cat >>$tmp <<eof-all
-s!^LIBS=.*!LIBS=$GNOMELIBS $XLIBS $LIBS!
+s!^LIBS=.*!LIBS=$XLIBS $LIBS!
 s!^PREFIX=.*!PREFIX=$PREFIX!
 s!^BINDIR=.*!BINDIR=$BINDIR!
 s!^DATADIR=.*!DATADIR=$DATADIR!
@@ -1265,15 +1175,6 @@ eof-all
 if [ -d /usr/local/X11/include ]
 then
 	echo 's!^CFLAGS=.*!& -I/usr/local/X11/include!' >>$tmp
-fi
-
-# Remove the source/object for GNOME from the makefile if we aren't using it
-if [ "$GUI_GNOME" != "define" ]
-then
-cat >> $tmp << eof-gnome
-s!^GNOMESRCS=.*!GNOMESRCS=!
-s!^GNOMEOBJS=.*!GNOMEOBJS=!
-eof-gnome
 fi
 
 # Remove the elvgdb program if X11 isn't available

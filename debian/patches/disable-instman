@@ -36,17 +36,6 @@ Index: elvis-2.2.0/Makefile.in
  
  ################################################################################
  # This is the shell command for copying one file to another
-@@ -127,8 +127,8 @@
- 	guix11/xmisc.h guix11/xscroll.h guix11/xstatus.h guix11/xtext.h\
- 	guix11/xtool.h
- 
--GNOMESRCS=guignome/guignome.c guignome/guignome_clip.c guignome/guignome_mousedrag.c guignome/elvisCorba-common.c guignome/elvisCorba-skels.c guignome/elvisCorba-stubs.c guignome/guignome_corba.c
--GNOMEOBJS=guignome/guignome$(OBJ) guignome/guignome_clip$(OBJ) guignome/guignome_mousedrag$(OBJ) guignome/elvisCorba-common$(OBJ) guignome/elvisCorba-skels$(OBJ) guignome/elvisCorba-stubs$(OBJ) guignome/guignome_corba$(OBJ)
-+GNOMESRCS=
-+GNOMEOBJS=
- GHOMEHDRS=
- 
- GUISRCS=$(GNOMESRCS) $(X11SRCS) guicurs.c guitcap.c guiopen.c
 @@ -288,7 +288,7 @@
  	$(RM) verify.elv
  	$(RM) gdk_imlib.h

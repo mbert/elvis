@@ -16,7 +16,7 @@ CFGEXTS = ali arf awf brf bwf clr ini msg ps spe syn
 CONFBOTH = --bindir=/usr/bin --datadir=/usr/share/elvis \
            --docdir=/usr/share/elvis/manual --libs=-lncurses
 CONFCONSOLE = $(CONFBOTH) --without-x
-CONFX11 = $(CONFBOTH) --with-x --with-xft --without-gnome
+CONFX11 = $(CONFBOTH) --with-x --with-xft
 EDIR = $(CURDIR)/debian/elvis
 MDIR = $(CURDIR)/debian/elvis-common
 NDIR = $(CURDIR)/debian/elvis-console
