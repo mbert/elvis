@@ -37,8 +37,16 @@ if errorlevel 1 goto Fail
 goto Done
 
 :Clean
+if "%OS%"=="Windows_NT" goto Clean_NT
 deltree /y winrel
 deltree /y guirel
+goto Done
+
+:Clean_NT
+if exist winrel rd /s/q winrel
+if exist guirel rd /s/q guirel
+for %%i in (WinElvis.exe WinTags.exe ctags.exe elvis.exe ex.exe fmt.exe ls.exe ref.exe vi.exe view.exe) do if exist %%i erase %%i
+if exist *.pch erase *.pch
 
 :Fail
 :Done
