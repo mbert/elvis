@@ -14,9 +14,7 @@ CPP_PROJ=/nologo /ML /W3 /GX /YX /O2 /I "oswin32" /I "." /D "WIN32" /D "NDEBUG"\
 CPP_OBJS=.\WinRel/
 
 LINK32=link.exe
-LINK32_FLAGS=kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib\
- advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib\
- odbccp32.lib /NOLOGO /SUBSYSTEM:console /INCREMENTAL:no\
+LINK32_FLAGS=kernel32.lib /NOLOGO /SUBSYSTEM:console /INCREMENTAL:no\
  /MACHINE:I386
 DEF_FILE=oswin32\osdir.c
 
