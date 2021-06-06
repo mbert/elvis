@@ -61,13 +61,13 @@ $(OUTDIR)/ls.exe : $(OUTDIR) $(DEF_FILE) \
 <<
 
 $(OUTDIR)\vi.exe : $(OUTDIR)
-	cl /nologo /DARGV0=VI /Fe$(OUTDIR)\vi.exe /Ioswin32 alias.c
+	cl /nologo /DARGV0=VI /Fe$(OUTDIR)\vi.exe /Fo$(INTDIR)\vi.obj /Ioswin32 alias.c
 
 $(OUTDIR)\ex.exe : $(OUTDIR)
-	cl /nologo /DARGV0=EX /Fe$(OUTDIR)\ex.exe /Ioswin32 alias.c
+	cl /nologo /DARGV0=EX /Fe$(OUTDIR)\ex.exe /Fo$(INTDIR)\ex.obj /Ioswin32 alias.c
 
 $(OUTDIR)\view.exe : $(OUTDIR)
-	cl /nologo /DARGV0=VIEW /Fe$(OUTDIR)\view.exe /Ioswin32 alias.c
+	cl /nologo /DARGV0=VIEW /Fe$(OUTDIR)\view.exe /Fo$(INTDIR)\view.obj /Ioswin32 alias.c
 
 
 ###############################################################################
