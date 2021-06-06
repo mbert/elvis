@@ -1961,7 +1961,6 @@ DEP_CPP_CALC_=\
 SOURCE=.\oswin32\ostext.c
 DEP_CPP_OSTEX=\
 	".\elvis.h"\
-	{$(INCLUDE)}"\sys\Types.h"\
 	".\config.h"\
 	".\elvctype.h"\
 	".\version.h"\
@@ -2278,8 +2277,6 @@ DEP_CPP_IO_C36=\
 SOURCE=.\oswin32\osdir.c
 DEP_CPP_OSDIR=\
 	".\elvis.h"\
-	{$(INCLUDE)}"\sys\Types.h"\
-	{$(INCLUDE)}"\sys\Stat.h"\
 	".\config.h"\
 	".\elvctype.h"\
 	".\version.h"\
@@ -3981,7 +3978,6 @@ DEP_CPP_MAP_C=\
 
 SOURCE=.\oswin32\osblock.c
 DEP_CPP_OSBLO=\
-	{$(INCLUDE)}"\sys\Types.h"\
 	".\elvis.h"\
 	".\config.h"\
 	".\elvctype.h"\
