@@ -451,8 +451,8 @@ void ttysuspend()
 	if (KE) tputs(KE, 1, ttych);	/* restore keypad mode */
 	if (RC) tputs(RC, 1, ttych);	/* restore cursor & attributes */
 
-	/* no cursor movement for xterm with te capability */
-	if (!TE || CHARcmp(o_term, toCHAR("xterm")) != 0)
+	/* no cursor movement for terminals with te capability */
+	if (!TE)
 	{
 		/* Move the cursor to the bottom of the screen */
 		tputs(tgoto(CM, 0, (int)o_ttyrows - 1), 0, ttych);
