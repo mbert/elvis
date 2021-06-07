@@ -47,7 +47,7 @@ RSC=rc.exe
 OUTDIR=.
 INTDIR=.\WinRel
 
-ALL : "$(OUTDIR)\elvis.exe"
+ALL : $(INTDIR) "$(OUTDIR)\elvis.exe"
 
 CLEAN : 
 	-@erase ".\WinRel\elvis.exe"
@@ -119,6 +119,9 @@ CLEAN :
 	-@erase ".\WinRel\color.obj"
 	-@erase ".\WinRel\descr.obj"
 	-@erase ".\WinRel\autocmd.obj"
+
+"$(INTDIR)" : 
+	if not exist "$(INTDIR)/$(NULL)" mkdir "$(INTDIR)"
 
 "$(OUTDIR)" :
     if not exist "$(OUTDIR)/$(NULL)" mkdir "$(OUTDIR)"
@@ -231,7 +234,7 @@ LINK32_OBJS= \
 OUTDIR=.
 INTDIR=.\WinDebug
 
-ALL : "$(OUTDIR)\elvis.exe"
+ALL : $(INTDIR) "$(OUTDIR)\elvis.exe"
 
 CLEAN : 
 	-@erase ".\WinDebug\vc40.pdb"
@@ -307,6 +310,9 @@ CLEAN :
 	-@erase ".\WinDebug\autocmd.obj"
 	-@erase ".\WinDebug\elvis.ilk"
 	-@erase ".\WinDebug\elvis.pdb"
+
+"$(INTDIR)" : 
+	if not exist "$(INTDIR)/$(NULL)" mkdir "$(INTDIR)"
 
 "$(OUTDIR)" :
     if not exist "$(OUTDIR)/$(NULL)" mkdir "$(OUTDIR)"

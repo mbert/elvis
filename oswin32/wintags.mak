@@ -21,6 +21,11 @@ HDRS=elvis.h guiwin32\wintools.h config.h elvctype.h version.h oswin32\osdef.h \
 	
 ################################################################################
 
+all: $(INTDIR) WinTags.exe
+
+$(INTDIR) : 
+	if not exist $(INTDIR)/nul mkdir $(INTDIR)
+
 WinTags.exe: $(OBJS)
 	$(LD) @<<
   $(LDFLAGS) /out:WinTags.exe $(OBJS)

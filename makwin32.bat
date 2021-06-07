@@ -21,7 +21,6 @@ if not exist ref.mak copy oswin32\ref.mak
 if not exist winelvis.mak copy oswin32\winelvis.mak
 if not exist wintags.mak copy oswin32\wintags.mak
 if not exist config.h copy oswin32\osconfig.h config.h
-if not exist WinRel\nul md WinRel
 
 echo Compiling text-mode utilities...
 nmake /nologo /s /f elvis.mak "CFG=elvis - Win32 Release"
@@ -43,10 +42,11 @@ deltree /y guirel
 goto Done
 
 :Clean_NT
-if exist winrel rd /s/q winrel
-if exist guirel rd /s/q guirel
+for %%i in (WinRel WinDebug GuiRel GuiDebug) do if exist %%i rd /s/q %%i
 for %%i in (WinElvis.exe WinTags.exe ctags.exe elvis.exe ex.exe fmt.exe ls.exe ref.exe vi.exe view.exe) do if exist %%i erase %%i
 if exist *.pch erase *.pch
+if exist *.pdb erase *.pdb
+if exist *.ilk erase *.ilk
 
 :Fail
 :Done

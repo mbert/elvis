@@ -3,11 +3,14 @@ RSC=rc.exe
 OUTDIR=.
 INTDIR=.\WinRel
 
-ALL : $(OUTDIR)\ctags.exe $(OUTDIR)\fmt.exe $(OUTDIR)\ref.exe $(OUTDIR)\ls.exe\
- $(OUTDIR)\vi.exe $(OUTDIR)\ex.exe $(OUTDIR)\view.exe
+ALL : $(INTDIR) $(OUTDIR)\ctags.exe $(OUTDIR)\fmt.exe $(OUTDIR)\ref.exe\
+ $(OUTDIR)\ls.exe $(OUTDIR)\vi.exe $(OUTDIR)\ex.exe $(OUTDIR)\view.exe
+
+$(INTDIR) : 
+	if not exist $(INTDIR)\nul mkdir $(INTDIR)
 
 $(OUTDIR) : 
-    if not exist $(OUTDIR)\nul mkdir $(OUTDIR)
+	if not exist $(OUTDIR)\nul mkdir $(OUTDIR)
 
 CPP_PROJ=/nologo /ML /W3 /GX /YX /O2 /I "oswin32" /I "." /D "WIN32" /D "NDEBUG"\
  /D "_CONSOLE" /FR$(INTDIR)/ /Fo$(INTDIR)/ /c 

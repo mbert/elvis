@@ -41,10 +41,13 @@ RSC=rc.exe
 OUTDIR=.\WinRel
 INTDIR=.\WinRel
 
-ALL : $(OUTDIR)/"fmt.exe" $(OUTDIR)/"fmt.bsc"
+ALL : $(INTDIR) $(OUTDIR)/"fmt.exe" $(OUTDIR)/"fmt.bsc"
+
+$(INTDIR) : 
+	if not exist $(INTDIR)/nul mkdir $(INTDIR)
 
 $(OUTDIR) : 
-    if not exist $(OUTDIR)/nul mkdir $(OUTDIR)
+	if not exist $(OUTDIR)/nul mkdir $(OUTDIR)
 
 # ADD BASE CPP /nologo /ML /W3 /GX /YX /O2 /D "WIN32" /D "NDEBUG" /D "_CONSOLE" /FR /c
 # ADD CPP /nologo /ML /W3 /GX /YX /O2 /I "oswin32" /I "." /D "WIN32" /D "NDEBUG" /D "_CONSOLE" /FR /c
@@ -92,10 +95,13 @@ $(OUTDIR)/"fmt.exe" : $(OUTDIR)  $(DEF_FILE) $(LINK32_OBJS)
 OUTDIR=.\WinDebug
 INTDIR=.\WinDebug
 
-ALL : $(OUTDIR)/"fmt.exe" $(OUTDIR)/"fmt.bsc"
+ALL : $(INTDIR) $(OUTDIR)/"fmt.exe" $(OUTDIR)/"fmt.bsc"
+
+$(INTDIR) : 
+	if not exist $(INTDIR)/nul mkdir $(INTDIR)
 
 $(OUTDIR) : 
-    if not exist $(OUTDIR)/nul mkdir $(OUTDIR)
+	if not exist $(OUTDIR)/nul mkdir $(OUTDIR)
 
 # ADD BASE CPP /nologo /ML /W3 /GX /Zi /YX /Od /D "WIN32" /D "_DEBUG" /D "_CONSOLE" /FR /c
 # ADD CPP /nologo /ML /W3 /GX /Zi /YX /Od /I "oswin32" /I "." /D "WIN32" /D "_DEBUG" /D "_CONSOLE" /FR /c
