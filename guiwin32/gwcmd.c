@@ -25,10 +25,10 @@ extern char     *gw_new_buffer;
 static void gwcmd_file_new (GUI_WINDOW *gwp)
 
 {
-    BUFFER      pbuf = bufalloc (NULL, 0, ElvFalse);
-    
-    if (pbuf != NULL)
-        eventreplace ((GUIWIN *)gwp, ElvFalse, o_bufname (pbuf));
+	BUFFER      pbuf = bufalloc (NULL, 0, ElvFalse);
+
+	if (pbuf != NULL)
+		eventreplace ((GUIWIN *)gwp, ElvFalse, o_bufname (pbuf));
 }
 
 /* --------------------------------------------------------------------
@@ -39,33 +39,33 @@ static void gwcmd_file_new (GUI_WINDOW *gwp)
 static void gwcmd_file_open (GUI_WINDOW *gwp)
 
 {
-    static char         *filters = "All Files\0*.*\0"
-                                   "Text Files\0*.TXT\0"
-                                   "C Files\0*.c;*.cpp;*.h\0"
-                                   "HTML Files\0*.htm;*.html";
-    OPENFILENAME        ofn;
-    char                cmd[_MAX_PATH + 20];
-    Char		*quoted;
+	static char         *filters = "All Files\0*.*\0"
+	                               "Text Files\0*.TXT\0"
+	                               "C Files\0*.c;*.cpp;*.h\0"
+	                               "HTML Files\0*.htm;*.html";
+	OPENFILENAME        ofn;
+	char                cmd[_MAX_PATH + 20];
+	Char		*quoted;
 
-    strcpy (cmd, ":e ");
-    memset (&ofn, 0, sizeof (ofn));
-    ofn.lStructSize = sizeof (OPENFILENAME);
-    ofn.lpstrFilter = (LPCTSTR)filters;
-    ofn.lpstrFile = &cmd[3];
-    ofn.nMaxFile = _MAX_PATH;
-    ofn.lpstrTitle = "Open...";
+	strcpy (cmd, ":e ");
+	memset (&ofn, 0, sizeof (ofn));
+	ofn.lStructSize = sizeof (OPENFILENAME);
+	ofn.lpstrFilter = (LPCTSTR)filters;
+	ofn.lpstrFile = &cmd[3];
+	ofn.nMaxFile = _MAX_PATH;
+	ofn.lpstrTitle = "Open...";
 #if _MSC_VER > 900
-    ofn.Flags = OFN_LONGNAMES | OFN_NOCHANGEDIR;
+	ofn.Flags = OFN_LONGNAMES | OFN_NOCHANGEDIR;
 #else
-    ofn.Flags = OFN_NOCHANGEDIR;
+	ofn.Flags = OFN_NOCHANGEDIR;
 #endif
 
-    if (GetOpenFileName (&ofn) == TRUE) {
+	if (GetOpenFileName (&ofn) == TRUE) {
 		quoted = addquotes(toCHAR("#% ()$"), toCHAR(&cmd[3]));
 		strcpy(&cmd[3], tochar8(quoted));
 		safefree(quoted);
 		eventex ((GUIWIN *)gwp, cmd, ElvFalse);
-    }
+	}
 }
 
 /* --------------------------------------------------------------------
@@ -76,33 +76,33 @@ static void gwcmd_file_open (GUI_WINDOW *gwp)
 static void gwcmd_file_split (GUI_WINDOW *gwp)
 
 {
-    static char         *filters = "All Files\0*.*\0"
-                                   "Text Files\0*.TXT\0"
-                                   "C Files\0*.c;*.cpp;*.h\0"
-                                   "HTML Files\0*.htm;*.html";
-    OPENFILENAME        ofn;
-    char                cmd[_MAX_PATH + 20];
-    Char		*quoted;
+	static char         *filters = "All Files\0*.*\0"
+	                               "Text Files\0*.TXT\0"
+	                               "C Files\0*.c;*.cpp;*.h\0"
+	                               "HTML Files\0*.htm;*.html";
+	OPENFILENAME        ofn;
+	char                cmd[_MAX_PATH + 20];
+	Char		*quoted;
 
-    strcpy (cmd, ":sp ");
-    memset (&ofn, 0, sizeof (ofn));
-    ofn.lStructSize = sizeof (OPENFILENAME);
-    ofn.lpstrFilter = (LPCTSTR)filters;
-    ofn.lpstrFile = &cmd[4];
-    ofn.nMaxFile = _MAX_PATH;
-    ofn.lpstrTitle = "Split...";
+	strcpy (cmd, ":sp ");
+	memset (&ofn, 0, sizeof (ofn));
+	ofn.lStructSize = sizeof (OPENFILENAME);
+	ofn.lpstrFilter = (LPCTSTR)filters;
+	ofn.lpstrFile = &cmd[4];
+	ofn.nMaxFile = _MAX_PATH;
+	ofn.lpstrTitle = "Split...";
 #if _MSC_VER > 900
-    ofn.Flags = OFN_LONGNAMES | OFN_NOCHANGEDIR;
+	ofn.Flags = OFN_LONGNAMES | OFN_NOCHANGEDIR;
 #else
-    ofn.Flags = OFN_NOCHANGEDIR;
+	ofn.Flags = OFN_NOCHANGEDIR;
 #endif
 
-    if (GetOpenFileName (&ofn) == TRUE) {
+	if (GetOpenFileName (&ofn) == TRUE) {
 		quoted = addquotes(toCHAR("#% ()$"), toCHAR(&cmd[4]));
 		strcpy(&cmd[4], tochar8(quoted));
 		safefree(quoted);
 		eventex ((GUIWIN *)gwp, cmd, ElvFalse);
-    }
+	}
 }
 
 /* --------------------------------------------------------------------
@@ -124,28 +124,28 @@ static void gwcmd_file_save (GUI_WINDOW *gwp)
 static void gwcmd_file_saveas (GUI_WINDOW *gwp)
 
 {
-    OPENFILENAME        ofn;
-    char                cmd[_MAX_PATH + 20];
-    Char		*quoted;
+	OPENFILENAME        ofn;
+	char                cmd[_MAX_PATH + 20];
+	Char		*quoted;
 
-    strcpy (cmd, ":w! ");
-    memset (&ofn, 0, sizeof (ofn));
-    ofn.lStructSize = sizeof (OPENFILENAME);
-    ofn.lpstrFile = &cmd[4];
-    ofn.nMaxFile = _MAX_PATH;
-    ofn.lpstrTitle = "Save As...";
+	strcpy (cmd, ":w! ");
+	memset (&ofn, 0, sizeof (ofn));
+	ofn.lStructSize = sizeof (OPENFILENAME);
+	ofn.lpstrFile = &cmd[4];
+	ofn.nMaxFile = _MAX_PATH;
+	ofn.lpstrTitle = "Save As...";
 #if _MSC_VER > 900
-    ofn.Flags = OFN_LONGNAMES | OFN_NOCHANGEDIR | OFN_OVERWRITEPROMPT;
+	ofn.Flags = OFN_LONGNAMES | OFN_NOCHANGEDIR | OFN_OVERWRITEPROMPT;
 #else
-    ofn.Flags = OFN_NOCHANGEDIR | OFN_OVERWRITEPROMPT;
+	ofn.Flags = OFN_NOCHANGEDIR | OFN_OVERWRITEPROMPT;
 #endif
 
-    if (GetOpenFileName (&ofn) == TRUE) {
+	if (GetOpenFileName (&ofn) == TRUE) {
 		quoted = addquotes(toCHAR("#% ()$"), toCHAR(&cmd[4]));
 		strcpy(&cmd[4], tochar8(quoted));
 		safefree(quoted);
 		eventex ((GUIWIN *)gwp, cmd, ElvFalse);
-    }
+	}
 }
 
 /* --------------------------------------------------------------------
@@ -156,38 +156,38 @@ static void gwcmd_file_saveas (GUI_WINDOW *gwp)
 static void gwcmd_file_cd (GUI_WINDOW *gwp)
 
 {
-    OPENFILENAME        ofn;
-    char                cmd[_MAX_PATH + 5];
-    register int        i;
-    Char		*quoted;
+	OPENFILENAME        ofn;
+	char                cmd[_MAX_PATH + 5];
+	register int        i;
+	Char		*quoted;
 
-    strcpy (cmd, ":cd x");
-    memset (&ofn, 0, sizeof (ofn));
-    ofn.lStructSize = sizeof (OPENFILENAME);
-    ofn.hInstance = hInst;
-    ofn.lpstrFile = &cmd[4];
-    ofn.nMaxFile = _MAX_PATH;
-    ofn.lpstrTitle = "Change Directory...";
+	strcpy (cmd, ":cd x");
+	memset (&ofn, 0, sizeof (ofn));
+	ofn.lStructSize = sizeof (OPENFILENAME);
+	ofn.hInstance = hInst;
+	ofn.lpstrFile = &cmd[4];
+	ofn.nMaxFile = _MAX_PATH;
+	ofn.lpstrTitle = "Change Directory...";
 #if _MSC_VER > 900
-    ofn.Flags = OFN_LONGNAMES | OFN_NOCHANGEDIR | OFN_ENABLETEMPLATE;
+	ofn.Flags = OFN_LONGNAMES | OFN_NOCHANGEDIR | OFN_ENABLETEMPLATE;
 #else
-    ofn.Flags = OFN_NOCHANGEDIR | OFN_ENABLETEMPLATE;
+	ofn.Flags = OFN_NOCHANGEDIR | OFN_ENABLETEMPLATE;
 #endif
-    ofn.lpTemplateName = MAKEINTRESOURCE (IDD_DIR_SELECT);
+	ofn.lpTemplateName = MAKEINTRESOURCE (IDD_DIR_SELECT);
 
-    if (GetOpenFileName (&ofn) == TRUE) {
-	/* remove the last element of the return name -- we only want dir */
-        for (i = strlen (cmd); cmd[i] != '\\'; i--)
-            ;
-        cmd[i] = '\0';
+	if (GetOpenFileName (&ofn) == TRUE) {
+		/* remove the last element of the return name -- we only want dir */
+		for (i = strlen (cmd); cmd[i] != '\\'; i--)
+			;
+		cmd[i] = '\0';
 
-	/* quote the dangerous chars */
-        quoted = addquotes(toCHAR("#% ()$"), toCHAR(&cmd[4]));
-        strcpy(&cmd[4], tochar8(quoted));
-        safefree(quoted);
+		/* quote the dangerous chars */
+		quoted = addquotes(toCHAR("#% ()$"), toCHAR(&cmd[4]));
+		strcpy(&cmd[4], tochar8(quoted));
+		safefree(quoted);
 
-        eventex ((GUIWIN *)gwp, cmd, ElvFalse);
-    }
+		eventex ((GUIWIN *)gwp, cmd, ElvFalse);
+	}
 }
 
 /* --------------------------------------------------------------------
@@ -209,18 +209,18 @@ static void gwcmd_file_print (GUI_WINDOW *gwp)
 static void gwcmd_file_printsetup (GUI_WINDOW *gwp)
 
 {
-    DEVNAMES        *dvnp;
+	DEVNAMES        *dvnp;
 
-    gwpdlg.hDevMode = NULL;
-    gwpdlg.Flags = PD_PRINTSETUP;
+	gwpdlg.hDevMode = NULL;
+	gwpdlg.Flags = PD_PRINTSETUP;
 
-    if (PrintDlg (&gwpdlg)) {
+	if (PrintDlg (&gwpdlg)) {
 		dvnp = GlobalLock (gwpdlg.hDevNames);
 		gw_set_default_printer ((char *)dvnp + dvnp->wDeviceOffset,
 								(char *)dvnp + dvnp->wDriverOffset,
 								(char *)dvnp + dvnp->wOutputOffset);
 		GlobalUnlock (gwpdlg.hDevNames);
-    }
+	}
 }
 
 /* --------------------------------------------------------------------
@@ -232,14 +232,14 @@ static void gwcmd_file_exit (GUI_WINDOW *gwp)
 
 {
 #if 0
-    static unsigned char        chr[] = "\x1B:q\r";
+	static unsigned char        chr[] = "\x1B:q\r";
 
-    eventkeys ((GUIWIN *)gwp, &chr[0], 1);
-    eventkeys ((GUIWIN *)gwp, &chr[1], 1);
-    eventkeys ((GUIWIN *)gwp, &chr[2], 1);
-    eventkeys ((GUIWIN *)gwp, &chr[3], 1);
+	eventkeys ((GUIWIN *)gwp, &chr[0], 1);
+	eventkeys ((GUIWIN *)gwp, &chr[1], 1);
+	eventkeys ((GUIWIN *)gwp, &chr[2], 1);
+	eventkeys ((GUIWIN *)gwp, &chr[3], 1);
 #else
-    eventex ((GUIWIN *)gwp, ":q", ElvFalse);
+	eventex ((GUIWIN *)gwp, ":q", ElvFalse);
 #endif
 }
 
@@ -413,24 +413,24 @@ static void gwcmd_window_pfile (GUI_WINDOW *gwp)
 static void gwcmd_options_font (GUI_WINDOW *gwp)
 
 {
-    CHOOSEFONT      font;
-    LOGFONT         lf;
-    HDC             dc;
-    char            str[80];
+	CHOOSEFONT      font;
+	LOGFONT         lf;
+	HDC             dc;
+	char            str[80];
 
-    memset (&font, 0, sizeof (CHOOSEFONT));
-    font.lStructSize = sizeof (CHOOSEFONT);
-    font.lpLogFont = &lf;
-    font.Flags = CF_INITTOLOGFONTSTRUCT | CF_SCREENFONTS | CF_FIXEDPITCHONLY;
+	memset (&font, 0, sizeof (CHOOSEFONT));
+	font.lStructSize = sizeof (CHOOSEFONT);
+	font.lpLogFont = &lf;
+	font.Flags = CF_INITTOLOGFONTSTRUCT | CF_SCREENFONTS | CF_FIXEDPITCHONLY;
 
-    memset (&lf, 0, sizeof (LOGFONT));
-    opt_parse_font (o_font (gwp), &lf);
+	memset (&lf, 0, sizeof (LOGFONT));
+	opt_parse_font (o_font (gwp), &lf);
 
-    if (ChooseFont (&font)) {
+	if (ChooseFont (&font)) {
 		dc = GetDC (NULL);
 		lf.lfHeight = -MulDiv (lf.lfHeight, 72, GetDeviceCaps (dc, LOGPIXELSY));
 		ReleaseDC (NULL, dc);
-        sprintf (str, ":set font=\"%s*%d\"", lf.lfFaceName, lf.lfHeight);
+		sprintf (str, ":set font=\"%s*%d\"", lf.lfFaceName, lf.lfHeight);
 		eventex ((GUIWIN *)gwp, str, ElvFalse);
 	}
 }
@@ -532,147 +532,147 @@ static void gwcmd_help_options (GUI_WINDOW *gwp)
 LONG gwcmd (GUI_WINDOW *gwp, UINT wParam)
 
 {
-    switch (LOWORD (wParam)) {
-        case IDM_FILE_NEW:
-            gwcmd_file_new (gwp);
-            break;
+	switch (LOWORD (wParam)) {
+		case IDM_FILE_NEW:
+			gwcmd_file_new (gwp);
+			break;
 		case IDM_FILE_OPEN:
-		    gwcmd_file_open (gwp);
-		    break;
+			gwcmd_file_open (gwp);
+			break;
 		case IDM_FILE_SPLIT:
-		    gwcmd_file_split (gwp);
-		    break;
+			gwcmd_file_split (gwp);
+			break;
 		case IDM_FILE_SAVE:
-		    gwcmd_file_save (gwp);
-		    break;
+			gwcmd_file_save (gwp);
+			break;
 		case IDM_FILE_SAVEAS:
-		    gwcmd_file_saveas (gwp);
-		    break;
+			gwcmd_file_saveas (gwp);
+			break;
 		case IDM_FILE_CD:
-		    gwcmd_file_cd (gwp);
-		    break;
+			gwcmd_file_cd (gwp);
+			break;
 		case IDM_FILE_PRINT:
-		    gwcmd_file_print (gwp);
-		    break;
+			gwcmd_file_print (gwp);
+			break;
 		case IDM_FILE_PRINTSETUP:
-		    gwcmd_file_printsetup (gwp);
-		    break;
+			gwcmd_file_printsetup (gwp);
+			break;
 		case IDM_FILE_EXIT:
-		    gwcmd_file_exit (gwp);
-		    break;
+			gwcmd_file_exit (gwp);
+			break;
 		case IDM_EDIT_UNDO:
-		    gwcmd_edit_undo (gwp);
-		    break;
+			gwcmd_edit_undo (gwp);
+			break;
 		case IDM_EDIT_REDO:
-		    gwcmd_edit_redo (gwp);
-		    break;
+			gwcmd_edit_redo (gwp);
+			break;
 		case IDM_EDIT_CUT:
-		    gwcmd_edit_cut (gwp);
-		    break;
+			gwcmd_edit_cut (gwp);
+			break;
 		case IDM_EDIT_COPY:
-		    gwcmd_edit_copy (gwp);
-		    break;
+			gwcmd_edit_copy (gwp);
+			break;
 		case IDM_EDIT_PASTE:
-		    gwcmd_edit_paste (gwp);
-		    break;
+			gwcmd_edit_paste (gwp);
+			break;
 		case IDM_SEARCH_SEARCH:
-		    DialogBox (hInst, MAKEINTRESOURCE (IDD_SEARCH), gwp->frameHWnd,
-		               (DLGPROC)DlgSearch);
-		    break;
+			DialogBox (hInst, MAKEINTRESOURCE (IDD_SEARCH), gwp->frameHWnd,
+			           (DLGPROC)DlgSearch);
+			break;
 		case IDM_SEARCH_AGAIN:
-		    gwcmd_search_again (gwp);
-		    break;
+			gwcmd_search_again (gwp);
+			break;
 		case IDM_SEARCH_REPLACE:
-		    DialogBox (hInst, MAKEINTRESOURCE (IDD_REPLACE), gwp->frameHWnd,
-		               (DLGPROC)DlgReplace);
-		    break;
+			DialogBox (hInst, MAKEINTRESOURCE (IDD_REPLACE), gwp->frameHWnd,
+			           (DLGPROC)DlgReplace);
+			break;
 		case IDM_SEARCH_GOTO:
-		    DialogBox (hInst, MAKEINTRESOURCE (IDD_GOTO), gwp->frameHWnd,
-		               (DLGPROC)DlgGoto);
-		    break;
+			DialogBox (hInst, MAKEINTRESOURCE (IDD_GOTO), gwp->frameHWnd,
+			           (DLGPROC)DlgGoto);
+			break;
 		case IDM_SEARCH_NEXT_ERROR:
-		    gwcmd_search_next_error (gwp);
-		    break;
+			gwcmd_search_next_error (gwp);
+			break;
 		case IDM_WINDOW_NEW:
-		    gwcmd_window_new (gwp);
-		    break;
+			gwcmd_window_new (gwp);
+			break;
 		case IDM_WINDOW_NEXT:
-		    gwcmd_window_next (gwp);
-		    break;
+			gwcmd_window_next (gwp);
+			break;
 		case IDM_WINDOW_PREVIOUS:
-		    gwcmd_window_previous (gwp);
-		    break;
+			gwcmd_window_previous (gwp);
+			break;
 		case IDM_WINDOW_NFILE:
-		    gwcmd_window_nfile (gwp);
-		    break;
+			gwcmd_window_nfile (gwp);
+			break;
 		case IDM_WINDOW_PFILE:
-		    gwcmd_window_pfile (gwp);
-		    break;
+			gwcmd_window_pfile (gwp);
+			break;
 		case IDM_WINDOW_BUFFER:
-		    gwcmd_window_buffer (gwp);
-		    break;
+			gwcmd_window_buffer (gwp);
+			break;
 		case IDM_OPTIONS_FONT:
-		    gwcmd_options_font (gwp);
-		    break;
-        case IDM_OPTIONS_GUI:
-            DialogBox (hInst, MAKEINTRESOURCE (IDD_OPT_GUI), gwp->frameHWnd,
-                       (DLGPROC)DlgOptGui);
-            break;
-        case IDM_OPTIONS_BUFFER:
-            DialogBox (hInst, MAKEINTRESOURCE (IDD_OPT_BUFFER), gwp->frameHWnd,
-                       (DLGPROC)DlgOptBuffer);
-            break;
-        case IDM_OPTIONS_GLOBAL:
-            DialogBox (hInst, MAKEINTRESOURCE (IDD_OPT_GLOBAL), gwp->frameHWnd,
-                       (DLGPROC)DlgOptGlobal);
-            break;
-        case IDM_OPTIONS_WINDOW:
-            DialogBox (hInst, MAKEINTRESOURCE (IDD_OPT_WINDOW), gwp->frameHWnd,
-                       (DLGPROC)DlgOptWindow);
-            break;
-        case IDM_OPTIONS_USER:
-            DialogBox (hInst, MAKEINTRESOURCE (IDD_OPT_USER), gwp->frameHWnd,
-                       (DLGPROC)DlgOptUser);
-            break;
+			gwcmd_options_font (gwp);
+			break;
+		case IDM_OPTIONS_GUI:
+			DialogBox (hInst, MAKEINTRESOURCE (IDD_OPT_GUI), gwp->frameHWnd,
+			           (DLGPROC)DlgOptGui);
+			break;
+		case IDM_OPTIONS_BUFFER:
+			DialogBox (hInst, MAKEINTRESOURCE (IDD_OPT_BUFFER), gwp->frameHWnd,
+			           (DLGPROC)DlgOptBuffer);
+			break;
+		case IDM_OPTIONS_GLOBAL:
+			DialogBox (hInst, MAKEINTRESOURCE (IDD_OPT_GLOBAL), gwp->frameHWnd,
+			           (DLGPROC)DlgOptGlobal);
+			break;
+		case IDM_OPTIONS_WINDOW:
+			DialogBox (hInst, MAKEINTRESOURCE (IDD_OPT_WINDOW), gwp->frameHWnd,
+			           (DLGPROC)DlgOptWindow);
+			break;
+		case IDM_OPTIONS_USER:
+			DialogBox (hInst, MAKEINTRESOURCE (IDD_OPT_USER), gwp->frameHWnd,
+			           (DLGPROC)DlgOptUser);
+			break;
 		case IDM_OPTIONS_SAVE:
-		    gwcmd_options_save (gwp);
-		    break;
+			gwcmd_options_save (gwp);
+			break;
 		case IDM_TOOLS_COMPILE:
-		    gwcmd_tools_compile (gwp);
-		    break;
+			gwcmd_tools_compile (gwp);
+			break;
 		case IDM_TOOLS_MAKE:
-		    gwcmd_tools_make (gwp);
-		    break;
+			gwcmd_tools_make (gwp);
+			break;
 		case IDM_TOOLS_TAGS:
-		    DialogBox (hInst, MAKEINTRESOURCE (IDD_TAGS), gwp->frameHWnd,
-		               (DLGPROC)DlgTags);
-		    break;
+			DialogBox (hInst, MAKEINTRESOURCE (IDD_TAGS), gwp->frameHWnd,
+			           (DLGPROC)DlgTags);
+			break;
 		case IDM_TOOLS_RUN:
-		    DialogBox (hInst, MAKEINTRESOURCE (IDD_RUN), gwp->frameHWnd,
-		               (DLGPROC)DlgRun);
-		    break;
+			DialogBox (hInst, MAKEINTRESOURCE (IDD_RUN), gwp->frameHWnd,
+			           (DLGPROC)DlgRun);
+			break;
 		case IDM_TOOLS_SHELL:
-		    gwcmd_tools_shell (gwp);
-		    break;
+			gwcmd_tools_shell (gwp);
+			break;
 		case IDM_HELP_INDEX:
-		    gwcmd_help_index (gwp);
-		    break;
+			gwcmd_help_index (gwp);
+			break;
 		case IDM_HELP_EX:
-		    gwcmd_help_ex (gwp);
-		    break;
+			gwcmd_help_ex (gwp);
+			break;
 		case IDM_HELP_VI:
-		    gwcmd_help_vi (gwp);
-		    break;
+			gwcmd_help_vi (gwp);
+			break;
 		case IDM_HELP_OPTIONS:
-		    gwcmd_help_options (gwp);
-		    break;
+			gwcmd_help_options (gwp);
+			break;
 		case IDM_HELP_ABOUT:
-		    DialogBox (hInst, MAKEINTRESOURCE (IDD_ABOUT), gwp->frameHWnd,
-		               (DLGPROC)DlgAbout);
-		    break;
-    }
+			DialogBox (hInst, MAKEINTRESOURCE (IDD_ABOUT), gwp->frameHWnd,
+			           (DLGPROC)DlgAbout);
+			break;
+	}
 
-    return 0;
+	return 0;
 }
 
 #endif
