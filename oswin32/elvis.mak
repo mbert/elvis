@@ -47,7 +47,7 @@ RSC=rc.exe
 OUTDIR=.
 INTDIR=.\WinRel
 
-ALL : "$(OUTDIR)\elvis.exe"
+ALL : $(INTDIR) "$(OUTDIR)\elvis.exe"
 
 CLEAN : 
 	-@erase ".\WinRel\elvis.exe"
@@ -120,6 +120,9 @@ CLEAN :
 	-@erase ".\WinRel\descr.obj"
 	-@erase ".\WinRel\autocmd.obj"
 
+"$(INTDIR)" : 
+	if not exist "$(INTDIR)/$(NULL)" mkdir "$(INTDIR)"
+
 "$(OUTDIR)" :
     if not exist "$(OUTDIR)/$(NULL)" mkdir "$(OUTDIR)"
 
@@ -138,12 +141,11 @@ BSC32=bscmake.exe
 BSC32_FLAGS=/nologo /o"$(OUTDIR)/elvis.bsc" 
 BSC32_SBRS=
 LINK32=link.exe
-# ADD BASE LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib wsock32.lib /nologo /subsystem:console /machine:I386
-# ADD LINK32 wsock32.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /subsystem:console /machine:I386
-LINK32_FLAGS=wsock32.lib kernel32.lib user32.lib gdi32.lib winspool.lib\
- comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib\
- odbc32.lib odbccp32.lib /nologo /subsystem:console /incremental:no\
- /pdb:"$(OUTDIR)/elvis.pdb" /machine:I386 /out:"$(OUTDIR)/elvis.exe" 
+# ADD BASE LINK32 kernel32.lib wsock32.lib user32.lib /nologo /subsystem:console /machine:I386
+# ADD LINK32 wsock32.lib kernel32.lib user32.lib /nologo /subsystem:console /machine:I386
+LINK32_FLAGS=wsock32.lib kernel32.lib user32.lib /nologo /subsystem:console\
+ /incremental:no /pdb:"$(OUTDIR)/elvis.pdb" /machine:I386\
+ /out:"$(OUTDIR)/elvis.exe"
 LINK32_OBJS= \
 	"$(INTDIR)/vi.obj" \
 	"$(INTDIR)/display.obj" \
@@ -232,7 +234,7 @@ LINK32_OBJS= \
 OUTDIR=.
 INTDIR=.\WinDebug
 
-ALL : "$(OUTDIR)\elvis.exe"
+ALL : $(INTDIR) "$(OUTDIR)\elvis.exe"
 
 CLEAN : 
 	-@erase ".\WinDebug\vc40.pdb"
@@ -309,6 +311,9 @@ CLEAN :
 	-@erase ".\WinDebug\elvis.ilk"
 	-@erase ".\WinDebug\elvis.pdb"
 
+"$(INTDIR)" : 
+	if not exist "$(INTDIR)/$(NULL)" mkdir "$(INTDIR)"
+
 "$(OUTDIR)" :
     if not exist "$(OUTDIR)/$(NULL)" mkdir "$(OUTDIR)"
 
@@ -328,12 +333,11 @@ BSC32=bscmake.exe
 BSC32_FLAGS=/nologo /o"$(OUTDIR)/elvis.bsc" 
 BSC32_SBRS=
 LINK32=link.exe
-# ADD BASE LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib wsock32.lib /nologo /subsystem:console /debug /machine:I386
-# ADD LINK32 wsock32.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /subsystem:console /debug /machine:I386
-LINK32_FLAGS=wsock32.lib kernel32.lib user32.lib gdi32.lib winspool.lib\
- comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib\
- odbc32.lib odbccp32.lib /nologo /subsystem:console /incremental:yes\
- /pdb:"$(OUTDIR)/elvis.pdb" /debug /machine:I386 /out:"$(OUTDIR)/elvis.exe" 
+# ADD BASE LINK32 kernel32.lib wsock32.lib user32.lib /nologo /subsystem:console /debug /machine:I386
+# ADD LINK32 wsock32.lib kernel32.lib user32.lib /nologo /subsystem:console /debug /machine:I386
+LINK32_FLAGS=wsock32.lib kernel32.lib user32.lib /nologo /subsystem:console\
+ /incremental:yes /pdb:"$(OUTDIR)/elvis.pdb" /debug /machine:I386\
+ /out:"$(OUTDIR)/elvis.exe"
 LINK32_OBJS= \
 	"$(INTDIR)/dmmarkup.obj" \
 	"$(INTDIR)/tcaphelp.obj" \
@@ -1961,7 +1965,6 @@ DEP_CPP_CALC_=\
 SOURCE=.\oswin32\ostext.c
 DEP_CPP_OSTEX=\
 	".\elvis.h"\
-	{$(INCLUDE)}"\sys\Types.h"\
 	".\config.h"\
 	".\elvctype.h"\
 	".\version.h"\
@@ -2278,8 +2281,6 @@ DEP_CPP_IO_C36=\
 SOURCE=.\oswin32\osdir.c
 DEP_CPP_OSDIR=\
 	".\elvis.h"\
-	{$(INCLUDE)}"\sys\Types.h"\
-	{$(INCLUDE)}"\sys\Stat.h"\
 	".\config.h"\
 	".\elvctype.h"\
 	".\version.h"\
@@ -3981,7 +3982,6 @@ DEP_CPP_MAP_C=\
 
 SOURCE=.\oswin32\osblock.c
 DEP_CPP_OSBLO=\
-	{$(INCLUDE)}"\sys\Types.h"\
 	".\elvis.h"\
 	".\config.h"\
 	".\elvctype.h"\
