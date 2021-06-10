@@ -29,6 +29,8 @@ static void gwcmd_file_new (GUI_WINDOW *gwp)
 
 	if (pbuf != NULL)
 		eventreplace ((GUIWIN *)gwp, ElvFalse, o_bufname (pbuf));
+
+	gw_redraw_win (gwp);
 }
 
 /* --------------------------------------------------------------------
@@ -65,6 +67,7 @@ static void gwcmd_file_open (GUI_WINDOW *gwp)
 		strcpy(&cmd[3], tochar8(quoted));
 		safefree(quoted);
 		eventex ((GUIWIN *)gwp, cmd, ElvFalse);
+		gw_redraw_win (gwp);
 	}
 }
 
@@ -102,6 +105,7 @@ static void gwcmd_file_split (GUI_WINDOW *gwp)
 		strcpy(&cmd[4], tochar8(quoted));
 		safefree(quoted);
 		eventex ((GUIWIN *)gwp, cmd, ElvFalse);
+		gw_redraw_win (gwp);
 	}
 }
 
@@ -252,6 +256,7 @@ static void gwcmd_edit_undo (GUI_WINDOW *gwp)
 
 {
 	eventex ((GUIWIN *)gwp, ":undo", ElvFalse);
+	gw_redraw_win (gwp);
 }
 
 /* --------------------------------------------------------------------
@@ -263,6 +268,7 @@ static void gwcmd_edit_redo (GUI_WINDOW *gwp)
 
 {
 	eventex ((GUIWIN *)gwp, ":redo", ElvFalse);
+	gw_redraw_win (gwp);
 }
 
 /* --------------------------------------------------------------------
@@ -282,6 +288,7 @@ static void gwcmd_edit_cut (GUI_WINDOW *gwp)
 		(void)eventclick ((GUIWIN *)gwp, -1, -1, CLICK_CANCEL);
 	}
 #endif
+	gw_redraw_win (gwp);
 }
 
 /* --------------------------------------------------------------------
@@ -300,6 +307,7 @@ static void gwcmd_edit_copy (GUI_WINDOW *gwp)
 		(void)eventclick ((GUIWIN *)gwp, -1, -1, CLICK_CANCEL);
 	}
 #endif
+	gw_redraw_win (gwp);
 }
 
 /* --------------------------------------------------------------------
@@ -315,6 +323,7 @@ static void gwcmd_edit_paste (GUI_WINDOW *gwp)
 #else
 	(void)eventclick ((GUIWIN *)gwp, -1, -1, CLICK_PASTE);
 #endif
+	gw_redraw_win (gwp);
 }
 
 /* --------------------------------------------------------------------
@@ -326,6 +335,7 @@ static void gwcmd_search_again (GUI_WINDOW *gwp)
 
 {
 	eventex ((GUIWIN *)gwp, "/", ElvFalse);
+	gw_redraw_win (gwp);
 }
 
 /* --------------------------------------------------------------------
@@ -337,6 +347,7 @@ static void gwcmd_search_next_error (GUI_WINDOW *gwp)
 
 {
 	eventex ((GUIWIN *)gwp, ":errlist", ElvFalse);
+	gw_redraw_win (gwp);
 }
 
 /* --------------------------------------------------------------------
@@ -348,6 +359,7 @@ static void gwcmd_window_new (GUI_WINDOW *gwp)
 
 {
 	eventex ((GUIWIN *)gwp, ":split", ElvFalse);
+	gw_redraw_win (gwp);
 }
 
 /* --------------------------------------------------------------------
@@ -359,6 +371,7 @@ static void gwcmd_window_next (GUI_WINDOW *gwp)
 
 {
 	eventex ((GUIWIN *)gwp, ":window ++", ElvFalse);
+	gw_redraw_win (gwp);
 }
 
 /* --------------------------------------------------------------------
@@ -370,6 +383,7 @@ static void gwcmd_window_previous (GUI_WINDOW *gwp)
 
 {
 	eventex ((GUIWIN *)gwp, ":window --", ElvFalse);
+	gw_redraw_win (gwp);
 }
 
 /* --------------------------------------------------------------------
@@ -381,6 +395,7 @@ static void gwcmd_window_nfile (GUI_WINDOW *gwp)
 
 {
 	eventex ((GUIWIN *)gwp, ":next", ElvFalse);
+	gw_redraw_win (gwp);
 }
 
 /* --------------------------------------------------------------------
@@ -392,6 +407,7 @@ static void gwcmd_window_buffer (GUI_WINDOW *gwp)
 
 {
 	eventex ((GUIWIN *)gwp, ":bb", ElvFalse);
+	gw_redraw_win (gwp);
 }
 
 /* --------------------------------------------------------------------
@@ -403,6 +419,7 @@ static void gwcmd_window_pfile (GUI_WINDOW *gwp)
 
 {
 	eventex ((GUIWIN *)gwp, ":prev", ElvFalse);
+	gw_redraw_win (gwp);
 }
 
 /* --------------------------------------------------------------------
@@ -432,6 +449,7 @@ static void gwcmd_options_font (GUI_WINDOW *gwp)
 		ReleaseDC (NULL, dc);
 		sprintf (str, ":set font=\"%s*%d\"", lf.lfFaceName, lf.lfHeight);
 		eventex ((GUIWIN *)gwp, str, ElvFalse);
+		gw_redraw_win (gwp);
 	}
 }
 

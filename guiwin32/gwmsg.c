@@ -183,6 +183,8 @@ LONG gwclient_WM_CHAR (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
 	for (i = lParam & 0xFFFF; i > 0; i--)
 		eventkeys((GUIWIN *)gwp, &chr, 1);
 
+	gw_redraw_win (gwp);
+
 	return 0;
 }
 
@@ -209,6 +211,8 @@ LONG gwclient_WM_DROPFILES (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
 		eventex ((GUIWIN *)gwp, cmd, ElvFalse);
 	}
 	DragFinish ((HANDLE)wParam);
+
+	gw_redraw_win (gwp);
 
 	return 0;
 }
@@ -295,6 +299,7 @@ LONG gwclient_WM_KEYDOWN (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
 					chr[2] = (unsigned char)wParam;
 					for (i = lParam & 0xFFFF; i > 0; i--)
 						eventkeys ((GUIWIN *)gwp, chr, 3);
+					gw_redraw_win (gwp);
 					return 0;
 			}
 		}
@@ -307,6 +312,7 @@ LONG gwclient_WM_KEYDOWN (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
 					chr[1] = (unsigned char)wParam;
 					for (i = lParam & 0xFFFF; i > 0; i--)
 						eventkeys ((GUIWIN *)gwp, chr, 2);
+					gw_redraw_win (gwp);
 					return 0;
 
 				case VK_LEFT:
@@ -318,6 +324,7 @@ LONG gwclient_WM_KEYDOWN (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
 					chr[1] = (unsigned char)wParam;
 					for (i = lParam & 0xFFFF; i > 0; i--)
 						eventkeys ((GUIWIN *)gwp, chr, 2);
+					gw_redraw_win (gwp);
 					return 0;
 
 				case VK_F1:
@@ -338,6 +345,7 @@ LONG gwclient_WM_KEYDOWN (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
 					chr[2] = (unsigned char)wParam;
 					for (i = lParam & 0xFFFF; i > 0; i--)
 						eventkeys ((GUIWIN *)gwp, chr, 3);
+					gw_redraw_win (gwp);
 					return 0;
 			}
 		}
@@ -369,6 +377,7 @@ LONG gwclient_WM_KEYDOWN (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
 					chr[1] = (unsigned char)wParam;
 					for (i = lParam & 0xFFFF; i > 0; i--)
 						eventkeys ((GUIWIN *)gwp, chr, 2);
+					gw_redraw_win (gwp);
 					return 0;
 			}
 		}
@@ -408,6 +417,7 @@ LONG gwclient_WM_KILLFOCUS (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
 	DestroyCaret ();
 	gwp->caret = 0;
 	eventfocus(NULL, ElvTrue);
+	gw_redraw_win (gwp);
 
 	return 0;
 }
@@ -427,6 +437,7 @@ LONG gwclient_WM_LBUTTONDBLCLK (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
 	eventclick ((GUIWIN *)gwp, row, col, CLICK_TAG);
 	dblclick = 1;
 	mouse_selection = MOUSE_SEL_NONE;
+	gw_redraw_win (gwp);
 
 	return 0;
 }
@@ -454,6 +465,7 @@ LONG gwclient_WM_LBUTTONDOWN (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
 	else
 		mouse_selection = MOUSE_SEL_CHAR;
 	eventclick ((GUIWIN *)gwp, -1, -1, CLICK_CANCEL);
+	gw_redraw_win (gwp);
 
 	return 0;
 }
@@ -469,9 +481,12 @@ LONG gwclient_WM_LBUTTONUP (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
 	mouse_down = 0;
 	mouse_moved = 0;
 	if (dblclick == 0)
+	{
 		eventclick ((GUIWIN *)gwp, HIWORD (lParam) / gwp->ycsize, 
 			(LOWORD (lParam) - gwp->xcsize / 2) / gwp->xcsize,
 			CLICK_MOVE);
+		gw_redraw_win (gwp);
+	}
 	dblclick = 0;
 
 	return 0;
@@ -523,21 +538,25 @@ LONG gwclient_WM_MOUSEMOVE (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
 
 	if (mouse_moved) {
 		eventclick ((GUIWIN *)gwp, row, col, CLICK_MOVE);
+		gw_redraw_win (gwp);
 	}
 	else if (mouse_selection == MOUSE_SEL_LINE) {
 		eventclick ((GUIWIN *)gwp, mouse_init_row, mouse_init_col,
 		            CLICK_SELLINE);
 		mouse_moved = 1;
+		gw_redraw_win (gwp);
 	}
 	else if (mouse_selection == MOUSE_SEL_CHAR) {
 		eventclick ((GUIWIN *)gwp, mouse_init_row, mouse_init_col,
 		            CLICK_SELCHAR);
 		mouse_moved = 1;
+		gw_redraw_win (gwp);
 	}
 	else if (mouse_selection == MOUSE_SEL_RECT) {
 		eventclick ((GUIWIN *)gwp, mouse_init_row, mouse_init_col,
 		            CLICK_SELRECT);
 		mouse_moved = 1;
+		gw_redraw_win (gwp);
 	}
 
 	return 0;
@@ -628,6 +647,7 @@ LONG gwclient_WM_RBUTTONDBLCLK (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
 	eventclick ((GUIWIN *)gwp, row, col, CLICK_UNTAG);
 	dblclick = 1;
 	mouse_selection = MOUSE_SEL_NONE;
+	gw_redraw_win (gwp);
 
 	return 0;
 }
@@ -653,6 +673,7 @@ LONG gwclient_WM_RBUTTONDOWN (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
 			mouse_init_col = 0;
 	}
 	dblclick = 0;
+	gw_redraw_win (gwp);
 
 	return 0;
 }
@@ -681,6 +702,7 @@ LONG gwclient_WM_RBUTTONUP (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
 		eventclick ((GUIWIN *)gwp, row, col, CLICK_MOVE);
 	}
 	dblclick = 0;
+	gw_redraw_win (gwp);
 
 	return 0;
 }
@@ -711,6 +733,7 @@ LONG gwclient_WM_SETFOCUS (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
 	ShowCaret (gwp->clientHWnd);
 
 	gwp->caret = 1;
+	gw_redraw_win (gwp);
 
 	return 0;
 }
@@ -771,6 +794,7 @@ LONG gwclient_WM_SYSKEYDOWN (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
 			chr[2] = (unsigned char)wParam;
 			for (i = lParam & 0xFFFF; i > 0; i--)
 				eventkeys ((GUIWIN *)gwp, chr, 3);
+			gw_redraw_win (gwp);
 			return 0;
 	}
 

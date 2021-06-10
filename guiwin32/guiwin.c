@@ -301,27 +301,6 @@ static void gwloop (void)
 	msg.message = 0;
 	while (gw_def_win.nextp != NULL)
 	{
-		/* NOTE: For some reason, WinElvis receives an incessant stream of
-		 * 0x0118 messages when it should be idle.  I have no idea why, or
-		 * even what 0x0118 means.  I know 0x0117 is WM_ITEMMENUPOPUP and
-		 * 0x011f is WM_MENUSELECT, but 0x0118 isn't defined in <winuser.h>
-		 *
-		 * Those messages are harmless, except that they interfere with the
-		 * blinking of the cursor.  If elvis doesn't update screens after a
-		 * 0x0118 message, then the cursor blinks and everything looks good.
-		 * I wish I know why this is happening, but for now I'm content to
-		 * simply have this work-around.
-		 *
-		 * This behavior is new in 2.2g-beta; it didn't occur in 2.2f-beta.
-		 * I tried restoring the 2.2f versions of the guiwin32/* files, but
-		 * that had no effect.
-		 */
-
-		/* repaint the windows */
-		if (msg.message != WM_PAINT && msg.message != 0x0118)
-			for (gwp = gw_def_win.nextp; gwp != NULL; gwp = gwp->nextp)
-				gw_redraw_win (gwp);
-
 		/* process Windows messages */
 		GetMessage (&msg, NULL, 0, 0);
 		TranslateMessage (&msg);
@@ -429,6 +408,9 @@ static ELVBOOL gwcreategw(char *name, char *firstcmd)
 	/* make window active */
 	eventfocus((GUIWIN *)gwp, ElvTrue);
 	gwp->active = 1;
+
+	/* redraw the contents */
+	gw_redraw_win (gwp);
 
 	/* show the window */
 	ShowWindow (gwp->frameHWnd, SW_SHOW);
