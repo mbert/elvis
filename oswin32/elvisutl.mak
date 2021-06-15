@@ -12,7 +12,7 @@ $(INTDIR) :
 $(OUTDIR) : 
 	if not exist $(OUTDIR)\nul mkdir $(OUTDIR)
 
-CPP_PROJ=/nologo /ML /W3 /GX /YX /O2 /I "oswin32" /I "." /D "WIN32" /D "NDEBUG"\
+CPP_PROJ=/nologo /ML /W3 /GX /O2 /I "oswin32" /I "." /D "WIN32" /D "NDEBUG"\
  /D "_CONSOLE" /FR$(INTDIR)/ /Fo$(INTDIR)/ /c 
 CPP_OBJS=.\WinRel/
 

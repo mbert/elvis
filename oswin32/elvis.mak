@@ -126,11 +126,11 @@ CLEAN :
 "$(OUTDIR)" :
     if not exist "$(OUTDIR)/$(NULL)" mkdir "$(OUTDIR)"
 
-# ADD BASE CPP /nologo /W3 /GX /O2 /D "WIN32" /D "NDEBUG" /D "_CONSOLE" /FR /YX /c
-# ADD CPP /nologo /GX /O2 /I "oswin32" /I "." /D "WIN32" /D "NDEBUG" /D "_CONSOLE" /YX /c
+# ADD BASE CPP /nologo /W3 /GX /O2 /D "WIN32" /D "NDEBUG" /D "_CONSOLE" /FR /c
+# ADD CPP /nologo /GX /O2 /I "oswin32" /I "." /D "WIN32" /D "NDEBUG" /D "_CONSOLE" /c
 # SUBTRACT CPP /Fr
 CPP_PROJ=/nologo /ML /GX /O2 /I "oswin32" /I "." /D "WIN32" /D "NDEBUG" /D\
- "_CONSOLE" /Fp"$(INTDIR)/elvis.pch" /YX /Fo"$(INTDIR)/" /c 
+ "_CONSOLE" /Fo"$(INTDIR)/" /c 
 CPP_OBJS=.\WinRel/
 CPP_SBRS=
 # ADD BASE RSC /l 0x409 /d "NDEBUG"
@@ -317,12 +317,11 @@ CLEAN :
 "$(OUTDIR)" :
     if not exist "$(OUTDIR)/$(NULL)" mkdir "$(OUTDIR)"
 
-# ADD BASE CPP /nologo /W3 /GX /Zi /Od /D "WIN32" /D "_DEBUG" /D "_CONSOLE" /FR /YX /c
-# ADD CPP /nologo /W3 /Gm /GX /Zi /Od /I "oswin32" /I "." /D "WIN32" /D "_DEBUG" /D "_CONSOLE" /YX /c
+# ADD BASE CPP /nologo /W3 /GX /Zi /Od /D "WIN32" /D "_DEBUG" /D "_CONSOLE" /FR /c
+# ADD CPP /nologo /W3 /Gm /GX /Zi /Od /I "oswin32" /I "." /D "WIN32" /D "_DEBUG" /D "_CONSOLE" /c
 # SUBTRACT CPP /Fr
 CPP_PROJ=/nologo /MLd /W3 /Gm /GX /Zi /Od /I "oswin32" /I "." /D "WIN32" /D\
- "_DEBUG" /D "_CONSOLE" /Fp"$(INTDIR)/elvis.pch" /YX /Fo"$(INTDIR)/"\
- /Fd"$(INTDIR)/" /c 
+ "_DEBUG" /D "_CONSOLE" /Fo"$(INTDIR)/" /Fd"$(INTDIR)/" /c 
 CPP_OBJS=.\WinDebug/
 CPP_SBRS=
 # ADD BASE RSC /l 0x409 /d "_DEBUG"

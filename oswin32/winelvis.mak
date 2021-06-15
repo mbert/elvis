@@ -15,8 +15,7 @@ LDFLAGS=/nologo /subsystem:windows /incremental:no /machine:I386 \
 !ELSE
 INTDIR=GuiDebug
 CFLAGS=/nologo /MLd /W3 /Gm /GX /Zi /Od /I "oswin32" /I "." /D "WIN32" \
- /D "_DEBUG" /D "_WINDOWS" /D "GUI_WIN32" /Fp"$(INTDIR)/elvis.pch" /YX \
- /Fo"$(INTDIR)/" /Fd"$(INTDIR)/" /c 
+ /D "_DEBUG" /D "_WINDOWS" /D "GUI_WIN32" /Fo"$(INTDIR)/" /Fd"$(INTDIR)/" /c 
 RSC_PROJ=/l 0x409 /fo"..\$(INTDIR)\winelvis.res"
 LDFLAGS=/nologo /subsystem:windows /incremental:no /pdb:"elvis.pdb" \
  /debug /machine:I386 /out:"WinElvis.exe" 
