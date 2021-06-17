@@ -141,11 +141,10 @@ BSC32=bscmake.exe
 BSC32_FLAGS=/nologo /o"$(OUTDIR)/elvis.bsc" 
 BSC32_SBRS=
 LINK32=link.exe
-# ADD BASE LINK32 kernel32.lib wsock32.lib user32.lib /nologo /subsystem:console /machine:I386
-# ADD LINK32 wsock32.lib kernel32.lib user32.lib /nologo /subsystem:console /machine:I386
+# ADD BASE LINK32 kernel32.lib wsock32.lib user32.lib /nologo /subsystem:console
+# ADD LINK32 wsock32.lib kernel32.lib user32.lib /nologo /subsystem:console
 LINK32_FLAGS=wsock32.lib kernel32.lib user32.lib /nologo /subsystem:console\
- /incremental:no /pdb:"$(OUTDIR)/elvis.pdb" /machine:I386\
- /out:"$(OUTDIR)/elvis.exe"
+ /incremental:no /pdb:"$(OUTDIR)/elvis.pdb" /out:"$(OUTDIR)/elvis.exe"
 LINK32_OBJS= \
 	"$(INTDIR)/vi.obj" \
 	"$(INTDIR)/display.obj" \
@@ -332,11 +331,10 @@ BSC32=bscmake.exe
 BSC32_FLAGS=/nologo /o"$(OUTDIR)/elvis.bsc" 
 BSC32_SBRS=
 LINK32=link.exe
-# ADD BASE LINK32 kernel32.lib wsock32.lib user32.lib /nologo /subsystem:console /debug /machine:I386
-# ADD LINK32 wsock32.lib kernel32.lib user32.lib /nologo /subsystem:console /debug /machine:I386
+# ADD BASE LINK32 kernel32.lib wsock32.lib user32.lib /nologo /subsystem:console /debug
+# ADD LINK32 wsock32.lib kernel32.lib user32.lib /nologo /subsystem:console /debug
 LINK32_FLAGS=wsock32.lib kernel32.lib user32.lib /nologo /subsystem:console\
- /incremental:yes /pdb:"$(OUTDIR)/elvis.pdb" /debug /machine:I386\
- /out:"$(OUTDIR)/elvis.exe"
+ /incremental:yes /pdb:"$(OUTDIR)/elvis.pdb" /debug /out:"$(OUTDIR)/elvis.exe"
 LINK32_OBJS= \
 	"$(INTDIR)/dmmarkup.obj" \
 	"$(INTDIR)/tcaphelp.obj" \
