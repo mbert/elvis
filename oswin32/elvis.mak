@@ -126,11 +126,11 @@ CLEAN :
 "$(OUTDIR)" :
     if not exist "$(OUTDIR)/$(NULL)" mkdir "$(OUTDIR)"
 
-# ADD BASE CPP /nologo /W3 /GX /O2 /D "WIN32" /D "NDEBUG" /D "_CONSOLE" /FR /YX /c
-# ADD CPP /nologo /GX /O2 /I "oswin32" /I "." /D "WIN32" /D "NDEBUG" /D "_CONSOLE" /YX /c
+# ADD BASE CPP /nologo /W3 /GX /O2 /D "WIN32" /D "NDEBUG" /D "_CONSOLE" /FR /c
+# ADD CPP /nologo /GX /O2 /I "oswin32" /I "." /D "WIN32" /D "NDEBUG" /D "_CONSOLE" /c
 # SUBTRACT CPP /Fr
 CPP_PROJ=/nologo /ML /GX /O2 /I "oswin32" /I "." /D "WIN32" /D "NDEBUG" /D\
- "_CONSOLE" /Fp"$(INTDIR)/elvis.pch" /YX /Fo"$(INTDIR)/" /c 
+ "_CONSOLE" /Fo"$(INTDIR)/" /c 
 CPP_OBJS=.\WinRel/
 CPP_SBRS=
 # ADD BASE RSC /l 0x409 /d "NDEBUG"
@@ -141,11 +141,10 @@ BSC32=bscmake.exe
 BSC32_FLAGS=/nologo /o"$(OUTDIR)/elvis.bsc" 
 BSC32_SBRS=
 LINK32=link.exe
-# ADD BASE LINK32 kernel32.lib wsock32.lib user32.lib /nologo /subsystem:console /machine:I386
-# ADD LINK32 wsock32.lib kernel32.lib user32.lib /nologo /subsystem:console /machine:I386
+# ADD BASE LINK32 kernel32.lib wsock32.lib user32.lib /nologo /subsystem:console
+# ADD LINK32 wsock32.lib kernel32.lib user32.lib /nologo /subsystem:console
 LINK32_FLAGS=wsock32.lib kernel32.lib user32.lib /nologo /subsystem:console\
- /incremental:no /pdb:"$(OUTDIR)/elvis.pdb" /machine:I386\
- /out:"$(OUTDIR)/elvis.exe"
+ /incremental:no /pdb:"$(OUTDIR)/elvis.pdb" /out:"$(OUTDIR)/elvis.exe"
 LINK32_OBJS= \
 	"$(INTDIR)/vi.obj" \
 	"$(INTDIR)/display.obj" \
@@ -317,12 +316,11 @@ CLEAN :
 "$(OUTDIR)" :
     if not exist "$(OUTDIR)/$(NULL)" mkdir "$(OUTDIR)"
 
-# ADD BASE CPP /nologo /W3 /GX /Zi /Od /D "WIN32" /D "_DEBUG" /D "_CONSOLE" /FR /YX /c
-# ADD CPP /nologo /W3 /Gm /GX /Zi /Od /I "oswin32" /I "." /D "WIN32" /D "_DEBUG" /D "_CONSOLE" /YX /c
+# ADD BASE CPP /nologo /W3 /GX /Zi /Od /D "WIN32" /D "_DEBUG" /D "_CONSOLE" /FR /c
+# ADD CPP /nologo /W3 /Gm /GX /Zi /Od /I "oswin32" /I "." /D "WIN32" /D "_DEBUG" /D "_CONSOLE" /c
 # SUBTRACT CPP /Fr
 CPP_PROJ=/nologo /MLd /W3 /Gm /GX /Zi /Od /I "oswin32" /I "." /D "WIN32" /D\
- "_DEBUG" /D "_CONSOLE" /Fp"$(INTDIR)/elvis.pch" /YX /Fo"$(INTDIR)/"\
- /Fd"$(INTDIR)/" /c 
+ "_DEBUG" /D "_CONSOLE" /Fo"$(INTDIR)/" /Fd"$(INTDIR)/" /c 
 CPP_OBJS=.\WinDebug/
 CPP_SBRS=
 # ADD BASE RSC /l 0x409 /d "_DEBUG"
@@ -333,11 +331,10 @@ BSC32=bscmake.exe
 BSC32_FLAGS=/nologo /o"$(OUTDIR)/elvis.bsc" 
 BSC32_SBRS=
 LINK32=link.exe
-# ADD BASE LINK32 kernel32.lib wsock32.lib user32.lib /nologo /subsystem:console /debug /machine:I386
-# ADD LINK32 wsock32.lib kernel32.lib user32.lib /nologo /subsystem:console /debug /machine:I386
+# ADD BASE LINK32 kernel32.lib wsock32.lib user32.lib /nologo /subsystem:console /debug
+# ADD LINK32 wsock32.lib kernel32.lib user32.lib /nologo /subsystem:console /debug
 LINK32_FLAGS=wsock32.lib kernel32.lib user32.lib /nologo /subsystem:console\
- /incremental:yes /pdb:"$(OUTDIR)/elvis.pdb" /debug /machine:I386\
- /out:"$(OUTDIR)/elvis.exe"
+ /incremental:yes /pdb:"$(OUTDIR)/elvis.pdb" /debug /out:"$(OUTDIR)/elvis.exe"
 LINK32_OBJS= \
 	"$(INTDIR)/dmmarkup.obj" \
 	"$(INTDIR)/tcaphelp.obj" \

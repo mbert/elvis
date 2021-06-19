@@ -10,16 +10,14 @@ INTDIR=GuiRel
 CFLAGS=/nologo /ML /W1 /GX /O2 /I "." /I ".." /I "oswin32" /I "..\oswin32" \
  /D "NDEBUG" /D "WIN32" /D "_WINDOWS" /D "GUI_WIN32" /Fo"$(INTDIR)/" /c 
 RSC_PROJ=/l 0x409 /fo"..\$(INTDIR)\winelvis.res" /d "NDEBUG" 
-LDFLAGS=/nologo /subsystem:windows /incremental:no /machine:I386 \
- /out:"WinElvis.exe" 
+LDFLAGS=/nologo /subsystem:windows /incremental:no /out:"WinElvis.exe" 
 !ELSE
 INTDIR=GuiDebug
 CFLAGS=/nologo /MLd /W3 /Gm /GX /Zi /Od /I "oswin32" /I "." /D "WIN32" \
- /D "_DEBUG" /D "_WINDOWS" /D "GUI_WIN32" /Fp"$(INTDIR)/elvis.pch" /YX \
- /Fo"$(INTDIR)/" /Fd"$(INTDIR)/" /c 
+ /D "_DEBUG" /D "_WINDOWS" /D "GUI_WIN32" /Fo"$(INTDIR)/" /Fd"$(INTDIR)/" /c 
 RSC_PROJ=/l 0x409 /fo"..\$(INTDIR)\winelvis.res"
 LDFLAGS=/nologo /subsystem:windows /incremental:no /pdb:"elvis.pdb" \
- /debug /machine:I386 /out:"WinElvis.exe" 
+ /debug /out:"WinElvis.exe" 
 !ENDIF
 CPP_OBJS=$(INTDIR)/
 HDRS=autocmd.h buffer.h buffer2.h calc.h color.h config.h cut.h descr.h \
@@ -29,8 +27,8 @@ HDRS=autocmd.h buffer.h buffer2.h calc.h color.h config.h cut.h descr.h \
  oswin32\osdef.h regexp.h region.h safe.h scan.h session.h spell.h state.h \
  state2.h tag.h version.h vi.h vicmd.h window.h
 GUIHDRS=guiwin32\winelvis.h guiwin32\wintools.h
-LIBS=kernel32.lib user32.lib gdi32.lib winspool.lib comctl32.lib comdlg32.lib \
- advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib wsock32.lib
+LIBS=kernel32.lib user32.lib gdi32.lib comctl32.lib comdlg32.lib shell32.lib \
+ wsock32.lib
 LINK32_OBJS= \
 	"$(INTDIR)/guiwin.obj" \
 	"$(INTDIR)/gwcmd.obj" \

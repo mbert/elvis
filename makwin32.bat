@@ -41,7 +41,6 @@ goto Done
 :Clean_NT
 for %%i in (WinRel WinDebug GuiRel GuiDebug) do if exist %%i rd /s/q %%i
 for %%i in (WinElvis.exe WinTags.exe ctags.exe elvis.exe ex.exe fmt.exe ls.exe ref.exe vi.exe view.exe) do if exist %%i erase %%i
-if exist *.pch erase *.pch
 if exist *.pdb erase *.pdb
 if exist *.ilk erase *.ilk
 
