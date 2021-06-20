@@ -4,7 +4,8 @@ RC=rc.exe
 LD=link.exe
 INTDIR=.\GuiRel
 INCL=/I "." /I ".." /I "oswin32" /I "..\oswin32" /I "guiwin32"
-CFLAGS=/nologo /ML /W3 /GX /O2 /D "NDEBUG" /D "WIN32" /D "_WINDOWS" \
+C_DEFINES=/D _CRT_SECURE_NO_WARNINGS=1 /D _CRT_NONSTDC_NO_WARNINGS=1 /D WIN32
+CFLAGS=/nologo /ML /W3 /GX /O2 /D "NDEBUG" $(C_DEFINES) /D "_WINDOWS" \
 	/D "GUI_WIN32" /Fo"$(INTDIR)/" $(INCL)
 LDFLAGS=kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib\
 	advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib /nologo\

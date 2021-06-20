@@ -3,6 +3,8 @@ RSC=rc.exe
 OUTDIR=.
 INTDIR=.\WinRel
 
+C_DEFINES=/D _CRT_SECURE_NO_WARNINGS=1 /D _CRT_NONSTDC_NO_WARNINGS=1 /D WIN32
+
 ALL : $(INTDIR) $(OUTDIR)\ctags.exe $(OUTDIR)\fmt.exe $(OUTDIR)\ref.exe\
  $(OUTDIR)\ls.exe $(OUTDIR)\vi.exe $(OUTDIR)\ex.exe $(OUTDIR)\view.exe
 
@@ -12,7 +14,7 @@ $(INTDIR) :
 $(OUTDIR) : 
 	if not exist $(OUTDIR)\nul mkdir $(OUTDIR)
 
-CPP_PROJ=/nologo /ML /W3 /GX /O2 /I "oswin32" /I "." /D "WIN32" /D "NDEBUG"\
+CPP_PROJ=/nologo /ML /W3 /GX /O2 /I "oswin32" /I "." $(C_DEFINES) /D "NDEBUG"\
  /D "_CONSOLE" /FR$(INTDIR)/ /Fo$(INTDIR)/ /c 
 CPP_OBJS=.\WinRel/
 

@@ -34,6 +34,8 @@ NULL=nul
 CPP=cl.exe
 RSC=rc.exe
 
+C_DEFINES=/D _CRT_SECURE_NO_WARNINGS=1 /D _CRT_NONSTDC_NO_WARNINGS=1 /D WIN32
+
 !IF  "$(CFG)" == "elvis - Win32 Release"
 
 # PROP BASE Use_MFC 0
@@ -126,10 +128,7 @@ CLEAN :
 "$(OUTDIR)" :
     if not exist "$(OUTDIR)/$(NULL)" mkdir "$(OUTDIR)"
 
-# ADD BASE CPP /nologo /W3 /GX /O2 /D "WIN32" /D "NDEBUG" /D "_CONSOLE" /FR /c
-# ADD CPP /nologo /GX /O2 /I "oswin32" /I "." /D "WIN32" /D "NDEBUG" /D "_CONSOLE" /c
-# SUBTRACT CPP /Fr
-CPP_PROJ=/nologo /ML /GX /O2 /I "oswin32" /I "." /D "WIN32" /D "NDEBUG" /D\
+CPP_PROJ=/nologo /ML /GX /O2 /I "oswin32" /I "." $(C_DEFINES) /D "NDEBUG" /D\
  "_CONSOLE" /Fo"$(INTDIR)/" /c 
 CPP_OBJS=.\WinRel/
 CPP_SBRS=
@@ -316,10 +315,7 @@ CLEAN :
 "$(OUTDIR)" :
     if not exist "$(OUTDIR)/$(NULL)" mkdir "$(OUTDIR)"
 
-# ADD BASE CPP /nologo /W3 /GX /Zi /Od /D "WIN32" /D "_DEBUG" /D "_CONSOLE" /FR /c
-# ADD CPP /nologo /W3 /Gm /GX /Zi /Od /I "oswin32" /I "." /D "WIN32" /D "_DEBUG" /D "_CONSOLE" /c
-# SUBTRACT CPP /Fr
-CPP_PROJ=/nologo /MLd /W3 /Gm /GX /Zi /Od /I "oswin32" /I "." /D "WIN32" /D\
+CPP_PROJ=/nologo /MLd /W3 /Gm /GX /Zi /Od /I "oswin32" /I "." $(C_DEFINES) /D\
  "_DEBUG" /D "_CONSOLE" /Fo"$(INTDIR)/" /Fd"$(INTDIR)/" /c 
 CPP_OBJS=.\WinDebug/
 CPP_SBRS=
