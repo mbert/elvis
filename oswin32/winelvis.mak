@@ -14,7 +14,7 @@ RSC_PROJ=/l 0x409 /fo"..\$(INTDIR)\winelvis.res" /d "NDEBUG"
 LDFLAGS=/nologo /subsystem:windows /incremental:no /out:"WinElvis.exe" 
 !ELSE
 INTDIR=GuiDebug
-CFLAGS=/nologo /MLd /W3 /Gm /GX /Zi /Od /I "oswin32" /I "." $(C_DEFINES) \
+CFLAGS=/nologo /MLd /W3 /GX /Z7 /Od /I "oswin32" /I "." $(C_DEFINES) \
  /D "_DEBUG" /D "_WINDOWS" /D "GUI_WIN32" /Fo"$(INTDIR)/" /Fd"$(INTDIR)/" /c 
 RSC_PROJ=/l 0x409 /fo"..\$(INTDIR)\winelvis.res"
 LDFLAGS=/nologo /subsystem:windows /incremental:no /pdb:"elvis.pdb" \

@@ -315,7 +315,7 @@ CLEAN :
 "$(OUTDIR)" :
     if not exist "$(OUTDIR)/$(NULL)" mkdir "$(OUTDIR)"
 
-CPP_PROJ=/nologo /MLd /W3 /Gm /GX /Zi /Od /I "oswin32" /I "." $(C_DEFINES) /D\
+CPP_PROJ=/nologo /MLd /W3 /GX /Z7 /Od /I "oswin32" /I "." $(C_DEFINES) /D\
  "_DEBUG" /D "_CONSOLE" /Fo"$(INTDIR)/" /Fd"$(INTDIR)/" /c 
 CPP_OBJS=.\WinDebug/
 CPP_SBRS=
