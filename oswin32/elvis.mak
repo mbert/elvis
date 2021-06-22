@@ -330,7 +330,7 @@ LINK32=link.exe
 # ADD BASE LINK32 kernel32.lib wsock32.lib user32.lib /nologo /subsystem:console /debug
 # ADD LINK32 wsock32.lib kernel32.lib user32.lib /nologo /subsystem:console /debug
 LINK32_FLAGS=wsock32.lib kernel32.lib user32.lib /nologo /subsystem:console\
- /incremental:yes /pdb:"$(OUTDIR)/elvis.pdb" /debug /out:"$(OUTDIR)/elvis.exe"
+ /incremental:no /pdb:"$(OUTDIR)/elvis.pdb" /debug /out:"$(OUTDIR)/elvis.exe"
 LINK32_OBJS= \
 	"$(INTDIR)/dmmarkup.obj" \
 	"$(INTDIR)/tcaphelp.obj" \
