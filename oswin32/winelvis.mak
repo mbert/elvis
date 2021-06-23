@@ -8,13 +8,13 @@ LD=link.exe
 C_DEFINES=/D _CRT_SECURE_NO_WARNINGS=1 /D _CRT_NONSTDC_NO_WARNINGS=1 /D WIN32
 !IF "$(CFG)" == "WinElvis - Win32 Release"
 INTDIR=GuiRel
-CFLAGS=/nologo /ML /W1 /GX /O2 /I "." /I ".." /I "oswin32" /I "..\oswin32" \
+CFLAGS=/nologo /ML /W1 /O2 /I "." /I ".." /I "oswin32" /I "..\oswin32" \
  /D "NDEBUG" $(C_DEFINES) /D "_WINDOWS" /D "GUI_WIN32" /Fo"$(INTDIR)/" /c 
 RSC_PROJ=/l 0x409 /fo"..\$(INTDIR)\winelvis.res" /d "NDEBUG" 
 LDFLAGS=/nologo /subsystem:windows /incremental:no /out:"WinElvis.exe" 
 !ELSE
 INTDIR=GuiDebug
-CFLAGS=/nologo /MLd /W3 /GX /Z7 /Od /I "oswin32" /I "." $(C_DEFINES) \
+CFLAGS=/nologo /MLd /W3 /Z7 /Od /I "oswin32" /I "." $(C_DEFINES) \
  /D "_DEBUG" /D "_WINDOWS" /D "GUI_WIN32" /Fo"$(INTDIR)/" /Fd"$(INTDIR)/" /c 
 RSC_PROJ=/l 0x409 /fo"..\$(INTDIR)\winelvis.res"
 LDFLAGS=/nologo /subsystem:windows /incremental:no /pdb:"elvis.pdb" \
