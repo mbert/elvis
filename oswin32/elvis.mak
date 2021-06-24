@@ -28,6 +28,22 @@ NULL=
 !ELSE 
 NULL=nul
 !ENDIF 
+
+# Check if the compiler supports single threaded statically linked CRT (-ML),
+# and if so, use it. Newer compilers don't, so fall back to -MT (statically
+# linked multithreaded.)
+!IF [$(CC) -ML 2>&1 | find "D9002" >NUL]==0
+CRTFLAG_RELEASE=/MT
+CRTFLAG_DEBUG=/MTd
+!ELSE
+CRTFLAG_RELEASE=/ML
+!IF [$(CC) -MLd 2>&1 | find "D4002" >NUL]==0
+CRTFLAG_DEBUG=/ML
+!ELSE
+CRTFLAG_DEBUG=/MLd
+!ENDIF
+!ENDIF
+
 ################################################################################
 # Begin Project
 # PROP Target_Last_Scanned "elvis - Win32 Debug"
@@ -128,8 +144,8 @@ CLEAN :
 "$(OUTDIR)" :
     if not exist "$(OUTDIR)/$(NULL)" mkdir "$(OUTDIR)"
 
-CPP_PROJ=/nologo /ML /O2 /I "oswin32" /I "." $(C_DEFINES) /D "NDEBUG" /D\
- "_CONSOLE" /Fo"$(INTDIR)/" /c 
+CPP_PROJ=/nologo $(CRTFLAG_RELEASE) /O2 /I "oswin32" /I "." $(C_DEFINES) \
+ /D "NDEBUG" /D "_CONSOLE" /Fo"$(INTDIR)/" /c 
 CPP_OBJS=.\WinRel/
 CPP_SBRS=
 # ADD BASE RSC /l 0x409 /d "NDEBUG"
@@ -315,8 +331,8 @@ CLEAN :
 "$(OUTDIR)" :
     if not exist "$(OUTDIR)/$(NULL)" mkdir "$(OUTDIR)"
 
-CPP_PROJ=/nologo /MLd /W3 /Z7 /Od /I "oswin32" /I "." $(C_DEFINES) /D\
- "_DEBUG" /D "_CONSOLE" /Fo"$(INTDIR)/" /Fd"$(INTDIR)/" /c 
+CPP_PROJ=/nologo $(CRTFLAG_DEBUG) /W3 /Z7 /Od /I "oswin32" /I "." $(C_DEFINES)\
+ /D "_DEBUG" /D "_CONSOLE" /Fo"$(INTDIR)/" /Fd"$(INTDIR)/" /c 
 CPP_OBJS=.\WinDebug/
 CPP_SBRS=
 # ADD BASE RSC /l 0x409 /d "_DEBUG"

@@ -1,4 +1,12 @@
-CPP=cl.exe
+# Check if the compiler supports single threaded statically linked CRT (-ML),
+# and if so, use it. Newer compilers don't, so fall back to -MT (statically
+# linked multithreaded.)
+!IF [$(CC) -ML 2>&1 | find "D9002" >NUL]==0
+CRTFLAG_RELEASE=/MT
+!ELSE
+CRTFLAG_RELEASE=/ML
+!ENDIF
+
 RSC=rc.exe
 OUTDIR=.
 INTDIR=.\WinRel
@@ -14,8 +22,8 @@ $(INTDIR) :
 $(OUTDIR) : 
 	if not exist $(OUTDIR)\nul mkdir $(OUTDIR)
 
-CPP_PROJ=/nologo /ML /W3 /O2 /I "oswin32" /I "." $(C_DEFINES) /D "NDEBUG"\
- /D "_CONSOLE" /FR$(INTDIR)/ /Fo$(INTDIR)/ /c 
+CPP_PROJ=/nologo $(CRTFLAG_RELEASE) /W3 /O2 /I "oswin32" /I "." $(C_DEFINES) \
+ /D "NDEBUG" /D "_CONSOLE" /FR$(INTDIR)/ /Fo$(INTDIR)/ /c 
 CPP_OBJS=.\WinRel/
 
 LINK32=link.exe
@@ -63,22 +71,22 @@ $(OUTDIR)/ls.exe : $(OUTDIR) $(DEF_FILE) \
 <<
 
 $(OUTDIR)\vi.exe : $(OUTDIR)
-	cl /nologo /DARGV0=VI /Fe$(OUTDIR)\vi.exe /Fo$(INTDIR)\vi.obj /Ioswin32 alias.c
+	$(CC) /nologo /DARGV0=VI /Fe$(OUTDIR)\vi.exe /Fo$(INTDIR)\vi.obj /Ioswin32 alias.c
 
 $(OUTDIR)\ex.exe : $(OUTDIR)
-	cl /nologo /DARGV0=EX /Fe$(OUTDIR)\ex.exe /Fo$(INTDIR)\ex.obj /Ioswin32 alias.c
+	$(CC) /nologo /DARGV0=EX /Fe$(OUTDIR)\ex.exe /Fo$(INTDIR)\ex.obj /Ioswin32 alias.c
 
 $(OUTDIR)\view.exe : $(OUTDIR)
-	cl /nologo /DARGV0=VIEW /Fe$(OUTDIR)\view.exe /Fo$(INTDIR)\view.obj /Ioswin32 alias.c
+	$(CC) /nologo /DARGV0=VIEW /Fe$(OUTDIR)\view.exe /Fo$(INTDIR)\view.obj /Ioswin32 alias.c
 
 
 ###############################################################################
 
 .c{$(CPP_OBJS)}.obj:
-   $(CPP) $(CPP_PROJ) $<  
+   $(CC) $(CPP_PROJ) $<  
 
 {oswin32/}.c{$(CPP_OBJS)}.obj:
-   $(CPP) $(CPP_PROJ) $<  
+   $(CC) $(CPP_PROJ) $<  
 
 ################################################################################
 
