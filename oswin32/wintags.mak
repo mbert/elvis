@@ -16,9 +16,7 @@ INCL=/I "." /I ".." /I "oswin32" /I "..\oswin32" /I "guiwin32"
 C_DEFINES=/D _CRT_SECURE_NO_WARNINGS=1 /D _CRT_NONSTDC_NO_WARNINGS=1 /D WIN32
 CFLAGS=/nologo $(CRTFLAG_RELEASE) /W3 /O2 /D "NDEBUG" $(C_DEFINES) \
     /D "_WINDOWS" /D "GUI_WIN32" /Fo"$(INTDIR)/" $(INCL)
-LDFLAGS=kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib\
-	advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib /nologo\
-	/subsystem:windows /incremental:no
+LDFLAGS=kernel32.lib user32.lib /nologo /subsystem:windows /incremental:no
 RCFLAGS=/l 0x409 /fo"$(INTDIR)/wintags.res" /d "NDEBUG" 
 OBJS=$(INTDIR)\wintags.obj $(INTDIR)\wintools.obj $(INTDIR)\ctags.obj \
 	$(INTDIR)\tag.obj $(INTDIR)\safe.obj $(INTDIR)\wintags.res
