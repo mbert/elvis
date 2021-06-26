@@ -28,11 +28,29 @@ NULL=
 !ELSE 
 NULL=nul
 !ENDIF 
+
+# Check if the compiler supports single threaded statically linked CRT (-ML),
+# and if so, use it. Newer compilers don't, so fall back to -MT (statically
+# linked multithreaded.)
+!IF [$(CC) -ML 2>&1 | find "D9002" >NUL]==0
+CRTFLAG_RELEASE=/MT
+CRTFLAG_DEBUG=/MTd
+!ELSE
+CRTFLAG_RELEASE=/ML
+!IF [$(CC) -MLd 2>&1 | find "D4002" >NUL]==0
+CRTFLAG_DEBUG=/ML
+!ELSE
+CRTFLAG_DEBUG=/MLd
+!ENDIF
+!ENDIF
+
 ################################################################################
 # Begin Project
 # PROP Target_Last_Scanned "elvis - Win32 Debug"
 CPP=cl.exe
 RSC=rc.exe
+
+C_DEFINES=/D _CRT_SECURE_NO_WARNINGS=1 /D _CRT_NONSTDC_NO_WARNINGS=1 /D WIN32
 
 !IF  "$(CFG)" == "elvis - Win32 Release"
 
@@ -126,11 +144,8 @@ CLEAN :
 "$(OUTDIR)" :
     if not exist "$(OUTDIR)/$(NULL)" mkdir "$(OUTDIR)"
 
-# ADD BASE CPP /nologo /W3 /GX /O2 /D "WIN32" /D "NDEBUG" /D "_CONSOLE" /FR /c
-# ADD CPP /nologo /GX /O2 /I "oswin32" /I "." /D "WIN32" /D "NDEBUG" /D "_CONSOLE" /c
-# SUBTRACT CPP /Fr
-CPP_PROJ=/nologo /ML /GX /O2 /I "oswin32" /I "." /D "WIN32" /D "NDEBUG" /D\
- "_CONSOLE" /Fo"$(INTDIR)/" /c 
+CPP_PROJ=/nologo $(CRTFLAG_RELEASE) /O2 /I "oswin32" /I "." $(C_DEFINES) \
+ /D "NDEBUG" /D "_CONSOLE" /Fo"$(INTDIR)/" /c 
 CPP_OBJS=.\WinRel/
 CPP_SBRS=
 # ADD BASE RSC /l 0x409 /d "NDEBUG"
@@ -316,11 +331,8 @@ CLEAN :
 "$(OUTDIR)" :
     if not exist "$(OUTDIR)/$(NULL)" mkdir "$(OUTDIR)"
 
-# ADD BASE CPP /nologo /W3 /GX /Zi /Od /D "WIN32" /D "_DEBUG" /D "_CONSOLE" /FR /c
-# ADD CPP /nologo /W3 /Gm /GX /Zi /Od /I "oswin32" /I "." /D "WIN32" /D "_DEBUG" /D "_CONSOLE" /c
-# SUBTRACT CPP /Fr
-CPP_PROJ=/nologo /MLd /W3 /Gm /GX /Zi /Od /I "oswin32" /I "." /D "WIN32" /D\
- "_DEBUG" /D "_CONSOLE" /Fo"$(INTDIR)/" /Fd"$(INTDIR)/" /c 
+CPP_PROJ=/nologo $(CRTFLAG_DEBUG) /W3 /Z7 /Od /I "oswin32" /I "." $(C_DEFINES)\
+ /D "_DEBUG" /D "_CONSOLE" /Fo"$(INTDIR)/" /Fd"$(INTDIR)/" /c 
 CPP_OBJS=.\WinDebug/
 CPP_SBRS=
 # ADD BASE RSC /l 0x409 /d "_DEBUG"
@@ -334,7 +346,7 @@ LINK32=link.exe
 # ADD BASE LINK32 kernel32.lib wsock32.lib user32.lib /nologo /subsystem:console /debug
 # ADD LINK32 wsock32.lib kernel32.lib user32.lib /nologo /subsystem:console /debug
 LINK32_FLAGS=wsock32.lib kernel32.lib user32.lib /nologo /subsystem:console\
- /incremental:yes /pdb:"$(OUTDIR)/elvis.pdb" /debug /out:"$(OUTDIR)/elvis.exe"
+ /incremental:no /pdb:"$(OUTDIR)/elvis.pdb" /debug /out:"$(OUTDIR)/elvis.exe"
 LINK32_OBJS= \
 	"$(INTDIR)/dmmarkup.obj" \
 	"$(INTDIR)/tcaphelp.obj" \

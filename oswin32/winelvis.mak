@@ -1,19 +1,37 @@
 # This is a hand-made Makefile.  MSVC++ can't read it, but NMAKE can.
 ###############################################################################
+
+# Check if the compiler supports single threaded statically linked CRT (-ML),
+# and if so, use it. Newer compilers don't, so fall back to -MT (statically
+# linked multithreaded.)
+!IF [$(CC) -ML 2>&1 | find "D9002" >NUL]==0
+CRTFLAG_RELEASE=/MT
+CRTFLAG_DEBUG=/MTd
+!ELSE
+CRTFLAG_RELEASE=/ML
+!IF [$(CC) -MLd 2>&1 | find "D4002" >NUL]==0
+CRTFLAG_DEBUG=/ML
+!ELSE
+CRTFLAG_DEBUG=/MLd
+!ENDIF
+!ENDIF
+
 # Macro definitions
 
 RSC=rc.exe
 CPP=cl.exe
 LD=link.exe
+C_DEFINES=/D _CRT_SECURE_NO_WARNINGS=1 /D _CRT_NONSTDC_NO_WARNINGS=1 /D WIN32
 !IF "$(CFG)" == "WinElvis - Win32 Release"
 INTDIR=GuiRel
-CFLAGS=/nologo /ML /W1 /GX /O2 /I "." /I ".." /I "oswin32" /I "..\oswin32" \
- /D "NDEBUG" /D "WIN32" /D "_WINDOWS" /D "GUI_WIN32" /Fo"$(INTDIR)/" /c 
+CFLAGS=/nologo $(CRTFLAG_RELEASE) /W1 /O2 /I "." /I ".." /I "oswin32" \
+ /I "..\oswin32" /D "NDEBUG" $(C_DEFINES) /D "_WINDOWS" /D "GUI_WIN32" \
+ /Fo"$(INTDIR)/" /c 
 RSC_PROJ=/l 0x409 /fo"..\$(INTDIR)\winelvis.res" /d "NDEBUG" 
 LDFLAGS=/nologo /subsystem:windows /incremental:no /out:"WinElvis.exe" 
 !ELSE
 INTDIR=GuiDebug
-CFLAGS=/nologo /MLd /W3 /Gm /GX /Zi /Od /I "oswin32" /I "." /D "WIN32" \
+CFLAGS=/nologo $(CRTFLAG_DEBUG) /W3 /Z7 /Od /I "oswin32" /I "." $(C_DEFINES) \
  /D "_DEBUG" /D "_WINDOWS" /D "GUI_WIN32" /Fo"$(INTDIR)/" /Fd"$(INTDIR)/" /c 
 RSC_PROJ=/l 0x409 /fo"..\$(INTDIR)\winelvis.res"
 LDFLAGS=/nologo /subsystem:windows /incremental:no /pdb:"elvis.pdb" \

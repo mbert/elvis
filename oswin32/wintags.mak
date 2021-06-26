@@ -1,14 +1,22 @@
 # hand-made NMAKE File.
-CC=cl.exe
+
+# Check if the compiler supports single threaded statically linked CRT (-ML),
+# and if so, use it. Newer compilers don't, so fall back to -MT (statically
+# linked multithreaded.)
+!IF [$(CC) -ML 2>&1 | find "D9002" >NUL]==0
+CRTFLAG_RELEASE=/MT
+!ELSE
+CRTFLAG_RELEASE=/ML
+!ENDIF
+
 RC=rc.exe
 LD=link.exe
 INTDIR=.\GuiRel
 INCL=/I "." /I ".." /I "oswin32" /I "..\oswin32" /I "guiwin32"
-CFLAGS=/nologo /ML /W3 /GX /O2 /D "NDEBUG" /D "WIN32" /D "_WINDOWS" \
-	/D "GUI_WIN32" /Fo"$(INTDIR)/" $(INCL)
-LDFLAGS=kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib\
-	advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib /nologo\
-	/subsystem:windows /incremental:no
+C_DEFINES=/D _CRT_SECURE_NO_WARNINGS=1 /D _CRT_NONSTDC_NO_WARNINGS=1 /D WIN32
+CFLAGS=/nologo $(CRTFLAG_RELEASE) /W3 /O2 /D "NDEBUG" $(C_DEFINES) \
+    /D "_WINDOWS" /D "GUI_WIN32" /Fo"$(INTDIR)/" $(INCL)
+LDFLAGS=kernel32.lib user32.lib /nologo /subsystem:windows /incremental:no
 RCFLAGS=/l 0x409 /fo"$(INTDIR)/wintags.res" /d "NDEBUG" 
 OBJS=$(INTDIR)\wintags.obj $(INTDIR)\wintools.obj $(INTDIR)\ctags.obj \
 	$(INTDIR)\tag.obj $(INTDIR)\safe.obj $(INTDIR)\wintags.res
