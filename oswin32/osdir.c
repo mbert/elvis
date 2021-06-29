@@ -12,7 +12,7 @@
 # include "elvis.h"
 #endif
 #define CHAR winCHAR
-#include <windows.h> /* for registry functions */
+#include <windows.h> /* for registry and find functions */
 #undef CHAR
 #include <stdlib.h>
 #include <string.h>
@@ -167,12 +167,8 @@ static char			findwild[MAX_PATH];
 static char			findbracket[MAX_PATH];
 static char			*findbase;
 static char			found[MAX_PATH];
-#ifdef WIN32
-static struct _finddata_t	FileData;
-#else 
-static struct _find_t		FileData;
-#endif
-static long			hSearch;
+static WIN32_FIND_DATA	FileData;
+static HANDLE			hSearch;
 
 /* adjust a file path via the Cygwin mount table */
 char *dirnormalize(char *path)
@@ -258,7 +254,7 @@ char *dirfirst(char *wildexpr, ELVBOOL ispartial)
 	*dst = '\0';
 
 	/* if the wildexpr (now findbracket) contains a directory name, then
-	 * we want to pass the whole directory name to _findfirst, but only
+	 * we want to pass the whole directory name to FindFirstFile, but only
 	 * the last part of it to dirwildcmp
 	 */
 	findbase = strrchr(findbracket, '\\');
@@ -268,24 +264,24 @@ char *dirfirst(char *wildexpr, ELVBOOL ispartial)
 		findbase = findbracket;
 
 	/* if no match, then return the original wildexpr unchanged */
-	FileData.name[0] = '\0';
-	hSearch = _findfirst(findwild, &FileData);
-	while (hSearch >= 0 && (*FileData.name == '.' || !dirwildcmp(FileData.name, findbase)))
+	FileData.cFileName[0] = '\0';
+	hSearch = FindFirstFile(findwild, &FileData);
+	while (hSearch != INVALID_HANDLE_VALUE && (*FileData.cFileName == '.' || !dirwildcmp(FileData.cFileName, findbase)))
 	{
-		if (_findnext(hSearch, &FileData) < 0)
+		if (FindNextFile(hSearch, &FileData) == FALSE)
 		{
-			_findclose(hSearch);
-			hSearch = -1;
+			FindClose(hSearch);
+			hSearch = INVALID_HANDLE_VALUE;
 		}
 	}
-	if (hSearch < 0)
+	if (hSearch == INVALID_HANDLE_VALUE)
 	{
 		found[0] = '\0';
 		return wildexpr;
 	}
 
 	/* combine the directory name with the found file's name */
-	strcpy(found, dirpath(finddir, FileData.name));
+	strcpy(found, dirpath(finddir, FileData.cFileName));
 
 	return found;
 }
@@ -302,16 +298,16 @@ char *dirnext(void)
 	/* if there is no match, then return NULL */
 	do
 	{
-		if (_findnext(hSearch, &FileData) < 0)
+		if (FindNextFile(hSearch, &FileData) == FALSE)
 		{
 			found[0] = '\0';
-			_findclose(hSearch);
+			FindClose(hSearch);
 			return NULL;
 		}
-	} while (*FileData.name == '.' || !dirwildcmp(FileData.name, findbase));
+	} while (*FileData.cFileName == '.' || !dirwildcmp(FileData.cFileName, findbase));
 
 	/* combine the directory name with the found file's name */
-	strcpy(found, dirpath(finddir, FileData.name));
+	strcpy(found, dirpath(finddir, FileData.cFileName));
 
 	return found;
 }
