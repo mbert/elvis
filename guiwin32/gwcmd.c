@@ -547,7 +547,7 @@ static void gwcmd_help_options (GUI_WINDOW *gwp)
 ** gwcmd  --  process a menu command.
 */
 
-LONG gwcmd (GUI_WINDOW *gwp, UINT wParam)
+LRESULT gwcmd (GUI_WINDOW *gwp, WPARAM wParam)
 
 {
 	switch (LOWORD (wParam)) {

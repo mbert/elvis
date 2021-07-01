@@ -39,10 +39,10 @@ HANDLE      ctl3d_handle;
 static int init_application (HINSTANCE hInst);
 static int init_instance (HINSTANCE hInst);
 static void exit_instance (HINSTANCE hInst);
-static LONG APIENTRY FrameWndProc (HWND hwnd, UINT msg,
-                                   UINT wParam, LONG lParam);
-static LONG APIENTRY ClientWndProc (HWND hwnd, UINT msg,
-                                    UINT wParam, LONG lParam);
+static LRESULT APIENTRY FrameWndProc (HWND hwnd, UINT msg,
+                                      WPARAM wParam, LPARAM lParam);
+static LRESULT APIENTRY ClientWndProc (HWND hwnd, UINT msg,
+                                       WPARAM wParam, LPARAM lParam);
 
 /* ---[ WinMain ]------------------------------------------------------ */
 
@@ -153,10 +153,10 @@ static void exit_instance (HINSTANCE hInstance)
 
 /* ---[ FrameWndProc ]------------------------------------------------- */
 
-LONG APIENTRY FrameWndProc (HWND hwnd, UINT msg, UINT wParam, LONG lParam)
+LRESULT APIENTRY FrameWndProc (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
 {
-	LONG    rc = 1;
+	LRESULT    rc = 1;
 
 	switch (msg) {
 		case WM_COMMAND:
@@ -195,10 +195,10 @@ LONG APIENTRY FrameWndProc (HWND hwnd, UINT msg, UINT wParam, LONG lParam)
 
 /* ---[ ClientWndProc ]------------------------------------------------ */
 
-LONG APIENTRY ClientWndProc (HWND hwnd, UINT msg, UINT wParam, LONG lParam)
+LRESULT APIENTRY ClientWndProc (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
 {
-	LONG            rc = 1;
+	LRESULT            rc = 1;
 
 	switch (msg) {
 		case WM_CHAR:

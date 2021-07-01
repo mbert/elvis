@@ -85,7 +85,7 @@ extern HICON            gwcustomicon;
 
 /* ---[ function prototypes ]------------------------------------------ */
 
-extern LONG gwcmd (GUI_WINDOW *gwp, UINT wParam);
+extern LRESULT gwcmd (GUI_WINDOW *gwp, WPARAM wParam);
 
 extern BOOL CALLBACK DlgAbout (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 extern BOOL CALLBACK DlgGoto (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
@@ -115,32 +115,32 @@ extern void gw_get_default_printer (void);
 extern void gw_set_default_printer (char *pDevice, char *pDriver,
                                     char *pOutput);
 
-extern LONG gwframe_WM_GETMINMAXINFO (GUI_WINDOW *gwp, UINT wParam, LONG lParam);
-extern LONG gwframe_WM_INITMENU (GUI_WINDOW *gwp, UINT wParam, LONG lParam);
-extern LONG gwframe_WM_MENUSELECT (GUI_WINDOW *gwp, UINT wParam, LONG lParam);
-extern LONG gwframe_WM_NOTIFY (GUI_WINDOW *gwp, UINT wParam, LONG lParam);
-extern LONG gwframe_WM_PAINT (GUI_WINDOW *gwp, UINT wParam, LONG lParam);
-extern LONG gwframe_WM_SIZE (GUI_WINDOW *gwp, UINT wParam, LONG lParam);
-extern LONG gwframe_WM_SETFOCUS (GUI_WINDOW *gwp, UINT wParam, LONG lParam);
-extern LONG gwclient_WM_CHAR (GUI_WINDOW *gwp, UINT wParam, LONG lParam);
-extern LONG gwclient_WM_DROPFILES (GUI_WINDOW *gwp, UINT wParam, LONG lParam);
-extern LONG gwclient_WM_ERASEBKGND (GUI_WINDOW *gwp, UINT wParam, LONG lParam);
-extern LONG gwclient_WM_KEYDOWN (GUI_WINDOW *gwp, UINT wParam, LONG lParam);
-extern LONG gwclient_WM_KEYUP (GUI_WINDOW *gwp, UINT wParam, LONG lParam);
-extern LONG gwclient_WM_KILLFOCUS (GUI_WINDOW *gwp, UINT wParam, LONG lParam);
-extern LONG gwclient_WM_LBUTTONDBLCLK (GUI_WINDOW *gwp, UINT wParam, LONG lParam);
-extern LONG gwclient_WM_LBUTTONDOWN (GUI_WINDOW *gwp, UINT wParam, LONG lParam);
-extern LONG gwclient_WM_LBUTTONUP (GUI_WINDOW *gwp, UINT wParam, LONG lParam);
-extern LONG gwclient_WM_MOUSEMOVE (GUI_WINDOW *gwp, UINT wParam, LONG lParam);
-extern LONG gwclient_WM_MOUSEWHEEL (GUI_WINDOW *gwp, UINT wParam, LONG lParam);
-extern LONG gwclient_WM_PAINT (GUI_WINDOW *gwp, UINT wParam, LONG lParam);
-extern LONG gwclient_WM_RBUTTONDBLCLK (GUI_WINDOW *gwp, UINT wParam, LONG lParam);
-extern LONG gwclient_WM_RBUTTONDOWN (GUI_WINDOW *gwp, UINT wParam, LONG lParam);
-extern LONG gwclient_WM_RBUTTONUP (GUI_WINDOW *gwp, UINT wParam, LONG lParam);
-extern LONG gwclient_WM_SETFOCUS (GUI_WINDOW *gwp, UINT wParam, LONG lParam);
-extern LONG gwclient_WM_SIZE (GUI_WINDOW *gwp, UINT wParam, LONG lParam);
-extern LONG gwclient_WM_SYSKEYDOWN (GUI_WINDOW *gwp, UINT wParam, LONG lParam);
-extern LONG gwclient_WM_VSCROLL (GUI_WINDOW *gwp, UINT wParam, LONG lParam);
+extern LRESULT gwframe_WM_GETMINMAXINFO (GUI_WINDOW *gwp, WPARAM wParam, LPARAM lParam);
+extern LRESULT gwframe_WM_INITMENU (GUI_WINDOW *gwp, WPARAM wParam, LPARAM lParam);
+extern LRESULT gwframe_WM_MENUSELECT (GUI_WINDOW *gwp, WPARAM wParam, LPARAM lParam);
+extern LRESULT gwframe_WM_NOTIFY (GUI_WINDOW *gwp, WPARAM wParam, LPARAM lParam);
+extern LRESULT gwframe_WM_PAINT (GUI_WINDOW *gwp, WPARAM wParam, LPARAM lParam);
+extern LRESULT gwframe_WM_SIZE (GUI_WINDOW *gwp, WPARAM wParam, LPARAM lParam);
+extern LRESULT gwframe_WM_SETFOCUS (GUI_WINDOW *gwp, WPARAM wParam, LPARAM lParam);
+extern LRESULT gwclient_WM_CHAR (GUI_WINDOW *gwp, WPARAM wParam, LPARAM lParam);
+extern LRESULT gwclient_WM_DROPFILES (GUI_WINDOW *gwp, WPARAM wParam, LPARAM lParam);
+extern LRESULT gwclient_WM_ERASEBKGND (GUI_WINDOW *gwp, WPARAM wParam, LPARAM lParam);
+extern LRESULT gwclient_WM_KEYDOWN (GUI_WINDOW *gwp, WPARAM wParam, LPARAM lParam);
+extern LRESULT gwclient_WM_KEYUP (GUI_WINDOW *gwp, WPARAM wParam, LPARAM lParam);
+extern LRESULT gwclient_WM_KILLFOCUS (GUI_WINDOW *gwp, WPARAM wParam, LPARAM lParam);
+extern LRESULT gwclient_WM_LBUTTONDBLCLK (GUI_WINDOW *gwp, WPARAM wParam, LPARAM lParam);
+extern LRESULT gwclient_WM_LBUTTONDOWN (GUI_WINDOW *gwp, WPARAM wParam, LPARAM lParam);
+extern LRESULT gwclient_WM_LBUTTONUP (GUI_WINDOW *gwp, WPARAM wParam, LPARAM lParam);
+extern LRESULT gwclient_WM_MOUSEMOVE (GUI_WINDOW *gwp, WPARAM wParam, LPARAM lParam);
+extern LRESULT gwclient_WM_MOUSEWHEEL (GUI_WINDOW *gwp, WPARAM wParam, LPARAM lParam);
+extern LRESULT gwclient_WM_PAINT (GUI_WINDOW *gwp, WPARAM wParam, LPARAM lParam);
+extern LRESULT gwclient_WM_RBUTTONDBLCLK (GUI_WINDOW *gwp, WPARAM wParam, LPARAM lParam);
+extern LRESULT gwclient_WM_RBUTTONDOWN (GUI_WINDOW *gwp, WPARAM wParam, LPARAM lParam);
+extern LRESULT gwclient_WM_RBUTTONUP (GUI_WINDOW *gwp, WPARAM wParam, LPARAM lParam);
+extern LRESULT gwclient_WM_SETFOCUS (GUI_WINDOW *gwp, WPARAM wParam, LPARAM lParam);
+extern LRESULT gwclient_WM_SIZE (GUI_WINDOW *gwp, WPARAM wParam, LPARAM lParam);
+extern LRESULT gwclient_WM_SYSKEYDOWN (GUI_WINDOW *gwp, WPARAM wParam, LPARAM lParam);
+extern LRESULT gwclient_WM_VSCROLL (GUI_WINDOW *gwp, WPARAM wParam, LPARAM lParam);
 
 extern void gw_create_status_bar (GUI_WINDOW *gwp);
 extern void gw_destroy_status_bar (GUI_WINDOW *gwp);
