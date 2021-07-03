@@ -450,7 +450,7 @@ BOOL CALLBACK DlgOptGui (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 	static int      curelem;
 	register int    i;
 	char            cmd[100];
-	BOOL            b;
+	LRESULT         res;
 
 	switch (msg) {
 		case WM_INITDIALOG:
@@ -473,8 +473,8 @@ BOOL CALLBACK DlgOptGui (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 				SendDlgItemMessage (hwnd, IDC_GUI_FONTS, LB_ADDSTRING,
 								0, (LPARAM)colorinfo[cinfo[i].font].name);
 			}
-			curelem = SendDlgItemMessage (hwnd, IDC_GUI_FONTS, LB_SELECTSTRING,
-										(WPARAM)-1, (LPARAM)"normal");
+			curelem = (int)SendDlgItemMessage (hwnd, IDC_GUI_FONTS, LB_SELECTSTRING,
+											   (WPARAM)-1, (LPARAM)"normal");
 			OptGuiHelper(hwnd, NULL, &cinfo[curelem]);
 			return TRUE;
 
@@ -482,8 +482,8 @@ BOOL CALLBACK DlgOptGui (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 			if (LOWORD (wParam) == IDC_GUI_FONTS &&
 				HIWORD (wParam) == LBN_SELCHANGE) {
 				i = curelem;
-				curelem = SendDlgItemMessage (hwnd, IDC_GUI_FONTS, LB_GETCURSEL,
-											  0, 0);
+				curelem = (int)SendDlgItemMessage (hwnd, IDC_GUI_FONTS, LB_GETCURSEL,
+													0, 0);
 				OptGuiHelper(hwnd, &cinfo[i], &cinfo[curelem]);
 			}
 			else if (LOWORD (wParam) == IDC_GUI_BOLD &&
@@ -553,20 +553,20 @@ BOOL CALLBACK DlgOptGui (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 				EndDialog (hwnd, TRUE);
 
 				/* fetch the window options */
-				b = SendDlgItemMessage (hwnd, IDC_GUI_MENUBAR, BM_GETCHECK, 0, 0);
-				sprintf (cmd, ":set %smenubar", b == BST_CHECKED ? "" : "no");
+				res = SendDlgItemMessage (hwnd, IDC_GUI_MENUBAR, BM_GETCHECK, 0, 0);
+				sprintf (cmd, ":set %smenubar", res == BST_CHECKED ? "" : "no");
 				eventex ((GUIWIN *)gwp, cmd, ElvFalse);
 
-				b = SendDlgItemMessage (hwnd, IDC_GUI_TOOLBAR, BM_GETCHECK, 0, 0);
-				sprintf (cmd, ":set %stoolbar", b == BST_CHECKED ? "" : "no");
+				res = SendDlgItemMessage (hwnd, IDC_GUI_TOOLBAR, BM_GETCHECK, 0, 0);
+				sprintf (cmd, ":set %stoolbar", res == BST_CHECKED ? "" : "no");
 				eventex ((GUIWIN *)gwp, cmd, ElvFalse);
 
-				b = SendDlgItemMessage (hwnd, IDC_GUI_SCROLLBAR, BM_GETCHECK, 0, 0);
-				sprintf (cmd, ":set %sscrollbar", b == BST_CHECKED ? "" : "no");
+				res = SendDlgItemMessage (hwnd, IDC_GUI_SCROLLBAR, BM_GETCHECK, 0, 0);
+				sprintf (cmd, ":set %sscrollbar", res == BST_CHECKED ? "" : "no");
 				eventex ((GUIWIN *)gwp, cmd, ElvFalse);
 
-				b = SendDlgItemMessage (hwnd, IDC_GUI_STATUSBAR, BM_GETCHECK, 0, 0);
-				sprintf (cmd, ":set %sstatusbar", b == BST_CHECKED ? "" : "no");
+				res = SendDlgItemMessage (hwnd, IDC_GUI_STATUSBAR, BM_GETCHECK, 0, 0);
+				sprintf (cmd, ":set %sstatusbar", res == BST_CHECKED ? "" : "no");
 				eventex ((GUIWIN *)gwp, cmd, ElvFalse);
 
 				/* Update the attributes of each text type */
@@ -624,7 +624,7 @@ BOOL CALLBACK DlgOptBuffer (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
 	char        cmd[100];
 	char        optval[80];
-	BOOL        b;
+	LRESULT     res;
 
 	switch (msg) {
 		case WM_INITDIALOG:
@@ -665,14 +665,14 @@ BOOL CALLBACK DlgOptBuffer (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 		case WM_COMMAND:
 			if (LOWORD (wParam) == IDOK) {
 				EndDialog (hwnd, TRUE);
-				b = SendDlgItemMessage (hwnd, IDC_BO_AUTOINDENT, BM_GETCHECK, 0, 0);
-				sprintf (cmd, ":set %sautoindent", b ? "" : "no");
+				res = SendDlgItemMessage (hwnd, IDC_BO_AUTOINDENT, BM_GETCHECK, 0, 0);
+				sprintf (cmd, ":set %sautoindent", res ? "" : "no");
 				eventex ((GUIWIN *)gwp, cmd, ElvFalse);
-				b = SendDlgItemMessage (hwnd, IDC_BO_AUTOTAB, BM_GETCHECK, 0, 0);
-				sprintf (cmd, ":set %sautotab", b ? "" : "no");
+				res = SendDlgItemMessage (hwnd, IDC_BO_AUTOTAB, BM_GETCHECK, 0, 0);
+				sprintf (cmd, ":set %sautotab", res ? "" : "no");
 				eventex ((GUIWIN *)gwp, cmd, ElvFalse);
-				b = SendDlgItemMessage (hwnd, IDC_BO_MODIFIED, BM_GETCHECK, 0, 0);
-				sprintf (cmd, ":set %smodified", b ? "" : "no");
+				res = SendDlgItemMessage (hwnd, IDC_BO_MODIFIED, BM_GETCHECK, 0, 0);
+				sprintf (cmd, ":set %smodified", res ? "" : "no");
 				eventex ((GUIWIN *)gwp, cmd, ElvFalse);
 				SendDlgItemMessage (hwnd, IDC_BO_SHIFTWIDTH, WM_GETTEXT,
 									sizeof (optval), (LPARAM)optval);
@@ -744,7 +744,7 @@ BOOL CALLBACK DlgOptGlobal (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
 	char        cmd[100];
 	char        optval[80];
-	BOOL        b;
+	LRESULT     res;
 
 	switch (msg) {
 		case WM_INITDIALOG:
@@ -835,95 +835,95 @@ BOOL CALLBACK DlgOptGlobal (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 		case WM_COMMAND:
 			if (LOWORD (wParam) == IDOK) {
 				EndDialog (hwnd, TRUE);
-				b = SendDlgItemMessage (hwnd, IDC_GO_ANYERROR, BM_GETCHECK, 0, 0);
-				sprintf (cmd, ":set %sanyerror", b ? "" : "no");
+				res = SendDlgItemMessage (hwnd, IDC_GO_ANYERROR, BM_GETCHECK, 0, 0);
+				sprintf (cmd, ":set %sanyerror", res ? "" : "no");
 				eventex ((GUIWIN *)gwp, cmd, ElvFalse);
-				b = SendDlgItemMessage (hwnd, IDC_GO_AUTOPRINT, BM_GETCHECK, 0, 0);
-				sprintf (cmd, ":set %sautoprint", b ? "" : "no");
+				res = SendDlgItemMessage (hwnd, IDC_GO_AUTOPRINT, BM_GETCHECK, 0, 0);
+				sprintf (cmd, ":set %sautoprint", res ? "" : "no");
 				eventex ((GUIWIN *)gwp, cmd, ElvFalse);
-				b = SendDlgItemMessage (hwnd, IDC_GO_AUTOSELECT, BM_GETCHECK, 0, 0);
-				sprintf (cmd, ":set %sautoselect", b ? "" : "no");
+				res = SendDlgItemMessage (hwnd, IDC_GO_AUTOSELECT, BM_GETCHECK, 0, 0);
+				sprintf (cmd, ":set %sautoselect", res ? "" : "no");
 				eventex ((GUIWIN *)gwp, cmd, ElvFalse);
-				b = SendDlgItemMessage (hwnd, IDC_GO_AUTOWRITE, BM_GETCHECK, 0, 0);
-				sprintf (cmd, ":set %sautowrite", b ? "" : "no");
+				res = SendDlgItemMessage (hwnd, IDC_GO_AUTOWRITE, BM_GETCHECK, 0, 0);
+				sprintf (cmd, ":set %sautowrite", res ? "" : "no");
 				eventex ((GUIWIN *)gwp, cmd, ElvFalse);
-				b = SendDlgItemMessage (hwnd, IDC_GO_BACKUP, BM_GETCHECK, 0, 0);
-				sprintf (cmd, ":set %sbackup", b ? "" : "no");
+				res = SendDlgItemMessage (hwnd, IDC_GO_BACKUP, BM_GETCHECK, 0, 0);
+				sprintf (cmd, ":set %sbackup", res ? "" : "no");
 				eventex ((GUIWIN *)gwp, cmd, ElvFalse);
-				b = SendDlgItemMessage (hwnd, IDC_GO_BEAUTIFY, BM_GETCHECK, 0, 0);
-				sprintf (cmd, ":set %sbeautify", b ? "" : "no");
+				res = SendDlgItemMessage (hwnd, IDC_GO_BEAUTIFY, BM_GETCHECK, 0, 0);
+				sprintf (cmd, ":set %sbeautify", res ? "" : "no");
 				eventex ((GUIWIN *)gwp, cmd, ElvFalse);
-				b = SendDlgItemMessage (hwnd, IDC_GO_DEFAULTREADONLY, BM_GETCHECK, 0, 0);
-				sprintf (cmd, ":set %sdefaultreadonly", b ? "" : "no");
+				res = SendDlgItemMessage (hwnd, IDC_GO_DEFAULTREADONLY, BM_GETCHECK, 0, 0);
+				sprintf (cmd, ":set %sdefaultreadonly", res ? "" : "no");
 				eventex ((GUIWIN *)gwp, cmd, ElvFalse);
-				b = SendDlgItemMessage (hwnd, IDC_GO_DIGRAPH, BM_GETCHECK, 0, 0);
-				sprintf (cmd, ":set %sdigraph", b ? "" : "no");
+				res = SendDlgItemMessage (hwnd, IDC_GO_DIGRAPH, BM_GETCHECK, 0, 0);
+				sprintf (cmd, ":set %sdigraph", res ? "" : "no");
 				eventex ((GUIWIN *)gwp, cmd, ElvFalse);
-				b = SendDlgItemMessage (hwnd, IDC_GO_EDCOMPATIBLE, BM_GETCHECK, 0, 0);
-				sprintf (cmd, ":set %sedcompatible", b ? "" : "no");
+				res = SendDlgItemMessage (hwnd, IDC_GO_EDCOMPATIBLE, BM_GETCHECK, 0, 0);
+				sprintf (cmd, ":set %sedcompatible", res ? "" : "no");
 				eventex ((GUIWIN *)gwp, cmd, ElvFalse);
-				b = SendDlgItemMessage (hwnd, IDC_GO_ERRORBELLS, BM_GETCHECK, 0, 0);
-				sprintf (cmd, ":set %serrorbells", b ? "" : "no");
+				res = SendDlgItemMessage (hwnd, IDC_GO_ERRORBELLS, BM_GETCHECK, 0, 0);
+				sprintf (cmd, ":set %serrorbells", res ? "" : "no");
 				eventex ((GUIWIN *)gwp, cmd, ElvFalse);
-				b = SendDlgItemMessage (hwnd, IDC_GO_EXRC, BM_GETCHECK, 0, 0);
-				sprintf (cmd, ":set %sexrc", b ? "" : "no");
+				res = SendDlgItemMessage (hwnd, IDC_GO_EXRC, BM_GETCHECK, 0, 0);
+				sprintf (cmd, ":set %sexrc", res ? "" : "no");
 				eventex ((GUIWIN *)gwp, cmd, ElvFalse);
-				b = SendDlgItemMessage (hwnd, IDC_GO_FLASH, BM_GETCHECK, 0, 0);
-				sprintf (cmd, ":set %sflash", b ? "" : "no");
+				res = SendDlgItemMessage (hwnd, IDC_GO_FLASH, BM_GETCHECK, 0, 0);
+				sprintf (cmd, ":set %sflash", res ? "" : "no");
 				eventex ((GUIWIN *)gwp, cmd, ElvFalse);
-				b = SendDlgItemMessage (hwnd, IDC_GO_GDEFAULT, BM_GETCHECK, 0, 0);
-				sprintf (cmd, ":set %sgdefault", b ? "" : "no");
+				res = SendDlgItemMessage (hwnd, IDC_GO_GDEFAULT, BM_GETCHECK, 0, 0);
+				sprintf (cmd, ":set %sgdefault", res ? "" : "no");
 				eventex ((GUIWIN *)gwp, cmd, ElvFalse);
-				b = SendDlgItemMessage (hwnd, IDC_GO_IGNORECASE, BM_GETCHECK, 0, 0);
-				sprintf (cmd, ":set %signorecase", b ? "" : "no");
+				res = SendDlgItemMessage (hwnd, IDC_GO_IGNORECASE, BM_GETCHECK, 0, 0);
+				sprintf (cmd, ":set %signorecase", res ? "" : "no");
 				eventex ((GUIWIN *)gwp, cmd, ElvFalse);
-				b = SendDlgItemMessage (hwnd, IDC_GO_MAGIC, BM_GETCHECK, 0, 0);
-				sprintf (cmd, ":set %smagic", b ? "" : "no");
+				res = SendDlgItemMessage (hwnd, IDC_GO_MAGIC, BM_GETCHECK, 0, 0);
+				sprintf (cmd, ":set %smagic", res ? "" : "no");
 				eventex ((GUIWIN *)gwp, cmd, ElvFalse);
-				b = SendDlgItemMessage (hwnd, IDC_GO_MESG, BM_GETCHECK, 0, 0);
-				sprintf (cmd, ":set %smesg", b ? "" : "no");
+				res = SendDlgItemMessage (hwnd, IDC_GO_MESG, BM_GETCHECK, 0, 0);
+				sprintf (cmd, ":set %smesg", res ? "" : "no");
 				eventex ((GUIWIN *)gwp, cmd, ElvFalse);
-				b = SendDlgItemMessage (hwnd, IDC_GO_MODELINE, BM_GETCHECK, 0, 0);
-				sprintf (cmd, ":set %smodeline", b ? "" : "no");
+				res = SendDlgItemMessage (hwnd, IDC_GO_MODELINE, BM_GETCHECK, 0, 0);
+				sprintf (cmd, ":set %smodeline", res ? "" : "no");
 				eventex ((GUIWIN *)gwp, cmd, ElvFalse);
-				b = SendDlgItemMessage (hwnd, IDC_GO_NOVICE, BM_GETCHECK, 0, 0);
-				sprintf (cmd, ":set %snovice", b ? "" : "no");
+				res = SendDlgItemMessage (hwnd, IDC_GO_NOVICE, BM_GETCHECK, 0, 0);
+				sprintf (cmd, ":set %snovice", res ? "" : "no");
 				eventex ((GUIWIN *)gwp, cmd, ElvFalse);
-				b = SendDlgItemMessage (hwnd, IDC_GO_OPTIMIZE, BM_GETCHECK, 0, 0);
-				sprintf (cmd, ":set %soptimize", b ? "" : "no");
+				res = SendDlgItemMessage (hwnd, IDC_GO_OPTIMIZE, BM_GETCHECK, 0, 0);
+				sprintf (cmd, ":set %soptimize", res ? "" : "no");
 				eventex ((GUIWIN *)gwp, cmd, ElvFalse);
-				b = SendDlgItemMessage (hwnd, IDC_GO_PROMPT, BM_GETCHECK, 0, 0);
-				sprintf (cmd, ":set %sprompt", b ? "" : "no");
+				res = SendDlgItemMessage (hwnd, IDC_GO_PROMPT, BM_GETCHECK, 0, 0);
+				sprintf (cmd, ":set %sprompt", res ? "" : "no");
 				eventex ((GUIWIN *)gwp, cmd, ElvFalse);
-				b = SendDlgItemMessage (hwnd, IDC_GO_REMAP, BM_GETCHECK, 0, 0);
-				sprintf (cmd, ":set %sremap", b ? "" : "no");
+				res = SendDlgItemMessage (hwnd, IDC_GO_REMAP, BM_GETCHECK, 0, 0);
+				sprintf (cmd, ":set %sremap", res ? "" : "no");
 				eventex ((GUIWIN *)gwp, cmd, ElvFalse);
-				b = SendDlgItemMessage (hwnd, IDC_GO_SAFER, BM_GETCHECK, 0, 0);
-				sprintf (cmd, ":set %ssafer", b ? "" : "no");
+				res = SendDlgItemMessage (hwnd, IDC_GO_SAFER, BM_GETCHECK, 0, 0);
+				sprintf (cmd, ":set %ssafer", res ? "" : "no");
 				eventex ((GUIWIN *)gwp, cmd, ElvFalse);
-				b = SendDlgItemMessage (hwnd, IDC_GO_SHOWMARKUPS, BM_GETCHECK, 0, 0);
-				sprintf (cmd, ":set %sshowmarkups", b ? "" : "no");
+				res = SendDlgItemMessage (hwnd, IDC_GO_SHOWMARKUPS, BM_GETCHECK, 0, 0);
+				sprintf (cmd, ":set %sshowmarkups", res ? "" : "no");
 				eventex ((GUIWIN *)gwp, cmd, ElvFalse);
-				b = SendDlgItemMessage (hwnd, IDC_GO_SYNC, BM_GETCHECK, 0, 0);
-				sprintf (cmd, ":set %ssync", b ? "" : "no");
+				res = SendDlgItemMessage (hwnd, IDC_GO_SYNC, BM_GETCHECK, 0, 0);
+				sprintf (cmd, ":set %ssync", res ? "" : "no");
 				eventex ((GUIWIN *)gwp, cmd, ElvFalse);
-				b = SendDlgItemMessage (hwnd, IDC_GO_TAGSTACK, BM_GETCHECK, 0, 0);
-				sprintf (cmd, ":set %stagstack", b ? "" : "no");
+				res = SendDlgItemMessage (hwnd, IDC_GO_TAGSTACK, BM_GETCHECK, 0, 0);
+				sprintf (cmd, ":set %stagstack", res ? "" : "no");
 				eventex ((GUIWIN *)gwp, cmd, ElvFalse);
-				b = SendDlgItemMessage (hwnd, IDC_GO_TERSE, BM_GETCHECK, 0, 0);
-				sprintf (cmd, ":set %sterse", b ? "" : "no");
+				res = SendDlgItemMessage (hwnd, IDC_GO_TERSE, BM_GETCHECK, 0, 0);
+				sprintf (cmd, ":set %sterse", res ? "" : "no");
 				eventex ((GUIWIN *)gwp, cmd, ElvFalse);
-				b = SendDlgItemMessage (hwnd, IDC_GO_WARN, BM_GETCHECK, 0, 0);
-				sprintf (cmd, ":set %swarn", b ? "" : "no");
+				res = SendDlgItemMessage (hwnd, IDC_GO_WARN, BM_GETCHECK, 0, 0);
+				sprintf (cmd, ":set %swarn", res ? "" : "no");
 				eventex ((GUIWIN *)gwp, cmd, ElvFalse);
-				b = SendDlgItemMessage (hwnd, IDC_GO_WARNINGBELLS, BM_GETCHECK, 0, 0);
-				sprintf (cmd, ":set %swarningbells", b ? "" : "no");
+				res = SendDlgItemMessage (hwnd, IDC_GO_WARNINGBELLS, BM_GETCHECK, 0, 0);
+				sprintf (cmd, ":set %swarningbells", res ? "" : "no");
 				eventex ((GUIWIN *)gwp, cmd, ElvFalse);
-				b = SendDlgItemMessage (hwnd, IDC_GO_WRAPSCAN, BM_GETCHECK, 0, 0);
-				sprintf (cmd, ":set %swrapscan", b ? "" : "no");
+				res = SendDlgItemMessage (hwnd, IDC_GO_WRAPSCAN, BM_GETCHECK, 0, 0);
+				sprintf (cmd, ":set %swrapscan", res ? "" : "no");
 				eventex ((GUIWIN *)gwp, cmd, ElvFalse);
-				b = SendDlgItemMessage (hwnd, IDC_GO_WRITEANY, BM_GETCHECK, 0, 0);
-				sprintf (cmd, ":set %swriteany", b ? "" : "no");
+				res = SendDlgItemMessage (hwnd, IDC_GO_WRITEANY, BM_GETCHECK, 0, 0);
+				sprintf (cmd, ":set %swriteany", res ? "" : "no");
 				eventex ((GUIWIN *)gwp, cmd, ElvFalse);
 				SendDlgItemMessage (hwnd, IDC_GO_MODELINES, WM_GETTEXT,
 									sizeof (optval), (LPARAM)optval);
@@ -987,7 +987,7 @@ BOOL CALLBACK DlgOptWindow (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
 	char        cmd[100];
 	char        optval[80];
-	BOOL        b;
+	LRESULT     res;
 
 	switch (msg) {
 		case WM_INITDIALOG:
@@ -1016,17 +1016,17 @@ BOOL CALLBACK DlgOptWindow (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 		case WM_COMMAND:
 			if (LOWORD (wParam) == IDOK) {
 				EndDialog (hwnd, TRUE);
-				b = SendDlgItemMessage (hwnd, IDC_WO_LIST, BM_GETCHECK, 0, 0);
-				sprintf (cmd, ":set %slist", b ? "" : "no");
+				res = SendDlgItemMessage (hwnd, IDC_WO_LIST, BM_GETCHECK, 0, 0);
+				sprintf (cmd, ":set %slist", res ? "" : "no");
 				eventex ((GUIWIN *)gwp, cmd, ElvFalse);
-				b = SendDlgItemMessage (hwnd, IDC_WO_NUMBER, BM_GETCHECK, 0, 0);
-				sprintf (cmd, ":set %snumber", b ? "" : "no");
+				res = SendDlgItemMessage (hwnd, IDC_WO_NUMBER, BM_GETCHECK, 0, 0);
+				sprintf (cmd, ":set %snumber", res ? "" : "no");
 				eventex ((GUIWIN *)gwp, cmd, ElvFalse);
-				b = SendDlgItemMessage (hwnd, IDC_WO_SHOWMATCH, BM_GETCHECK, 0, 0);
-				sprintf (cmd, ":set %sshowmatch", b ? "" : "no");
+				res = SendDlgItemMessage (hwnd, IDC_WO_SHOWMATCH, BM_GETCHECK, 0, 0);
+				sprintf (cmd, ":set %sshowmatch", res ? "" : "no");
 				eventex ((GUIWIN *)gwp, cmd, ElvFalse);
-				b = SendDlgItemMessage (hwnd, IDC_WO_WRAP, BM_GETCHECK, 0, 0);
-				sprintf (cmd, ":set %swrap", b ? "" : "no");
+				res = SendDlgItemMessage (hwnd, IDC_WO_WRAP, BM_GETCHECK, 0, 0);
+				sprintf (cmd, ":set %swrap", res ? "" : "no");
 				eventex ((GUIWIN *)gwp, cmd, ElvFalse);
 				SendDlgItemMessage (hwnd, IDC_WO_COLUMNS, WM_GETTEXT,
 									sizeof (optval), (LPARAM)optval);
