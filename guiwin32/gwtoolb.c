@@ -143,7 +143,7 @@ void gw_toolbar_tooltip (GUI_WINDOW *gwp, LPARAM lParam)
 
     lptext = (LPTOOLTIPTEXT)lParam;
     if (lptext->hdr.code == TTN_NEEDTEXT) {
-        LoadString (hInst, lptext->hdr.idFrom, buffer, sizeof (buffer));
+        LoadString (hInst, (UINT)lptext->hdr.idFrom, buffer, sizeof (buffer));
         if ((p = strchr (buffer, '\n')) != NULL)
             p++;
         lptext->lpszText = p;

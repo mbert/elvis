@@ -574,13 +574,13 @@ void osinit(argv0)
  static	char	path[260];
 	char    modulep[MAX_PATH];
 	int	i, j;
-	DWORD	dw, dw2;
-	FILETIME when;
 	struct mtab_s swapper;
 #if NEW_CYGWIN
 	ELVBOOL oldhide;
 	CHAR	ch, line[200];
 #else
+	DWORD	dw, dw2;
+	FILETIME when;
 	char	name[200];
 	char	value[200];
 	HKEY	hCygnus, hMounts, hKey;

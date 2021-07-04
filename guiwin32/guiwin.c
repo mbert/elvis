@@ -285,7 +285,6 @@ static int gwinit (int argc, char *argv[])
 static void gwloop (void)
 {
 	MSG             msg;
-	GUI_WINDOW      *gwp;
 
 	/* the default window options aren't editable once we have real windows */
 	optdelete((OPTVAL *)&gw_def_win.options);
@@ -562,7 +561,7 @@ static void gwdraw(GUIWIN *gw, long fg, long bg, int bits, Char *text, int len)
 	register int    i;
 	GUI_WINDOW      *gwp = (GUI_WINDOW *)gw;
 	COLORREF        fgc, bgc;
-	HBRUSH          hBrush, hPrevBrush;
+	HBRUSH          hBrush;
 	HPEN            hPen, hPrevPen;
 	HDC             hDC;
 	HFONT           hFont;

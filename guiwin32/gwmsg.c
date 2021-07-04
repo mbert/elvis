@@ -595,7 +595,7 @@ LRESULT gwclient_WM_PAINT (GUI_WINDOW *gwp, WPARAM wParam, LPARAM lParam)
 
 {
 	PAINTSTRUCT ps;
-	HBRUSH      brush, prevbrush;
+	HBRUSH      brush;
 	int         left;
 	int         top;
 

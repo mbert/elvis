@@ -428,7 +428,7 @@ static void OptGuiHelper(HWND hwnd, CINFO *old, CINFO *new)
 	SendDlgItemMessage (hwnd, IDC_GUI_FIXED, BM_SETCHECK,
 			(new->bits & (COLOR_PROP|COLOR_PROPSET)) == COLOR_PROPSET ? BST_CHECKED : BST_UNCHECKED, 0);
 	SendDlgItemMessage (hwnd, IDC_GUI_PROPORTIONAL, BM_SETCHECK,
-			(new->bits & (COLOR_PROP|COLOR_PROPSET) == (COLOR_PROP|COLOR_PROPSET)) ? BST_CHECKED : BST_UNCHECKED, 0);
+			((new->bits & (COLOR_PROP|COLOR_PROPSET)) == (COLOR_PROP|COLOR_PROPSET)) ? BST_CHECKED : BST_UNCHECKED, 0);
 
 	/* set combo box colors for new text type */
 	SendDlgItemMessage (hwnd, IDC_GUI_FOREGROUND, WM_SETTEXT,
