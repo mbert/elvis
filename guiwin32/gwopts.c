@@ -316,7 +316,11 @@ int optisicon (OPTDESC *opt, OPTVAL *val, Char *newval)
 
 	/* store it as an icon */
 	if ((gwp = gw_find_client (GetFocus ())) != NULL)
+#if _WIN64
+		SetClassLongPtr(gwp->frameHWnd, GCLP_HICON, (LONG_PTR)hicon);
+#else
 		SetClassLong(gwp->frameHWnd, GCL_HICON, (long)hicon);
+#endif
 
 	/* free the old icon, and remember the new one */
 	if (gwcustomicon)

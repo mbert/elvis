@@ -35,7 +35,7 @@ static int      mouse_selection = MOUSE_SEL_NONE;
 ** gwframe_WM_GETMINMAXINFO
 */
 
-LONG gwframe_WM_GETMINMAXINFO (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
+LRESULT gwframe_WM_GETMINMAXINFO (GUI_WINDOW *gwp, WPARAM wParam, LPARAM lParam)
 
 {
 	RECT            viewRect;
@@ -64,7 +64,7 @@ LONG gwframe_WM_GETMINMAXINFO (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
 ** gwframe_WM_INITMENU
 */
 
-LONG gwframe_WM_INITMENU (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
+LRESULT gwframe_WM_INITMENU (GUI_WINDOW *gwp, WPARAM wParam, LPARAM lParam)
 
 {
 	return 1;
@@ -75,7 +75,7 @@ LONG gwframe_WM_INITMENU (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
 ** gwframe_WM_MENUSELECT
 */
 
-LONG gwframe_WM_MENUSELECT (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
+LRESULT gwframe_WM_MENUSELECT (GUI_WINDOW *gwp, WPARAM wParam, LPARAM lParam)
 
 {
 	char        str[80];
@@ -102,7 +102,7 @@ LONG gwframe_WM_MENUSELECT (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
 */
 
 #if _MSC_VER > 900
-LONG gwframe_WM_NOTIFY (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
+LRESULT gwframe_WM_NOTIFY (GUI_WINDOW *gwp, WPARAM wParam, LPARAM lParam)
 
 {
 	if (gwp->toolbarHWnd != NULL)
@@ -117,7 +117,7 @@ LONG gwframe_WM_NOTIFY (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
 ** gwframe_WM_PAINT
 */
 
-LONG gwframe_WM_PAINT (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
+LRESULT gwframe_WM_PAINT (GUI_WINDOW *gwp, WPARAM wParam, LPARAM lParam)
 
 {
 	PAINTSTRUCT     ps;
@@ -133,7 +133,7 @@ LONG gwframe_WM_PAINT (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
 ** gframe_WM_SETFOCUS
 */
 
-LONG gwframe_WM_SETFOCUS (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
+LRESULT gwframe_WM_SETFOCUS (GUI_WINDOW *gwp, WPARAM wParam, LPARAM lParam)
 
 {
 	if (gwp->active)
@@ -147,7 +147,7 @@ LONG gwframe_WM_SETFOCUS (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
 ** gframe_WM_SIZE
 */
 
-LONG gwframe_WM_SIZE (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
+LRESULT gwframe_WM_SIZE (GUI_WINDOW *gwp, WPARAM wParam, LPARAM lParam)
 
 {
 	RECT        rect;
@@ -169,7 +169,7 @@ LONG gwframe_WM_SIZE (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
 ** gwclient_WM_CHAR
 */
 
-LONG gwclient_WM_CHAR (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
+LRESULT gwclient_WM_CHAR (GUI_WINDOW *gwp, WPARAM wParam, LPARAM lParam)
 
 {
 	unsigned char       chr = (unsigned char)wParam;
@@ -193,7 +193,7 @@ LONG gwclient_WM_CHAR (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
 ** gwclient_WM_DROPFILES
 */
 
-LONG gwclient_WM_DROPFILES (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
+LRESULT gwclient_WM_DROPFILES (GUI_WINDOW *gwp, WPARAM wParam, LPARAM lParam)
 
 {
 	char       cmd[_MAX_PATH + 4];
@@ -222,7 +222,7 @@ LONG gwclient_WM_DROPFILES (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
 ** gwclient_WM_ERASEBKGND
 */
 
-LONG gwclient_WM_ERASEBKGND (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
+LRESULT gwclient_WM_ERASEBKGND (GUI_WINDOW *gwp, WPARAM wParam, LPARAM lParam)
 
 {
 	RECT        rect;
@@ -259,7 +259,7 @@ LONG gwclient_WM_ERASEBKGND (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
 ** gwclient_WM_KEYDOWN
 */
 
-LONG gwclient_WM_KEYDOWN (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
+LRESULT gwclient_WM_KEYDOWN (GUI_WINDOW *gwp, WPARAM wParam, LPARAM lParam)
 
 {
 	unsigned char       chr[3];
@@ -391,7 +391,7 @@ LONG gwclient_WM_KEYDOWN (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
 ** gwclient_WM_KEYUP
 */
 
-LONG gwclient_WM_KEYUP (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
+LRESULT gwclient_WM_KEYUP (GUI_WINDOW *gwp, WPARAM wParam, LPARAM lParam)
 
 {
 	if (wParam == VK_SHIFT)
@@ -410,7 +410,7 @@ LONG gwclient_WM_KEYUP (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
 ** gwclient_WM_KILLFOCUS
 */
 
-LONG gwclient_WM_KILLFOCUS (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
+LRESULT gwclient_WM_KILLFOCUS (GUI_WINDOW *gwp, WPARAM wParam, LPARAM lParam)
 
 {
 	HideCaret (gwp->clientHWnd);
@@ -427,7 +427,7 @@ LONG gwclient_WM_KILLFOCUS (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
 ** gwclient_WM_LBUTTONDBLCLK
 */
 
-LONG gwclient_WM_LBUTTONDBLCLK (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
+LRESULT gwclient_WM_LBUTTONDBLCLK (GUI_WINDOW *gwp, WPARAM wParam, LPARAM lParam)
 
 {
 	int     row = HIWORD (lParam) / gwp->ycsize;
@@ -447,7 +447,7 @@ LONG gwclient_WM_LBUTTONDBLCLK (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
 ** gwclient_WM_LBUTTONDOWN
 */
 
-LONG gwclient_WM_LBUTTONDOWN (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
+LRESULT gwclient_WM_LBUTTONDOWN (GUI_WINDOW *gwp, WPARAM wParam, LPARAM lParam)
 
 {
 	mouse_down = 1;
@@ -475,7 +475,7 @@ LONG gwclient_WM_LBUTTONDOWN (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
 ** gwclient_WM_LBUTTONUP
 */
 
-LONG gwclient_WM_LBUTTONUP (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
+LRESULT gwclient_WM_LBUTTONUP (GUI_WINDOW *gwp, WPARAM wParam, LPARAM lParam)
 
 {
 	mouse_down = 0;
@@ -497,7 +497,7 @@ LONG gwclient_WM_LBUTTONUP (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
 ** gwclient_WM_MOUSEMOVE
 */
 
-LONG gwclient_WM_MOUSEMOVE (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
+LRESULT gwclient_WM_MOUSEMOVE (GUI_WINDOW *gwp, WPARAM wParam, LPARAM lParam)
 
 {
 	int     row;
@@ -569,7 +569,7 @@ LONG gwclient_WM_MOUSEMOVE (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
 
 #if defined (WM_MOUSEWHEEL)
 
-LONG gwclient_WM_MOUSEWHEEL (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
+LRESULT gwclient_WM_MOUSEWHEEL (GUI_WINDOW *gwp, WPARAM wParam, LPARAM lParam)
 
 {
 	short        delta = HIWORD (wParam);
@@ -591,11 +591,11 @@ LONG gwclient_WM_MOUSEWHEEL (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
 ** gwclient_WM_PAINT
 */
 
-LONG gwclient_WM_PAINT (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
+LRESULT gwclient_WM_PAINT (GUI_WINDOW *gwp, WPARAM wParam, LPARAM lParam)
 
 {
 	PAINTSTRUCT ps;
-	HBRUSH      brush, prevbrush;
+	HBRUSH      brush;
 	int         left;
 	int         top;
 
@@ -637,7 +637,7 @@ LONG gwclient_WM_PAINT (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
 ** gwclient_WM_RBUTTONDBLCLK
 */
 
-LONG gwclient_WM_RBUTTONDBLCLK (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
+LRESULT gwclient_WM_RBUTTONDBLCLK (GUI_WINDOW *gwp, WPARAM wParam, LPARAM lParam)
 
 {
 	int     row = HIWORD (lParam) / gwp->ycsize;
@@ -657,7 +657,7 @@ LONG gwclient_WM_RBUTTONDBLCLK (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
 ** gwclient_WM_RBUTTONDOWN
 */
 
-LONG gwclient_WM_RBUTTONDOWN (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
+LRESULT gwclient_WM_RBUTTONDOWN (GUI_WINDOW *gwp, WPARAM wParam, LPARAM lParam)
 
 {
 	WINDOW      pwin = winofgw ((GUIWIN *)gwp);
@@ -683,7 +683,7 @@ LONG gwclient_WM_RBUTTONDOWN (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
 ** gwclient_WM_RBUTTONUP
 */
 
-LONG gwclient_WM_RBUTTONUP (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
+LRESULT gwclient_WM_RBUTTONUP (GUI_WINDOW *gwp, WPARAM wParam, LPARAM lParam)
 
 {
 	WINDOW      pwin = winofgw ((GUIWIN *)gwp);
@@ -712,7 +712,7 @@ LONG gwclient_WM_RBUTTONUP (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
 ** gwclient_WM_SETFOCUS
 */
 
-LONG gwclient_WM_SETFOCUS (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
+LRESULT gwclient_WM_SETFOCUS (GUI_WINDOW *gwp, WPARAM wParam, LPARAM lParam)
 
 {
 	dblclick = 0;
@@ -743,7 +743,7 @@ LONG gwclient_WM_SETFOCUS (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
 ** gwclient_WM_SIZE
 */
 
-LONG gwclient_WM_SIZE (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
+LRESULT gwclient_WM_SIZE (GUI_WINDOW *gwp, WPARAM wParam, LPARAM lParam)
 
 {
 	int     oldrows;
@@ -770,7 +770,7 @@ LONG gwclient_WM_SIZE (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
 ** gwclient_WM_SYSKEYDOWN
 */
 
-LONG gwclient_WM_SYSKEYDOWN (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
+LRESULT gwclient_WM_SYSKEYDOWN (GUI_WINDOW *gwp, WPARAM wParam, LPARAM lParam)
 
 {
 	unsigned char       chr[3];
@@ -806,7 +806,7 @@ LONG gwclient_WM_SYSKEYDOWN (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
 ** gwclient_WM_VSCROLL
 */
 
-LONG gwclient_WM_VSCROLL (GUI_WINDOW *gwp, UINT wParam, LONG lParam)
+LRESULT gwclient_WM_VSCROLL (GUI_WINDOW *gwp, WPARAM wParam, LPARAM lParam)
 
 {
 	long    nPos = HIWORD (wParam);
