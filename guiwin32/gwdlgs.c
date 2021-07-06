@@ -1256,13 +1256,6 @@ BOOL CALLBACK DlgOptUser (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 BOOL CALLBACK DlgAbout (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
 {
-	MEMORYSTATUS        memstat;
-	int                 drive;
-	int                 disk_size;
-	DWORD               spc;
-	DWORD               bps;
-	DWORD               nfc;
-	DWORD               tfc;
 	char                str[80];
 
 	switch (msg) {
@@ -1271,17 +1264,6 @@ BOOL CALLBACK DlgAbout (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
 			sprintf(str, "WinElvis Version %s", VERSION);
 			SetDlgItemText (hwnd, IDAB_VERSION, str);
-
-			memstat.dwLength = sizeof(MEMORYSTATUS);
-			GlobalMemoryStatus (&memstat);
-			sprintf (str, "%d Kbytes", memstat.dwTotalPhys / 1024L);
-			SetDlgItemText (hwnd, IDAB_PHYS_MEM, str);
-
-			drive = _getdrive ();
-			GetDiskFreeSpace (NULL, &spc, &bps, &nfc, &tfc);
-			disk_size = (spc * bps * nfc) / 1024L;
-			sprintf (str, "%d Kbytes free on %c:", disk_size, drive - 1 + 'A');
-			SetDlgItemText (hwnd, IDAB_DISK_SPACE, str);
 
 			return TRUE;
 
