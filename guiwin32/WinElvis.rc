@@ -158,22 +158,17 @@ BEGIN
                     WS_VISIBLE | WS_GROUP | WS_TABSTOP,103,68,50,12
 END
 
-IDD_ABOUT DIALOG DISCARDABLE  0, 0, 199, 109
+IDD_ABOUT DIALOG DISCARDABLE  0, 0, 199, 68
 STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "About WinElvis"
 FONT 8, "MS Sans Serif"
 BEGIN
-    DEFPUSHBUTTON   "OK",IDOK,74,88,50,14
+    DEFPUSHBUTTON   "OK",IDOK,74,48,50,14
     ICON            IDI_ELVIS,IDC_STATIC,7,7,18,20
     CTEXT           "WinElvis Version ",IDAB_VERSION,41,7,151,8
     CTEXT           "Copyright 2003, Steve Kirkendall",IDC_STATIC,41,19,151,
                     8
     CTEXT           "Windows Port by Serge Pirotte",IDC_STATIC,41,31,151,8
-    LTEXT           "Physical Memory :",IDC_STATIC,41,56,62,8
-    LTEXT           "Disk Space :",IDC_STATIC,41,68,59,8
-    LTEXT           "",IDAB_PHYS_MEM,103,56,89,8
-    LTEXT           "",IDAB_DISK_SPACE,103,68,89,8
-    CONTROL         "",IDC_STATIC,"Static",SS_BLACKRECT,41,48,151,1
 END
 
 IDD_GOTO DIALOG DISCARDABLE  0, 0, 118, 68

@@ -24,8 +24,6 @@
 #define IDD_OPT_GLOBAL                  121
 #define IDD_OPT_GUI                     122
 #define IDI_ICON2                       126
-#define IDAB_PHYS_MEM                   1000
-#define IDAB_DISK_SPACE                 1001
 #define IDBL_BUFFERS                    1002
 #define IDGT_LINE                       1003
 #define IDSR_IGNORECASE                 1004
