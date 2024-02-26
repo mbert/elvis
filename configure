@@ -742,16 +742,22 @@ case "$SYS" in
   *freebsd*)
 	why "For FreeBSD, we ignore the <sys/select.h> file"
 	NEED_SELECT_H="undef"
-	who "   To support X11, it also requires -lipc"
-	XLIBS=" -lipc"
+	if [ "$GUI_X11" = "define" ]
+	then
+		why "   To support X11, it also requires -lipc"
+		XLIBS=" -lipc"
+	fi
 	;;
 
   *openbsd*)
 	why "For OpenBSD, we ignore the <sys/select.h> file"
 	NEED_SELECT_H="undef"
 	TLIBS="-lcurses"
-	who "   To support X11, it also requires -lipc"
-	XLIBS=" -lipc"
+	if [ "$GUI_X11" = "define" ]
+	then
+		why "   To support X11, it also requires -lipc"
+		XLIBS=" -lipc"
+	fi
 	;;
 
   *netbsd*)
